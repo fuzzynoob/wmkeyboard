@@ -126,36 +126,43 @@ internal object VietnameseEngine {
     /**
      * The composed word for a buffer, tone keys read as tones.
      *
-     * With [VietnameseConfig.strictTones] on this becomes two passes: the rules
-     * run once, and if they marked a tone on something that is not a syllable
-     * Vietnamese spells, they run again with every tone key read as the letter
-     * it is drawn as. `fas` is `fá` by the rules and `fas` by the retry, because
+     * With [VietnameseConfig.strictTones] on, two things change. A tone key
+     * marks the word only while the word in hand could still become one
+     * Vietnamese spells, and a word that carries a Vietnamese mark but is
+     * neither a syllable nor the start of one is given back as the keys that
+     * were typed. `fas` is `fá` by the loose rule and `fas` by this one, because
      * `f` is not an onset and there was never a word there to tone.
      *
-     * Validity is a property of the finished word, not of the prefix that was
-     * in hand when the tone key was pressed, which is why this cannot be decided
-     * at the keystroke: `s` in `nuocsw` lands on `nuoc`, not a syllable, and the
-     * `w` after it is what makes `nước`; `x` in `express` lands on `e`, which is
-     * a syllable, and the letters after it are what unmake it.
+     * Both are asked of the word in hand at each key, never of the finished
+     * word, and that is the whole design. A rule that waited for the end could
+     * not answer for `nuocsw`: at the `s` the word is `nuoc`, whose nucleus is
+     * only finished two keys later by the `w`, and `nuoc` is a prefix of `nước`
+     * even though it is not a syllable. See
+     * [VietnameseOrthography.isSyllablePrefix].
      *
-     * A result carrying no tone is returned as it stands, and that is what keeps
-     * the repeated-key cancellation out of strict's way: `ass` cancelled its own
-     * tone, so there is nothing free to take back and it stays `as`.
+     * The last resort is the raw keys rather than the letters with their marks
+     * taken off, because the two are not the same word: `rhees` was never `rhês`
+     * with a mark removed, and giving back `rhees` is what leaves the user with
+     * what they typed. A word with no Vietnamese mark in it is left alone
+     * entirely, which is what keeps the repeated-key cancellation: `hass` is
+     * `has` and stays `has`, because there is no mark there for the keyboard to
+     * have made.
      */
     fun transduce(raw: String, vni: Boolean): String {
-        val (composed, tone) = compose(raw, vni, allowTones = true)
-        if (!VietnameseConfig.strictTones || tone == VTone.NONE) return composed
+        val composed = compose(raw, vni).first
+        if (!VietnameseConfig.strictTones) return composed
+        if (!VietnameseOrthography.hasVietnameseMark(composed)) return composed
         if (VietnameseOrthography.isSyllable(composed)) return composed
-        return compose(raw, vni, allowTones = false).first
+        if (VietnameseOrthography.isSyllablePrefix(composed)) return composed
+        return raw
     }
 
     /**
-     * One pass of the rules. With [allowTones] off every tone key falls through
-     * to the letter it is drawn as — what the strict retry above asks for. The
-     * letter marks (`aa`→`â`, `dd`→`đ`, `w`→`ư`) are not tones and are applied
-     * either way.
+     * One pass of the rules. The letter marks (`aa`→`â`, `dd`→`đ`, `w`→`ư`) are
+     * applied whatever the strict rule says: a word that is not Vietnamese is
+     * answered for whole by [transduce], not key by key.
      */
-    private fun compose(raw: String, vni: Boolean, allowTones: Boolean): Pair<String, VTone> {
+    private fun compose(raw: String, vni: Boolean): Pair<String, VTone> {
         val letters = ArrayList<VLetter>()
         var tone = VTone.NONE
 
@@ -187,15 +194,18 @@ internal object VietnameseEngine {
         }
 
         /**
-         * Whether a tone key may mark the letters so far: the vowel-run rule,
-         * and [allowTones] — off only on the strict retry's pass, where a tone
-         * key is always the letter it is drawn as.
+         * Whether a tone key may mark the letters so far: the vowel-run rule the
+         * keyboard has always had, and — with [VietnameseConfig.strictTones] on
+         * — the word in hand being one Vietnamese could still spell.
          *
-         * Strictness itself is decided on the finished word in [transduce],
-         * not here, because what the prefix looks like says nothing about
-         * whether the word will turn out to be one.
+         * Asked of the letters with no tone on them, because a tone is a
+         * property of the whole syllable and says nothing about whether the
+         * letters are one yet.
          */
-        fun toneMayLand(): Boolean = allowTones && hasVowelCluster()
+        fun toneAllowed(): Boolean =
+            hasVowelCluster() &&
+                (!VietnameseConfig.strictTones ||
+                    VietnameseOrthography.isSyllablePrefix(render(letters, VTone.NONE)))
 
         for (ch in raw) {
             val upper = ch.isUpperCase()
@@ -211,7 +221,7 @@ internal object VietnameseEngine {
             if (lc == DOTTED_CIRCLE) { tone = VTone.NONE; continue }
             val direct = directTone(lc)
             if (direct != null) {
-                if (toneMayLand()) tone = direct
+                if (toneAllowed()) tone = direct
                 continue
             }
             if (vni) {
@@ -221,7 +231,7 @@ internal object VietnameseEngine {
                 // word (`banana1`, an address, a model name) would silently
                 // lose its digits to a tone that had nowhere to land.
                 when (lc) {
-                    '1', '2', '3', '4', '5' -> if (toneMayLand()) {
+                    '1', '2', '3', '4', '5' -> if (toneAllowed()) {
                         toggleTone(
                             when (lc) {
                                 '1' -> VTone.ACUTE
@@ -233,7 +243,9 @@ internal object VietnameseEngine {
                         )
                         continue
                     }
-                    '0' -> if (toneMayLand()) { tone = VTone.NONE; continue }
+                    // Clearing a tone is not marking one, so the strict rule has
+                    // nothing to say about it.
+                    '0' -> if (hasVowelCluster()) { tone = VTone.NONE; continue }
                     '6' -> { if (applyMark(letters, "aeo", VMark.CIRCUMFLEX)) continue }
                     '7' -> { if (applyMark(letters, "ou", VMark.HORN)) continue }
                     '8' -> { if (applyMark(letters, "a", VMark.BREVE)) continue }
@@ -249,10 +261,19 @@ internal object VietnameseEngine {
                         's' -> VTone.ACUTE; 'f' -> VTone.GRAVE; 'r' -> VTone.HOOK
                         'x' -> VTone.TILDE; else -> VTone.DOT
                     }
-                    if (toneMayLand()) {
-                        // Repeating the tone key cancels it and types the letter.
-                        if (tone == t) { tone = VTone.NONE; letters.add(VLetter(lc, VMark.NONE, upper)) }
-                        else tone = t
+                    if (hasVowelCluster()) {
+                        if (tone == t) {
+                            // Repeating the tone key takes the mark back off and
+                            // types the letter. That is the key's own effect and
+                            // not a mark being placed, so the strict rule has no
+                            // say in it — which is what leaves `has` for `hass`.
+                            tone = VTone.NONE
+                            letters.add(VLetter(lc, VMark.NONE, upper))
+                        } else if (toneAllowed()) {
+                            tone = t
+                        } else {
+                            letters.add(VLetter(lc, VMark.NONE, upper))
+                        }
                     } else {
                         letters.add(VLetter(lc, VMark.NONE, upper))
                     }

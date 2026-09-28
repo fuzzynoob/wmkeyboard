@@ -47,10 +47,64 @@ class VietnameseStrictTonesTest {
             assertEquals("fas", c.composeBuffer("fas"))
             assertEquals("fax", c.composeBuffer("fax"))
             assertEquals("far", c.composeBuffer("far"))
+            // A doubled tone key at the end of a Latin word: the first is
+            // refused for the same reason, so the second has no tone to cancel
+            // and both keys stand as letters. The loose rule gives `pres` here.
+            assertEquals("press", c.composeBuffer("press"))
+            assertEquals("stress", c.composeBuffer("stress"))
             // The tone lands on the `x` here, on `e`, which is a syllable —
-            // and the letters after it are what unmake it. Deciding at the
-            // keystroke would keep the tilde and give `ẽpress`.
+            // and the letters after it are what unmake it. See the whole-word
+            // rule below for what happens to that.
             assertEquals("express", c.composeBuffer("express"))
+        }
+    }
+
+    @Test
+    fun aWordThatCanNeverBeVietnameseIsGivenBackAsKeys() {
+        strict {
+            val c = VietnameseTelexComposer
+            // `ee` makes an ê, and ê is a mark the keyboard put there. The word
+            // it made is not Vietnamese and never could be, so the keyboard
+            // gives back the keys instead of the letters it invented: `rhees`,
+            // not `rhês`. Removing the mark would leave `rhees` only by luck —
+            // it is not the same operation.
+            assertEquals("rhees", c.composeBuffer("rhees"))
+            assertEquals("rhees", c.composeBuffer("rhees"))
+            // Same shape, different key: the ê is right and the stray `x` is
+            // not, and the whole word goes back to keys rather than keeping a
+            // half-Vietnamese spelling nobody typed.
+            assertEquals("nguyeenxx", c.composeBuffer("nguyeenxx"))
+            // A word that *is* Vietnamese keeps everything, marks included.
+            assertEquals("nguyễn", c.composeBuffer("nguyeenx"))
+        }
+    }
+
+    @Test
+    fun aToneAStopCodaCannotCarryIsRefused() {
+        strict {
+            val c = VietnameseTelexComposer
+            // `c` is a stop, and only sắc or nặng may sit on one. The prefix
+            // rule has to know that as well as the syllable rule, or `x` would
+            // put a tilde on `nươc` and leave `nưỡc` standing — not a syllable,
+            // and not the start of one either.
+            assertEquals("nuocswx", c.composeBuffer("nuocswx"))
+            // The two tones a stop can carry still land.
+            assertEquals("nước", c.composeBuffer("nuocsw"))
+            assertEquals("việc", c.composeBuffer("vieejc"))
+        }
+    }
+
+    @Test
+    fun aCancelledToneKeyIsNotResurrectedByWhatFollows() {
+        strict {
+            val c = VietnameseTelexComposer
+            // The trap: `hass` is `has` — the second `s` cancelled the first
+            // and typed itself — and adding `r` must not bring that `s` back.
+            // The old two-pass retry recomposed the whole buffer with every
+            // tone key read as a letter, so `hassr` came out `hassr` and `hasr`
+            // was unreachable.
+            assertEquals("has", c.composeBuffer("hass"))
+            assertEquals("hasr", c.composeBuffer("hassr"))
         }
     }
 
@@ -98,12 +152,6 @@ class VietnameseStrictTonesTest {
             // Letter marks, not tones, so strict never had an opinion.
             assertEquals("dd", c.composeBuffer("ddd"))
             assertEquals("aa", c.composeBuffer("aaa"))
-            // And the price of the cancellation, which is the keyboard's
-            // already and not strict's: the first key became the tone and the
-            // second undid it, so the two keys leave one letter. Same in both
-            // modes — no tone survives for strict to have a view on.
-            assertEquals("pres", c.composeBuffer("press"))
-            assertEquals("stres", c.composeBuffer("stress"))
         }
     }
 
