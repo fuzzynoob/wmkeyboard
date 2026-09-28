@@ -112,7 +112,39 @@ internal object VietnameseEngine {
         return false
     }
 
+    /**
+     * The composed word for a buffer, tone keys read as tones.
+     *
+     * With [VietnameseConfig.strictTones] on this becomes two passes: the rules
+     * run once, and if they marked a tone on something that is not a syllable
+     * Vietnamese spells, they run again with every tone key read as the letter
+     * it is drawn as. `fas` is `fá` by the rules and `fas` by the retry, because
+     * `f` is not an onset and there was never a word there to tone.
+     *
+     * Validity is a property of the finished word, not of the prefix that was
+     * in hand when the tone key was pressed, which is why this cannot be decided
+     * at the keystroke: `s` in `nuocsw` lands on `nuoc`, not a syllable, and the
+     * `w` after it is what makes `nước`; `x` in `express` lands on `e`, which is
+     * a syllable, and the letters after it are what unmake it.
+     *
+     * A result carrying no tone is returned as it stands, and that is what keeps
+     * the repeated-key cancellation out of strict's way: `ass` cancelled its own
+     * tone, so there is nothing free to take back and it stays `as`.
+     */
     fun transduce(raw: String, vni: Boolean): String {
+        val (composed, tone) = compose(raw, vni, allowTones = true)
+        if (!VietnameseConfig.strictTones || tone == VTone.NONE) return composed
+        if (VietnameseOrthography.isSyllable(composed)) return composed
+        return compose(raw, vni, allowTones = false).first
+    }
+
+    /**
+     * One pass of the rules. With [allowTones] off every tone key falls through
+     * to the letter it is drawn as — what the strict retry above asks for. The
+     * letter marks (`aa`→`â`, `dd`→`đ`, `w`→`ư`) are not tones and are applied
+     * either way.
+     */
+    private fun compose(raw: String, vni: Boolean, allowTones: Boolean): Pair<String, VTone> {
         val letters = ArrayList<VLetter>()
         var tone = VTone.NONE
 
@@ -143,6 +175,17 @@ internal object VietnameseEngine {
             return count > 0 && last - first + 1 == count
         }
 
+        /**
+         * Whether a tone key may mark the letters so far: the vowel-run rule,
+         * and [allowTones] — off only on the strict retry's pass, where a tone
+         * key is always the letter it is drawn as.
+         *
+         * Strictness itself is decided on the finished word in [transduce],
+         * not here, because what the prefix looks like says nothing about
+         * whether the word will turn out to be one.
+         */
+        fun toneMayLand(): Boolean = allowTones && hasVowelCluster()
+
         for (ch in raw) {
             val upper = ch.isUpperCase()
             val lc = ch.lowercaseChar()
@@ -157,7 +200,7 @@ internal object VietnameseEngine {
             if (lc == DOTTED_CIRCLE) { tone = VTone.NONE; continue }
             val direct = directTone(lc)
             if (direct != null) {
-                if (hasVowelCluster()) tone = direct
+                if (toneMayLand()) tone = direct
                 continue
             }
             if (vni) {
@@ -167,7 +210,7 @@ internal object VietnameseEngine {
                 // word (`banana1`, an address, a model name) would silently
                 // lose its digits to a tone that had nowhere to land.
                 when (lc) {
-                    '1', '2', '3', '4', '5' -> if (hasVowelCluster()) {
+                    '1', '2', '3', '4', '5' -> if (toneMayLand()) {
                         toggleTone(
                             when (lc) {
                                 '1' -> VTone.ACUTE
@@ -179,7 +222,7 @@ internal object VietnameseEngine {
                         )
                         continue
                     }
-                    '0' -> if (hasVowelCluster()) { tone = VTone.NONE; continue }
+                    '0' -> if (toneMayLand()) { tone = VTone.NONE; continue }
                     '6' -> { if (applyMark(letters, "aeo", VMark.CIRCUMFLEX)) continue }
                     '7' -> { if (applyMark(letters, "ou", VMark.HORN)) continue }
                     '8' -> { if (applyMark(letters, "a", VMark.BREVE)) continue }
@@ -195,7 +238,7 @@ internal object VietnameseEngine {
                         's' -> VTone.ACUTE; 'f' -> VTone.GRAVE; 'r' -> VTone.HOOK
                         'x' -> VTone.TILDE; else -> VTone.DOT
                     }
-                    if (hasVowelCluster()) {
+                    if (toneMayLand()) {
                         // Repeating the tone key cancels it and types the letter.
                         if (tone == t) { tone = VTone.NONE; letters.add(VLetter(lc, VMark.NONE, upper)) }
                         else tone = t
@@ -268,7 +311,7 @@ internal object VietnameseEngine {
                 else -> letters.add(VLetter(lc, VMark.NONE, upper))
             }
         }
-        return render(letters, tone)
+        return render(letters, tone) to tone
     }
 }
 
