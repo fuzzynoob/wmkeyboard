@@ -26,7 +26,18 @@ internal enum class VTone(val combining: Char?) {
     NONE(null), ACUTE('́'), GRAVE('̀'), HOOK('̉'), TILDE('̃'), DOT('̣')
 }
 
-private class VLetter(var base: Char, var mark: VMark, val upper: Boolean)
+/**
+ * [synthesized] marks a letter the engine made for a keystroke rather than one
+ * the user typed: a bare `w` stands for ư, and that ư is spelled with a u no
+ * finger ever pressed. Undoing the mark on such a letter has to take the letter
+ * with it, or the u is left behind spelling a word the user never wrote.
+ */
+private class VLetter(
+    var base: Char,
+    var mark: VMark,
+    val upper: Boolean,
+    val synthesized: Boolean = false,
+)
 
 internal object VietnameseEngine {
 
@@ -229,13 +240,19 @@ internal object VietnameseEngine {
                                 ((it.base == 'o' || it.base == 'u') && it.mark == VMark.HORN)
                         }
                         if (marked != -1) {
-                            letters[marked].mark = VMark.NONE
+                            // A ư the engine spelled from a bare w was never
+                            // typed, so its letter goes with the mark: `ww` is
+                            // w, not the `uw` a stranded u would leave. A mark
+                            // on a vowel the user typed keeps its letter, which
+                            // is what leaves `row` for `roww`.
+                            if (letters[marked].synthesized) letters.removeAt(marked)
+                            else letters[marked].mark = VMark.NONE
                             letters.add(VLetter('w', VMark.NONE, upper))
                         } else {
                             val applied = applyMark(letters, "a", VMark.BREVE) ||
                                 applyMark(letters, "ou", VMark.HORN)
                             // A bare w is ư, which is Telex as it is written.
-                            if (!applied) letters.add(VLetter('u', VMark.HORN, upper))
+                            if (!applied) letters.add(VLetter('u', VMark.HORN, upper, synthesized = true))
                         }
                     }
                 }

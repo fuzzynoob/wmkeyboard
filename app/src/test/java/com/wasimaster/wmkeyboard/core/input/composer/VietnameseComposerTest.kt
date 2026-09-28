@@ -57,6 +57,18 @@ class VietnameseComposerTest {
     }
 
     @Test
+    fun telexBareWUndoTakesTheLetterWithIt() {
+        val c = VietnameseTelexComposer
+        // A bare w is ư, but the u it is spelled with was never typed. Undoing
+        // the mark has to take that letter away with it, or the u is stranded:
+        // `ww` is a plain w, not the `uw` a leftover u would leave behind.
+        assertEquals("w", c.composeBuffer("ww"))
+        // A u the user did type is theirs to keep, so the two-key spelling of ư
+        // still round-trips to the two letters it was typed as.
+        assertEquals("uw", c.composeBuffer("uww"))
+    }
+
+    @Test
     fun telexFullSyllables() {
         val c = VietnameseTelexComposer
         assertEquals("việt", c.composeBuffer("vieejt"))
