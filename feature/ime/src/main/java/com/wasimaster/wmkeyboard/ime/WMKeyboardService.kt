@@ -543,6 +543,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.T9Pinyin
 import com.wasimaster.wmkeyboard.core.input.composer.ZhuyinSyllables
 import com.wasimaster.wmkeyboard.core.input.composer.CodeTableDictionary
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
+import com.wasimaster.wmkeyboard.core.input.composer.VietnameseConfig
 import com.wasimaster.wmkeyboard.core.input.composer.VietnameseTelexComposer
 import com.wasimaster.wmkeyboard.core.input.composer.VietnameseVniComposer
 import com.wasimaster.wmkeyboard.core.script.FancyStyle
@@ -3590,6 +3591,8 @@ open class WMKeyboardService : InputMethodService() {
                 CjkConfig.lazyJyutping = settings.cjk.jyutpingLazy
                 CjkConfig.looseKanaMarks = settings.cjk.kanaLooseMarks
                 HanVariant.region = settings.cjk.hanRegion
+                // Vietnamese, pushed the same way and for the same reason.
+                VietnameseConfig.strictTones = settings.vietnamese.strictTones
                 // The settings half of the learning gate; the per-field half
                 // (incognito, fields that forbid typing intelligence) is checked
                 // at the commit itself, where the field is known.
