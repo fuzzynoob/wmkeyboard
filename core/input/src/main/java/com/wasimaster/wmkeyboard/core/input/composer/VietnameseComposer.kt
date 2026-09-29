@@ -47,6 +47,12 @@ internal object VietnameseEngine {
      */
     internal const val DOTTED_CIRCLE = '\u25CC'
 
+    /** Telex keys that spell a tone: they ride a word without joining it. */
+    private const val TONE_KEYS = "sfrxj"
+
+    /** The letters a coda can begin with: c, ch, m, n, ng, nh, p, t. */
+    private const val CODA_HEADS = "cmnpth"
+
     /** The tone [c] *is*, when it is a combining mark rather than a letter. */
     internal fun directTone(c: Char): VTone? = when (c) {
         '\u0301' -> VTone.ACUTE
@@ -198,6 +204,33 @@ internal object VietnameseEngine {
         VTone.DOT -> if (vni) '5' else 'j'
     }
 
+    /**
+     * Whether a coda follows the `u`,`o` pair ending at [oIdx] of [letters] —
+     * one already behind the pair in the buffer, or the next one [raw] still
+     * has to type after the `w` at [wIndex].
+     *
+     * The pair takes the horn on both letters for `ươ` and on the `o` alone for
+     * `uơ`, and the coda is the only thing that tells them apart: `huow` is
+     * `huơ` while `huown` is `hươn`. A tone key is not a coda — `thuowr` is
+     * `thuở`, whose `u` stays plain — so the lookahead steps over
+     * [TONE_KEYS]; a `w` is not one either, which is what leaves `huoww` free
+     * to horn the `u` on its second press.
+     */
+    private fun codaFollows(
+        letters: List<VLetter>,
+        oIdx: Int,
+        raw: String,
+        wIndex: Int,
+    ): Boolean {
+        if (letters.drop(oIdx + 1).any { !isVowel(it.base) }) return true
+        for (i in wIndex + 1 until raw.length) {
+            val c = raw[i].lowercaseChar()
+            if (c in TONE_KEYS || isToneChar(c)) continue
+            return c in CODA_HEADS
+        }
+        return false
+    }
+
     /** Apply [mark] to the last letter whose base is in [targets]; returns success. */
     private fun applyMark(letters: List<VLetter>, targets: String, mark: VMark): Boolean {
         for (i in letters.indices.reversed()) {
@@ -295,7 +328,7 @@ internal object VietnameseEngine {
                 (!VietnameseConfig.strictTones ||
                     VietnameseOrthography.isSyllablePrefix(render(letters, VTone.NONE)))
 
-        for (ch in raw) {
+        for ((index, ch) in raw.withIndex()) {
             val upper = ch.isUpperCase()
             val lc = ch.lowercaseChar()
             // A tone typed as itself, from the tone key's own ring rather than
@@ -367,8 +400,13 @@ internal object VietnameseEngine {
                     }
                 }
                 'w' -> {
-                    // Horn on uo cluster -> ươ (e.g. nuocsw -> nước, tuongw -> tương);
-                    // otherwise horn/breve on the last a/o/u; a bare w types ư.
+                    // Horn on a uo pair -> ươ (nuocsw -> nước, huowng -> hương),
+                    // but only once a coda says so: `huơ` and `hương` are the
+                    // same keys until the coda lands, and `huơ`, `quơ`, `thuở`
+                    // are words too. With no coda behind the pair and none
+                    // coming — nothing after the w but tone keys — the open
+                    // `uơ` is meant, so only the `o` is horned. Otherwise
+                    // horn/breve on the last a/o/u; a bare w types ư.
                     //
                     // A second w takes the mark back off *and* types the letter,
                     // which is what makes an English word survive the Telex
@@ -382,6 +420,19 @@ internal object VietnameseEngine {
                             letters[uIdx].mark = VMark.NONE
                             letters[oIdx].mark = VMark.NONE
                             letters.add(VLetter('w', VMark.NONE, upper))
+                        } else if (letters[oIdx].mark == VMark.HORN) {
+                            // The pair's first w horned the `o` alone, there
+                            // being no coda in sight then; this one follows
+                            // through on the `u`.
+                            letters[uIdx].mark = VMark.HORN
+                        } else if (letters[uIdx].mark == VMark.NONE &&
+                            !codaFollows(letters, oIdx, raw, index)
+                        ) {
+                            // Nothing says `ươ` yet: the coda that would, is
+                            // not there and is not coming, and the `u` was not
+                            // horned by a key of its own. The open `uơ` is what
+                            // the keys spell.
+                            letters[oIdx].mark = VMark.HORN
                         } else {
                             letters[uIdx].mark = VMark.HORN
                             letters[oIdx].mark = VMark.HORN

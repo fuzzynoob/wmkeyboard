@@ -42,6 +42,9 @@ class VietnameseResumeTest {
             "tôi", "nước", "đường", "tiếng", "hoặc", "quyển", "giường",
             "muối", "rượu", "ăn", "ở", "cửa", "nghiêng", "khuỷu", "chuyện",
             "được", "người", "trường", "Việt", "Tôi", "ĐƯỜNG",
+            // The open `uơ` and the horned `ươ`: the same keys up to the coda,
+            // so reading one back must not spell the other.
+            "huơ", "quơ", "thuở", "hương", "hướng", "hường",
         )) {
             assertRoundTrips(VietnameseTelexComposer, word)
         }

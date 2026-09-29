@@ -128,6 +128,37 @@ class VietnameseComposerTest {
     }
 
     @Test
+    fun telexHornsBothVowelsOfUoOnlyWhenACodaFollows() {
+        val c = VietnameseTelexComposer
+        // A `uo` pair takes the horn on both letters when a coda follows — the
+        // coda being what tells `hương` (h-ư-ơ-ng) from `huơ` (h-u-ơ), since
+        // the two are the same two keys up to that point. With nothing coming
+        // after, only the `o` is horned, which is the word `huơ`, `quơ`, `thuở`
+        // are spelled with.
+        assertEquals("huơ", c.composeBuffer("huow"))
+        assertEquals("quơ", c.composeBuffer("quow"))
+        assertEquals("thuở", c.composeBuffer("thuowr"))
+        // The coda may arrive after the `w`, and then it counts.
+        assertEquals("hươn", c.composeBuffer("huown"))
+        assertEquals("hương", c.composeBuffer("huowng"))
+        assertEquals("hướng", c.composeBuffer("huowngs"))
+        // A tone key is not a coda: it rides the word without changing which
+        // vowel the horn landed on.
+        assertEquals("huờ", c.composeBuffer("huowf"))
+        // A second `w` horns the `u` the first one left plain.
+        assertEquals("hươ", c.composeBuffer("huoww"))
+        // A `u` the user horned himself is not un-horned by the open reading:
+        // `uwow` spells `ươ`, not the `ưo` a lone `o` horn would leave.
+        assertEquals("ươ", c.composeBuffer("uwow"))
+        // Unchanged: a coda already in the buffer counts the same as one ahead,
+        // and the pair still toggles off on a second w when there is one.
+        assertEquals("nước", c.composeBuffer("nuocsw"))
+        assertEquals("dương", c.composeBuffer("duongw"))
+        assertEquals("duongw", c.composeBuffer("duongww"))
+        assertEquals("tương", c.composeBuffer("tuongw"))
+    }
+
+    @Test
     fun telexTakesToneMarksTypedAsThemselves() {
         val c = VietnameseTelexComposer
         assertEquals("cháo", c.composeBuffer("chao\u0301"))
