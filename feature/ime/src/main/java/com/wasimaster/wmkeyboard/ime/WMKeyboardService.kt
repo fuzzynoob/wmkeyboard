@@ -1116,7 +1116,24 @@ open class WMKeyboardService : InputMethodService() {
         set(value) {
             // A word the user came back to and edited in the buffer ends here,
             // whatever ends it: the buffer is the word as they left it.
-            finishComposingRevision(field.toString())
+            //
+            // Only for the composers whose buffer *is* the field's text, though.
+            // A transliterator's buffer holds the keys, not the word they
+            // spelled, and a revision armed on a resumed word holds the word
+            // ([armComposingRevision] is called from the resume alone): handing
+            // the keys over as "what the word became" reads `hát` → `hats` — a
+            // pair between a word and the keystrokes that spelled it, which the
+            // commit path already refuses to teach (see the `isTransliterating`
+            // term there). [composedPreview] is how the field's own text is
+            // derived from a buffer everywhere else, and hands back a
+            // non-transliterator's buffer unchanged.
+            finishComposingRevision(
+                if (revision?.mode == WordRevision.Mode.COMPOSING) {
+                    composedPreview(_uiState.value, field.toString())
+                } else {
+                    field.toString()
+                },
+            )
             revisionFragment = ""
             field = value
             // Any wholesale replacement (commit, field change, re-arm from the
@@ -9580,12 +9597,16 @@ open class WMKeyboardService : InputMethodService() {
      * preceding-word context is re-derived — a caret mid-word or after a
      * separator has no word to resume, so it predicts the next one (or clears).
      *
-     * Any language whose composing buffer is the field's own text and that has
-     * something to complete from — see [composingResumable], which is where the
-     * transliterating layouts drop out. The cluster-shaping ones (Probhat,
-     * Jatiya, fixed Devanagari…) are in: they do not compose while typing, but a
-     * word handed to them here is their own script and they keep composing it
-     * until the next boundary (see [processTypedText]'s `composingMode`).
+     * Any language that has something to complete from and whose composer can
+     * say what to put behind the region — see [composingResumable], which is
+     * where the transliterating layouts drop out. The cluster-shaping ones
+     * (Probhat, Jatiya, fixed Devanagari…) are in: they do not compose while
+     * typing, but a word handed to them here is their own script and they keep
+     * composing it until the next boundary (see [processTypedText]'s
+     * `composingMode`). Vietnamese is in too, and is the one that hands back
+     * something other than the word: its buffer is the keystrokes that spell it
+     * ([Composer.resumeBuffer]), so a tone key typed after the resume lands on
+     * the word rather than being spelled into it.
      * [newSelStart] is the caret offset the field just reported, used to place
      * the composing region.
      */
@@ -9704,10 +9725,20 @@ open class WMKeyboardService : InputMethodService() {
                 // And only if newSelStart is still the live caret: the word was
                 // read at the *current* cursor, so pairing it with a stale echo
                 // offset puts the region over the wrong span (see caretStillAt).
-                if (caretStillAt(ic, newSelStart) &&
+                //
+                // The buffer is the composer's own reading of the word, which is
+                // the word itself for most layouts and the keystrokes that spell
+                // it for Vietnamese (Telex `toois` behind the field's `tối`), so
+                // the next tone key lands on the word the caret came back to
+                // instead of being spelled into it. A composer that cannot read
+                // this word back — one of the several spellings that would not
+                // compose it — leaves the caret where the fall-through below
+                // treats it: read-only.
+                val buffer = state.composer.resumeBuffer(word)
+                if (buffer != null && caretStillAt(ic, newSelStart) &&
                     ic.setComposingRegion(newSelStart - word.length, newSelStart)
                 ) {
-                    composing = StringBuilder(word)
+                    composing = StringBuilder(buffer)
                     composingCaseTrusted = false
                     // Went back to this word: if a glide wrote it, the strip
                     // offers that stroke's other readings (#115).

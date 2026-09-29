@@ -110,6 +110,94 @@ internal object VietnameseEngine {
         return Normalizer.normalize(sb, Normalizer.Form.NFC)
     }
 
+    /**
+     * The keystrokes that spell [text], or null when this engine cannot read it
+     * back — the inverse of [transduce], for a word the user has gone back into.
+     *
+     * The spelling is mechanical: a marked letter is written as its base and
+     * then the key that marks it (`ô` → `oo`/`o6`, `ư` → `uw`/`u7`, `đ` →
+     * `dd`/`d9`), and the tone key goes last, which is where both methods put
+     * it. Mechanical is not the same as faithful — a spelling is one of many
+     * that compose a word, and `ô` written as `oo` is also how `oo` is
+     * written — so the answer is only given when it survives the round trip:
+     * [transduce] of the result has to be [text] itself. Everything else comes
+     * back null and the caller leaves the word alone, which is what keeps this
+     * from rewriting a word the engine would not have produced: `as` would
+     * compose `á`, `new` would compose `neư`, and neither is a reading of the
+     * word in the field.
+     *
+     * Two tones on one word, a mark on a letter that cannot carry it, and a
+     * word carrying marks only the input method knows are the other ways back
+     * to null.
+     */
+    internal fun toKeystrokes(text: String, vni: Boolean): String? {
+        val word = Normalizer.normalize(text, Normalizer.Form.NFC)
+        if (word.isEmpty()) return null
+        val keys = StringBuilder(word.length)
+        var tone = VTone.NONE
+        // NFD splits a marked letter into its base and a combining mark, so a
+        // mark arrives after the letter it belongs to and the key for it is
+        // inserted right behind that letter rather than appended.
+        var lastLetter = -1
+        for (ch in Normalizer.normalize(word, Normalizer.Form.NFD)) {
+            val direct = directTone(ch)
+            if (direct != null) {
+                if (tone != VTone.NONE) return null
+                tone = direct
+                continue
+            }
+            val mark = when (ch) {
+                '̂' -> VMark.CIRCUMFLEX
+                '̆' -> VMark.BREVE
+                '̛' -> VMark.HORN
+                else -> null
+            }
+            if (mark != null) {
+                if (lastLetter < 0) return null
+                val key = markKey(keys[lastLetter].lowercaseChar(), mark, vni) ?: return null
+                keys.insert(lastLetter + 1, key)
+                continue
+            }
+            // đ is a letter of its own rather than a d with a mark, so NFD
+            // leaves it whole and it is spelled like any other marked letter:
+            // the base, then the key.
+            val stroked = ch == 'đ' || ch == 'Đ'
+            keys.append(if (stroked) (if (ch == 'Đ') 'D' else 'd') else ch)
+            lastLetter = keys.length - 1
+            if (stroked) keys.append(markKey('d', VMark.STROKE, vni) ?: return null)
+        }
+        toneKey(tone, vni)?.let { keys.append(it) }
+        val raw = keys.toString()
+        return if (transduce(raw, vni) == word) raw else null
+    }
+
+    /**
+     * The key [mark] is spelled with on [base] in the given method, or null when
+     * that letter cannot carry it — `o6` is a circumflex, `e6` is not a letter
+     * at all. Telex spells a letter mark with a letter (`oo`, `aw`, `uw`) and
+     * VNI with a digit, which is the same key its own transducer reads.
+     */
+    private fun markKey(base: Char, mark: VMark, vni: Boolean): String? = when (mark) {
+        VMark.CIRCUMFLEX -> when (base) {
+            'a', 'e', 'o' -> if (vni) "6" else base.toString()
+            else -> null
+        }
+        VMark.BREVE -> if (base == 'a') (if (vni) "8" else "w") else null
+        VMark.HORN -> if (base == 'o' || base == 'u') (if (vni) "7" else "w") else null
+        VMark.STROKE -> if (base == 'd') (if (vni) "9" else "d") else null
+        VMark.NONE -> null
+    }
+
+    /** The key [tone] is spelled with, in the method that reads it as a tone. */
+    private fun toneKey(tone: VTone, vni: Boolean): Char? = when (tone) {
+        VTone.NONE -> null
+        VTone.ACUTE -> if (vni) '1' else 's'
+        VTone.GRAVE -> if (vni) '2' else 'f'
+        VTone.HOOK -> if (vni) '3' else 'r'
+        VTone.TILDE -> if (vni) '4' else 'x'
+        VTone.DOT -> if (vni) '5' else 'j'
+    }
+
     /** Apply [mark] to the last letter whose base is in [targets]; returns success. */
     private fun applyMark(letters: List<VLetter>, targets: String, mark: VMark): Boolean {
         for (i in letters.indices.reversed()) {
@@ -356,6 +444,8 @@ internal object VietnameseEngine {
 /** Vietnamese Telex: letters spell the diacritics (`as`→á, `aw`→ă, `dd`→đ). */
 object VietnameseTelexComposer : Composer {
     override val isTransliterating: Boolean get() = true
+    override val resumesComposedText: Boolean get() = true
+    override fun resumeBuffer(text: String): String? = VietnameseEngine.toKeystrokes(text, vni = false)
     // The tone key sends combining marks, which are not letters: without this
     // the key would commit the syllable and type a stray mark after it.
     override fun buffersChar(c: Char): Boolean = VietnameseEngine.isToneChar(c)
@@ -366,6 +456,8 @@ object VietnameseTelexComposer : Composer {
 /** Vietnamese VNI: digits spell the diacritics (`a8`→ă, `a1`→á, `d9`→đ). */
 object VietnameseVniComposer : Composer {
     override val isTransliterating: Boolean get() = true
+    override val resumesComposedText: Boolean get() = true
+    override fun resumeBuffer(text: String): String? = VietnameseEngine.toKeystrokes(text, vni = true)
     override val bufferDigits: Boolean get() = true
     override fun buffersChar(c: Char): Boolean = VietnameseEngine.isToneChar(c)
     override fun isPlausibleWord(word: String): Boolean = VietnameseOrthography.isSyllable(word)
