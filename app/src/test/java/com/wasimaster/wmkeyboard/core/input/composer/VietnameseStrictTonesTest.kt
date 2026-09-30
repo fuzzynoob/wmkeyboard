@@ -30,6 +30,38 @@ class VietnameseStrictTonesTest {
     }
 
     @Test
+    fun ddAbbreviationsSurviveTheStrictRule() {
+        // `dd` is how `đc`, `đt` and `đh` are typed: abbreviations, not words,
+        // and no one of them a syllable — so the strict rule spelled every one
+        // of them back as its keys. bamboo keeps a `đ` with no vowel in it
+        // standing for exactly this reason (`IBddFreeStyle`, on by default
+        // there), and this is that exception.
+        strict {
+            val c = VietnameseTelexComposer
+            assertEquals("đc", c.composeBuffer("ddc"))
+            assertEquals("đt", c.composeBuffer("ddt"))
+            assertEquals("đh", c.composeBuffer("ddh"))
+            assertEquals("đcd", c.composeBuffer("ddcd"))
+            assertEquals("dđ", c.composeBuffer("dddd"))
+        }
+    }
+
+    @Test
+    fun aVowelPutsTheWordBackUnderTheStrictRule() {
+        // The exception turns on there being no vowel: `đi` and `đo` are words,
+        // and a word the rules cannot spell is still given back as its keys.
+        strict {
+            val c = VietnameseTelexComposer
+            assertEquals("đi", c.composeBuffer("ddi"))
+            assertEquals("đo", c.composeBuffer("ddo"))
+            assertEquals("đong", c.composeBuffer("ddong"))
+            assertEquals("đường", c.composeBuffer("dduowngf"))
+            assertEquals("web", c.composeBuffer("web"))
+            assertEquals("banana", c.composeBuffer("banana"))
+        }
+    }
+
+    @Test
     fun offIsTheLooseBehaviourTheKeyboardHasAlwaysHad() {
         // The default, and the reason the switch has to be asked for: the
         // loose rule tones `fix` into `fĩ`, which is not a word at all.

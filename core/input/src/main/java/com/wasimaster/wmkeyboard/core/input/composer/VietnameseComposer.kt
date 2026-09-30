@@ -343,8 +343,29 @@ internal object VietnameseEngine {
         if (!VietnameseOrthography.hasVietnameseMark(composed)) return composed
         if (VietnameseOrthography.isSyllable(composed)) return composed
         if (VietnameseOrthography.isSyllablePrefix(composed)) return composed
+        // `dd` is how `đc`, `đt` and `đh` are typed: abbreviations, not words,
+        // and no one of them a syllable, so every one of them was spelled back
+        // as its keys. bamboo leaves a `đ` standing when the word has no vowel
+        // in it at all, for exactly this reason — `IBddFreeStyle`, on by
+        // default there — and this is that exception. A vowel puts the word
+        // back under the rule, so `đi`, `đo` and `đường` are answered as they
+        // were.
+        if (!hasVowel(composed) &&
+            (composed.contains('đ') || composed.contains('Đ') ||
+                composed.endsWith('d') || composed.endsWith('D'))
+        ) {
+            return composed
+        }
         return raw
     }
+
+    /**
+     * Whether [word] has a vowel in it — the test bamboo's `dd` exception turns
+     * on. Read off the decomposed form, so `đ` and the consonants around it say
+     * no however they are written.
+     */
+    private fun hasVowel(word: String): Boolean =
+        Normalizer.normalize(word, Normalizer.Form.NFD).any { it.lowercaseChar() in "aeiouy" }
 
     /**
      * One pass of the rules. The letter marks (`aa`→`â`, `dd`→`đ`, `w`→`ư`) are
