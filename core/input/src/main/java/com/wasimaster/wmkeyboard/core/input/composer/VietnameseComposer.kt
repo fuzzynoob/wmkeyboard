@@ -510,9 +510,17 @@ internal object VietnameseEngine {
                             // w, not the `uw` a stranded u would leave. A mark
                             // on a vowel the user typed keeps its letter, which
                             // is what leaves `row` for `roww`.
-                            if (letters[marked].synthesized) letters.removeAt(marked)
+                            // A ư the engine spelled from a bare w stands for
+                            // that w, so the letter taking it back *is* that
+                            // letter and keeps its case: at the start of a
+                            // sentence `Ww` is `W`, not the lower-case `w` the
+                            // second key is drawn as — the keyboard capitalised
+                            // the first key and not the ones after it.
+                            val taken = letters[marked].synthesized
+                            val replacementUpper = if (taken) letters[marked].upper else upper
+                            if (taken) letters.removeAt(marked)
                             else letters[marked].mark = VMark.NONE
-                            letters.add(VLetter('w', VMark.NONE, upper))
+                            letters.add(VLetter('w', VMark.NONE, replacementUpper))
                         } else {
                             val applied = applyMark(letters, "a", VMark.BREVE) ||
                                 applyMark(letters, "ou", VMark.HORN)
@@ -523,8 +531,12 @@ internal object VietnameseEngine {
                             // types a run of `w`s, rather than ư returning on
                             // every second press and leaving `wư`, `ww`, `wư`…
                             if (!applied) {
-                                if (letters.lastOrNull()?.base == 'w') {
-                                    letters.add(VLetter('w', VMark.NONE, upper))
+                                // A w after a w is the same letter again, and
+                                // takes its case for the same reason: `Www` is
+                                // `WW`, the run reading as one capitalised word.
+                                val previous = letters.lastOrNull()?.takeIf { it.base == 'w' }
+                                if (previous != null) {
+                                    letters.add(VLetter('w', VMark.NONE, previous.upper))
                                 } else {
                                     letters.add(VLetter('u', VMark.HORN, upper, synthesized = true))
                                 }

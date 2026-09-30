@@ -54,7 +54,10 @@ class VietnameseResumeServiceTest {
         override fun getCurrentInputEditorInfo(): EditorInfo = info
     }
 
-    private fun keyboardOn(editor: RecordingEditor): ViKeyboard {
+    private fun keyboardOn(
+        editor: RecordingEditor,
+        shift: ShiftState = ShiftState.OFF,
+    ): ViKeyboard {
         val service = ViKeyboard(editor, textField)
         plantPersonalStores(service)
         val engine = SuggestionEngine(
@@ -73,6 +76,7 @@ class VietnameseResumeServiceTest {
                     haptics = HapticSettings(enabled = false),
                 ),
                 fieldNoSuggestions = false,
+                shiftState = shift,
             ).copy(
                 composer = VietnameseTelexComposer,
                 language = LanguageRegistry.byId("vi"),
@@ -144,6 +148,19 @@ class VietnameseResumeServiceTest {
         assertEquals("tói", service.uiState.value.composingPreview)
         type(service, "f")
         assertEquals("tòi", editor.text.toString())
+    }
+
+    @Test
+    fun `a w that takes back the engine's own ư keeps the sentence's capital`() {
+        // At the start of a sentence the keyboard capitalises the first key and
+        // not the ones after it, so `ww` arrives as `Ww`. The second `w` is the
+        // replacement of the `Ư` the first one made, so it takes that letter's
+        // case rather than the lower case it is drawn as.
+        val editor = RecordingEditor()
+        val service = keyboardOn(editor, shift = ShiftState.ON)
+
+        type(service, "ww")
+        assertEquals("W", editor.text.toString())
     }
 
     // --- taking the word back -----------------------------------------------

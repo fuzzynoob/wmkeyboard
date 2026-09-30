@@ -204,6 +204,28 @@ class VietnameseComposerTest {
     }
 
     @Test
+    fun telexRunOfWKeepsTheCaseOfTheKeyItTookBack() {
+        // The `w` that takes back the `ư` a bare `w` made *is* that letter's
+        // replacement, so it keeps the case that press had. At the start of a
+        // sentence the engine capitalises the first key and not the ones after
+        // it, so reading the case off the second key turned `WW` into `W`.
+        // The keyboard capitalises the first key of a sentence and not the ones
+        // after it, so the buffer really is `Ww` — not `WW`.
+        val c = VietnameseTelexComposer
+        assertEquals("Ư", c.composeBuffer("W"))
+        assertEquals("W", c.composeBuffer("Ww"))
+        assertEquals("WW", c.composeBuffer("Www"))
+        assertEquals("Web", c.composeBuffer("Wweb"))
+        // Nothing changes for a word typed in lower case, or for a `ư` the user
+        // horned himself with `uw`.
+        assertEquals("ư", c.composeBuffer("w"))
+        assertEquals("w", c.composeBuffer("ww"))
+        assertEquals("ww", c.composeBuffer("www"))
+        assertEquals("web", c.composeBuffer("wweb"))
+        assertEquals("uw", c.composeBuffer("uww"))
+    }
+
+    @Test
     fun telexRunOfWReadsAsWUnderStrictTones() {
         // The same run, with the strict rule on. `ww` carries no Vietnamese
         // mark, so the strict pass leaves it alone — but `wư`, which the old
