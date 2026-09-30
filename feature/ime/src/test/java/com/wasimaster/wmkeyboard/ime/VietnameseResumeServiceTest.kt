@@ -22,13 +22,15 @@ import org.robolectric.shadows.ShadowSystemClock
 import java.time.Duration
 
 /**
- * What happens to a finished Vietnamese word when the caret comes back to it.
+ * What a Vietnamese word does at the edges of being typed: coming back to it,
+ * and taking it back.
  *
  * Telex's buffer is the keys and the field holds the word they spelled, so the
  * word has to be spelled back into keys before it can be typed into
- * (`Composer.resumeBuffer`). This is the end-to-end check of that: type, commit,
- * backspace the space away, and see whether the next tone key lands on the word
- * or is spelled into it.
+ * (`Composer.resumeBuffer`), and a backspace has to take a letter off the word
+ * rather than a key off that spelling (`Composer.backspaceBuffer`). Both are
+ * checked here end to end: type, commit, backspace the space away, and see
+ * whether the next tone key lands on the word or is spelled into it.
  */
 @RunWith(RobolectricTestRunner::class)
 class VietnameseResumeServiceTest {
@@ -142,6 +144,43 @@ class VietnameseResumeServiceTest {
         assertEquals("tói", service.uiState.value.composingPreview)
         type(service, "f")
         assertEquals("tòi", editor.text.toString())
+    }
+
+    // --- taking the word back -----------------------------------------------
+
+    @Test
+    fun `a backspace takes off a letter, not a key`() {
+        // `hướng` is five letters on seven keys, so five presses clear it —
+        // where working a key at a time cost eight, and the first three of
+        // them only ever peeled marks off letters that stayed.
+        val editor = RecordingEditor()
+        val service = keyboardOn(editor)
+
+        type(service, "huowngs")
+        assertEquals("hướng", editor.text.toString())
+
+        var presses = 0
+        while (editor.text.isNotEmpty() && presses < 20) {
+            pressBackspace(service)
+            presses++
+        }
+        assertEquals(5, presses)
+    }
+
+    @Test
+    fun `a tone comes off with the letter it is on`() {
+        // `hif` is `hì`: the first press takes the whole `ì` rather than
+        // spending itself on the `f` and leaving `hi`.
+        val editor = RecordingEditor()
+        val service = keyboardOn(editor)
+
+        type(service, "hif")
+        assertEquals("hì", editor.text.toString())
+
+        pressBackspace(service)
+        assertEquals("h", editor.text.toString())
+        pressBackspace(service)
+        assertEquals("", editor.text.toString())
     }
 
     @Test

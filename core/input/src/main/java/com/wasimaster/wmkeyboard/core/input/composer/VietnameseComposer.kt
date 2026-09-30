@@ -178,6 +178,39 @@ internal object VietnameseEngine {
     }
 
     /**
+     * [buffer] with the last letter of its *output* taken off — what one
+     * backspace has to remove so that a press takes back a letter rather than a
+     * key.
+     *
+     * The keys and the letters do not shrink together: `hướng` is five letters
+     * on seven keys. `hif` is `hì`, and a press has to take the whole `ì` —
+     * tone and all — rather than spending itself on the `f` and leaving `hi`.
+     * `huowngs` is `hướng`, where the same press takes the `g` and leaves the
+     * tone riding the `ơ`: what comes off is the letter, and a tone key goes
+     * only when the letter it marks is the one going.
+     *
+     * So the letter is taken off the output and the keys are spelled back for
+     * the shorter word ([toKeystrokes]). When that word has no spelling — a
+     * Latin one the engine would rewrite, or an output the keys cannot produce
+     * — the keys are cut back until the output matches, and failing that one
+     * key goes, which is what every other composer does.
+     */
+    internal fun backspace(buffer: String, vni: Boolean): String {
+        if (buffer.isEmpty()) return buffer
+        val text = transduce(buffer, vni)
+        if (text.isNotEmpty()) {
+            val shorter = text.dropLast(1)
+            if (shorter.isEmpty()) return ""
+            toKeystrokes(shorter, vni)?.let { return it }
+            for (cut in 1 until buffer.length) {
+                val candidate = buffer.dropLast(cut)
+                if (transduce(candidate, vni) == shorter) return candidate
+            }
+        }
+        return buffer.dropLast(1)
+    }
+
+    /**
      * The key [mark] is spelled with on [base] in the given method, or null when
      * that letter cannot carry it — `o6` is a circumflex, `e6` is not a letter
      * at all. Telex spells a letter mark with a letter (`oo`, `aw`, `uw`) and
@@ -508,6 +541,7 @@ object VietnameseTelexComposer : Composer {
     override val isTransliterating: Boolean get() = true
     override val resumesComposedText: Boolean get() = true
     override fun resumeBuffer(text: String): String? = VietnameseEngine.toKeystrokes(text, vni = false)
+    override fun backspaceBuffer(buffer: String): String = VietnameseEngine.backspace(buffer, vni = false)
     // The tone key sends combining marks, which are not letters: without this
     // the key would commit the syllable and type a stray mark after it.
     override fun buffersChar(c: Char): Boolean = VietnameseEngine.isToneChar(c)
@@ -520,6 +554,7 @@ object VietnameseVniComposer : Composer {
     override val isTransliterating: Boolean get() = true
     override val resumesComposedText: Boolean get() = true
     override fun resumeBuffer(text: String): String? = VietnameseEngine.toKeystrokes(text, vni = true)
+    override fun backspaceBuffer(buffer: String): String = VietnameseEngine.backspace(buffer, vni = true)
     override val bufferDigits: Boolean get() = true
     override fun buffersChar(c: Char): Boolean = VietnameseEngine.isToneChar(c)
     override fun isPlausibleWord(word: String): Boolean = VietnameseOrthography.isSyllable(word)

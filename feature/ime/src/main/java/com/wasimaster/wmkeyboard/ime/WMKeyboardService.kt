@@ -9040,18 +9040,43 @@ open class WMKeyboardService : InputMethodService() {
             // not the word the field shows, so a "cluster" read off it is a run
             // of unrelated keypresses; one backspace takes back one press, and
             // the reading is decoded afresh from the presses that are left.
-            val length = if (
-                !state.layouts.ambiguousKeys &&
-                state.language.id in state.settings.conjunctBackspaceLanguages
-            ) {
-                state.composer.deleteLength(composing).coerceIn(1, composing.length)
+            //
+            // Vietnamese is the exception, and for the same reason its buffer is
+            // not the field's text at all: it holds keys (`huowngs`) where the
+            // field holds a word (`hướng`), so a press has to take off a *letter*
+            // — one press for `hướng` where the keys would cost two. Which keys
+            // that is the composer works out ([Composer.backspaceBuffer]); a
+            // tone key goes only when the letter it marks is the one going.
+            val before = composing.toString()
+            val after = if (isVietnameseTransliterator(state)) {
+                state.composer.backspaceBuffer(before)
             } else {
-                1
+                val length = if (
+                    !state.layouts.ambiguousKeys &&
+                    state.language.id in state.settings.conjunctBackspaceLanguages
+                ) {
+                    state.composer.deleteLength(composing).coerceIn(1, composing.length)
+                } else {
+                    1
+                }
+                before.dropLast(length)
             }
-            composing.setLength(composing.length - length)
-            repeat(length) { composingTouch.removeLastOrNull() }
-            repeat(length) { composingKeys.removeLastOrNull() }
-            repeat(length) { composingHints.removeLastOrNull() }
+            composing.setLength(0)
+            composing.append(after)
+            if (before.startsWith(after)) {
+                repeat(before.length - after.length) {
+                    composingTouch.removeLastOrNull()
+                    composingKeys.removeLastOrNull()
+                    composingHints.removeLastOrNull()
+                }
+            } else {
+                // The keys were re-spelled rather than cut, so nothing is known
+                // about the new ones — the same boundary a re-armed word is, and
+                // the frames go the same way (see the `composing` setter).
+                composingTouch.clear()
+                composingKeys.clear()
+                composingHints.clear()
+            }
             ambiguousReading = null
             updateComposingText(ic)
             refreshSuggestions()

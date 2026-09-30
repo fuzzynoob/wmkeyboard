@@ -58,6 +58,22 @@ interface Composer {
     fun resumeBuffer(text: String): String? = if (isTransliterating) null else text
 
     /**
+     * The composing buffer after one backspace — what is left of [buffer] once
+     * the last thing the user can *see* has been taken off it.
+     *
+     * Not the same as dropping the last key. A transliterator's buffer holds
+     * the keys while the field holds what they spelled, and the last letter on
+     * screen may sit several keys back with a tone key or two riding it: one
+     * backspace over `huowngs` (`hướng`) has to leave `hướn`, not `hương`.
+     *
+     * The default drops one key, which is what every composer whose keys *are*
+     * its letters needs. Vietnamese overrides it to take the last letter of
+     * its output and keep the marks of the letters before it.
+     */
+    fun backspaceBuffer(buffer: String): String =
+        if (buffer.isEmpty()) buffer else buffer.dropLast(1)
+
+    /**
      * The language whose dictionary a phonetic transliterator is ranked against
      * (`"bn"` for Avro), by `LanguageDef.id`: its commit and suggestions route
      * through that language's phonetic index and spelling map rather than
