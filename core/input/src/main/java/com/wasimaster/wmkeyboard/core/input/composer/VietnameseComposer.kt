@@ -264,6 +264,35 @@ internal object VietnameseEngine {
         return false
     }
 
+    /**
+     * The index of a letter [mark] may go on even though it is not the one in
+     * front of the key, or -1 when there is none.
+     *
+     * A Telex mark key names the letter it is spelled with rather than the
+     * letter before it: `dod` is `đo` and `tono` is `tôn`, where the key and
+     * its letter are separated by a vowel and a coda. The search runs backwards
+     * so the nearest letter has the first say, and a letter already carrying
+     * that mark is passed over — a second key with nothing left to mark is the
+     * letter it is drawn as.
+     *
+     * Only a letter that leaves the word one Vietnamese could still spell
+     * counts ([VietnameseOrthography.isSyllablePrefix]), which is what keeps
+     * `hello` and `banana` out of it: they have no letter this key could mark
+     * and still be a word's beginning.
+     */
+    private fun distantMarkTarget(letters: List<VLetter>, base: Char, mark: VMark): Int {
+        for (i in letters.indices.reversed()) {
+            val letter = letters[i]
+            if (letter.base != base || letter.mark == mark) continue
+            val was = letter.mark
+            letter.mark = mark
+            val valid = VietnameseOrthography.isSyllablePrefix(render(letters, VTone.NONE))
+            letter.mark = was
+            if (valid) return i
+        }
+        return -1
+    }
+
     /** Apply [mark] to the last letter whose base is in [targets]; returns success. */
     private fun applyMark(letters: List<VLetter>, targets: String, mark: VMark): Boolean {
         for (i in letters.indices.reversed()) {
@@ -513,7 +542,12 @@ internal object VietnameseEngine {
                             last.mark = VMark.CIRCUMFLEX
                         }
                     } else {
-                        letters.add(VLetter(lc, VMark.NONE, upper))
+                        // Not the letter in front — the key may still name one
+                        // further back, as it does in `tono` (`tôn`) and
+                        // `nana` (`nân`).
+                        val target = distantMarkTarget(letters, lc, VMark.CIRCUMFLEX)
+                        if (target >= 0) letters[target].mark = VMark.CIRCUMFLEX
+                        else letters.add(VLetter(lc, VMark.NONE, upper))
                     }
                 }
                 'd' -> {
@@ -526,7 +560,11 @@ internal object VietnameseEngine {
                             last.mark = VMark.STROKE
                         }
                     } else {
-                        letters.add(VLetter('d', VMark.NONE, upper))
+                        // `dod` is `đo`: the stroke lands on the `d` the key is
+                        // spelled with, not on the vowel in front of it.
+                        val target = distantMarkTarget(letters, 'd', VMark.STROKE)
+                        if (target >= 0) letters[target].mark = VMark.STROKE
+                        else letters.add(VLetter('d', VMark.NONE, upper))
                     }
                 }
                 else -> letters.add(VLetter(lc, VMark.NONE, upper))

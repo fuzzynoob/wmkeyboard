@@ -101,8 +101,11 @@ class VietnameseComposerTest {
     fun telexToneNeedsOneUnbrokenVowelRun() {
         val c = VietnameseTelexComposer
         // A Vietnamese syllable has exactly one vowel nucleus, so a tone key
-        // after a broken run is the letter it is drawn as.
-        assertEquals("bananas", c.composeBuffer("bananas"))
+        // after a broken run is the letter it is drawn as. The examples have no
+        // letter a mark key could reach: `bananas` is no longer one of them,
+        // since its second `a` is marked (`bânnas`, which the strict rule hands
+        // back as `bananas` — see the reach test).
+        assertEquals("cactus", c.composeBuffer("cactus"))
         assertEquals("relax", c.composeBuffer("relax"))
         assertEquals("inbox", c.composeBuffer("inbox"))
         // The rule catches nothing real: every syllable keeps its vowels
@@ -125,6 +128,60 @@ class VietnameseComposerTest {
         assertEquals("dương", c.composeBuffer("duongw"))
         assertEquals("đương", c.composeBuffer("dduongw"))
         assertEquals("duongw", c.composeBuffer("duongww"))
+    }
+
+    @Test
+    fun telexMarkKeyReachesALetterThatIsNotAdjacent() {
+        val c = VietnameseTelexComposer
+        // A Telex mark key names the letter it is spelled with, not the letter
+        // in front of it: `dod` is `đo` and `ddono` is `đôn`, where the second
+        // `d` and the second `o` are separated from their letter by a vowel and
+        // a coda. The rule only ever looked at the letter in front, so these
+        // came out as typed.
+        assertEquals("đo", c.composeBuffer("dod"))
+        assertEquals("đa", c.composeBuffer("dad"))
+        assertEquals("đôn", c.composeBuffer("ddono"))
+        assertEquals("tôn", c.composeBuffer("tono"))
+        assertEquals("tôt", c.composeBuffer("toto"))
+        assertEquals("nân", c.composeBuffer("nana"))
+    }
+
+    @Test
+    fun telexMarkKeyLeavesTheWordsThatWereAlreadyRight() {
+        val c = VietnameseTelexComposer
+        // The letter in front still has the first say, and the words that were
+        // right stay right: a second key with nothing left to mark is the
+        // letter it is drawn as, and a word with no such letter at all is left
+        // alone.
+        assertEquals("â", c.composeBuffer("aa"))
+        assertEquals("aa", c.composeBuffer("aaa"))
+        assertEquals("aâ", c.composeBuffer("aaaa"))
+        assertEquals("tông", c.composeBuffer("toong"))
+        assertEquals("nghiêng", c.composeBuffer("nghieeng"))
+        assertEquals("hello", c.composeBuffer("hello"))
+        assertEquals("row", c.composeBuffer("roww"))
+    }
+
+    @Test
+    fun telexMarkKeyReachUnderStrictTones() {
+        // Under the strict rule the reached letters keep their mark, because
+        // `đo`, `đôn`, `tôt` and `nân` are words the rules can still spell —
+        // while the words that only look like them are given back as keys.
+        val was = VietnameseConfig.strictTones
+        VietnameseConfig.strictTones = true
+        try {
+            val c = VietnameseTelexComposer
+            assertEquals("đo", c.composeBuffer("dod"))
+            assertEquals("đôn", c.composeBuffer("ddono"))
+            assertEquals("tôn", c.composeBuffer("tono"))
+            assertEquals("tôt", c.composeBuffer("toto"))
+            assertEquals("nân", c.composeBuffer("nana"))
+            assertEquals("banana", c.composeBuffer("banana"))
+            assertEquals("nanan", c.composeBuffer("nanan"))
+            assertEquals("dodod", c.composeBuffer("dodod"))
+        } finally {
+            VietnameseConfig.strictTones = was
+        }
     }
 
     @Test

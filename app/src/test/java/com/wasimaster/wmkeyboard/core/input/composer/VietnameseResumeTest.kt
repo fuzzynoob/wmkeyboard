@@ -56,7 +56,11 @@ class VietnameseResumeTest {
         // user's own keys, unaltered. Both a word about to be toned (`toi` →
         // `tói`) and one that never will be (`hello`) have to come back whole,
         // which is what makes backspace into them an ordinary edit.
-        for (word in listOf("toi", "hello", "banana", "xin", "chao")) {
+        // `banana` is deliberately absent: a mark key now reaches its second
+        // `a` (`bânna`), so the word is no longer one the keys spell as typed —
+        // under the strict rule it comes back as `banana`, but this test runs
+        // with the strict rule off.
+        for (word in listOf("toi", "hello", "xin", "chao", "cactus")) {
             assertEquals(word, telexKeys(word))
             assertRoundTrips(VietnameseTelexComposer, word)
         }
