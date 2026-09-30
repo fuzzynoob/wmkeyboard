@@ -69,6 +69,7 @@ docs/SONNET_PROMPT.md
 # Tool artifacts & local build output
 build-out/
 .claude/
+.omc/
 .github/modernize/
 
 # Fastlane (runtime artifacts and the Play service-account key; the Fastfile,
