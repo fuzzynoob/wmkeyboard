@@ -174,7 +174,13 @@ internal object VietnameseEngine {
         }
         toneKey(tone, vni)?.let { keys.append(it) }
         val raw = keys.toString()
-        return if (transduce(raw, vni) == word) raw else null
+        // Checked against `compose`, not `transduce`. The strict rule answers a
+        // word it cannot spell by handing the keys straight back, so it says
+        // `Web` for the word `Web` — nothing about that spelling composed it,
+        // and a resume armed on one holds the field's text where its keys
+        // belong. `compose` is the question actually being asked: does this
+        // spelling make that word?
+        return if (compose(raw, vni).first == word) raw else null
     }
 
     /**
@@ -531,12 +537,12 @@ internal object VietnameseEngine {
                             // types a run of `w`s, rather than ư returning on
                             // every second press and leaving `wư`, `ww`, `wư`…
                             if (!applied) {
-                                // A w after a w is the same letter again, and
-                                // takes its case for the same reason: `Www` is
-                                // `WW`, the run reading as one capitalised word.
-                                val previous = letters.lastOrNull()?.takeIf { it.base == 'w' }
-                                if (previous != null) {
-                                    letters.add(VLetter('w', VMark.NONE, previous.upper))
+                                // A w after a w is that key's own letter, and
+                                // takes its own case: only the first key of a
+                                // sentence is capitalised, so `Www` is `Ww` —
+                                // the capital on the first `w` and nowhere else.
+                                if (letters.lastOrNull()?.base == 'w') {
+                                    letters.add(VLetter('w', VMark.NONE, upper))
                                 } else {
                                     letters.add(VLetter('u', VMark.HORN, upper, synthesized = true))
                                 }

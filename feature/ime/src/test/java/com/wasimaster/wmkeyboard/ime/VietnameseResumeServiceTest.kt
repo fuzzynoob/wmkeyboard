@@ -163,6 +163,31 @@ class VietnameseResumeServiceTest {
         assertEquals("W", editor.text.toString())
     }
 
+    @Test
+    fun `a word the keys cannot spell is not taken into the buffer`() {
+        // From a device log: the caret settling after the space armed the
+        // composing region with `Web` itself. The reach check asked `transduce`
+        // — which hands a word it cannot spell straight back as its own keys —
+        // and read that answer as a spelling of the word. The buffer then held
+        // letters instead of keys, and backspacing it down to `W` showed `Ư`,
+        // because `W` is a `w` key to the composer.
+        val editor = RecordingEditor()
+        val service = keyboardOn(editor, shift = ShiftState.ON)
+
+        type(service, "wweb ")
+        assertEquals("Web ", editor.text.toString())
+
+        pressBackspace(service)
+        caretSettles(service, at = 3)
+        assertEquals("Web", editor.text.toString())
+        pressBackspace(service)
+        assertEquals("We", editor.text.toString())
+        pressBackspace(service)
+        assertEquals("W", editor.text.toString())
+        pressBackspace(service)
+        assertEquals("", editor.text.toString())
+    }
+
     // --- taking the word back -----------------------------------------------
 
     @Test

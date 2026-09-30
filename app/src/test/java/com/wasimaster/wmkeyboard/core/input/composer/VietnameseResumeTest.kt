@@ -110,6 +110,27 @@ class VietnameseResumeTest {
         }
     }
 
+    @Test
+    fun `a word no keys compose is not read back, even under strict tones`() {
+        // The strict rule answers a word it cannot spell by handing the keys
+        // back, so `transduce("Web")` is `Web` — and a check written against
+        // `transduce` read that as a spelling of the word. The resume then
+        // armed the composing region with the field's own text, and the next
+        // backspace ran the composer over it (`W` is `ư`, which is how `Web`
+        // came back as `Ư`).
+        val was = VietnameseConfig.strictTones
+        VietnameseConfig.strictTones = true
+        try {
+            assertNull(VietnameseTelexComposer.resumeBuffer("Web"))
+            assertNull(VietnameseTelexComposer.resumeBuffer("web"))
+            assertNull(VietnameseTelexComposer.resumeBuffer("banana"))
+            // A word the keys do spell is still read back, fallback or not.
+            assertEquals("cactus", VietnameseTelexComposer.resumeBuffer("cactus"))
+        } finally {
+            VietnameseConfig.strictTones = was
+        }
+    }
+
     // --- VNI ---------------------------------------------------------------
 
     @Test

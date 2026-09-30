@@ -214,7 +214,10 @@ class VietnameseComposerTest {
         val c = VietnameseTelexComposer
         assertEquals("Ư", c.composeBuffer("W"))
         assertEquals("W", c.composeBuffer("Ww"))
-        assertEquals("WW", c.composeBuffer("Www"))
+        // Only the first key of the sentence is capitalised, so the third `w`
+        // — a lower-case key — types a lower-case letter: `Ww`, not `WW`.
+        assertEquals("Ww", c.composeBuffer("Www"))
+        assertEquals("We", c.composeBuffer("Wwe"))
         assertEquals("Web", c.composeBuffer("Wweb"))
         // Nothing changes for a word typed in lower case, or for a `ư` the user
         // horned himself with `uw`.
