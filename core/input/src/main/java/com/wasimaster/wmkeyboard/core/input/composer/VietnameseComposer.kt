@@ -47,6 +47,12 @@ internal object VietnameseEngine {
      */
     internal const val DOTTED_CIRCLE = '\u25CC'
 
+    /** Telex keys that spell a tone: they ride a word without joining it. */
+    private const val TONE_KEYS = "sfrxj"
+
+    /** The letters a coda can begin with: c, ch, m, n, ng, nh, p, t. */
+    private const val CODA_HEADS = "cmnpth"
+
     /** The tone [c] *is*, when it is a combining mark rather than a letter. */
     internal fun directTone(c: Char): VTone? = when (c) {
         '\u0301' -> VTone.ACUTE
@@ -110,6 +116,189 @@ internal object VietnameseEngine {
         return Normalizer.normalize(sb, Normalizer.Form.NFC)
     }
 
+    /**
+     * The keystrokes that spell [text], or null when this engine cannot read it
+     * back — the inverse of [transduce], for a word the user has gone back into.
+     *
+     * The spelling is mechanical: a marked letter is written as its base and
+     * then the key that marks it (`ô` → `oo`/`o6`, `ư` → `uw`/`u7`, `đ` →
+     * `dd`/`d9`), and the tone key goes last, which is where both methods put
+     * it. Mechanical is not the same as faithful — a spelling is one of many
+     * that compose a word, and `ô` written as `oo` is also how `oo` is
+     * written — so the answer is only given when it survives the round trip:
+     * [transduce] of the result has to be [text] itself. Everything else comes
+     * back null and the caller leaves the word alone, which is what keeps this
+     * from rewriting a word the engine would not have produced: `as` would
+     * compose `á`, `new` would compose `neư`, and neither is a reading of the
+     * word in the field.
+     *
+     * Two tones on one word, a mark on a letter that cannot carry it, and a
+     * word carrying marks only the input method knows are the other ways back
+     * to null.
+     */
+    internal fun toKeystrokes(text: String, vni: Boolean): String? {
+        val word = Normalizer.normalize(text, Normalizer.Form.NFC)
+        if (word.isEmpty()) return null
+        val keys = StringBuilder(word.length)
+        var tone = VTone.NONE
+        // NFD splits a marked letter into its base and a combining mark, so a
+        // mark arrives after the letter it belongs to and the key for it is
+        // inserted right behind that letter rather than appended.
+        var lastLetter = -1
+        for (ch in Normalizer.normalize(word, Normalizer.Form.NFD)) {
+            val direct = directTone(ch)
+            if (direct != null) {
+                if (tone != VTone.NONE) return null
+                tone = direct
+                continue
+            }
+            val mark = when (ch) {
+                '̂' -> VMark.CIRCUMFLEX
+                '̆' -> VMark.BREVE
+                '̛' -> VMark.HORN
+                else -> null
+            }
+            if (mark != null) {
+                if (lastLetter < 0) return null
+                val key = markKey(keys[lastLetter].lowercaseChar(), mark, vni) ?: return null
+                keys.insert(lastLetter + 1, key)
+                continue
+            }
+            // đ is a letter of its own rather than a d with a mark, so NFD
+            // leaves it whole and it is spelled like any other marked letter:
+            // the base, then the key.
+            val stroked = ch == 'đ' || ch == 'Đ'
+            keys.append(if (stroked) (if (ch == 'Đ') 'D' else 'd') else ch)
+            lastLetter = keys.length - 1
+            if (stroked) keys.append(markKey('d', VMark.STROKE, vni) ?: return null)
+        }
+        toneKey(tone, vni)?.let { keys.append(it) }
+        val raw = keys.toString()
+        // Checked against `compose`, not `transduce`. The strict rule answers a
+        // word it cannot spell by handing the keys straight back, so it says
+        // `Web` for the word `Web` — nothing about that spelling composed it,
+        // and a resume armed on one holds the field's text where its keys
+        // belong. `compose` is the question actually being asked: does this
+        // spelling make that word?
+        return if (compose(raw, vni).first == word) raw else null
+    }
+
+    /**
+     * [buffer] with the last letter of its *output* taken off — what one
+     * backspace has to remove so that a press takes back a letter rather than a
+     * key.
+     *
+     * The keys and the letters do not shrink together: `hướng` is five letters
+     * on seven keys. `hif` is `hì`, and a press has to take the whole `ì` —
+     * tone and all — rather than spending itself on the `f` and leaving `hi`.
+     * `huowngs` is `hướng`, where the same press takes the `g` and leaves the
+     * tone riding the `ơ`: what comes off is the letter, and a tone key goes
+     * only when the letter it marks is the one going.
+     *
+     * So the letter is taken off the output and the keys are spelled back for
+     * the shorter word ([toKeystrokes]). When that word has no spelling — a
+     * Latin one the engine would rewrite, or an output the keys cannot produce
+     * — the keys are cut back until the output matches, and failing that one
+     * key goes, which is what every other composer does.
+     */
+    internal fun backspace(buffer: String, vni: Boolean): String {
+        if (buffer.isEmpty()) return buffer
+        val text = transduce(buffer, vni)
+        if (text.isNotEmpty()) {
+            val shorter = text.dropLast(1)
+            if (shorter.isEmpty()) return ""
+            toKeystrokes(shorter, vni)?.let { return it }
+            for (cut in 1 until buffer.length) {
+                val candidate = buffer.dropLast(cut)
+                if (transduce(candidate, vni) == shorter) return candidate
+            }
+        }
+        return buffer.dropLast(1)
+    }
+
+    /**
+     * The key [mark] is spelled with on [base] in the given method, or null when
+     * that letter cannot carry it — `o6` is a circumflex, `e6` is not a letter
+     * at all. Telex spells a letter mark with a letter (`oo`, `aw`, `uw`) and
+     * VNI with a digit, which is the same key its own transducer reads.
+     */
+    private fun markKey(base: Char, mark: VMark, vni: Boolean): String? = when (mark) {
+        VMark.CIRCUMFLEX -> when (base) {
+            'a', 'e', 'o' -> if (vni) "6" else base.toString()
+            else -> null
+        }
+        VMark.BREVE -> if (base == 'a') (if (vni) "8" else "w") else null
+        VMark.HORN -> if (base == 'o' || base == 'u') (if (vni) "7" else "w") else null
+        VMark.STROKE -> if (base == 'd') (if (vni) "9" else "d") else null
+        VMark.NONE -> null
+    }
+
+    /** The key [tone] is spelled with, in the method that reads it as a tone. */
+    private fun toneKey(tone: VTone, vni: Boolean): Char? = when (tone) {
+        VTone.NONE -> null
+        VTone.ACUTE -> if (vni) '1' else 's'
+        VTone.GRAVE -> if (vni) '2' else 'f'
+        VTone.HOOK -> if (vni) '3' else 'r'
+        VTone.TILDE -> if (vni) '4' else 'x'
+        VTone.DOT -> if (vni) '5' else 'j'
+    }
+
+    /**
+     * Whether a coda follows the `u`,`o` pair ending at [oIdx] of [letters] —
+     * one already behind the pair in the buffer, or the next one [raw] still
+     * has to type after the `w` at [wIndex].
+     *
+     * The pair takes the horn on both letters for `ươ` and on the `o` alone for
+     * `uơ`, and the coda is the only thing that tells them apart: `huow` is
+     * `huơ` while `huown` is `hươn`. A tone key is not a coda — `thuowr` is
+     * `thuở`, whose `u` stays plain — so the lookahead steps over
+     * [TONE_KEYS]; a `w` is not one either, which is what leaves `huoww` free
+     * to horn the `u` on its second press.
+     */
+    private fun codaFollows(
+        letters: List<VLetter>,
+        oIdx: Int,
+        raw: String,
+        wIndex: Int,
+    ): Boolean {
+        if (letters.drop(oIdx + 1).any { !isVowel(it.base) }) return true
+        for (i in wIndex + 1 until raw.length) {
+            val c = raw[i].lowercaseChar()
+            if (c in TONE_KEYS || isToneChar(c)) continue
+            return c in CODA_HEADS
+        }
+        return false
+    }
+
+    /**
+     * The index of a letter [mark] may go on even though it is not the one in
+     * front of the key, or -1 when there is none.
+     *
+     * A Telex mark key names the letter it is spelled with rather than the
+     * letter before it: `dod` is `đo` and `tono` is `tôn`, where the key and
+     * its letter are separated by a vowel and a coda. The search runs backwards
+     * so the nearest letter has the first say, and a letter already carrying
+     * that mark is passed over — a second key with nothing left to mark is the
+     * letter it is drawn as.
+     *
+     * Only a letter that leaves the word one Vietnamese could still spell
+     * counts ([VietnameseOrthography.isSyllablePrefix]), which is what keeps
+     * `hello` and `banana` out of it: they have no letter this key could mark
+     * and still be a word's beginning.
+     */
+    private fun distantMarkTarget(letters: List<VLetter>, base: Char, mark: VMark): Int {
+        for (i in letters.indices.reversed()) {
+            val letter = letters[i]
+            if (letter.base != base || letter.mark == mark) continue
+            val was = letter.mark
+            letter.mark = mark
+            val valid = VietnameseOrthography.isSyllablePrefix(render(letters, VTone.NONE))
+            letter.mark = was
+            if (valid) return i
+        }
+        return -1
+    }
+
     /** Apply [mark] to the last letter whose base is in [targets]; returns success. */
     private fun applyMark(letters: List<VLetter>, targets: String, mark: VMark): Boolean {
         for (i in letters.indices.reversed()) {
@@ -154,8 +343,29 @@ internal object VietnameseEngine {
         if (!VietnameseOrthography.hasVietnameseMark(composed)) return composed
         if (VietnameseOrthography.isSyllable(composed)) return composed
         if (VietnameseOrthography.isSyllablePrefix(composed)) return composed
+        // `dd` is how `đc`, `đt` and `đh` are typed: abbreviations, not words,
+        // and no one of them a syllable, so every one of them was spelled back
+        // as its keys. bamboo leaves a `đ` standing when the word has no vowel
+        // in it at all, for exactly this reason — `IBddFreeStyle`, on by
+        // default there — and this is that exception. A vowel puts the word
+        // back under the rule, so `đi`, `đo` and `đường` are answered as they
+        // were.
+        if (!hasVowel(composed) &&
+            (composed.contains('đ') || composed.contains('Đ') ||
+                composed.endsWith('d') || composed.endsWith('D'))
+        ) {
+            return composed
+        }
         return raw
     }
+
+    /**
+     * Whether [word] has a vowel in it — the test bamboo's `dd` exception turns
+     * on. Read off the decomposed form, so `đ` and the consonants around it say
+     * no however they are written.
+     */
+    private fun hasVowel(word: String): Boolean =
+        Normalizer.normalize(word, Normalizer.Form.NFD).any { it.lowercaseChar() in "aeiouy" }
 
     /**
      * One pass of the rules. The letter marks (`aa`→`â`, `dd`→`đ`, `w`→`ư`) are
@@ -207,7 +417,7 @@ internal object VietnameseEngine {
                 (!VietnameseConfig.strictTones ||
                     VietnameseOrthography.isSyllablePrefix(render(letters, VTone.NONE)))
 
-        for (ch in raw) {
+        for ((index, ch) in raw.withIndex()) {
             val upper = ch.isUpperCase()
             val lc = ch.lowercaseChar()
             // A tone typed as itself, from the tone key's own ring rather than
@@ -279,8 +489,13 @@ internal object VietnameseEngine {
                     }
                 }
                 'w' -> {
-                    // Horn on uo cluster -> ươ (e.g. nuocsw -> nước, tuongw -> tương);
-                    // otherwise horn/breve on the last a/o/u; a bare w types ư.
+                    // Horn on a uo pair -> ươ (nuocsw -> nước, huowng -> hương),
+                    // but only once a coda says so: `huơ` and `hương` are the
+                    // same keys until the coda lands, and `huơ`, `quơ`, `thuở`
+                    // are words too. With no coda behind the pair and none
+                    // coming — nothing after the w but tone keys — the open
+                    // `uơ` is meant, so only the `o` is horned. Otherwise
+                    // horn/breve on the last a/o/u; a bare w types ư.
                     //
                     // A second w takes the mark back off *and* types the letter,
                     // which is what makes an English word survive the Telex
@@ -294,6 +509,19 @@ internal object VietnameseEngine {
                             letters[uIdx].mark = VMark.NONE
                             letters[oIdx].mark = VMark.NONE
                             letters.add(VLetter('w', VMark.NONE, upper))
+                        } else if (letters[oIdx].mark == VMark.HORN) {
+                            // The pair's first w horned the `o` alone, there
+                            // being no coda in sight then; this one follows
+                            // through on the `u`.
+                            letters[uIdx].mark = VMark.HORN
+                        } else if (letters[uIdx].mark == VMark.NONE &&
+                            !codaFollows(letters, oIdx, raw, index)
+                        ) {
+                            // Nothing says `ươ` yet: the coda that would, is
+                            // not there and is not coming, and the `u` was not
+                            // horned by a key of its own. The open `uơ` is what
+                            // the keys spell.
+                            letters[oIdx].mark = VMark.HORN
                         } else {
                             letters[uIdx].mark = VMark.HORN
                             letters[oIdx].mark = VMark.HORN
@@ -309,14 +537,37 @@ internal object VietnameseEngine {
                             // w, not the `uw` a stranded u would leave. A mark
                             // on a vowel the user typed keeps its letter, which
                             // is what leaves `row` for `roww`.
-                            if (letters[marked].synthesized) letters.removeAt(marked)
+                            // A ư the engine spelled from a bare w stands for
+                            // that w, so the letter taking it back *is* that
+                            // letter and keeps its case: at the start of a
+                            // sentence `Ww` is `W`, not the lower-case `w` the
+                            // second key is drawn as — the keyboard capitalised
+                            // the first key and not the ones after it.
+                            val taken = letters[marked].synthesized
+                            val replacementUpper = if (taken) letters[marked].upper else upper
+                            if (taken) letters.removeAt(marked)
                             else letters[marked].mark = VMark.NONE
-                            letters.add(VLetter('w', VMark.NONE, upper))
+                            letters.add(VLetter('w', VMark.NONE, replacementUpper))
                         } else {
                             val applied = applyMark(letters, "a", VMark.BREVE) ||
                                 applyMark(letters, "ou", VMark.HORN)
-                            // A bare w is ư, which is Telex as it is written.
-                            if (!applied) letters.add(VLetter('u', VMark.HORN, upper, synthesized = true))
+                            // A bare w is ư, which is Telex as it is written —
+                            // but only the first of a run. The w after it takes
+                            // that ư back and types the letter (above), and every
+                            // w after *that* is the letter too: holding the key
+                            // types a run of `w`s, rather than ư returning on
+                            // every second press and leaving `wư`, `ww`, `wư`…
+                            if (!applied) {
+                                // A w after a w is that key's own letter, and
+                                // takes its own case: only the first key of a
+                                // sentence is capitalised, so `Www` is `Ww` —
+                                // the capital on the first `w` and nowhere else.
+                                if (letters.lastOrNull()?.base == 'w') {
+                                    letters.add(VLetter('w', VMark.NONE, upper))
+                                } else {
+                                    letters.add(VLetter('u', VMark.HORN, upper, synthesized = true))
+                                }
+                            }
                         }
                     }
                 }
@@ -330,7 +581,12 @@ internal object VietnameseEngine {
                             last.mark = VMark.CIRCUMFLEX
                         }
                     } else {
-                        letters.add(VLetter(lc, VMark.NONE, upper))
+                        // Not the letter in front — the key may still name one
+                        // further back, as it does in `tono` (`tôn`) and
+                        // `nana` (`nân`).
+                        val target = distantMarkTarget(letters, lc, VMark.CIRCUMFLEX)
+                        if (target >= 0) letters[target].mark = VMark.CIRCUMFLEX
+                        else letters.add(VLetter(lc, VMark.NONE, upper))
                     }
                 }
                 'd' -> {
@@ -343,7 +599,11 @@ internal object VietnameseEngine {
                             last.mark = VMark.STROKE
                         }
                     } else {
-                        letters.add(VLetter('d', VMark.NONE, upper))
+                        // `dod` is `đo`: the stroke lands on the `d` the key is
+                        // spelled with, not on the vowel in front of it.
+                        val target = distantMarkTarget(letters, 'd', VMark.STROKE)
+                        if (target >= 0) letters[target].mark = VMark.STROKE
+                        else letters.add(VLetter('d', VMark.NONE, upper))
                     }
                 }
                 else -> letters.add(VLetter(lc, VMark.NONE, upper))
@@ -356,6 +616,9 @@ internal object VietnameseEngine {
 /** Vietnamese Telex: letters spell the diacritics (`as`→á, `aw`→ă, `dd`→đ). */
 object VietnameseTelexComposer : Composer {
     override val isTransliterating: Boolean get() = true
+    override val resumesComposedText: Boolean get() = true
+    override fun resumeBuffer(text: String): String? = VietnameseEngine.toKeystrokes(text, vni = false)
+    override fun backspaceBuffer(buffer: String): String = VietnameseEngine.backspace(buffer, vni = false)
     // The tone key sends combining marks, which are not letters: without this
     // the key would commit the syllable and type a stray mark after it.
     override fun buffersChar(c: Char): Boolean = VietnameseEngine.isToneChar(c)
@@ -366,6 +629,9 @@ object VietnameseTelexComposer : Composer {
 /** Vietnamese VNI: digits spell the diacritics (`a8`→ă, `a1`→á, `d9`→đ). */
 object VietnameseVniComposer : Composer {
     override val isTransliterating: Boolean get() = true
+    override val resumesComposedText: Boolean get() = true
+    override fun resumeBuffer(text: String): String? = VietnameseEngine.toKeystrokes(text, vni = true)
+    override fun backspaceBuffer(buffer: String): String = VietnameseEngine.backspace(buffer, vni = true)
     override val bufferDigits: Boolean get() = true
     override fun buffersChar(c: Char): Boolean = VietnameseEngine.isToneChar(c)
     override fun isPlausibleWord(word: String): Boolean = VietnameseOrthography.isSyllable(word)

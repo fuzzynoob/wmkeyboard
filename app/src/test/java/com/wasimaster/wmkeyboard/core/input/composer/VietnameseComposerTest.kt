@@ -101,8 +101,11 @@ class VietnameseComposerTest {
     fun telexToneNeedsOneUnbrokenVowelRun() {
         val c = VietnameseTelexComposer
         // A Vietnamese syllable has exactly one vowel nucleus, so a tone key
-        // after a broken run is the letter it is drawn as.
-        assertEquals("bananas", c.composeBuffer("bananas"))
+        // after a broken run is the letter it is drawn as. The examples have no
+        // letter a mark key could reach: `bananas` is no longer one of them,
+        // since its second `a` is marked (`bânnas`, which the strict rule hands
+        // back as `bananas` — see the reach test).
+        assertEquals("cactus", c.composeBuffer("cactus"))
         assertEquals("relax", c.composeBuffer("relax"))
         assertEquals("inbox", c.composeBuffer("inbox"))
         // The rule catches nothing real: every syllable keeps its vowels
@@ -125,6 +128,156 @@ class VietnameseComposerTest {
         assertEquals("dương", c.composeBuffer("duongw"))
         assertEquals("đương", c.composeBuffer("dduongw"))
         assertEquals("duongw", c.composeBuffer("duongww"))
+    }
+
+    @Test
+    fun telexMarkKeyReachesALetterThatIsNotAdjacent() {
+        val c = VietnameseTelexComposer
+        // A Telex mark key names the letter it is spelled with, not the letter
+        // in front of it: `dod` is `đo` and `ddono` is `đôn`, where the second
+        // `d` and the second `o` are separated from their letter by a vowel and
+        // a coda. The rule only ever looked at the letter in front, so these
+        // came out as typed.
+        assertEquals("đo", c.composeBuffer("dod"))
+        assertEquals("đa", c.composeBuffer("dad"))
+        assertEquals("đôn", c.composeBuffer("ddono"))
+        assertEquals("tôn", c.composeBuffer("tono"))
+        assertEquals("tôt", c.composeBuffer("toto"))
+        assertEquals("nân", c.composeBuffer("nana"))
+    }
+
+    @Test
+    fun telexMarkKeyLeavesTheWordsThatWereAlreadyRight() {
+        val c = VietnameseTelexComposer
+        // The letter in front still has the first say, and the words that were
+        // right stay right: a second key with nothing left to mark is the
+        // letter it is drawn as, and a word with no such letter at all is left
+        // alone.
+        assertEquals("â", c.composeBuffer("aa"))
+        assertEquals("aa", c.composeBuffer("aaa"))
+        assertEquals("aâ", c.composeBuffer("aaaa"))
+        assertEquals("tông", c.composeBuffer("toong"))
+        assertEquals("nghiêng", c.composeBuffer("nghieeng"))
+        assertEquals("hello", c.composeBuffer("hello"))
+        assertEquals("row", c.composeBuffer("roww"))
+    }
+
+    @Test
+    fun telexMarkKeyReachUnderStrictTones() {
+        // Under the strict rule the reached letters keep their mark, because
+        // `đo`, `đôn`, `tôt` and `nân` are words the rules can still spell —
+        // while the words that only look like them are given back as keys.
+        val was = VietnameseConfig.strictTones
+        VietnameseConfig.strictTones = true
+        try {
+            val c = VietnameseTelexComposer
+            assertEquals("đo", c.composeBuffer("dod"))
+            assertEquals("đôn", c.composeBuffer("ddono"))
+            assertEquals("tôn", c.composeBuffer("tono"))
+            assertEquals("tôt", c.composeBuffer("toto"))
+            assertEquals("nân", c.composeBuffer("nana"))
+            assertEquals("banana", c.composeBuffer("banana"))
+            assertEquals("nanan", c.composeBuffer("nanan"))
+            assertEquals("dodod", c.composeBuffer("dodod"))
+        } finally {
+            VietnameseConfig.strictTones = was
+        }
+    }
+
+    @Test
+    fun telexRunOfWTypesWAfterTheFirst() {
+        val c = VietnameseTelexComposer
+        // A bare `w` is ư, and the `w` after it takes that back and types the
+        // letter. Every `w` after *that* is the letter too — holding the key
+        // down types a run of `w`s, one shorter than the presses, rather than
+        // ư coming back on every second key and leaving `wư`, `ww`, `wư`…
+        assertEquals("ư", c.composeBuffer("w"))
+        assertEquals("w", c.composeBuffer("ww"))
+        assertEquals("ww", c.composeBuffer("www"))
+        assertEquals("www", c.composeBuffer("wwww"))
+        assertEquals("wwww", c.composeBuffer("wwwww"))
+        assertEquals("wwwwwww", c.composeBuffer("wwwwwwww"))
+        assertEquals("wwwwwwww", c.composeBuffer("wwwwwwwww"))
+        // A `w` that horns a vowel is still that mark, whatever came before it.
+        assertEquals("ă", c.composeBuffer("aw"))
+        assertEquals("nước", c.composeBuffer("nuocsw"))
+    }
+
+    @Test
+    fun telexRunOfWKeepsTheCaseOfTheKeyItTookBack() {
+        // The `w` that takes back the `ư` a bare `w` made *is* that letter's
+        // replacement, so it keeps the case that press had. At the start of a
+        // sentence the engine capitalises the first key and not the ones after
+        // it, so reading the case off the second key turned `WW` into `W`.
+        // The keyboard capitalises the first key of a sentence and not the ones
+        // after it, so the buffer really is `Ww` — not `WW`.
+        val c = VietnameseTelexComposer
+        assertEquals("Ư", c.composeBuffer("W"))
+        assertEquals("W", c.composeBuffer("Ww"))
+        // Only the first key of the sentence is capitalised, so the third `w`
+        // — a lower-case key — types a lower-case letter: `Ww`, not `WW`.
+        assertEquals("Ww", c.composeBuffer("Www"))
+        assertEquals("We", c.composeBuffer("Wwe"))
+        assertEquals("Web", c.composeBuffer("Wweb"))
+        // Nothing changes for a word typed in lower case, or for a `ư` the user
+        // horned himself with `uw`.
+        assertEquals("ư", c.composeBuffer("w"))
+        assertEquals("w", c.composeBuffer("ww"))
+        assertEquals("ww", c.composeBuffer("www"))
+        assertEquals("web", c.composeBuffer("wweb"))
+        assertEquals("uw", c.composeBuffer("uww"))
+    }
+
+    @Test
+    fun telexRunOfWReadsAsWUnderStrictTones() {
+        // The same run, with the strict rule on. `ww` carries no Vietnamese
+        // mark, so the strict pass leaves it alone — but `wư`, which the old
+        // rule produced on every odd press, does, and the strict pass would
+        // hand back the whole run of keys instead.
+        val was = VietnameseConfig.strictTones
+        VietnameseConfig.strictTones = true
+        try {
+            val c = VietnameseTelexComposer
+            assertEquals("ư", c.composeBuffer("w"))
+            assertEquals("w", c.composeBuffer("ww"))
+            assertEquals("ww", c.composeBuffer("www"))
+            assertEquals("www", c.composeBuffer("wwww"))
+            assertEquals("wwww", c.composeBuffer("wwwww"))
+            assertEquals("wwwwwww", c.composeBuffer("wwwwwwww"))
+        } finally {
+            VietnameseConfig.strictTones = was
+        }
+    }
+
+    @Test
+    fun telexHornsBothVowelsOfUoOnlyWhenACodaFollows() {
+        val c = VietnameseTelexComposer
+        // A `uo` pair takes the horn on both letters when a coda follows — the
+        // coda being what tells `hương` (h-ư-ơ-ng) from `huơ` (h-u-ơ), since
+        // the two are the same two keys up to that point. With nothing coming
+        // after, only the `o` is horned, which is the word `huơ`, `quơ`, `thuở`
+        // are spelled with.
+        assertEquals("huơ", c.composeBuffer("huow"))
+        assertEquals("quơ", c.composeBuffer("quow"))
+        assertEquals("thuở", c.composeBuffer("thuowr"))
+        // The coda may arrive after the `w`, and then it counts.
+        assertEquals("hươn", c.composeBuffer("huown"))
+        assertEquals("hương", c.composeBuffer("huowng"))
+        assertEquals("hướng", c.composeBuffer("huowngs"))
+        // A tone key is not a coda: it rides the word without changing which
+        // vowel the horn landed on.
+        assertEquals("huờ", c.composeBuffer("huowf"))
+        // A second `w` horns the `u` the first one left plain.
+        assertEquals("hươ", c.composeBuffer("huoww"))
+        // A `u` the user horned himself is not un-horned by the open reading:
+        // `uwow` spells `ươ`, not the `ưo` a lone `o` horn would leave.
+        assertEquals("ươ", c.composeBuffer("uwow"))
+        // Unchanged: a coda already in the buffer counts the same as one ahead,
+        // and the pair still toggles off on a second w when there is one.
+        assertEquals("nước", c.composeBuffer("nuocsw"))
+        assertEquals("dương", c.composeBuffer("duongw"))
+        assertEquals("duongw", c.composeBuffer("duongww"))
+        assertEquals("tương", c.composeBuffer("tuongw"))
     }
 
     @Test
