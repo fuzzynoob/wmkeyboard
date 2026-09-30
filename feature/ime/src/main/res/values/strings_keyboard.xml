@@ -392,6 +392,9 @@
     <string name="ime_tool_autocorrect">Autocorrect</string>
     <string name="ime_tool_selection_actions">Selection actions</string>
     <string name="ime_tool_phonetic_english">English words</string>
+    <!-- The strip button on Bengali layouts. ANSI is the name of the encoding, not a word to translate. -->
+    <string name="ime_ansi_button" translatable="false">ANSI</string>
+    <string name="ime_ansi_output">ANSI output</string>
     <string name="ime_tool_sound_haptics">Sound &amp; haptics</string>
     <string name="ime_tool_numpad">Numpad</string>
     <string name="ime_tool_handwriting">Handwriting</string>
@@ -503,6 +506,8 @@
     <string name="ime_image_search_by_photo_desc">Search with a photo</string>
     <!-- Names the search service. Brave is a brand name: keep it as it is. -->
     <string name="ime_search_attribution_brave">via Brave</string>
+    <!-- Names the search service. Tavily is a brand name: keep it as it is. -->
+    <string name="ime_search_attribution_tavily">via Tavily</string>
     <string name="ime_unit_convert_title">Unit converter</string>
     <string name="ime_password_tab_passphrase">Passphrase</string>
     <string name="ime_typing_test_restart">Restart</string>
@@ -645,6 +650,11 @@
     <string name="ime_clip_open_link">Open link</string>
     <string name="ime_clip_view_image">View</string>
     <string name="ime_clip_extract_text">Extract text</string>
+    <string name="ime_clip_view_text">View full text</string>
+    <!-- The bar on top of the clipboard panel that drags it taller or shorter, for a screen reader. -->
+    <string name="ime_clipboard_height_desc">Clipboard panel height. Drag up or down</string>
+    <string name="ime_clipboard_height_taller">Make the panel taller</string>
+    <string name="ime_clipboard_height_shorter">Make the panel shorter</string>
     <!-- The bin beside the clipboard search bar, for a screen reader. -->
     <string name="ime_clipboard_clear_desc">Delete all unpinned clips</string>
     <!-- The question the bin asks before it deletes. %1$d is how many clips it deletes. -->
@@ -761,6 +771,8 @@
     <string name="ime_selection_macro_stop_label">Stop</string>
     <string name="ime_selection_macro_open_in_desc">Open in %1$s</string>
     <string name="ime_selection_macro_busy_desc">Working</string>
+    <!-- The AI Translate action as a chip on the selection bar, where the plain Translate chip (the Translate tool) can sit beside it (#434). -->
+    <string name="ime_selection_macro_ai_translate_label">AI translate</string>
     <string name="ime_selection_macro_nothing_to_undo_toast">Nothing left to undo</string>
     <string name="ime_selection_macro_grammar_clean_toast">Nothing to fix</string>
     <string name="ime_selection_macro_deepl_clean_toast">DeepL Write has nothing to change</string>

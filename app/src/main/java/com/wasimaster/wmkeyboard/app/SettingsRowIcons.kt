@@ -587,6 +587,8 @@ internal object SettingsRowIcons {
         put(R.string.langemoji_emoji_skin_tone_title) { Icons.Outlined.Colorize }
         put(R.string.langemoji_emoji_tone_override_title) { Icons.Outlined.Colorize }
         put(R.string.langemoji_emoji_close_after_insert_title) { Icons.AutoMirrored.Outlined.KeyboardReturn }
+        put(R.string.langemoji_media_switcher_title) { Icons.Outlined.SwapHoriz }
+        put(R.string.langemoji_media_remember_title) { Icons.Outlined.History }
         put(R.string.langemoji_emoji_hide_unrenderable_title) { Icons.Outlined.VisibilityOff }
         put(R.string.langemoji_emoji_categories_title) { Icons.AutoMirrored.Outlined.Sort }
         put(R.string.langemoji_emoji_keywords_title) { Icons.Outlined.EmojiEmotions }
@@ -803,6 +805,8 @@ internal object SettingsRowIcons {
         put(R.string.typing_language_detection_by_app_title) { Icons.Outlined.Apps }
         put(R.string.languages_phonetic_english_title) { Icons.Outlined.Translate }
         put(R.string.languages_phonetic_english_switch_title) { Icons.Outlined.TouchApp }
+        put(R.string.languages_ansi_allowed_title) { Icons.Outlined.FontDownload }
+        put(R.string.languages_ansi_version_title) { Icons.Outlined.Numbers }
         put(R.string.typing_register_priors_title) { Icons.Outlined.QuestionAnswer }
         put(R.string.typing_context_rerank_title) { Icons.Outlined.Psychology }
         put(R.string.typing_learn_threshold_title) { Icons.Outlined.School }
@@ -1017,6 +1021,8 @@ internal object SettingsRowIcons {
         put(R.string.clipboard_clear_button_title) { Icons.Outlined.DeleteSweep }
         put(R.string.clipboard_pinned_tabs_title) { Icons.Outlined.Tab }
         put(R.string.clipboard_outline_pinned_title) { Icons.Outlined.BorderStyle }
+        put(R.string.clipboard_card_buttons_title) { Icons.Outlined.PushPin }
+        put(R.string.clipboard_panel_height_title) { Icons.Outlined.Height }
         put(R.string.clipboard_password_paste_title) { Icons.Outlined.Password }
         put(R.string.clipboard_link_previews_title) { Icons.Outlined.Link }
         put(R.string.clipboard_entities_title) { Icons.Outlined.Tag }

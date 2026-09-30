@@ -156,6 +156,8 @@
     <string name="about_bundled_gemoji_used">The emoji shortcodes, the :tada: names that GitHub, Discord and Slack use</string>
     <string name="about_bundled_keyman_used">The key grids for 862 layouts, mostly for languages no other keyboard covers</string>
     <string name="about_bundled_khipro_used">The rules of the Khipro Bangla layout</string>
+    <string name="about_bundled_futo_layouts_used">The key grids of the layouts converted from FUTO Keyboard\'s layout files</string>
+    <string name="about_bundled_floris_layouts_used">The key grids of the layouts converted from FlorisBoard\'s layout files</string>
     <string name="about_bundled_opencc_used">The map between simplified and traditional characters, and the vocabulary of Taiwan and Hong Kong</string>
     <string name="about_bundled_lshk_used">The Cantonese Jyutping syllable inventory</string>
     <string name="about_bundled_palettes_used">The themes in the app: Dracula, Nord, Solarized, Catppuccin and Tokyo Night</string>
@@ -183,6 +185,7 @@
 
     <!-- What the app uses each online service for. -->
     <string name="about_service_brave_used">The web and image search results</string>
+    <string name="about_service_tavily_used">The web and image search results, when you add a Tavily key</string>
     <string name="about_service_gif_used">The GIFs and the stickers</string>
     <string name="about_service_wikipedia_used">The article search and the summaries</string>
     <string name="about_service_translate_used">The translation tool</string>

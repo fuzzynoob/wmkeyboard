@@ -341,6 +341,27 @@ private val bundledAttributions: List<Attribution> = buildList {
             "https://github.com/keymanapp/keyboards",
         ),
     )
+    // The layouts added for parity with FUTO Keyboard and FlorisBoard were
+    // converted from their layout files, which both projects publish under
+    // Apache-2.0 (FUTO's app is source-available; its layout repository is not).
+    add(
+        Attribution(
+            "FUTO Keyboard layouts",
+            R.string.about_bundled_futo_layouts_used,
+            "Copyright the FUTO Keyboard layout contributors",
+            "Apache-2.0", "apache-2.0.txt",
+            "https://github.com/futo-org/futo-keyboard-layouts",
+        ),
+    )
+    add(
+        Attribution(
+            "FlorisBoard layouts",
+            R.string.about_bundled_floris_layouts_used,
+            "Copyright The FlorisBoard Contributors",
+            "Apache-2.0", "apache-2.0.txt",
+            "https://github.com/florisboard/florisboard",
+        ),
+    )
     add(
         Attribution(
             "Khipro",
@@ -512,6 +533,11 @@ private val serviceAttributions: List<Attribution> = listOf(
         "https://brave.com/search/api/",
     ),
     Attribution(
+        "Tavily", R.string.about_service_tavily_used, "",
+        "Tavily terms of service", null,
+        "https://www.tavily.com/terms",
+    ),
+    Attribution(
         "KLIPY & GIPHY", R.string.about_service_gif_used, "",
         "Provider API terms", null,
         "https://developers.giphy.com/",
@@ -585,6 +611,11 @@ private val serviceAttributions: List<Attribution> = listOf(
         "DeepSeek", R.string.about_service_byok_used, "",
         "Provider terms, under your own account", null,
         "https://platform.deepseek.com/downloads/DeepSeek%20Open%20Platform%20Terms%20of%20Service.html",
+    ),
+    Attribution(
+        "Brave Answers", R.string.about_service_byok_used, "",
+        "Brave Search API terms, under your own account", null,
+        "https://brave.com/search/api/",
     ),
     // AiProvider.OPENAI_COMPATIBLE has no fixed endpoint: the address is typed
     // by the user, so the only honest attribution is that whatever they point

@@ -99,6 +99,7 @@ import com.wasimaster.wmkeyboard.core.tools.AiActionCodec
 import com.wasimaster.wmkeyboard.core.tools.AiActionSpec
 import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
+import com.wasimaster.wmkeyboard.core.settings.sync.SyncStatistics
 import com.wasimaster.wmkeyboard.core.tools.TypingStats
 import com.wasimaster.wmkeyboard.core.tools.mergeLegacyAiPrompts
 import com.wasimaster.wmkeyboard.core.tools.DefaultToolLetters
@@ -566,6 +567,13 @@ enum class AiProvider(@StringRes val labelRes: Int) {
     DEEPSEEK(R.string.core_settings_ai_provider_deepseek_label),
 
     /**
+     * Brave's Answers API: every answer is grounded in a web search it runs
+     * first. One fixed model, and it takes a single message, so the client
+     * folds the instructions and any chat history into it.
+     */
+    BRAVE(R.string.core_settings_ai_provider_brave_label),
+
+    /**
      * Any other server that speaks the OpenAI chat-completions shape: the user
      * gives the address, the model and (if the service wants one) a key. This
      * is what covers OpenRouter, Groq, Together, Mistral and the rest without a
@@ -582,7 +590,7 @@ enum class AiProvider(@StringRes val labelRes: Int) {
          * appended and would land after ON_DEVICE.
          */
         val displayOrder: List<AiProvider> = listOf(
-            ANTHROPIC, OPENAI, GEMINI, XAI, DEEPSEEK,
+            ANTHROPIC, OPENAI, GEMINI, XAI, DEEPSEEK, BRAVE,
             OLLAMA, LM_STUDIO, OPENAI_COMPATIBLE, ON_DEVICE,
         )
     }
@@ -670,7 +678,31 @@ data class TranslateSettings(
     val onlyDownloaded: Boolean = true,
     /** DeepL, the user's own opt-in service (see [DeepLSettings]). Issue #331. */
     val deepl: DeepLSettings = DeepLSettings(),
+    /** A translation server the user runs (see [TranslateServerSettings]). Issue #435. */
+    val server: TranslateServerSettings = TranslateServerSettings(),
 )
+
+/**
+ * A server the user runs, or a service they pay for, that answers OpenAI's
+ * chat-completions requests: llama.cpp's llama-server, Ollama, LM Studio,
+ * vLLM, LocalAI, a gateway (issue #435). The online engine sends each
+ * translation there as a chat with a translating instruction, in place of
+ * DeepL, Google or LibreTranslate. Blank [url] leaves everything as it was.
+ */
+data class TranslateServerSettings(
+    /**
+     * The server's address, as pasted: a bare `host:port`, the API root
+     * (`…/v1`) or the whole `…/chat/completions` path.
+     */
+    val url: String = "",
+    /** The model to ask for. Blank sends none, for a server that runs one model. */
+    val model: String = "",
+    /** Sent as a bearer token when set. A server on the user's own network often wants none. */
+    val apiKey: String = "",
+) {
+    /** An address to reach: the one thing that turns the server on. */
+    val configured: Boolean get() = url.isNotBlank()
+}
 
 /**
  * How DeepL Write should rewrite the text. DeepL's `prefer_` values: a
@@ -2435,6 +2467,11 @@ data class WebSearchSettings(
      * means "use the built-in key" (which may itself be blank).
      */
     val braveApiKey: String = "",
+    /**
+     * The user's Tavily key (#439). There is no built-in one, so blank means
+     * Tavily is not used; set, it wins over Brave (see `ToolApiKeys.searchBackend`).
+     */
+    val tavilyApiKey: String = "",
     /** SafeSearch for the web and image search tools. */
     val safe: Boolean = true,
     /** Results per web/image search (the API caps a page at 10). */
@@ -3811,6 +3848,16 @@ data class AiSettings(
     val xaiModel: String = "",
     val deepSeekKey: String = "",
     val deepSeekModel: String = "",
+    /** Key for Brave's Answers API. Blank = [braveSearchKey]. */
+    val braveKey: String = "",
+    /**
+     * The key the user gave the web search tool, read here so the AI client
+     * can fall back to it without the whole settings object. Never written
+     * through this class: its preference belongs to [WebSearchSettings]. The
+     * key baked into a build is deliberately not included, since it pays for
+     * searches, not for answers.
+     */
+    val braveSearchKey: String = "",
     /**
      * Address of any other OpenAI-compatible service, up to and including the
      * version segment: the client adds `/chat/completions`. The key is optional,
@@ -5273,6 +5320,20 @@ val ClipGridColumnsRange = 1..4
 val ClipMaxTextCharsSteps = listOf(0, 1_000, 2_000, 5_000, 10_000, 20_000, 50_000, 100_000)
 
 /**
+ * The stops of the history's entry cap; 0, the last stop, is no cap at all
+ * (#414). Stops rather than every number for the reason
+ * [ClipMaxTextCharsSteps] has them.
+ */
+val ClipMaxItemsSteps = listOf(5, 10, 20, 50, 100, 200, 500, 1_000, 2_000, 5_000, 0)
+
+/**
+ * How much taller than the keyboard the clipboard panel may be set, in dp
+ * (#414). The panel is fitted to the screen on top of this, so the top of the
+ * range is only reached on a tall one.
+ */
+val ClipPanelExtraHeightRange = 0..600
+
+/**
  * Clipboard-tool settings — history capture, the panel, and the paste chip on
  * the suggestion strip — grouped into their own object (see [CameraSettings]
  * for why). DataStore keys stay flat.
@@ -5296,7 +5357,8 @@ data class ClipboardSettings(
      * How many unpinned entries history keeps; older ones fall off the end.
      * The other half of the bound [expiryHours] sets — a busy day of copying
      * can pile up hundreds of clips well inside the expiry window, and a panel
-     * that long is not history, it is a haystack.
+     * that long is not history, it is a haystack. 0 keeps every clip, leaving
+     * the expiry as the only bound (#414). See [ClipMaxItemsSteps].
      */
     val maxItems: Int = ClipboardStore.DEFAULT_MAX_ITEMS,
     /**
@@ -5448,6 +5510,19 @@ data class ClipboardSettings(
      * default.
      */
     val outlinePinned: Boolean = false,
+    /**
+     * The pin and delete buttons along the bottom of every clip (#414). Off,
+     * the hold popup carries Pin and Delete instead, and a card whose bottom
+     * row has nothing else to show (no number, time or rich-text tag) loses
+     * the row, so more clips fit. On by default.
+     */
+    val cardButtons: Boolean = true,
+    /**
+     * How much taller than the keyboard the clipboard panel opens, in dp
+     * (#414), set by dragging the bar on top of the panel. 0, the default, is
+     * the keyboard's own height. See [ClipPanelExtraHeightRange].
+     */
+    val panelExtraHeightDp: Int = 0,
 )
 
 /**
@@ -5610,6 +5685,20 @@ data class EmojiSettings(
      * replayed move list does.
      */
     val categoryEmojiOrder: Map<String, List<String>> = emptyMap(),
+    /**
+     * Where the emoji, GIF and sticker panels draw the switch between the
+     * three (issue #366). On in the bottom row by default, the place most
+     * keyboards put it. It reaches the shipped emoji panel and the GIF and
+     * sticker panels; an emoji panel the user laid out draws the switch
+     * wherever its own layout puts one.
+     */
+    val mediaSwitcher: MediaSwitcher = MediaSwitcher.BOTTOM,
+    /**
+     * The emoji key, and the emoji tool, open whichever of emoji, GIFs and
+     * stickers was open last, so the three behave as one panel (issue #366).
+     * Off by default: the emoji key opens emoji.
+     */
+    val rememberMediaTab: Boolean = false,
 )
 
 /** Bounds for [EmojiSettings.barCount]; the settings slider shares them. */
@@ -7096,6 +7185,22 @@ data class SuggestionStripSettings(
      */
     val phoneticStripSources: Map<String, PhoneticStripSource> = emptyMap(),
     /**
+     * Whether Bengali may be written as "ANSI", the pre-Unicode encoding of
+     * Bijoy and the SutonnyMJ fonts (আ as `Av`), for fields that are set in
+     * one of those fonts. Allowing it only puts the ANSI button on the strip
+     * of every Bengali layout; the button is what turns it on
+     * ([bengaliAnsiOn]). Off by default: ANSI text is unreadable in any other
+     * font. On Bengali's own screen.
+     */
+    val bengaliAnsiAllowed: Boolean = false,
+    /** Whether the Bengali layouts write ANSI right now: the strip button's state. */
+    val bengaliAnsiOn: Boolean = false,
+    /**
+     * Which ANSI encoding to write, 1 to 3, as the converters number them.
+     * Each matches a different family of fonts; 2 is the common one.
+     */
+    val bengaliAnsiVersion: Int = 2,
+    /**
      * Which optional items the held-word menu shows (#99). An item missing
      * from the set is never drawn; "Edit" is drawn regardless. All three by
      * default: the menu is contextual (add only while typing an unlearned
@@ -7142,6 +7247,9 @@ data class SuggestionStripSettings(
 
     /** Whether [langId]'s phonetic layout commits English words as English; null is no phonetic layout. */
     fun phoneticEnglishFor(langId: String?): Boolean = langId != null && langId in phoneticEnglishLangs
+
+    /** Whether a layout of [langId] writes ANSI now: allowed, switched on, and Bengali. */
+    fun bengaliAnsiFor(langId: String?): Boolean = langId == "bn" && bengaliAnsiAllowed && bengaliAnsiOn
 
     /** What fills [langId]'s fixed phonetic strip after its two chips. */
     fun phoneticStripSourceFor(langId: String): PhoneticStripSource =
@@ -7595,6 +7703,9 @@ class SettingsRepository(private val context: Context) {
         private val PHONETIC_ENGLISH_LANGS = stringSetPreferencesKey("phonetic_english_langs")
         private val PHONETIC_ENGLISH_SWITCH = booleanPreferencesKey("phonetic_english_switch")
         private val PHONETIC_FIXED_STRIP_LANGS = stringSetPreferencesKey("phonetic_fixed_strip_langs")
+        private val BENGALI_ANSI_ALLOWED = booleanPreferencesKey("bengali_ansi_allowed")
+        private val BENGALI_ANSI_ON = booleanPreferencesKey("bengali_ansi_on")
+        private val BENGALI_ANSI_VERSION = intPreferencesKey("bengali_ansi_version")
 
         /** `langId=SOURCE` entries, one per language that has picked one. */
         private val PHONETIC_STRIP_SOURCES = stringSetPreferencesKey("phonetic_strip_sources")
@@ -7961,6 +8072,8 @@ class SettingsRepository(private val context: Context) {
         private val CLIPBOARD_CLEAR_BUTTON = booleanPreferencesKey("clipboard_clear_button")
         private val CLIPBOARD_PINNED_TABS = booleanPreferencesKey("clipboard_pinned_tabs")
         private val CLIPBOARD_OUTLINE_PINNED = booleanPreferencesKey("clipboard_outline_pinned")
+        private val CLIPBOARD_CARD_BUTTONS = booleanPreferencesKey("clipboard_card_buttons")
+        private val CLIPBOARD_PANEL_EXTRA_HEIGHT_DP = intPreferencesKey("clipboard_panel_extra_height_dp")
         private val OTP_CHIP_ENABLED = booleanPreferencesKey("otp_chip_enabled")
         // Stored under its old name: the test behind it grew from "number
         // field" to "code box", but a user who turned it on meant the same
@@ -8108,6 +8221,8 @@ class SettingsRepository(private val context: Context) {
         // stay glued. JSON is the encoding already trusted with layout specs.
         private val EMOJI_CATEGORY_EMOJI_ORDER =
             stringPreferencesKey("emoji_category_emoji_order")
+        private val EMOJI_MEDIA_SWITCHER = stringPreferencesKey("emoji_media_switcher")
+        private val EMOJI_REMEMBER_MEDIA_TAB = booleanPreferencesKey("emoji_remember_media_tab")
         private val EMOJI_AUTO_DOWNLOAD_KEYWORDS =
             booleanPreferencesKey("emoji_auto_download_keywords")
         // Stored as the DISABLED set so tools added in future versions
@@ -8320,6 +8435,9 @@ class SettingsRepository(private val context: Context) {
         private val DEEPL_TRANSLATE = booleanPreferencesKey("deepl_translate")
         private val DEEPL_WRITE = booleanPreferencesKey("deepl_write")
         private val DEEPL_WRITE_STYLE = stringPreferencesKey("deepl_write_style")
+        private val TRANSLATE_SERVER_URL = stringPreferencesKey("translate_server_url")
+        private val TRANSLATE_SERVER_MODEL = stringPreferencesKey("translate_server_model")
+        private val TRANSLATE_SERVER_KEY = stringPreferencesKey("translate_server_key")
         private val GRAMMAR_DIALECT = stringPreferencesKey("grammar_dialect")
         private val GRAMMAR_HIDDEN_KINDS = stringSetPreferencesKey("grammar_hidden_kinds")
         private val SPELL_CHECKER_NO_SUGGESTIONS =
@@ -8327,6 +8445,7 @@ class SettingsRepository(private val context: Context) {
         private val TRANSLATE_API_KEY = stringPreferencesKey("translate_api_key")
         private val KLIPY_API_KEY = stringPreferencesKey("klipy_api_key")
         private val BRAVE_API_KEY = stringPreferencesKey("brave_api_key")
+        private val TAVILY_API_KEY = stringPreferencesKey("tavily_api_key")
         private val GIPHY_API_KEY = stringPreferencesKey("giphy_api_key")
         private val GIF_SOURCE_MODE = stringPreferencesKey("gif_source_mode")
         private val GIF_CONTENT_FILTER = stringPreferencesKey("gif_content_filter")
@@ -8480,6 +8599,7 @@ class SettingsRepository(private val context: Context) {
         private val AI_XAI_MODEL = stringPreferencesKey("ai_xai_model")
         private val AI_DEEPSEEK_KEY = stringPreferencesKey("ai_deepseek_key")
         private val AI_DEEPSEEK_MODEL = stringPreferencesKey("ai_deepseek_model")
+        private val AI_BRAVE_KEY = stringPreferencesKey("ai_brave_key")
         private val AI_COMPATIBLE_URL = stringPreferencesKey("ai_compatible_url")
         private val AI_COMPATIBLE_KEY = stringPreferencesKey("ai_compatible_key")
         private val AI_COMPATIBLE_MODEL = stringPreferencesKey("ai_compatible_model")
@@ -9399,6 +9519,9 @@ class SettingsRepository(private val context: Context) {
             clearButton = p[CLIPBOARD_CLEAR_BUTTON] ?: defaults.clipboard.clearButton,
             pinnedTabs = p[CLIPBOARD_PINNED_TABS] ?: defaults.clipboard.pinnedTabs,
             outlinePinned = p[CLIPBOARD_OUTLINE_PINNED] ?: defaults.clipboard.outlinePinned,
+            cardButtons = p[CLIPBOARD_CARD_BUTTONS] ?: defaults.clipboard.cardButtons,
+            panelExtraHeightDp = p[CLIPBOARD_PANEL_EXTRA_HEIGHT_DP]?.coerceIn(ClipPanelExtraHeightRange)
+                ?: defaults.clipboard.panelExtraHeightDp,
         )
 
     private fun readOtp(p: Preferences, defaults: KeyboardSettings) =
@@ -9577,6 +9700,9 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.suggestionStrip.phoneticEnglishSwitch,
             phoneticFixedStripLangs = p[PHONETIC_FIXED_STRIP_LANGS]
                 ?: defaults.suggestionStrip.phoneticFixedStripLangs,
+            bengaliAnsiAllowed = p[BENGALI_ANSI_ALLOWED] ?: defaults.suggestionStrip.bengaliAnsiAllowed,
+            bengaliAnsiOn = p[BENGALI_ANSI_ON] ?: defaults.suggestionStrip.bengaliAnsiOn,
+            bengaliAnsiVersion = p[BENGALI_ANSI_VERSION] ?: defaults.suggestionStrip.bengaliAnsiVersion,
             // A source name this build does not know is dropped, and the
             // language falls back to the default.
             phoneticStripSources = p[PHONETIC_STRIP_SOURCES]
@@ -9843,6 +9969,10 @@ class SettingsRepository(private val context: Context) {
             hiddenCategories = p[EMOJI_HIDDEN_CATEGORIES] ?: defaults.emoji.hiddenCategories,
             categoryEmojiOrder = decodeEmojiOrder(p[EMOJI_CATEGORY_EMOJI_ORDER])
                 .ifEmpty { defaults.emoji.categoryEmojiOrder },
+            mediaSwitcher = p[EMOJI_MEDIA_SWITCHER]
+                ?.let { runCatching { MediaSwitcher.valueOf(it) }.getOrNull() }
+                ?: defaults.emoji.mediaSwitcher,
+            rememberMediaTab = p[EMOJI_REMEMBER_MEDIA_TAB] ?: defaults.emoji.rememberMediaTab,
         )
 
     private fun readToolbox(p: Preferences, defaults: KeyboardSettings) =
@@ -10151,6 +10281,11 @@ class SettingsRepository(private val context: Context) {
                     ?.let { name -> DeepLWriteStyle.entries.firstOrNull { it.name == name } }
                     ?: defaults.translate.deepl.writeStyle,
             ),
+            server = TranslateServerSettings(
+                url = p[TRANSLATE_SERVER_URL] ?: defaults.translate.server.url,
+                model = p[TRANSLATE_SERVER_MODEL] ?: defaults.translate.server.model,
+                apiKey = p[TRANSLATE_SERVER_KEY] ?: defaults.translate.server.apiKey,
+            ),
         )
 
     private fun readGrammarHiddenKinds(p: Preferences, defaults: KeyboardSettings) =
@@ -10163,6 +10298,7 @@ class SettingsRepository(private val context: Context) {
     private fun readWebSearch(p: Preferences, defaults: KeyboardSettings) =
         WebSearchSettings(
             braveApiKey = p[BRAVE_API_KEY] ?: defaults.webSearch.braveApiKey,
+            tavilyApiKey = p[TAVILY_API_KEY] ?: defaults.webSearch.tavilyApiKey,
             safe = p[SEARCH_SAFE] ?: defaults.webSearch.safe,
             resultCount = p[SEARCH_RESULT_COUNT] ?: defaults.webSearch.resultCount,
             wikiLanguage = p[WIKI_LANGUAGE] ?: defaults.webSearch.wikiLanguage,
@@ -10268,6 +10404,8 @@ class SettingsRepository(private val context: Context) {
             xaiModel = p[AI_XAI_MODEL] ?: defaults.ai.xaiModel,
             deepSeekKey = p[AI_DEEPSEEK_KEY] ?: defaults.ai.deepSeekKey,
             deepSeekModel = p[AI_DEEPSEEK_MODEL] ?: defaults.ai.deepSeekModel,
+            braveKey = p[AI_BRAVE_KEY] ?: defaults.ai.braveKey,
+            braveSearchKey = p[BRAVE_API_KEY].orEmpty(),
             compatibleUrl = p[AI_COMPATIBLE_URL] ?: defaults.ai.compatibleUrl,
             compatibleKey = p[AI_COMPATIBLE_KEY] ?: defaults.ai.compatibleKey,
             compatibleModel = p[AI_COMPATIBLE_MODEL] ?: defaults.ai.compatibleModel,
@@ -12673,6 +12811,52 @@ class SettingsRepository(private val context: Context) {
         writeStore(path, JsonObject(local + ("items" to JsonArray(incoming + stays))))
     }
 
+    private fun ownStatistics(): JsonObject? = readStore(TypingStats.FILE_PATH) as? JsonObject
+
+    private fun otherStatistics(): JsonObject? = readStore(TypingStats.DEVICES_FILE_PATH) as? JsonObject
+
+    /** Replaces the other devices' counts; none left removes the file. */
+    private fun writeOtherStatistics(others: JsonObject): Boolean =
+        if (others.isEmpty()) {
+            val file = storeFile(TypingStats.DEVICES_FILE_PATH)
+            !file.exists() || file.delete()
+        } else {
+            writeStore(TypingStats.DEVICES_FILE_PATH, others)
+        }
+
+    /** The typing statistics as sync carries them, one entry per device; see [SyncStatistics]. */
+    fun statisticsByDevice(me: String): JsonObject =
+        SyncStatistics.byDevice(ownStatistics(), otherStatistics(), me)
+
+    /**
+     * Writes the other devices' counts a sync pass agreed on. This device's
+     * own are never taken from elsewhere, since the keyboard is still adding
+     * to them; the one exception is Delete all statistics pressed on another
+     * device, which clears them here too. [hadOwn]: see [SyncStatistics.received].
+     */
+    suspend fun applySyncedStatistics(byDevice: JsonObject, me: String, hadOwn: Boolean) {
+        val received = SyncStatistics.received(byDevice, me, hadOwn)
+        writeOtherStatistics(received.others)
+        if (received.clearOwn) {
+            storeFile(TypingStats.FILE_PATH).delete()
+            bumpStatsVersion()
+        }
+    }
+
+    /**
+     * Moves the counts this device held while it synced one shared total
+     * aside, once, the first time it syncs them per device: see
+     * [SyncStatistics.retire]. The keyboard starts this device's own counts
+     * again from zero, and the total the screen shows stays what it was.
+     */
+    suspend fun retireSharedStatistics() {
+        val others = SyncStatistics.retire(ownStatistics(), otherStatistics()) ?: return
+        if (writeOtherStatistics(others)) {
+            storeFile(TypingStats.FILE_PATH).delete()
+            bumpStatsVersion()
+        }
+    }
+
     /** Relative path of the sticker manifest, the one file that isn't binary. */
     private val stickerManifestPath =
         "${StickerPackStore.DIR_NAME}/packs.json"
@@ -13151,7 +13335,8 @@ class SettingsRepository(private val context: Context) {
             readStore("learning/emoji_usage.json")?.let { out[ConfigBackup.Section.EMOJI] = it }
         }
         if (ConfigBackup.Section.STATISTICS in sections) {
-            readStore(TypingStats.FILE_PATH)?.let { out[ConfigBackup.Section.STATISTICS] = it }
+            SyncStatistics.backup(ownStatistics(), otherStatistics(), BackupInstall.id(context))
+                ?.let { out[ConfigBackup.Section.STATISTICS] = it }
         }
         if (ConfigBackup.Section.VOCAB in sections) {
             vocabSection()?.let { out[ConfigBackup.Section.VOCAB] = it }
@@ -13310,12 +13495,14 @@ class SettingsRepository(private val context: Context) {
             }
         }
         (parsed.sections[ConfigBackup.Section.STATISTICS] as? JsonObject)?.let { obj ->
-            if (writeStore(TypingStats.FILE_PATH, obj)) {
+            val counts = SyncStatistics.restore(obj, BackupInstall.id(context), otherStatistics())
+            val ownWritten = counts.own?.let { writeStore(TypingStats.FILE_PATH, it) }
+            if (ownWritten != false && writeOtherStatistics(counts.others)) {
                 restored.add(ConfigBackup.Section.STATISTICS)
-                // The keyboard holds the counters in memory; without this it
-                // saves its own numbers over the ones just restored.
-                bumpStatsVersion()
             }
+            // The keyboard holds the counters in memory; without this it
+            // saves its own numbers over the ones just restored.
+            if (ownWritten == true) bumpStatsVersion()
         }
 
         (parsed.sections[ConfigBackup.Section.VOCAB] as? JsonObject)?.let { obj ->
@@ -13375,6 +13562,14 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setSendEmojiAsSticker(value: Boolean) =
         editPrefs { it[EMOJI_SEND_AS_STICKER] = value }
+
+    /** See [EmojiSettings.mediaSwitcher]. */
+    suspend fun setEmojiMediaSwitcher(value: MediaSwitcher) =
+        editPrefs { it[EMOJI_MEDIA_SWITCHER] = value.name }
+
+    /** See [EmojiSettings.rememberMediaTab]. */
+    suspend fun setEmojiRememberMediaTab(value: Boolean) =
+        editPrefs { it[EMOJI_REMEMBER_MEDIA_TAB] = value }
 
     /**
      * Rewrites the category tab order; see [EmojiSettings.categoryOrder]. The
@@ -13784,6 +13979,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setPhoneticEnglishSwitch(value: Boolean) =
         editPrefs { it[PHONETIC_ENGLISH_SWITCH] = value }
+
+    suspend fun setBengaliAnsiAllowed(value: Boolean) =
+        editPrefs { it[BENGALI_ANSI_ALLOWED] = value }
+
+    suspend fun setBengaliAnsiOn(value: Boolean) =
+        editPrefs { it[BENGALI_ANSI_ON] = value }
+
+    suspend fun setBengaliAnsiVersion(value: Int) =
+        editPrefs { it[BENGALI_ANSI_VERSION] = value }
 
     suspend fun setPhoneticFixedStrip(langId: String, enabled: Boolean) =
         editPrefs {
@@ -14928,8 +15132,11 @@ class SettingsRepository(private val context: Context) {
         editPrefs { it[CLIPBOARD_EXPIRY_HOURS] = value.coerceIn(0, 24 * 7) }
 
     /** Floor of 5: a cap below that turns history into a one-clip buffer. */
+    /** 0 (or less) is no cap (#414); anything else is held to the slider's stops. */
     suspend fun setClipboardMaxItems(value: Int) =
-        editPrefs { it[CLIPBOARD_MAX_ITEMS] = value.coerceIn(5, 500) }
+        editPrefs {
+            it[CLIPBOARD_MAX_ITEMS] = if (value <= 0) 0 else value.coerceIn(5, ClipMaxItemsSteps.max())
+        }
 
     suspend fun setClipboardSensitiveHandling(value: SensitiveClipHandling) =
         editPrefs { it[CLIPBOARD_SENSITIVE_HANDLING] = value.name }
@@ -15055,6 +15262,12 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setClipboardOutlinePinned(value: Boolean) =
         editPrefs { it[CLIPBOARD_OUTLINE_PINNED] = value }
+
+    suspend fun setClipboardCardButtons(value: Boolean) =
+        editPrefs { it[CLIPBOARD_CARD_BUTTONS] = value }
+
+    suspend fun setClipboardPanelExtraHeightDp(value: Int) =
+        editPrefs { it[CLIPBOARD_PANEL_EXTRA_HEIGHT_DP] = value.coerceIn(ClipPanelExtraHeightRange) }
 
     suspend fun setOtpChipEnabled(value: Boolean) =
         editPrefs { it[OTP_CHIP_ENABLED] = value }
@@ -15545,6 +15758,15 @@ class SettingsRepository(private val context: Context) {
     suspend fun setDeepLWriteStyle(value: DeepLWriteStyle) =
         editPrefs { it[DEEPL_WRITE_STYLE] = value.name }
 
+    suspend fun setTranslateServerUrl(value: String) =
+        editPrefs { it[TRANSLATE_SERVER_URL] = value.trim() }
+
+    suspend fun setTranslateServerModel(value: String) =
+        editPrefs { it[TRANSLATE_SERVER_MODEL] = value.trim() }
+
+    suspend fun setTranslateServerKey(value: String) =
+        editPrefs { it[TRANSLATE_SERVER_KEY] = value.trim() }
+
     suspend fun setGrammarDialect(value: GrammarDialect) =
         editPrefs { it[GRAMMAR_DIALECT] = value.name }
 
@@ -15578,6 +15800,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setBraveApiKey(value: String) =
         editPrefs { it[BRAVE_API_KEY] = value.trim() }
+
+    suspend fun setTavilyApiKey(value: String) =
+        editPrefs { it[TAVILY_API_KEY] = value.trim() }
 
     suspend fun setGiphyApiKey(value: String) =
         editPrefs { it[GIPHY_API_KEY] = value.trim() }
@@ -16101,6 +16326,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setAiDeepSeekModel(value: String) =
         editPrefs { it[AI_DEEPSEEK_MODEL] = value.trim() }
+
+    suspend fun setAiBraveKey(value: String) =
+        editPrefs { it[AI_BRAVE_KEY] = value.trim() }
 
     suspend fun setAiCompatibleUrl(value: String) =
         editPrefs { it[AI_COMPATIBLE_URL] = value.trim().trimEnd('/') }

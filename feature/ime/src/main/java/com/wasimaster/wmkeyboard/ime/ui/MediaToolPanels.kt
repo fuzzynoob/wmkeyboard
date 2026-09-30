@@ -70,6 +70,7 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -89,12 +90,14 @@ import coil3.gif.GifDecoder
 import coil3.memory.MemoryCache
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.settings.GifSourceMode
+import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.GifSources
 import com.wasimaster.wmkeyboard.core.tools.MediaCategory
+import com.wasimaster.wmkeyboard.core.tools.SearchBackend
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import com.wasimaster.wmkeyboard.core.tools.ImageResult
@@ -142,11 +145,13 @@ internal fun showMediaCategories(
     /** Passed in rather than read off [state]: the state's own getter needs a
      *  framework call, and this rule is worth having under a plain JVM test. */
     acceptsRichMedia: Boolean,
+    /** Height a row under the grid takes from the panel: the switch's row (#366). */
+    reserved: Dp = 0.dp,
 ): Boolean {
     if (state.mediaCategories.isEmpty()) return false
     if (state.mediaSearchActive || localGrid || !acceptsRichMedia) return false
     if (state.mediaQuery.isNotBlank() && state.mediaCategory == null) return false
-    return fullBleed || keyRowsHeight(state) >= MediaCategoryMinPanelHeight
+    return fullBleed || keyRowsHeight(state) - reserved >= MediaCategoryMinPanelHeight
 }
 
 /**
@@ -174,10 +179,41 @@ internal fun SearchQueryText(
 ) {
     val handle = LocalCaptureCaret.current
     val caret = if (active) handle.at.coerceIn(0, query.length) else -1
-    Row(modifier = modifier, verticalAlignment = Alignment.CenterVertically) {
+    // Empty field: no text to press on, so the whole box takes the long press
+    // that offers Paste at the caret (#434). Otherwise the one-line text
+    // below does, where the press can also land on a word.
+    val emptyActive = caret >= 0 && query.isEmpty()
+    val overlay = LocalSelectionOverlay.current
+    val owner = remember { SelectionAnchor() }
+    var caretBar by remember(query, active) { mutableStateOf(false) }
+    Row(
+        modifier = if (emptyActive) {
+            modifier
+                .onGloballyPositioned {
+                    owner.coordinates = it
+                    overlay?.moved(owner)
+                }
+                .pointerInput(query, active) {
+                    detectTapGestures(onLongPress = { caretBar = true }, onTap = { caretBar = false })
+                }
+        } else {
+            modifier
+        },
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        PublishFieldSelection(
+            owner = owner,
+            text = "",
+            active = emptyActive,
+            handle = handle,
+            coordinates = { owner.coordinates },
+            layout = { null },
+            caretBar = caretBar,
+            onCaretBarDismiss = { caretBar = false },
+        )
         // Empty field: the caret sits in front of the placeholder, where the
         // first character will land. Nothing to scroll and nowhere to tap.
-        if (caret >= 0 && query.isEmpty()) {
+        if (emptyActive) {
             SearchCaret(textColor, fontSize, query)
             Spacer(Modifier.width(4.dp))
         }
@@ -232,14 +268,19 @@ private fun CaretQueryText(
     val active = caret >= 0
     val selecting = active && handle.hasSelection
     val latestHandle by androidx.compose.runtime.rememberUpdatedState(handle)
+    // Paste offered at the caret by a long press on no word (#434).
+    var caretBar by remember(query) { mutableStateOf(false) }
     Box(
         modifier = modifier
             .horizontalScroll(scroll)
             .pointerInput(query, active) {
                 if (!active) return@pointerInput
                 detectTapGestures(
-                    onLongPress = { position -> fieldLongPress(query, layout, position, latestHandle) },
+                    onLongPress = { position ->
+                        caretBar = !fieldLongPress(query, layout, position, latestHandle)
+                    },
                 ) { position ->
+                    caretBar = false
                     layout?.takeIf { it.layoutInput.text.text == query }?.let {
                         latestHandle.onCaretTap(it.getOffsetForPosition(position))
                     }
@@ -276,6 +317,8 @@ private fun CaretQueryText(
             handle = handle,
             coordinates = { owner.coordinates },
             layout = { layout?.takeIf { it.layoutInput.text.text == query } },
+            caretBar = caretBar,
+            onCaretBarDismiss = { caretBar = false },
         )
         // Only a layout of *this* text can say where the caret goes. `Text`
         // reports its layout during the layout phase, which runs after the
@@ -508,6 +551,9 @@ private fun MediaSearchBar(
     onQueryTap: () -> Unit,
     attribution: String? = null,
     focused: Boolean = false,
+    // Drawn after the box and its credit: the switch to the emoji and the
+    // other media panel, when it sits up here (issue #366).
+    trailing: (@Composable () -> Unit)? = null,
 ) {
     val kb = LocalKbTheme.current
     Row(
@@ -556,6 +602,10 @@ private fun MediaSearchBar(
                 fontSize = 9.sp,
                 modifier = Modifier.padding(start = 8.dp),
             )
+        }
+        if (trailing != null) {
+            Spacer(Modifier.width(8.dp))
+            trailing()
         }
     }
 }
@@ -700,6 +750,19 @@ private fun gifAttribution(state: KeyboardUiState, stickers: Boolean = false): S
 private fun gifSourcesFor(state: KeyboardUiState, stickers: Boolean): List<GifSource> =
     if (stickers) ToolApiKeys.stickerSources(state.settings) else ToolApiKeys.gifSources(state.settings)
 
+/**
+ * "via Brave" or "via Tavily" in the web and image search bars, for whichever
+ * service answers. Brave's terms ask for the credit. A SearXNG instance is the
+ * user's own server, so it gets none.
+ */
+@Composable
+internal fun searchAttribution(settings: KeyboardSettings): String? =
+    when (ToolApiKeys.searchBackend(settings)) {
+        SearchBackend.BRAVE -> stringResource(R.string.ime_search_attribution_brave)
+        SearchBackend.TAVILY -> stringResource(R.string.ime_search_attribution_tavily)
+        SearchBackend.SEARXNG, null -> null
+    }
+
 /** The GIF/sticker search box sized for a [FullBleedTool] header row. */
 @Composable
 internal fun RowScope.GifHeaderSearchBar(
@@ -734,6 +797,10 @@ internal fun RowScope.GifHeaderSearchBar(
  * @param onReport a result should be reported.
  * @param onDismissAction the open long-press action sheet should close.
  * @param onOpenRoute a settings route should open.
+ * @param switcher the switch to the emoji and the other media panel, drawn at
+ *   the end of the search bar (issue #366). Unused in [fullBleed], whose
+ *   header is the host's to fill.
+ * @param bottomBar the row under the grid that carries that switch instead.
  */
 @Composable
 internal fun GifPanel(
@@ -753,6 +820,8 @@ internal fun GifPanel(
     onReport: (GifItem) -> Unit = {},
     onDismissAction: () -> Unit = {},
     onOpenRoute: (String) -> Unit = {},
+    switcher: (@Composable () -> Unit)? = null,
+    bottomBar: (@Composable () -> Unit)? = null,
 ) {
     val ui = if (stickers) state.sticker else state.gif
     val tool = if (stickers) ToolbarTool.STICKER else ToolbarTool.GIF
@@ -787,6 +856,7 @@ internal fun GifPanel(
                     onQueryTap = onQueryTap,
                     attribution = gifAttribution(state, stickers),
                     focused = state.focusedIndex(FocusRegion.SEARCH) == 0,
+                    trailing = switcher,
                 )
             }
             if (chips.isNotEmpty() && !state.mediaSearchActive) {
@@ -823,7 +893,8 @@ internal fun GifPanel(
                     },
                 )
             }
-            if (showMediaCategories(state, localGrid, fullBleed, state.acceptsRichMedia)) {
+            val reserved = if (bottomBar != null) mediaBottomRowHeight(state) else 0.dp
+            if (showMediaCategories(state, localGrid, fullBleed, state.acceptsRichMedia, reserved)) {
                 // Trending first, so there is always a way back out of a
                 // category — and somewhere for the focus ring to sit when no
                 // category is on.
@@ -854,51 +925,60 @@ internal fun GifPanel(
             // Not while the search box is up — the panel is squeezed to a couple
             // of rows there, and the notice is waiting when the results land.
             if (unsupported && !state.mediaSearchActive) MediaUnsupportedNotice(stickers)
-            when (ui) {
-                MediaUi.NeedKey -> PanelNotice(
-                    if (stickers) {
-                        stringResource(R.string.ime_sticker_need_key_body)
-                    } else {
-                        stringResource(R.string.ime_gif_need_key_body)
-                    },
-                    actionLabel = stringResource(R.string.ime_open_settings_action),
-                    onAction = { onOpenToolSettings(tool) },
-                )
-                MediaUi.Loading -> PanelSpinner()
-                is MediaUi.Error -> PanelNotice(
-                    ui.message,
-                    actionLabel = stringResource(CommonR.string.common_retry),
-                    onAction = onRetry,
-                )
-                is MediaUi.Metered -> MeteredNotice(ui.canAllow, onRetry)
-                is MediaUi.Ready -> {
-                    if (ui.items.isEmpty()) {
-                        LocalStickerEmptyNotice(
-                            localGrid = localGrid,
-                            state = state,
-                            query = ui.query,
-                            stickers = stickers,
-                            onOpenRoute = onOpenRoute,
-                        )
-                    } else {
-                        // Dimmed rather than removed when the field can't take
-                        // them: long-press (save, copy, report) still works, and
-                        // the user can see what they'd get in a field that
-                        // accepts it.
-                        Box(modifier = Modifier.alpha(if (unsupported) 0.45f else 1f)) {
-                            GifGrid(
-                                items = ui.items,
-                                downloadingId = state.mediaDownloadingId,
-                                progress = state.mediaDownloadProgress,
-                                onSelect = onSelect,
-                                onLongPress = onLongPress,
-                                panel = state.panel,
-                                focused = state.focusedIndex(),
+            // Weighted, so the row under it keeps its height and the results,
+            // the notices and the spinner fill what is left.
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            ) {
+                when (ui) {
+                    MediaUi.NeedKey -> PanelNotice(
+                        if (stickers) {
+                            stringResource(R.string.ime_sticker_need_key_body)
+                        } else {
+                            stringResource(R.string.ime_gif_need_key_body)
+                        },
+                        actionLabel = stringResource(R.string.ime_open_settings_action),
+                        onAction = { onOpenToolSettings(tool) },
+                    )
+                    MediaUi.Loading -> PanelSpinner()
+                    is MediaUi.Error -> PanelNotice(
+                        ui.message,
+                        actionLabel = stringResource(CommonR.string.common_retry),
+                        onAction = onRetry,
+                    )
+                    is MediaUi.Metered -> MeteredNotice(ui.canAllow, onRetry)
+                    is MediaUi.Ready -> {
+                        if (ui.items.isEmpty()) {
+                            LocalStickerEmptyNotice(
+                                localGrid = localGrid,
+                                state = state,
+                                query = ui.query,
+                                stickers = stickers,
+                                onOpenRoute = onOpenRoute,
                             )
+                        } else {
+                            // Dimmed rather than removed when the field can't take
+                            // them: long-press (save, copy, report) still works, and
+                            // the user can see what they'd get in a field that
+                            // accepts it.
+                            Box(modifier = Modifier.alpha(if (unsupported) 0.45f else 1f)) {
+                                GifGrid(
+                                    items = ui.items,
+                                    downloadingId = state.mediaDownloadingId,
+                                    progress = state.mediaDownloadProgress,
+                                    onSelect = onSelect,
+                                    onLongPress = onLongPress,
+                                    panel = state.panel,
+                                    focused = state.focusedIndex(),
+                                )
+                            }
                         }
                     }
                 }
             }
+            bottomBar?.invoke()
         }
         if (choosingAddPack) {
             StickerAddPackSheet(
