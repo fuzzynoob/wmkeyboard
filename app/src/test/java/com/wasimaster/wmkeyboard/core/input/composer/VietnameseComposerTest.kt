@@ -90,6 +90,53 @@ class VietnameseComposerTest {
     }
 
     @Test
+    fun telexZTakesTheToneBackOff() {
+        val c = VietnameseTelexComposer
+        // `z` is Telex's tone-removal key — bamboo's `XoaDauThanh`. It takes
+        // the tone off the word and types nothing of its own, so `toansz` is
+        // `toan` and the word can be toned again straight after it.
+        assertEquals("toan", c.composeBuffer("toansz"))
+        assertEquals("a", c.composeBuffer("asz"))
+        assertEquals("a", c.composeBuffer("afz"))
+        assertEquals("qua", c.composeBuffer("quarz"))
+        assertEquals("toán", c.composeBuffer("toanszs"))
+        assertEquals("dong", c.composeBuffer("dongsz"))
+        // The tone is all it takes. `â`, `ơ`, `ư` and `đ` are letters rather
+        // than tones, so they stay where they are.
+        assertEquals("nươc", c.composeBuffer("nuocswz"))
+        assertEquals("viêt", c.composeBuffer("vieejtz"))
+        assertEquals("tiêng", c.composeBuffer("tieengsz"))
+        assertEquals("đuong", c.composeBuffer("dduongsz"))
+        assertEquals("âz", c.composeBuffer("aaz"))
+    }
+
+    @Test
+    fun telexZWithNoToneToTakeIsTheLetter() {
+        val c = VietnameseTelexComposer
+        // A word with no tone has nothing to take, and then the key is the
+        // letter it is drawn as: `toanz` is `toanz`, `zz` is `zz`. Only the
+        // first `z` after a tone spends itself on the tone.
+        assertEquals("toanz", c.composeBuffer("toanz"))
+        assertEquals("toanz", c.composeBuffer("toanszz"))
+        assertEquals("điz", c.composeBuffer("ddiz"))
+        assertEquals("z", c.composeBuffer("z"))
+        assertEquals("zz", c.composeBuffer("zz"))
+        assertEquals("zzz", c.composeBuffer("zzz"))
+        // Typed on a word that carries a mark but no tone, it is a letter too.
+        assertEquals("êsz", c.composeBuffer("eessz"))
+    }
+
+    @Test
+    fun telexZKeepsTheCaseOfTheWordItClears() {
+        val c = VietnameseTelexComposer
+        // The key types nothing when it takes a tone, so the word keeps the
+        // case it had; typed as a letter it takes its own, like every key.
+        assertEquals("Toan", c.composeBuffer("Toansz"))
+        assertEquals("TOAN", c.composeBuffer("TOANSZ"))
+        assertEquals("toan", c.composeBuffer("toansZ"))
+    }
+
+    @Test
     fun telexCapitalization() {
         val c = VietnameseTelexComposer
         assertEquals("Việt", c.composeBuffer("Vieejt"))
@@ -319,6 +366,28 @@ class VietnameseComposerTest {
         assertEquals("ã", c.composeBuffer("a4"))
         assertEquals("ạ", c.composeBuffer("a5"))
         assertEquals("a", c.composeBuffer("a10")) // 0 clears tone
+    }
+
+    @Test
+    fun vniZeroWithNoToneIsTheDigit() {
+        val c = VietnameseVniComposer
+        // `0` is VNI's XoaDauThanh — the rule Telex spells with `z` — so it
+        // takes the tone off and types nothing of its own, and a word with no
+        // tone keeps its digit: `a0` is `a0`, `toan0` is `toan0`. Marks that
+        // are letters rather than tones stay where they are.
+        assertEquals("a0", c.composeBuffer("a0"))
+        assertEquals("toan0", c.composeBuffer("toan0"))
+        assertEquals("toans0", c.composeBuffer("toans0"))
+        assertEquals("banana0", c.composeBuffer("banana0"))
+        assertEquals("â0", c.composeBuffer("a60"))
+        assertEquals("ă0", c.composeBuffer("a80"))
+        assertEquals("ư0", c.composeBuffer("u70"))
+        assertEquals("đay0", c.composeBuffer("d9ay0"))
+        // A tone is what the digit is for, and taking one off keeps the marks.
+        assertEquals("a", c.composeBuffer("a10"))
+        assertEquals("toan", c.composeBuffer("toan10"))
+        assertEquals("chao", c.composeBuffer("chao10"))
+        assertEquals("viêt", c.composeBuffer("viet650"))
     }
 
     @Test

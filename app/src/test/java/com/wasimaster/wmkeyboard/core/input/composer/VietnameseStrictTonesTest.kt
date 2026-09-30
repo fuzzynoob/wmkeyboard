@@ -188,6 +188,23 @@ class VietnameseStrictTonesTest {
     }
 
     @Test
+    fun theToneRemovalKeyIsHeldToTheSameRule() {
+        strict {
+            val c = VietnameseTelexComposer
+            // `z` takes a tone off, and clearing a tone is not marking one, so
+            // the strict rule has nothing to say about the key itself: the word
+            // it leaves is passed to the rule like any other.
+            assertEquals("toan", c.composeBuffer("toansz"))
+            assertEquals("nươc", c.composeBuffer("nuocswz"))
+            // A `z` with no tone to take is the letter, and that letter makes
+            // the word one Vietnamese does not spell — so the whole buffer goes
+            // back to keys, the `z` included.
+            assertEquals("toanz", c.composeBuffer("toanz"))
+            assertEquals("aaz", c.composeBuffer("aaz"))
+        }
+    }
+
+    @Test
     fun theFlickRingIsHeldToTheSameRule() {
         strict {
             val c = VietnameseTelexComposer

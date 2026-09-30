@@ -10,9 +10,10 @@ import java.text.Normalizer
  * so no dictionary and no candidate list are involved.
  *
  * Telex spells the diacritics with letters (`as`→á, `aa`→â, `aw`→ă, `ow`→ơ,
- * `w`→ư, `dd`→đ, tones s/f/r/x/j); VNI spells them with digits (1..5 tones,
- * 6 circumflex, 7 horn, 8 breve, 9 đ, 0 clears the tone). The engine is shared;
- * only the keystroke→intent mapping differs.
+ * `w`→ư, `dd`→đ, tones s/f/r/x/j) and takes a tone back off with `z` (`toansz`
+ * → `toan`); VNI spells them with digits (1..5 tones, 6 circumflex, 7 horn,
+ * 8 breve, 9 đ, 0 clears the tone). The engine is shared; only the
+ * keystroke→intent mapping differs.
  *
  * The tone lands on the syllable's main vowel by the standard rule: a vowel that
  * already carries a mark (â ê ô ă ơ ư) wins; otherwise a single vowel takes it,
@@ -453,9 +454,16 @@ internal object VietnameseEngine {
                         )
                         continue
                     }
-                    // Clearing a tone is not marking one, so the strict rule has
-                    // nothing to say about it.
-                    '0' -> if (hasVowelCluster()) { tone = VTone.NONE; continue }
+                    // `0` is VNI's XoaDauThanh, the rule Telex spells with `z`:
+                    // the digit takes the tone off and types nothing of its own,
+                    // and the tone is all it takes — `viet650` is `viêt`, whose
+                    // `ê` is a letter. A word with no tone has nothing to take,
+                    // and then the key is the digit it is drawn as: `a0` is
+                    // `a0`, `toan0` is `toan0`, the way a digit that has no
+                    // vowel to tone is left alone two branches up. Clearing a
+                    // tone is not marking one, so the strict rule has nothing to
+                    // say about it either way.
+                    '0' -> if (tone != VTone.NONE) { tone = VTone.NONE; continue }
                     '6' -> { if (applyMark(letters, "aeo", VMark.CIRCUMFLEX)) continue }
                     '7' -> { if (applyMark(letters, "ou", VMark.HORN)) continue }
                     '8' -> { if (applyMark(letters, "a", VMark.BREVE)) continue }
@@ -487,6 +495,33 @@ internal object VietnameseEngine {
                     } else {
                         letters.add(VLetter(lc, VMark.NONE, upper))
                     }
+                }
+                'z' -> {
+                    // Telex's tone-removal key, bamboo's `XoaDauThanh`: it takes
+                    // the tone off the word and types nothing of its own —
+                    // `toansz` is `toan`, `nuocswz` is `nươc`. The tone is all
+                    // it takes: `â`, `ơ`, `ư` and `đ` are letters rather than
+                    // tones, so `aaz` keeps its circumflex and the key is typed
+                    // after it.
+                    //
+                    // A word with no tone has nothing to take, and then the key
+                    // is the letter it is drawn as: `toanz` is `toanz`, `zz` is
+                    // `zz`. That is what keeps `z` typable at all, and it is
+                    // what bamboo does with a key that finds no tone to take.
+                    //
+                    // The tone is the buffer's tone, wherever in the buffer it
+                    // landed, and that is the one place this differs from
+                    // bamboo: `afdz` is `ad` here and `àdz` there, the key
+                    // typed rather than spent because bamboo works on one
+                    // syllable at a time — `newComposition` keeps
+                    // `extractLastSyllable`, so a tone behind a tail it cannot
+                    // read is out of the key's reach and the key finds no tone
+                    // to take. Across the whole buffer is what every other key
+                    // in this engine reads, and the strict pass is no help
+                    // either: it hands a word back as its keys only while the
+                    // word still carries a mark, and this read leaves none.
+                    if (tone != VTone.NONE) tone = VTone.NONE
+                    else letters.add(VLetter(lc, VMark.NONE, upper))
                 }
                 'w' -> {
                     // Horn on a uo pair -> ươ (nuocsw -> nước, huowng -> hương),
