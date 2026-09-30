@@ -454,8 +454,19 @@ internal object VietnameseEngine {
                         } else {
                             val applied = applyMark(letters, "a", VMark.BREVE) ||
                                 applyMark(letters, "ou", VMark.HORN)
-                            // A bare w is ư, which is Telex as it is written.
-                            if (!applied) letters.add(VLetter('u', VMark.HORN, upper, synthesized = true))
+                            // A bare w is ư, which is Telex as it is written —
+                            // but only the first of a run. The w after it takes
+                            // that ư back and types the letter (above), and every
+                            // w after *that* is the letter too: holding the key
+                            // types a run of `w`s, rather than ư returning on
+                            // every second press and leaving `wư`, `ww`, `wư`…
+                            if (!applied) {
+                                if (letters.lastOrNull()?.base == 'w') {
+                                    letters.add(VLetter('w', VMark.NONE, upper))
+                                } else {
+                                    letters.add(VLetter('u', VMark.HORN, upper, synthesized = true))
+                                }
+                            }
                         }
                     }
                 }

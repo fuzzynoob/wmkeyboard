@@ -128,6 +128,46 @@ class VietnameseComposerTest {
     }
 
     @Test
+    fun telexRunOfWTypesWAfterTheFirst() {
+        val c = VietnameseTelexComposer
+        // A bare `w` is ư, and the `w` after it takes that back and types the
+        // letter. Every `w` after *that* is the letter too — holding the key
+        // down types a run of `w`s, one shorter than the presses, rather than
+        // ư coming back on every second key and leaving `wư`, `ww`, `wư`…
+        assertEquals("ư", c.composeBuffer("w"))
+        assertEquals("w", c.composeBuffer("ww"))
+        assertEquals("ww", c.composeBuffer("www"))
+        assertEquals("www", c.composeBuffer("wwww"))
+        assertEquals("wwww", c.composeBuffer("wwwww"))
+        assertEquals("wwwwwww", c.composeBuffer("wwwwwwww"))
+        assertEquals("wwwwwwww", c.composeBuffer("wwwwwwwww"))
+        // A `w` that horns a vowel is still that mark, whatever came before it.
+        assertEquals("ă", c.composeBuffer("aw"))
+        assertEquals("nước", c.composeBuffer("nuocsw"))
+    }
+
+    @Test
+    fun telexRunOfWReadsAsWUnderStrictTones() {
+        // The same run, with the strict rule on. `ww` carries no Vietnamese
+        // mark, so the strict pass leaves it alone — but `wư`, which the old
+        // rule produced on every odd press, does, and the strict pass would
+        // hand back the whole run of keys instead.
+        val was = VietnameseConfig.strictTones
+        VietnameseConfig.strictTones = true
+        try {
+            val c = VietnameseTelexComposer
+            assertEquals("ư", c.composeBuffer("w"))
+            assertEquals("w", c.composeBuffer("ww"))
+            assertEquals("ww", c.composeBuffer("www"))
+            assertEquals("www", c.composeBuffer("wwww"))
+            assertEquals("wwww", c.composeBuffer("wwwww"))
+            assertEquals("wwwwwww", c.composeBuffer("wwwwwwww"))
+        } finally {
+            VietnameseConfig.strictTones = was
+        }
+    }
+
+    @Test
     fun telexHornsBothVowelsOfUoOnlyWhenACodaFollows() {
         val c = VietnameseTelexComposer
         // A `uo` pair takes the horn on both letters when a coda follows — the
