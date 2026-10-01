@@ -77,6 +77,23 @@ internal object VietnameseEngine {
         VMark.STROKE -> if (base == 'd') 'đ' else base
     }
 
+    /**
+     * Whether the `u` at [uIdx] is the one a `qu` onset is spelled with rather
+     * than a letter of the nucleus — the glide [nucleus] sets aside.
+     *
+     * It is what keeps `quơ` (`qu` + `ơ`) out of the `ươ` business: `quơng`,
+     * `quơi` and `quời` horn the `o` alone, however the word ends.
+     *
+     * A `q` in front is the whole of the test — where a `qu` onset keeps its
+     * glide — and it is enough, `q` being an onset no other consonant may
+     * precede, so a `q` with a `u` behind it is one however far into the buffer
+     * it sits. The mark on that `u` is not read here: a `u` the user horned
+     * himself is a different letter from a glide, but telling the two apart is
+     * the caller's, which has the branch that wants it.
+     */
+    private fun isQuGlide(letters: List<VLetter>, uIdx: Int): Boolean =
+        uIdx > 0 && letters[uIdx - 1].base == 'q'
+
     /** The index of the tone-bearing vowel, or -1 if the syllable has no vowel. */
     private fun nucleus(letters: List<VLetter>): Int {
         val vowels = letters.indices.filter { isVowel(letters[it].base) }.toMutableList()
@@ -249,10 +266,12 @@ internal object VietnameseEngine {
      * one already behind the pair in the buffer, or the next one [raw] still
      * has to type after the `w` at [wIndex].
      *
-     * The pair takes the horn on both letters for `ươ` and on the `o` alone for
-     * `uơ`, and the coda is the only thing that tells them apart: `huow` is
-     * `huơ` while `huown` is `hươn`. A tone key is not a coda — `thuowr` is
-     * `thuở`, whose `u` stays plain — so the lookahead steps over
+     * A coda is what a `w` can see of the syllable still to come, and `huown` is
+     * `hươn` where `huow` is `huơ`. It is not the whole of the question, only
+     * the part answerable at the key: an onset the pair cannot follow (`nguow`)
+     * and a vowel after it (`huowif`) settle the same way, and both are read
+     * once the letters are all in — see [compose]. A tone key is not a coda —
+     * `thuowr` is `thuở`, whose `u` stays plain — so the lookahead steps over
      * [TONE_KEYS]; a `w` is not one either, which is what leaves `huoww` free
      * to horn the `u` on its second press.
      */
@@ -525,12 +544,16 @@ internal object VietnameseEngine {
                 }
                 'w' -> {
                     // Horn on a uo pair -> ươ (nuocsw -> nước, huowng -> hương),
-                    // but only once a coda says so: `huơ` and `hương` are the
-                    // same keys until the coda lands, and `huơ`, `quơ`, `thuở`
-                    // are words too. With no coda behind the pair and none
-                    // coming — nothing after the w but tone keys — the open
-                    // `uơ` is meant, so only the `o` is horned. Otherwise
-                    // horn/breve on the last a/o/u; a bare w types ư.
+                    // and the `o` takes it first: `huơ` and `hương` are the same
+                    // keys until the coda lands, and `huơ`, `quơ`, `thuở` are
+                    // words too. With no coda behind the pair and none coming —
+                    // nothing after the w but tone keys — the open `uơ` is
+                    // meant, so only the `o` is horned here and the `u` is left
+                    // for [compose] to decide on the finished letters, which is
+                    // where an onset the language will not spell `uơ` after
+                    // (`nguow`) and a vowel still to come (`huowif`) have their
+                    // say. Otherwise horn/breve on the last a/o/u; a bare w
+                    // types ư.
                     //
                     // A second w takes the mark back off *and* types the letter,
                     // which is what makes an English word survive the Telex
@@ -540,6 +563,14 @@ internal object VietnameseEngine {
                     val uIdx = letters.indexOfLast { it.base == 'u' }
                     val oIdx = letters.indexOfLast { it.base == 'o' }
                     if (uIdx != -1 && oIdx != -1 && oIdx == uIdx + 1) {
+                        // A `u` that is a `qu` glide ([isQuGlide]) is not a
+                        // letter of the pair's nucleus, so the pair has no `ươ`
+                        // in it to spell and the open reading holds whatever the
+                        // coda. A `u` already carrying a horn is a pair the user
+                        // spelled himself and is not this case at all: the
+                        // branches below ask for a bare `u` and send `quwow` to
+                        // the last one, which horns both.
+                        val glide = isQuGlide(letters, uIdx)
                         if (letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN) {
                             letters[uIdx].mark = VMark.NONE
                             letters[oIdx].mark = VMark.NONE
@@ -547,15 +578,23 @@ internal object VietnameseEngine {
                         } else if (letters[oIdx].mark == VMark.HORN) {
                             // The pair's first w horned the `o` alone, there
                             // being no coda in sight then; this one follows
-                            // through on the `u`.
-                            letters[uIdx].mark = VMark.HORN
+                            // through on the `u`. The glide takes no horn, so
+                            // there the first w simply comes back off: `quoww`
+                            // is `quow`.
+                            if (glide) {
+                                letters[oIdx].mark = VMark.NONE
+                                letters.add(VLetter('w', VMark.NONE, upper))
+                            } else {
+                                letters[uIdx].mark = VMark.HORN
+                            }
                         } else if (letters[uIdx].mark == VMark.NONE &&
-                            !codaFollows(letters, oIdx, raw, index)
+                            (glide || !codaFollows(letters, oIdx, raw, index))
                         ) {
                             // Nothing says `ươ` yet: the coda that would, is
                             // not there and is not coming, and the `u` was not
                             // horned by a key of its own. The open `uơ` is what
-                            // the keys spell.
+                            // the keys spell — and the glide is always this
+                            // case, a coda or not.
                             letters[oIdx].mark = VMark.HORN
                         } else {
                             letters[uIdx].mark = VMark.HORN
@@ -644,6 +683,53 @@ internal object VietnameseEngine {
                 else -> letters.add(VLetter(lc, VMark.NONE, upper))
             }
         }
+
+        // `uơ` or `ươ`: the horn goes on the `o` first, and the `u` only takes it
+        // too when the open reading is not one the language spells. `nguơ` is
+        // not — `uơ` is spelled after `c h k kh qu th` and nowhere else — so the
+        // pair in `nguowif` is `ươ` and the word is `người`, not `nguời`.
+        //
+        // Asked of the finished letters rather than at the `w`, because what
+        // condemns the open reading may be typed after the key: `huow` alone is
+        // `huơ`, and the `ng` in `huowng` is what makes that one `hương`. The
+        // `w` can only look ahead for a coda ([codaFollows]); an onset it has
+        // already seen it cannot weigh, and a vowel coming after it (`huowif`)
+        // it does not read as one.
+        //
+        // A `u` the user horned himself is left alone: `uwow` is `ươ` on
+        // purpose, and the tone — if the word is carrying one — says nothing
+        // about how the pair is spelled, so it is read off the letters bare.
+        // A `qu` glide is left alone too: it is the onset's, not the nucleus's,
+        // and a pair it leaves is `ơ` alone however little that spells —
+        // reading it as a hornable `u` is what would turn `quơu` into `qươu`.
+        val hornedO = letters.indexOfLast { it.base == 'o' && it.mark == VMark.HORN }
+        if (hornedO > 0 && letters[hornedO - 1].base == 'u' &&
+            letters[hornedO - 1].mark == VMark.NONE &&
+            !isQuGlide(letters, hornedO - 1) &&
+            !VietnameseOrthography.isSyllable(render(letters, VTone.NONE))
+        ) {
+            letters[hornedO - 1].mark = VMark.HORN
+        }
+
+        // The same pair the other way round. A `w` that horned the `u` before the
+        // `o` was typed leaves `ưo`, which is not a nucleus either — the horned
+        // pair is `ươ`, and `uwong`, `uwoc` and `uwoi` are `ương`, `ươc` and
+        // `ươi`. A letter after the pair is what says so, the way it is for the
+        // `uơ` above; with nothing after it the `ưo` stands (`uwo` is `ưo`),
+        // which is the one reading where the two letters are left as typed.
+        //
+        // No onset can refuse this one — `ưo` is `ươ` wherever it occurs — so
+        // there is nothing here to ask [VietnameseOrthography] about, only the
+        // `qu` glide, whose `u` is the onset's and whose pair is `ơ` alone.
+        val hornedU = letters.indexOfLast { it.base == 'u' && it.mark == VMark.HORN }
+        if (hornedU >= 0 && hornedU + 2 <= letters.lastIndex &&
+            letters[hornedU + 1].base == 'o' &&
+            letters[hornedU + 1].mark == VMark.NONE &&
+            !isQuGlide(letters, hornedU)
+        ) {
+            letters[hornedU + 1].mark = VMark.HORN
+        }
+
         return render(letters, tone) to tone
     }
 }

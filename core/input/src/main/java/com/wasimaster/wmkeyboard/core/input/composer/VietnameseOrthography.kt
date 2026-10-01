@@ -49,6 +49,18 @@ object VietnameseOrthography {
         "ya", "yê", "yêu",
     )
 
+    /**
+     * The onsets the open nucleus `uơ` may follow.
+     *
+     * It is the most restricted nucleus in the language, and the one place the
+     * flat lists above are not enough: the onset and the nucleus do not choose
+     * each other freely. `huơ`, `quơ` and `thuở` are written with a plain `u`,
+     * while `người`, `đường` and `hương` are `ươ` — `nguơ` is nothing at all.
+     * The empty string is in the list because `uơ` needs no onset to be
+     * well-shaped, which is what makes a bare `uow` the pair's open reading.
+     */
+    private val UO_ONSETS = hashSetOf("", "c", "h", "k", "kh", "qu", "th")
+
     /** Multi-letter onsets, longest first so `ngh` is not read as `ng`. */
     private val LONG_ONSETS = arrayOf("ngh", "ng", "nh", "ch", "gh", "kh", "ph", "th", "tr", "qu", "gi")
 
@@ -102,6 +114,10 @@ object VietnameseOrthography {
         if (onset !in ONSETS) return false
         if (coda !in CODAS) return false
         if (nucleus !in NUCLEI) return false
+        // `uơ` is the one nucleus an onset may refuse, and the one that takes no
+        // coda at all: `huơ` and `quơ` are syllables, `huơng` and `nguơ` are not
+        // — the first is `hương` and the second is not a word.
+        if (nucleus == "uơ" && (onset !in UO_ONSETS || coda.isNotEmpty())) return false
         // Sắc and nặng are the only tones a stop coda can carry.
         if (coda in STOP_CODAS && tone != null && tone != ACUTE && tone != DOT) return false
         return true

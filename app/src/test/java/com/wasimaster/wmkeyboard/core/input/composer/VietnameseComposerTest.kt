@@ -297,13 +297,15 @@ class VietnameseComposerTest {
     }
 
     @Test
-    fun telexHornsBothVowelsOfUoOnlyWhenACodaFollows() {
+    fun telexHornsBothVowelsOfUoWhenACodaFollows() {
         val c = VietnameseTelexComposer
         // A `uo` pair takes the horn on both letters when a coda follows — the
         // coda being what tells `hương` (h-ư-ơ-ng) from `huơ` (h-u-ơ), since
         // the two are the same two keys up to that point. With nothing coming
         // after, only the `o` is horned, which is the word `huơ`, `quơ`, `thuở`
-        // are spelled with.
+        // are spelled with. The coda is one half of the question, not the whole
+        // of it: an onset that will not spell `uơ` horns the `u` too, coda or
+        // none — see telexHornsTheUTooUnlessTheOnsetCanSpellTheOpenUo.
         assertEquals("huơ", c.composeBuffer("huow"))
         assertEquals("quơ", c.composeBuffer("quow"))
         assertEquals("thuở", c.composeBuffer("thuowr"))
@@ -325,6 +327,109 @@ class VietnameseComposerTest {
         assertEquals("dương", c.composeBuffer("duongw"))
         assertEquals("duongw", c.composeBuffer("duongww"))
         assertEquals("tương", c.composeBuffer("tuongw"))
+    }
+
+    @Test
+    fun telexHornsTheUTooUnlessTheOnsetCanSpellTheOpenUo() {
+        val c = VietnameseTelexComposer
+        // A coda is not the only thing that tells `ươ` from the open `uơ`: the
+        // onset is the other, and it is the one that decides `người`. `uơ` is
+        // spelled after `c h k kh qu th` and nowhere else — there is no `nguơ`
+        // — so the `u` takes the horn with the `o` however the syllable ends.
+        assertEquals("ngươ", c.composeBuffer("nguow"))
+        assertEquals("người", c.composeBuffer("nguowif"))
+        assertEquals("ngươi", c.composeBuffer("nguowi"))
+        assertEquals("ngương", c.composeBuffer("nguowng"))
+        assertEquals("ngườ", c.composeBuffer("nguowf"))
+        assertEquals("ngướ", c.composeBuffer("nguows"))
+        assertEquals("bướng", c.composeBuffer("buowngs"))
+        assertEquals("bười", c.composeBuffer("buowif"))
+        assertEquals("dương", c.composeBuffer("duowng"))
+        assertEquals("dường", c.composeBuffer("duowngf"))
+        assertEquals("cường", c.composeBuffer("cuowngf"))
+        assertEquals("xười", c.composeBuffer("xuowif"))
+        // A vowel after the pair condemns the open reading just as a coda does,
+        // and after an onset that *can* spell `uơ` as well: `huơ` is a word,
+        // `hươi` is not.
+        assertEquals("hười", c.composeBuffer("huowif"))
+        assertEquals("tười", c.composeBuffer("tuowif"))
+        assertEquals("hươu", c.composeBuffer("huowu"))
+        assertEquals("ười", c.composeBuffer("uowif"))
+        assertEquals("ường", c.composeBuffer("uowngf"))
+        // And the onsets that can keep it, keep it.
+        assertEquals("huơ", c.composeBuffer("huow"))
+        assertEquals("quơ", c.composeBuffer("quow"))
+        assertEquals("kuơ", c.composeBuffer("kuow"))
+        assertEquals("khuơ", c.composeBuffer("khuow"))
+        assertEquals("thuơ", c.composeBuffer("thuow"))
+        assertEquals("thuở", c.composeBuffer("thuowr"))
+        assertEquals("uơ", c.composeBuffer("uow"))
+        // `qu` is the one onset whose `u` is a glide rather than the nucleus:
+        // `quơ` is `qu` + `ơ`, and `ơ` takes any coda.
+        assertEquals("quơng", c.composeBuffer("quowng"))
+        assertEquals("quơi", c.composeBuffer("quowi"))
+        assertEquals("quời", c.composeBuffer("quowif"))
+        assertEquals("quow", c.composeBuffer("quoww"))
+    }
+
+    @Test
+    fun telexHornsTheOTooWhenTheUWasHornedBeforeIt() {
+        val c = VietnameseTelexComposer
+        // `ưo` is no nucleus either, and the same pair read the other way: a `w`
+        // pressed while the `u` stood alone horns it, and the `o` typed after it
+        // is the half still missing. A letter behind the pair is what says the
+        // two are one nucleus, exactly as it does for `uơ`.
+        assertEquals("ương", c.composeBuffer("uwong"))
+        assertEquals("ướng", c.composeBuffer("uwongs"))
+        assertEquals("ươc", c.composeBuffer("uwoc"))
+        assertEquals("ươi", c.composeBuffer("uwoi"))
+        assertEquals("ười", c.composeBuffer("uwoif"))
+        assertEquals("nươc", c.composeBuffer("nuwoc"))
+        assertEquals("nước", c.composeBuffer("nuwocs"))
+        assertEquals("hương", c.composeBuffer("huwong"))
+        assertEquals("tưới", c.composeBuffer("tuwois"))
+        // With nothing behind it, the `ưo` the keys spell stands: `ưo` is what
+        // the user's own two letters make, and nothing says they are one. What
+        // the tone does on that pair is `nucleus`'s business, not this one's.
+        assertEquals("ưo", c.composeBuffer("uwo"))
+        // The glide is not a `u` this rule horns; here a `w` of its own horned
+        // it, and the pair is `ươ` from then on.
+        assertEquals("qươ", c.composeBuffer("quwow"))
+    }
+
+    @Test
+    fun vniHornsTheOTooWhenTheUWasHornedBeforeIt() {
+        val c = VietnameseVniComposer
+        assertEquals("ương", c.composeBuffer("u7ong"))
+        assertEquals("ướng", c.composeBuffer("u7ong1"))
+        assertEquals("ươi", c.composeBuffer("u7oi"))
+        assertEquals("ười", c.composeBuffer("u7oi2"))
+        assertEquals("nươc", c.composeBuffer("nu7oc"))
+        assertEquals("hương", c.composeBuffer("hu7ong"))
+        assertEquals("ưo", c.composeBuffer("u7o"))
+    }
+
+    @Test
+    fun vniHornsTheUTooUnlessTheOnsetCanSpellTheOpenUo() {
+        val c = VietnameseVniComposer
+        assertEquals("ngươ", c.composeBuffer("nguo7"))
+        assertEquals("người", c.composeBuffer("nguo7i2"))
+        assertEquals("ngươi", c.composeBuffer("nguo7i"))
+        assertEquals("ngương", c.composeBuffer("nguo7ng"))
+        assertEquals("bướng", c.composeBuffer("buo7ng1"))
+        assertEquals("dương", c.composeBuffer("duo7ng"))
+        assertEquals("cường", c.composeBuffer("cuo7ng2"))
+        assertEquals("khường", c.composeBuffer("khuo7ng2"))
+        assertEquals("hương", c.composeBuffer("huo7ng"))
+        assertEquals("tười", c.composeBuffer("tuo7i2"))
+        assertEquals("ười", c.composeBuffer("uo7i2"))
+        // The open reading survives where the language spells it.
+        assertEquals("huơ", c.composeBuffer("huo7"))
+        assertEquals("quơ", c.composeBuffer("quo7"))
+        assertEquals("thuở", c.composeBuffer("thuo73"))
+        assertEquals("huớ", c.composeBuffer("huo71"))
+        assertEquals("quơng", c.composeBuffer("quo7ng"))
+        assertEquals("quời", c.composeBuffer("quo7i2"))
     }
 
     @Test
