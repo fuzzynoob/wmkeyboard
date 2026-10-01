@@ -27,7 +27,12 @@ object Support {
     /** The maintainer's inbox, for reports and bugs. */
     const val EMAIL = "arianmollik323@gmail.com"
 
-    const val SOURCE_URL = "https://github.com/wasi-master/WMKeyboard"
+    /**
+     * This fork's repository, not upstream's. The app updates from the APKs
+     * this one signs, so the source link, its issues and the update checker
+     * all have to name the same repository.
+     */
+    const val SOURCE_URL = "https://github.com/fuzzynoob/wmkeyboard"
 
     /** Preferred first stop for a bug: public, searchable, and trackable. */
     const val ISSUES_URL = "$SOURCE_URL/issues"

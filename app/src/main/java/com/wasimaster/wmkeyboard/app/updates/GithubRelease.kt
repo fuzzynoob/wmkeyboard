@@ -51,8 +51,12 @@ internal object GithubReleases {
      * Case does not matter to GitHub, which resolves either spelling, so this
      * deliberately matches [com.wasimaster.wmkeyboard.core.support.Support.SOURCE_URL]
      * rather than introducing a second spelling of the same repository.
+     *
+     * This fork, not upstream. The app updates from the APKs this repository
+     * signs, and upstream's are signed with a key this build does not carry,
+     * so an update taken from there would be refused at install.
      */
-    const val REPO = "wasi-master/WMKeyboard"
+    const val REPO = "fuzzynoob/wmkeyboard"
 
     /**
      * The five most recent releases.

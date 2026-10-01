@@ -4,6 +4,7 @@ import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import com.wasimaster.wmkeyboard.core.netlog.NetLog
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
+import com.wasimaster.wmkeyboard.core.support.Support
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
@@ -23,7 +24,7 @@ import kotlinx.serialization.json.jsonObject
  */
 object WiktionaryRestClient : VocabAutofill.Source {
 
-    private const val USER_AGENT = "WMKeyboard vocabulary (+https://github.com/wasi-master/WMKeyboard)"
+    private const val USER_AGENT = "WMKeyboard vocabulary (+" + Support.SOURCE_URL + ")"
     private const val MAX_SENSES_PER_POS = 3
     private val json = Json { ignoreUnknownKeys = true }
 

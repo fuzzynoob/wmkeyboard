@@ -60,7 +60,7 @@ class GithubReleaseCodecTest {
             candidate?.sha256,
         )
         assertEquals(
-            "https://raw.githubusercontent.com/wasi-master/WMKeyboard/v0.5.3/" +
+            "https://raw.githubusercontent.com/fuzzynoob/wmkeyboard/v0.5.3/" +
                 "fastlane/metadata/android/en-US/changelogs/14.txt",
             candidate?.changelogUrl,
         )
