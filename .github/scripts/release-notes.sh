@@ -155,13 +155,11 @@ row() { # <file> <what it is>
 "
 }
 row SHA256SUMS.txt 'Checksums for everything above'
-row "${prefix}-fdroid.apk" 'The F-Droid build, **lite · all languages**. F-Droid rebuilds it from source and publishes it only if the two match, so it is the same APK F-Droid serves, byte for byte. Installs over an F-Droid install from 0.5.10 on'
 row "${prefix}-full-intl-mapping.txt.gz" 'R8 mapping, **full · all languages**. Retraces a stack trace'
 row "${prefix}-full-en-mapping.txt.gz" 'R8 mapping, **full · English**'
 row "${prefix}-lite-intl-mapping.txt.gz" 'R8 mapping, **lite · all languages**'
 row "${prefix}-lite-en-mapping.txt.gz" 'R8 mapping, **lite · English**'
 row "${prefix}-full-intl-nointernet-mapping.txt.gz" 'R8 mapping, **no internet permission**. Only attached when it differs from full · all languages, which otherwise serves both'
-row "${prefix}-play-mapping.txt.gz" 'R8 mapping, **Play build**. The Play channel flags change what R8 renames, so this is the only one that reads a crash from a Play install'
 row "${prefix}-full-intl-native-symbols.zip" 'Native debug symbols, **full · all languages**'
 row "${prefix}-full-en-native-symbols.zip" 'Native debug symbols, **full · English**'
 
@@ -204,10 +202,6 @@ builds independently:
 gunzip -k ${prefix}-full-intl-mapping.txt.gz
 retrace ${prefix}-full-intl-mapping.txt stacktrace.txt
 \`\`\`
-
-A crash from the Play build takes \`${prefix}-play-mapping.txt.gz\` instead:
-that build is compiled with different flags, so R8 renames it differently and
-none of the four above fit it.
 
 Or paste the crash into a bug report and let the
 [retrace workflow](https://github.com/${repo}/blob/main/.github/workflows/retrace.yml) do all

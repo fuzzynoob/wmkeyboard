@@ -4,8 +4,8 @@
 Reads the body of a published GitHub release, finds each issue it links, and
 comments on that issue: which version it is in, a mention of whoever opened
 it, any settings the change added (as ``wmkeyboard.pages.dev/open/`` links that
-open the row in the app), and a note that F-Droid and Google Play lag the
-GitHub release by a few days.
+open the row in the app), and, when the caller names any, a note that those
+stores lag the GitHub release by a few days.
 
 How the settings are found, since nothing records them per issue:
 
@@ -87,7 +87,7 @@ MAX_COMMITS = 6
 WRITE_PAUSE_SECONDS = 1.5
 
 MAINTAINER_ASSOCIATIONS = {"OWNER", "MEMBER", "COLLABORATOR"}
-DEFAULT_STORES = "F-Droid,Google Play"
+DEFAULT_STORES = ""
 
 
 # --- GitHub ------------------------------------------------------------------

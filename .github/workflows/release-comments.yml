@@ -2,7 +2,7 @@ name: Release comments
 
 # Tells every issue a release links that it has shipped: which version, a
 # mention of whoever opened it, links that open any settings the change added,
-# and how long F-Droid and Google Play take to catch up. The work is in
+# and, when the caller names any, how long those stores take to catch up. The work is in
 # .github/scripts/release_comments.py, which explains how the commits and the
 # settings are found.
 #
@@ -28,7 +28,7 @@ on:
       stores:
         type: string
         required: false
-        default: 'F-Droid,Google Play'
+        default: ''
   release:
     types: [published]
   workflow_dispatch:
@@ -48,7 +48,7 @@ on:
       stores:
         description: 'Stores that lag the GitHub release (comma-separated). Empty for none'
         type: string
-        default: 'F-Droid,Google Play'
+        default: ''
 
 permissions:
   contents: read
@@ -90,7 +90,7 @@ jobs:
           ONLY: ${{ github.event_name == 'workflow_dispatch' && inputs.only || '' }}
           # Prefixed with `=` so an input deliberately left empty ("no
           # stores") is not mistaken for no input and replaced by the default.
-          # A call passes it too (a `[skip play]` release names F-Droid alone);
+          # A call passes it too, empty when the release goes to GitHub alone;
           # only a hand-published release has no inputs and takes the default.
           STORES: ${{ github.event_name != 'release' && format('={0}', inputs.stores) || '' }}
         run: |
