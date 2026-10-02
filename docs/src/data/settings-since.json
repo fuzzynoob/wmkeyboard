@@ -5,6 +5,11 @@
 	"sinceAware": "0.5.13",
 	"modeRows": "0.5.13",
 	"routes": {},
-	"settings": {},
+	"settings": {
+		"keypress_cursor_haptics_title": "0.5.14",
+		"langemoji_strip_shortcut_title": "0.5.14",
+		"typing_dictionary_capitals_title": "0.5.14",
+		"voice_pause_media_title": "0.5.14"
+	},
 	"modes": {}
 }
