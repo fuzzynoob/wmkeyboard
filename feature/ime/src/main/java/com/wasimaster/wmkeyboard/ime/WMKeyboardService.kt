@@ -12162,12 +12162,12 @@ open class WMKeyboardService : InputMethodService() {
                 corrected ?: vietnameseComposed
             }
             // Other transliterators (Hangul) commit the composed text
-            // directly, with no dictionary pass.
-            // A layout whose keys spell the word outright (Khipro) commits the
-            // English word they spell; Vietnamese commits the word its word
-            // list knows. The two never both answer — `completionLanguage` is
-            // set on the layouts that have no Vietnamese dictionary pass, and
-            // [vietnameseComposed] on the one that has no completion language.
+            // directly, with no dictionary pass. A layout whose keys spell the
+            // word outright (Khipro) commits the English word they spell; the
+            // Vietnamese pair commits the word its own list knows. The two
+            // never both answer — `completionLanguage` is set on the layouts
+            // that have no Vietnamese dictionary pass, and [vietnameseComposed]
+            // on the one that has no completion language.
             state.composer.isTransliterating ->
                 completionLatin(state, typed) ?: vietnameseComposed
                     ?: state.composer.composeBuffer(typed)

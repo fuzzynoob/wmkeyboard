@@ -54,6 +54,9 @@ internal object VietnameseEngine {
     /** The letters a coda can begin with: c, ch, m, n, ng, nh, p, t. */
     private const val CODA_HEADS = "cmnpth"
 
+    /** The letters a syllable that opens with `ư` can go on to. */
+    private const val AFTER_BARE_U = "aoiucnmtp"
+
     /** The tone [c] *is*, when it is a combining mark rather than a letter. */
     internal fun directTone(c: Char): VTone? = when (c) {
         '\u0301' -> VTone.ACUTE
@@ -194,11 +197,21 @@ internal object VietnameseEngine {
         val raw = keys.toString()
         // Checked against `compose`, not `transduce`. The strict rule answers a
         // word it cannot spell by handing the keys straight back, so it says
-        // `Web` for the word `Web` — nothing about that spelling composed it,
-        // and a resume armed on one holds the field's text where its keys
+        // `banana` for the word `banana` — nothing about that spelling composed
+        // it, and a resume armed on one holds the field's text where its keys
         // belong. `compose` is the question actually being asked: does this
         // spelling make that word?
-        return if (compose(raw, vni).first == word) raw else null
+        if (compose(raw, vni).first != word) return null
+        // The word's own first key has to spell its first letter as well, or
+        // the resume arms a region whose first backspace is not the letter it
+        // looks like. `Web` is spelled by its own keys now that a leading `w`
+        // no ư-syllable continues is the letter (#467) — but that reading is
+        // for a word still being typed, and the `W` on its own is ư: backspacing
+        // the resumed word would show `Ư` where the field held `W`, which is
+        // the harm this guard is here for. No Vietnamese word opens with `w`,
+        // so nothing the language spells is turned away by it.
+        val head = word.first().toString()
+        return if (compose(head, vni).first == head) raw else null
     }
 
     /**
@@ -730,7 +743,41 @@ internal object VietnameseEngine {
             letters[hornedU + 1].mark = VMark.HORN
         }
 
+        // A `w` that opened a word is a `ư` only while the word can still be
+        // one the language spells.
+        keepEnglishW(letters, tone)
         return render(letters, tone) to tone
+    }
+
+    /**
+     * Gives back the `w` a word opened with when what follows cannot continue a
+     * `ư` (#467): `why`, `when`, `we` and `with` are English typed on the Telex
+     * layout, and `ưhy` is nothing.
+     *
+     * Only a leading `w` is asked about, and only one the engine spelled for
+     * the key ([VLetter.synthesized]) — a `u` the user typed is his own letter
+     * whatever follows it, and `uw` is ư on purpose. A leading `w` is where
+     * English puts the letter and where Vietnamese has the least to lose: `ưa`,
+     * `ưng`, `ưu` and `ước` all go on to a letter from [AFTER_BARE_U].
+     *
+     * The letter behind it is only half the question. `ưo` is `ươ` one keystroke
+     * before its horn, so an `o` is never read as English — but `ưo` is not a
+     * syllable either, and neither is `ưi`, which opens `gửi` and `chửi`. A
+     * word of three letters or more is therefore asked of
+     * [VietnameseOrthography.isSyllable] whole, which is what `with` needs and
+     * `ưng` must survive.
+     */
+    private fun keepEnglishW(letters: List<VLetter>, tone: VTone) {
+        val first = letters.firstOrNull() ?: return
+        if (!first.synthesized || first.mark != VMark.HORN || letters.size < 2) return
+        val next = letters[1].base
+        val english = next !in AFTER_BARE_U ||
+            (letters.size >= 3 && next != 'o' &&
+                !VietnameseOrthography.isSyllable(render(letters, tone)))
+        if (english) {
+            first.base = 'w'
+            first.mark = VMark.NONE
+        }
     }
 }
 
