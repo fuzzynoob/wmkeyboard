@@ -424,6 +424,7 @@ import com.wasimaster.wmkeyboard.core.settings.LayoutBehaviorSettings
 import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
+import com.wasimaster.wmkeyboard.core.settings.switchLayoutIds
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.TransliterationHintMode
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
@@ -3651,6 +3652,7 @@ private fun TopBar(
             // which read as the handoff still playing for a button that was off.
             // Same condition the strip's copy is drawn under, below.
             val stripHasEmoji = state.settings.emojiToolbar &&
+                state.settings.toolbarBehavior.stripShortcut == ToolbarTool.EMOJI &&
                 ToolbarTool.EMOJI in state.settings.enabledTools
             ToolbarRow(
                 state, onPanelChange, onToolTap, drag, toolContentAlpha,
@@ -3686,11 +3688,25 @@ private fun TopBar(
                 // while the tools are off screen. With the tools row up and the emoji
                 // tool pinned on it, the pinned one is already in reach and a second
                 // copy beside the suggestions is just the same button twice.
-                val emojiOnToolsRow = toolsRowVisible && ToolbarTool.EMOJI in visibleToolbarTools(state)
-                if (
-                    state.settings.emojiToolbar && ToolbarTool.EMOJI in state.settings.enabledTools &&
-                    !emojiOnToolsRow
-                ) {
+                //
+                // Which tool that is, is the user's to say (#462): the clipboard
+                // or the microphone for someone who never opens the emoji panel.
+                // Only the emoji has a pinned twin to slide to, so any other tool
+                // is drawn as a plain button and takes no part in the handoff.
+                val shortcut = state.settings.toolbarBehavior.stripShortcut
+                val shortcutShown = state.settings.emojiToolbar && shortcut in state.settings.enabledTools &&
+                    isSupportedTool(shortcut) && isUsableTool(shortcut, state.settings) &&
+                    !(toolsRowVisible && shortcut in visibleToolbarTools(state))
+                if (shortcutShown && shortcut != ToolbarTool.EMOJI) {
+                    ToolCircle(
+                        slot = IconSlots.forTool(shortcut),
+                        description = stringResource(toolLabelRes(shortcut)),
+                        active = toolActive(shortcut, state),
+                        longPressLabel = stringResource(toolLabelRes(shortcut)),
+                        wide = true,
+                    ) { onToolTap(shortcut) }
+                }
+                if (shortcutShown && shortcut == ToolbarTool.EMOJI) {
                     // The width the bar would give this icon, so the two copies are
                     // the same shape. Nothing constrains it here, so at a tool width
                     // wider than a toolbar cell the strip's copy came out at the
@@ -13307,7 +13323,7 @@ private fun spacebarArrowsShown(state: KeyboardUiState): Boolean {
         state.settings.spaceLongSwipe == SpaceSwipeAction.LANGUAGE
     return state.settings.spacebarLanguageArrows &&
         swipeSwitchesLanguage &&
-        state.settings.enabledLayoutIds.size > 1
+        state.settings.switchLayoutIds().size > 1
 }
 
 /**
@@ -18382,7 +18398,7 @@ internal fun KeyButton(
                     key, settings.longPressDelayMs, settings.keyRepeat, settings.textEditing,
                     spaceShortSwipe = settings.spaceShortSwipe,
                     spaceLongSwipe = settings.spaceLongSwipe,
-                    enabledLayoutIds = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) },
+                    enabledLayoutIds = settings.switchLayoutIds(),
                     currentLayoutId = layoutId,
                     setPressed = { down ->
                         // Judged here rather than at the commit: every branch
@@ -18627,7 +18643,7 @@ internal fun KeyButton(
         // five-chip window sliding with the selection — drawing every enabled
         // layout ran off the screen the moment a handful were enabled.
         shownLanguage?.let { previewMode ->
-            val enabledLayoutIds = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+            val enabledLayoutIds = settings.switchLayoutIds()
             val previewWindow = if (enabledLayoutIds.size <= 5) {
                 enabledLayoutIds
             } else {
@@ -18721,7 +18737,7 @@ internal fun KeyButton(
         }
 
         if (showLanguagePicker) {
-            val pickerIds = settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+            val pickerIds = settings.switchLayoutIds()
             val onPick: (String) -> Unit = {
                 showLanguagePicker = false
                 pickerDragIndex = null
@@ -21059,7 +21075,12 @@ private fun Modifier.pointerInputKey(
                     } else {
                         minOf(longPressDelayMs, SpaceHoldPickerMs)
                     }
-                    val holdJob = if (holdOpensAlternates || holdOpensSwitcher) {
+                    // A hold slot set to the keyboard list opens it on the hold
+                    // alone (#477), unless authored keys have the hold.
+                    val holdOpensKeyboards = !holdOpensAlternates &&
+                        spaceLongSwipe == SpaceSwipeAction.KEYBOARDS
+                    var keyboardsOpened = false
+                    val holdJob = if (holdOpensAlternates || holdOpensSwitcher || holdOpensKeyboards) {
                         scope.launch {
                             delay(holdDelayMs.toLong())
                             if (action == null) {
@@ -21067,6 +21088,14 @@ private fun Modifier.pointerInputKey(
                                     alternatesOpened = true
                                     if (hapticOnLongPress) onKeyPress()
                                     openAlternates()
+                                    return@launch
+                                }
+                                if (holdOpensKeyboards) {
+                                    // `hidden` latches so the release types no space.
+                                    keyboardsOpened = true
+                                    hidden = true
+                                    if (hapticOnLongPress) onKeyPress()
+                                    onKey(Key(label = " ", action = KeyAction.InputMethodPicker))
                                     return@launch
                                 }
                                 // List for a long ring (> 4, unless the user keeps
@@ -21101,6 +21130,11 @@ private fun Modifier.pointerInputKey(
                         // types no space either.
                         if (alternatesOpened) {
                             alternates?.moveTo(change.position, reachPx, steerPx)
+                            change.consume()
+                            continue
+                        }
+                        // The keyboard list is up: nothing left for this finger to do.
+                        if (keyboardsOpened) {
                             change.consume()
                             continue
                         }
@@ -21194,6 +21228,14 @@ private fun Modifier.pointerInputKey(
                                 lastY = change.position.y
                                 accumulated = 0f
                                 accumulatedY = 0f
+                                if (action == SpaceSwipeAction.KEYBOARDS) {
+                                    // Discrete, like the numpad below: the list
+                                    // opens once and the gesture goes inert.
+                                    onKey(Key(label = " ", action = KeyAction.InputMethodPicker))
+                                    hidden = true
+                                    change.consume()
+                                    break
+                                }
                                 if (action == SpaceSwipeAction.NUMPAD) {
                                     // Discrete action (A39): open the numeric panel once
                                     // and go inert. The synthetic Numpad key routes

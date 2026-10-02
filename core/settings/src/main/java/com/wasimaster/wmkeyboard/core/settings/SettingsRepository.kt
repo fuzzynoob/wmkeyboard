@@ -1009,7 +1009,30 @@ data class HapticSettings(
     val onLongPress: Boolean = true,
     /** Vibrate again when the finger lifts off a long press. */
     val onLongPressRelease: Boolean = false,
+    /**
+     * Vibrate on each step the caret takes under a spacebar drag or a volume
+     * key (#466). On by default, which is how the drag has always felt; off,
+     * the caret moves silently while every other key keeps its vibration.
+     */
+    val onCursorMove: Boolean = true,
 )
+
+/**
+ * The layouts the language switcher stops at: [KeyboardSettings.enabledLayoutIds]
+ * without the layouts of a language in
+ * [LayoutBehaviorSettings.pickerHiddenLanguages] (#473). What the globe key,
+ * the spacebar swipe and the language picker walk.
+ *
+ * Never empty. If hiding would leave nothing to switch to, every layout
+ * stands, since a switcher with no stops strands the keyboard on whatever it
+ * was showing.
+ */
+fun KeyboardSettings.switchLayoutIds(): List<String> {
+    val all = enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+    val hidden = layoutBehavior.pickerHiddenLanguages
+    if (hidden.isEmpty()) return all
+    return all.filter { resolveLayout(customLayouts, it).language().id !in hidden }.ifEmpty { all }
+}
 
 /**
  * What a horizontal swipe on the spacebar does. "Short" swipes start
@@ -1017,7 +1040,19 @@ data class HapticSettings(
  * delay first, then drag — distance is deliberately not the discriminator,
  * a fast flick travels further than a careful drag.
  */
-enum class SpaceSwipeAction { NONE, LANGUAGE, CURSOR, NUMPAD }
+enum class SpaceSwipeAction {
+    NONE,
+    LANGUAGE,
+    CURSOR,
+    NUMPAD,
+
+    /**
+     * Opens Android's own list of keyboards (#477). On the hold slot a still
+     * hold is enough: there is nothing for a drag to steer, so the list
+     * opens when the hold delay runs out.
+     */
+    KEYBOARDS,
+}
 
 /**
  * What the resting spacebar label shows. [LANGUAGE] the current language name,
@@ -1607,6 +1642,13 @@ data class ToolbarBehavior(
      * never asked for.
      */
     val holdActions: Map<ToolbarTool, ToolHoldAction> = emptyMap(),
+    /**
+     * The tool whose button stays beside the suggestions while the pinned
+     * tools are off the row (#462). The emoji tool by default, which is the
+     * button this has always been; [KeyboardSettings.emojiToolbar] is what
+     * shows or hides it.
+     */
+    val stripShortcut: ToolbarTool = ToolbarTool.EMOJI,
 )
 
 /**
@@ -2122,6 +2164,12 @@ data class AutocorrectSettings(
      * before anyone reads it. Space and punctuation still correct.
      */
     val onEnter: Boolean = true,
+    /**
+     * Whether a word the word list spells with a capital and never without
+     * one ("Haus", "Berlin") is written that way when it is typed or swiped
+     * in lower case (#481). German writes every noun like this.
+     */
+    val dictionaryCapitals: Boolean = true,
 )
 
 /**
@@ -4547,6 +4595,13 @@ data class VoiceBarSettings(
      */
     val holdPicksTypingMode: Boolean = true,
     /**
+     * Pause whatever is playing while the microphone is listening (#485), and
+     * let it carry on when dictation ends. Off by default: music under a
+     * dictation is something a few people want gone and the rest never asked
+     * to have interrupted.
+     */
+    val pauseMedia: Boolean = false,
+    /**
      * The surface the bar's expand button goes back to — whichever of
      * [MODE_PANEL] or [MODE_STRIP] the user collapsed from, defaulting to the
      * panel when the bar was chosen in settings instead.
@@ -6351,6 +6406,14 @@ data class LayoutBehaviorSettings(
      * spaces is what a second tap does.
      */
     val spaceHoldKeys: List<String> = emptyList(),
+    /**
+     * Languages that stay switched on without a stop of their own in the
+     * language switcher (#473). For a romanized language that is only there
+     * to lend its words to another keyboard: Banglish suggested on the
+     * English layout, with one swipe between that and Bangla instead of two.
+     * See [switchLayoutIds].
+     */
+    val pickerHiddenLanguages: Set<String> = emptySet(),
     /** What the resting spacebar label shows: language, layout, or both. */
     val spacebarDisplay: SpacebarDisplay = SpacebarDisplay.LANGUAGE,
     /**
@@ -7644,6 +7707,7 @@ class SettingsRepository(private val context: Context) {
         private val HAPTIC_STYLE = stringPreferencesKey("haptic_style")
         private val HAPTIC_ON_LONG_PRESS = booleanPreferencesKey("haptic_on_long_press")
         private val HAPTIC_ON_LONG_PRESS_RELEASE = booleanPreferencesKey("haptic_on_long_press_release")
+        private val HAPTIC_ON_CURSOR_MOVE = booleanPreferencesKey("haptic_on_cursor_move")
         private val FEEDBACK_VIBRATE_SPACE = booleanPreferencesKey("feedback_vibrate_space")
         private val FEEDBACK_VIBRATE_DELETE_SWIPE = booleanPreferencesKey("feedback_vibrate_delete_swipe")
         private val FEEDBACK_VIBRATE_REPEAT = booleanPreferencesKey("feedback_vibrate_repeat")
@@ -7690,6 +7754,7 @@ class SettingsRepository(private val context: Context) {
         private val AUTOCORRECT_SKIP_ALL_CAPS =
             booleanPreferencesKey("autocorrect_skip_all_caps")
         private val AUTOCORRECT_ON_ENTER = booleanPreferencesKey("autocorrect_on_enter")
+        private val DICTIONARY_CAPITALS = booleanPreferencesKey("dictionary_capitals")
         private val AUTO_CAPITALIZE = booleanPreferencesKey("auto_capitalize")
         private val DOUBLE_SPACE_PERIOD = booleanPreferencesKey("double_space_period")
         private val DOUBLE_SPACE_TAB = booleanPreferencesKey("double_space_tab")
@@ -7894,6 +7959,7 @@ class SettingsRepository(private val context: Context) {
         private val SHIFTED_POPUP_KEYS = booleanPreferencesKey("shifted_popup_keys")
         private val CURRENCY_KEYS = stringPreferencesKey("currency_keys")
         private val SPACE_HOLD_KEYS = stringPreferencesKey("space_hold_keys")
+        private val PICKER_HIDDEN_LANGUAGES = stringSetPreferencesKey("picker_hidden_languages")
         private val SYMBOLS_RETURN_TO_LETTERS =
             booleanPreferencesKey("symbols_return_to_letters")
         private val SYMBOLS_RETURN_CHARS = stringPreferencesKey("symbols_return_chars")
@@ -8213,6 +8279,7 @@ class SettingsRepository(private val context: Context) {
         private val TOOLBAR_PLACEMENT = stringPreferencesKey("toolbar_placement")
         private val TOOLBAR_SHOW_STRIP = booleanPreferencesKey("toolbar_show_strip")
         private val TOOLBAR_HOLD_ACTIONS = stringPreferencesKey("toolbar_hold_actions")
+        private val TOOLBAR_STRIP_SHORTCUT = stringPreferencesKey("toolbar_strip_shortcut")
         private val TOOLBAR_DRAG_REARRANGE = booleanPreferencesKey("toolbar_drag_rearrange")
         private val THEMES_PANEL_BUILTINS = stringSetPreferencesKey("themes_panel_builtins")
         private val COMMA_AS_EMOJI = booleanPreferencesKey("comma_as_emoji")
@@ -8299,6 +8366,7 @@ class SettingsRepository(private val context: Context) {
         private val VOICE_BAR_DOCK_BIAS = floatPreferencesKey("voice_bar_dock_bias")
         private val VOICE_HOLD_TO_TALK_MS = intPreferencesKey("voice_hold_to_talk_ms")
         private val VOICE_HOLD_PICKS_MODE = booleanPreferencesKey("voice_hold_picks_mode")
+        private val VOICE_PAUSE_MEDIA = booleanPreferencesKey("voice_pause_media")
         private val VOICE_UI_RETURN_MODE = stringPreferencesKey("voice_ui_return_mode")
         private val VOICE_BAR_INLINE = booleanPreferencesKey("voice_bar_inline")
         private val VOICE_CONTINUOUS = booleanPreferencesKey("voice_continuous")
@@ -9199,6 +9267,7 @@ class SettingsRepository(private val context: Context) {
             onLongPress = p[HAPTIC_ON_LONG_PRESS] ?: defaults.haptics.onLongPress,
             onLongPressRelease = p[HAPTIC_ON_LONG_PRESS_RELEASE]
                 ?: defaults.haptics.onLongPressRelease,
+            onCursorMove = p[HAPTIC_ON_CURSOR_MOVE] ?: defaults.haptics.onCursorMove,
         )
 
     private fun readFeedback(p: Preferences, defaults: KeyboardSettings) =
@@ -9253,6 +9322,7 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.correction.undoMemory,
             skipAllCaps = p[AUTOCORRECT_SKIP_ALL_CAPS] ?: defaults.correction.skipAllCaps,
             onEnter = p[AUTOCORRECT_ON_ENTER] ?: defaults.correction.onEnter,
+            dictionaryCapitals = p[DICTIONARY_CAPITALS] ?: defaults.correction.dictionaryCapitals,
         )
 
     private fun readAutoText(p: Preferences, defaults: KeyboardSettings) =
@@ -9827,6 +9897,8 @@ class SettingsRepository(private val context: Context) {
             spaceHoldKeys = p[SPACE_HOLD_KEYS]
                 ?.split('\n')?.filter { it.isNotEmpty() }
                 ?: defaults.layoutBehavior.spaceHoldKeys,
+            pickerHiddenLanguages = p[PICKER_HIDDEN_LANGUAGES]
+                ?: defaults.layoutBehavior.pickerHiddenLanguages,
             hintFontScale = p[HINT_FONT_SCALE] ?: defaults.layoutBehavior.hintFontScale,
             hintOffsetDp = p[HINT_OFFSET] ?: defaults.layoutBehavior.hintOffsetDp,
             transliterationHints = p[TRANSLITERATION_HINTS]
@@ -9959,6 +10031,9 @@ class SettingsRepository(private val context: Context) {
                 ?: defaults.toolbarBehavior.placement,
             showStrip = p[TOOLBAR_SHOW_STRIP] ?: defaults.toolbarBehavior.showStrip,
             holdActions = ToolHoldActions.decode(p[TOOLBAR_HOLD_ACTIONS]),
+            stripShortcut = p[TOOLBAR_STRIP_SHORTCUT]
+                ?.let { runCatching { ToolbarTool.valueOf(it) }.getOrNull() }
+                ?: defaults.toolbarBehavior.stripShortcut,
         )
 
     private fun readEmoji(p: Preferences, defaults: KeyboardSettings) =
@@ -10070,6 +10145,7 @@ class SettingsRepository(private val context: Context) {
             dockBias = p[VOICE_BAR_DOCK_BIAS] ?: defaults.voiceBar.dockBias,
             holdToTalkMs = p[VOICE_HOLD_TO_TALK_MS] ?: defaults.voiceBar.holdToTalkMs,
             holdPicksTypingMode = p[VOICE_HOLD_PICKS_MODE] ?: defaults.voiceBar.holdPicksTypingMode,
+            pauseMedia = p[VOICE_PAUSE_MEDIA] ?: defaults.voiceBar.pauseMedia,
             returnMode = p[VOICE_UI_RETURN_MODE] ?: defaults.voiceBar.returnMode,
             inline = p[VOICE_BAR_INLINE] ?: defaults.voiceBar.inline,
         )
@@ -11033,6 +11109,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setVoiceHoldPicksTypingMode(value: Boolean) =
         editPrefs { it[VOICE_HOLD_PICKS_MODE] = value }
 
+    suspend fun setVoicePauseMedia(value: Boolean) =
+        editPrefs { it[VOICE_PAUSE_MEDIA] = value }
+
     suspend fun setVoiceBarActive(value: Boolean) =
         editPrefs { it[VOICE_BAR_ACTIVE] = value }
 
@@ -11556,6 +11635,9 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun setToolbarShowStrip(value: Boolean) =
         editPrefs { it[TOOLBAR_SHOW_STRIP] = value }
+
+    suspend fun setStripShortcut(value: ToolbarTool) =
+        editPrefs { it[TOOLBAR_STRIP_SHORTCUT] = value.name }
 
     /**
      * Sets or clears one tool's press-and-hold action. Null puts that tool back
@@ -13794,6 +13876,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setHapticOnLongPressRelease(value: Boolean) =
         editPrefs { it[HAPTIC_ON_LONG_PRESS_RELEASE] = value }
 
+    suspend fun setHapticOnCursorMove(value: Boolean) =
+        editPrefs { it[HAPTIC_ON_CURSOR_MOVE] = value }
+
     suspend fun setVibrateOnSpace(value: Boolean) =
         editPrefs { it[FEEDBACK_VIBRATE_SPACE] = value }
 
@@ -13940,6 +14025,9 @@ class SettingsRepository(private val context: Context) {
     suspend fun setAutocorrectOnEnter(value: Boolean) =
         editPrefs { it[AUTOCORRECT_ON_ENTER] = value }
 
+    suspend fun setDictionaryCapitals(value: Boolean) =
+        editPrefs { it[DICTIONARY_CAPITALS] = value }
+
     suspend fun setAutoCapitalize(value: Boolean) =
         editPrefs { it[AUTO_CAPITALIZE] = value }
 
@@ -14010,6 +14098,13 @@ class SettingsRepository(private val context: Context) {
                 ?: LEGACY_PHONETIC_ENGLISH_LANGS.takeIf { _ -> it[PHONETIC_AUTO_ENGLISH] == true }
                 ?: emptySet()
             it[PHONETIC_ENGLISH_LANGS] = if (enabled) on + langId else on - langId
+        }
+
+    /** Takes [langId] out of the language switcher, or puts it back (#473). */
+    suspend fun setLanguageHiddenFromPicker(langId: String, hidden: Boolean) =
+        editPrefs {
+            val current = it[PICKER_HIDDEN_LANGUAGES].orEmpty()
+            it[PICKER_HIDDEN_LANGUAGES] = if (hidden) current + langId else current - langId
         }
 
     suspend fun setPhoneticEnglishSwitch(value: Boolean) =

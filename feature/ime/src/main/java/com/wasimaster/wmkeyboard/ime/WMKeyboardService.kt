@@ -82,6 +82,7 @@ import com.wasimaster.wmkeyboard.core.media.MediaMime
 import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import com.wasimaster.wmkeyboard.core.netlog.NetLog
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
+import com.wasimaster.wmkeyboard.core.settings.switchLayoutIds
 import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
 import com.wasimaster.wmkeyboard.core.settings.LauncherOpenMode
 import com.wasimaster.wmkeyboard.core.settings.LauncherSplitCombo
@@ -177,6 +178,7 @@ import com.wasimaster.wmkeyboard.core.prediction.ContactNames
 import com.wasimaster.wmkeyboard.core.prediction.Elisions
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryStore
+import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
 import com.wasimaster.wmkeyboard.core.prediction.CompositeWordSource
 import com.wasimaster.wmkeyboard.core.prediction.CustomDictionaries
 import com.wasimaster.wmkeyboard.core.prediction.MappedNgramPack
@@ -614,6 +616,7 @@ import kotlinx.coroutines.flow.drop
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withContext
@@ -3076,6 +3079,18 @@ open class WMKeyboardService : InputMethodService() {
                 jankMonitor.screen(it.panel.name)
             }
         }
+        // Dictation holds the audio focus while it listens, which is what
+        // pauses a player (#485). Given back a moment after the microphone
+        // closes rather than at once: a continuous session reopens it between
+        // utterances, and the music must not start and stop in every gap.
+        serviceScope.launch {
+            _uiState.map { it.settings.voiceBar.pauseMedia && voiceActive() }
+                .distinctUntilChanged()
+                .collectLatest { listening ->
+                    if (!listening) delay(VOICE_MEDIA_RESUME_MS)
+                    holdMediaFocus(listening)
+                }
+        }
         // Marks the network activity log's rows made while incognito is on,
         // whether the switch or the field turned it on.
         serviceScope.launch {
@@ -3653,6 +3668,7 @@ open class WMKeyboardService : InputMethodService() {
                 suggestionEngine?.blockOffensiveWords =
                     settings.suggestionStrip.blockOffensiveWords
                 suggestionEngine?.skipAllCapsAutocorrect = settings.correction.skipAllCaps
+                suggestionEngine?.dictionaryCapitalsEnabled = settings.correction.dictionaryCapitals
                 suggestionEngine?.learnedWordMinCount =
                     settings.suggestionStrip.learnedWordMinCount
                 emojiUsage.maxRecents = settings.emoji.recentsLimit
@@ -4028,6 +4044,9 @@ open class WMKeyboardService : InputMethodService() {
                     // largest thing on disk. Dropping them here is also what
                     // makes Settings offer the language for download again.
                     DictionaryStore.sweepUnreadable(filesDir)
+                    // A list downloaded before capitals were kept apart holds
+                    // "Haus" under a key no lower-case typing reaches (#481).
+                    WordlistDownloadManager.foldCapitals(filesDir)
                 }
                 // Bundled lists ship as compiled .wmdict binaries and are
                 // memory-mapped, not parsed: the trie stays out of the Java
@@ -4136,6 +4155,8 @@ open class WMKeyboardService : InputMethodService() {
                 applyOffensiveWords(offensiveSet)
                 blockOffensiveWords = _uiState.value.settings.suggestionStrip.blockOffensiveWords
                 skipAllCapsAutocorrect = _uiState.value.settings.correction.skipAllCaps
+                dictionaryCapitalsEnabled = _uiState.value.settings.correction.dictionaryCapitals
+                dictionaryCapitals = loadDictionaryCapitals()
                 learnedWordMinCount =
                     _uiState.value.settings.suggestionStrip.learnedWordMinCount
                 autocorrectSplits = _uiState.value.settings.suggestionStrip.autocorrectSplits
@@ -4153,7 +4174,9 @@ open class WMKeyboardService : InputMethodService() {
                 englishAsSecondary = "en" in secondaryIds && !lang.isEnglish
                 secondaryEnglishNgramPack = if (englishAsSecondary) loadNgramPack("en") else NgramPack.EMPTY
                 phoneticAutoEnglish = _uiState.value.let {
-                    it.settings.suggestionStrip.phoneticEnglishFor(it.composer.phoneticLanguage)
+                    it.settings.suggestionStrip.phoneticEnglishFor(
+                        it.composer.phoneticLanguage ?: it.composer.completionLanguage,
+                    )
                 }
                 phoneticSiblingsOff = _uiState.value.settings.suggestionStrip.phoneticSiblingsOffLangs
                 phoneticFixedStrip = _uiState.value.let {
@@ -6197,6 +6220,7 @@ open class WMKeyboardService : InputMethodService() {
 
     override fun onDestroy() {
         DebugLog.i("ime", "service destroyed")
+        holdMediaFocus(false)
         // The controls promise a keyboard to come back to; without one running
         // they are three buttons that do nothing.
         KeyboardControls.host = null
@@ -9716,14 +9740,22 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun syncPhoneticAutoEnglish(settings: KeyboardSettings, spec: LayoutSpec) {
         val engine = suggestionEngine ?: return
-        val language = composerFor(spec.script(), spec.composerType()).phoneticLanguage
+        // A layout that spells its words outright (Khipro) reads the same
+        // switch its language's phonetic layout does (#487).
+        val language = composerFor(spec.script(), spec.composerType())
+            .let { it.phoneticLanguage ?: it.completionLanguage }
         val next = settings.suggestionStrip.phoneticEnglishFor(language)
         val siblingsOff = settings.suggestionStrip.phoneticSiblingsOffLangs
         if (engine.phoneticAutoEnglish == next && engine.phoneticSiblingsOff == siblingsOff) return
         engine.phoneticAutoEnglish = next
         engine.phoneticSiblingsOff = siblingsOff
         commitResolution = null
-        if (composing.isEmpty() || _uiState.value.composer.phoneticLanguage == null) return
+        if (composing.isEmpty() || _uiState.value.composer.let {
+                it.phoneticLanguage == null && it.completionLanguage == null
+            }
+        ) {
+            return
+        }
         currentInputConnection?.let { updateComposingText(it) }
         refreshSuggestions()
     }
@@ -9776,9 +9808,24 @@ open class WMKeyboardService : InputMethodService() {
         return latin.replaceFirstChar { it.uppercase() }
     }
 
+    /**
+     * The English word [buffer] commits as on a layout whose keys spell the
+     * word outright (Khipro), or null when it commits what they spell (#487).
+     * One answer for the preview, the strip and the space bar.
+     */
+    private fun completionLatin(state: KeyboardUiState, buffer: String): String? {
+        val language = state.composer.completionLanguage ?: return null
+        if (buffer.isEmpty() || !state.allowsTypingIntelligence) return null
+        val latin = suggestionEngine?.completionLatin(language, buffer, state.composer.composeBuffer(buffer))
+            ?: return null
+        return sentenceCasedLatin(latin, buffer, state)
+    }
+
     /** Whether [word] is in Latin letters, on a layout whose own words are not. */
     private fun isLatinOnPhonetic(word: String, state: KeyboardUiState): Boolean {
-        val scheme = PhoneticSchemes.forLanguage(state.composer.phoneticLanguage) ?: return false
+        val scheme = PhoneticSchemes.forLanguage(
+            state.composer.phoneticLanguage ?: state.composer.completionLanguage,
+        ) ?: return false
         return word.none(scheme.isNative) && word.any { it in 'a'..'z' || it in 'A'..'Z' }
     }
 
@@ -11254,7 +11301,7 @@ open class WMKeyboardService : InputMethodService() {
         // Cycles layout ids, not modes: three custom layouts all based on
         // English are three distinct stops, where cycling modes would collapse
         // them into one and make them unreachable from the keyboard.
-        val ids = state.settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+        val ids = state.settings.switchLayoutIds()
         onLayoutSelected(ids[(ids.indexOf(state.layoutId) + 1).mod(ids.size)])
     }
 
@@ -11385,7 +11432,7 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun switchLanguageRecent(hardware: Boolean): Boolean {
         val state = _uiState.value
-        val ids = state.settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+        val ids = state.settings.switchLayoutIds()
         if (ids.size < 2) return false
         val now = SystemClock.uptimeMillis()
         val running = languageBurst?.takeIf {
@@ -11663,6 +11710,7 @@ open class WMKeyboardService : InputMethodService() {
             }
             suggestionEngine?.phoneticSpelling(language, buffer)?.let { return it }
         }
+        completionLatin(state, buffer)?.let { return it }
         return state.composer.composeBuffer(buffer)
     }
 
@@ -12115,7 +12163,14 @@ open class WMKeyboardService : InputMethodService() {
             }
             // Other transliterators (Hangul) commit the composed text
             // directly, with no dictionary pass.
-            state.composer.isTransliterating -> vietnameseComposed ?: state.composer.composeBuffer(typed)
+            // A layout whose keys spell the word outright (Khipro) commits the
+            // English word they spell; Vietnamese commits the word its word
+            // list knows. The two never both answer — `completionLanguage` is
+            // set on the layouts that have no Vietnamese dictionary pass, and
+            // [vietnameseComposed] on the one that has no completion language.
+            state.composer.isTransliterating ->
+                completionLatin(state, typed) ?: vietnameseComposed
+                    ?: state.composer.composeBuffer(typed)
             // An ambiguous board commits its reading, always. There is no
             // confidence gate here and there should not be: the buffer holds
             // anchor letters, so "leave it as typed" is not a conservative
@@ -16328,7 +16383,12 @@ open class WMKeyboardService : InputMethodService() {
                 // and nothing more, so the seams between those phases are where
                 // it is asked (#313).
                 ensureActive()
-                val suggested = deep.take(SUGGEST_LIMIT)
+                // An English word the space is about to commit as English
+                // leads the strip, and what the keys spell sits right behind
+                // it, one tap away (#487).
+                val latin = if (completing != null) completionLatin(state, typed) else null
+                val suggested = (if (latin != null) listOf(latin) + deep.filterNot { it == latin } else deep)
+                    .take(SUGGEST_LIMIT)
                 // A28: a personal-dictionary shortcut typed in full offers its
                 // expansion as the top chip (e.g. "omw" → "on my way"). Prepended
                 // so it wins the primary slot; deduped against the word list.
@@ -16356,7 +16416,7 @@ open class WMKeyboardService : InputMethodService() {
                 // the word being typed there, it is the way to write it in
                 // English, and the only one.
                 val skipTyped = state.settings.suggestionStrip.skipTypedWord && typed.isNotEmpty() &&
-                    state.composer.phoneticLanguage == null
+                    state.composer.phoneticLanguage == null && completing == null
                 fun dropTyped(list: List<String>) =
                     if (skipTyped) list.filterNot { it.equals(typed, ignoreCase = true) } else list
                 // Deliberately unfiltered: commitResolution below reads this,
@@ -17117,12 +17177,12 @@ open class WMKeyboardService : InputMethodService() {
         // scrub meant for a search query or a spelling draft used to walk the
         // app's caret behind the keyboard (#204, #161).
         if (_uiState.value.captureTarget() != null) {
-            vibrate()
+            caretStepFeedback()
             onCaptureCaretMove(delta, extend = _uiState.value.caretExtendsSelection)
             return
         }
         val ic = currentInputConnection ?: return
-        vibrate()
+        caretStepFeedback()
         // Mark the scrub so the caret's landing spot doesn't resume-compose the
         // word under it mid-drag (this same commit would then churn it).
         lastCaretScrubMs = SystemClock.uptimeMillis()
@@ -17135,6 +17195,16 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * The feedback for one step of the caret under a spacebar drag or a volume
+     * key. The vibration has a switch of its own (#466): a drag across a line
+     * is dozens of steps, and a buzz for each is what some people turn the
+     * whole of haptics off to be rid of. The key sound is not part of that.
+     */
+    private fun caretStepFeedback() {
+        if (_uiState.value.settings.haptics.onCursorMove) vibrate() else playKeySound(role = KeySoundRole.DEFAULT)
+    }
+
+    /**
      * 2-D spacebar touchpad: move the cursor one line up (-1) or down (+1).
      * Mirrors [onCursorMove] but on the vertical axis, selection mode and a held
      * shift included.
@@ -17142,12 +17212,12 @@ open class WMKeyboardService : InputMethodService() {
     fun onCursorMoveVertical(delta: Int) {
         // A one-line buffer: up is its start, down its end.
         if (_uiState.value.captureTarget() != null) {
-            vibrate()
+            caretStepFeedback()
             onCaptureCaretToEdge(end = delta >= 0, extend = _uiState.value.caretExtendsSelection)
             return
         }
         val ic = currentInputConnection ?: return
-        vibrate()
+        caretStepFeedback()
         lastCaretScrubMs = SystemClock.uptimeMillis()
         commitComposing(ic, autocorrect = false)
         lastGestureWord = null
@@ -21063,6 +21133,34 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /** A dictation session is mid-flight: recording, finishing, or transcribing. */
+    /** Whether [holdMediaFocus] has the audio focus now. */
+    private var mediaFocusHeld = false
+
+    /** Nothing to do when focus moves on: dictation ends by its own rules. */
+    private val mediaFocusListener = AudioManager.OnAudioFocusChangeListener { }
+
+    /**
+     * Takes the audio focus for a dictation, or gives it back. A transient
+     * request is the one players answer by pausing and resume from on their
+     * own when it is returned.
+     */
+    @Suppress("DEPRECATION")
+    private fun holdMediaFocus(hold: Boolean) {
+        if (hold == mediaFocusHeld) return
+        val audio = getSystemService(Context.AUDIO_SERVICE) as? AudioManager ?: return
+        if (hold) {
+            val granted = audio.requestAudioFocus(
+                mediaFocusListener,
+                AudioManager.STREAM_MUSIC,
+                AudioManager.AUDIOFOCUS_GAIN_TRANSIENT,
+            )
+            mediaFocusHeld = granted == AudioManager.AUDIOFOCUS_REQUEST_GRANTED
+        } else {
+            audio.abandonAudioFocus(mediaFocusListener)
+            mediaFocusHeld = false
+        }
+    }
+
     private fun voiceActive(): Boolean = when (_uiState.value.voice.status) {
         VoiceStatus.LISTENING, VoiceStatus.FINISHING, VoiceStatus.TRANSCRIBING -> true
         else -> false
@@ -32187,7 +32285,7 @@ open class WMKeyboardService : InputMethodService() {
 
     private fun startLanguageBrowse(delta: Int): Boolean {
         val state = _uiState.value
-        val ids = state.settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+        val ids = state.settings.switchLayoutIds()
         val candidate = languageCycleStart(ids, state.layoutId, delta) ?: return false
         disarmToolPicker()
         vibrate()
@@ -32239,7 +32337,7 @@ open class WMKeyboardService : InputMethodService() {
     private fun cycleLanguageWithHud(): Boolean {
         val state = _uiState.value
         if (state.settings.globeRecentOrder) return switchLanguageRecent(hardware = true)
-        val ids = state.settings.enabledLayoutIds.ifEmpty { listOf(BuiltInLayouts.DEFAULT_ID) }
+        val ids = state.settings.switchLayoutIds()
         val candidate = languageCycleStart(ids, state.layoutId, 1) ?: return false
         vibrate()
         onLayoutSelected(ids[candidate])
@@ -32703,6 +32801,19 @@ open class WMKeyboardService : InputMethodService() {
     }
 
     /**
+     * The capitals each downloaded list spells its words with, by language
+     * (#481): "haus" → "Haus". Written beside the list by the download, and
+     * mapped like it. Empty while locked, as the lists themselves are.
+     */
+    private fun loadDictionaryCapitals(): Map<String, WordSource> {
+        if (!userUnlocked) return emptyMap()
+        return DictionaryStore.downloadedLanguageIds(filesDir)
+            .filter { shippedDictionaryEnabled(it) }
+            .mapNotNull { id -> MappedTrie.open(DictionaryStore.capitalsFile(filesDir, id))?.let { id to it } }
+            .toMap()
+    }
+
+    /**
      * Where the bundled dictionaries are inflated: always the device-protected
      * area, so the copy made on a normal run is the same copy a direct boot
      * reads. They come out of the APK, so nothing of the user's is exposed by
@@ -32732,6 +32843,7 @@ open class WMKeyboardService : InputMethodService() {
         customDictionaries = loadCustomDictionaries()
         suggestionEngine?.let { engine ->
             engine.dictionary = english ?: PackedTrie.EMPTY
+            engine.dictionaryCapitals = loadDictionaryCapitals()
             engine.bengaliIndex = buildBengaliIndex()
             val lang = _uiState.value.language
             engine.customDictionary = customDictionaries[lang.id] ?: PackedTrie.EMPTY
@@ -33365,6 +33477,9 @@ open class WMKeyboardService : InputMethodService() {
 
         /** How long before a clip's end the voice surfaces start counting down. */
         private const val VOICE_COUNTDOWN_SECONDS = 5
+
+        /** How long after the microphone closes the paused media gets its focus back. */
+        private const val VOICE_MEDIA_RESUME_MS = 1_200L
 
         /** How long the recognizer's word list is used before it is gathered again. */
         private const val VOICE_BIAS_TTL_MS = 5 * 60_000L
