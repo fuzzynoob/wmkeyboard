@@ -29,7 +29,9 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.input.composer.CjkLearning
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
+import com.wasimaster.wmkeyboard.core.settings.ClipRecentChipsMax
 import com.wasimaster.wmkeyboard.core.settings.HoldToTalkRange
+import com.wasimaster.wmkeyboard.core.settings.VoiceSilenceStopRange
 import com.wasimaster.wmkeyboard.core.settings.ClipboardView
 import com.wasimaster.wmkeyboard.core.settings.ClipGridColumnsRange
 import com.wasimaster.wmkeyboard.core.settings.ClipMaxItemsSteps
@@ -376,6 +378,24 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
                 default = SettingsDefaults.voiceContinuous,
             ) { scope.launch { repository.setVoiceContinuous(it) } }
         }
+        item {
+            val offLabel = stringResource(R.string.voice_silence_stop_off)
+            val secondsFormat = stringResource(R.string.voice_silence_stop_seconds)
+            SliderSetting(
+                R.string.voice_silence_stop_title,
+                subtitle = stringResource(R.string.voice_silence_stop_subtitle),
+                value = settings.watch { it.voiceBar.silenceStopMs }.toFloat(),
+                range = 0f..VoiceSilenceStopRange.last.toFloat(),
+                display = { picked ->
+                    val ms = (picked / 250f).roundToInt() * 250
+                    if (ms == 0) offLabel else secondsFormat.format(ms / 1000f)
+                },
+                info = stringResource(R.string.voice_silence_stop_info),
+                default = SettingsDefaults.voiceBar.silenceStopMs.toFloat(),
+            ) { picked ->
+                scope.launch { repository.setVoiceSilenceStopMs((picked / 250f).roundToInt() * 250) }
+            }
+        }
         if (typingMode != com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_PLAIN) item {
             ToggleSetting(
                 R.string.voice_punctuation_title,
@@ -554,6 +574,7 @@ internal fun ClipboardSettings(
     val userScreenshots = settings.watch { it.clipboard.userScreenshots }
     val trackSource = settings.watch { it.clipboard.trackSource }
     val suggestRecent = settings.watch { it.clipboard.suggestRecent }
+    val swipeToDelete = settings.watch { it.clipboard.swipeToDelete }
     val detectEntities = settings.watch { it.clipboard.detectEntities }
     val sensitiveHandling = settings.watch { it.clipboard.sensitiveHandling }
     // The slider readouts are plain lambdas, so their format strings are
@@ -755,6 +776,18 @@ internal fun ClipboardSettings(
             }
         }
         item(visible = suggestRecent) {
+            // Issue #414: the last few copies as a row, FUTO-style.
+            SliderSetting(
+                R.string.clipboard_recent_chips_title,
+                subtitle = stringResource(R.string.clipboard_recent_chips_subtitle),
+                value = settings.watch { it.clipboard.recentChips }.toFloat(),
+                range = 1f..ClipRecentChipsMax.toFloat(),
+                display = { it.toInt().toString() },
+                info = stringResource(R.string.clipboard_recent_chips_info),
+                default = SettingsDefaults.clipboard.recentChips.toFloat(),
+            ) { scope.launch { repository.setClipboardRecentChips(it.toInt()) } }
+        }
+        item(visible = suggestRecent) {
             ChoiceSetting(
                 title = R.string.clipboard_suggest_codes_title,
                 subtitle = stringResource(R.string.clipboard_suggest_codes_subtitle),
@@ -773,6 +806,23 @@ internal fun ClipboardSettings(
                 info = stringResource(R.string.clipboard_entities_info),
                 default = SettingsDefaults.clipboard.detectEntities,
             ) { scope.launch { repository.setClipboardDetectEntities(it) } }
+        }
+        item(visible = detectEntities) {
+            ToggleSetting(
+                R.string.clipboard_entity_icons_title,
+                stringResource(R.string.clipboard_entity_icons_subtitle),
+                settings.watch { it.clipboard.entityIcons },
+                info = stringResource(R.string.clipboard_entity_icons_info),
+                default = SettingsDefaults.clipboard.entityIcons,
+            ) { scope.launch { repository.setClipboardEntityIcons(it) } }
+        }
+        item(visible = detectEntities) {
+            ToggleSetting(
+                R.string.clipboard_entity_to_clipboard_title,
+                stringResource(R.string.clipboard_entity_to_clipboard_subtitle),
+                settings.watch { it.clipboard.entityToClipboard },
+                default = SettingsDefaults.clipboard.entityToClipboard,
+            ) { scope.launch { repository.setClipboardEntityToClipboard(it) } }
         }
         // The number chips are the ones that go wrong, because a phone
         // number is the one fragment with no shape of its own. This row
@@ -911,12 +961,48 @@ internal fun ClipboardSettings(
         }
         item {
             ToggleSetting(
+                R.string.clipboard_type_out_title,
+                stringResource(R.string.clipboard_type_out_subtitle),
+                settings.watch { it.clipboard.typeOutPastes },
+                info = stringResource(R.string.clipboard_type_out_info),
+                default = SettingsDefaults.clipboard.typeOutPastes,
+            ) { scope.launch { repository.setClipboardTypeOutPastes(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.clipboard_type_tags_title,
+                stringResource(R.string.clipboard_type_tags_subtitle),
+                settings.watch { it.clipboard.typeTags },
+                info = stringResource(R.string.clipboard_type_tags_info),
+                default = SettingsDefaults.clipboard.typeTags,
+            ) { scope.launch { repository.setClipboardTypeTags(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.clipboard_keep_rich_text_title,
+                stringResource(R.string.clipboard_keep_rich_text_subtitle),
+                settings.watch { it.clipboard.keepRichText },
+                info = stringResource(R.string.clipboard_keep_rich_text_info),
+                default = SettingsDefaults.clipboard.keepRichText,
+            ) { scope.launch { repository.setClipboardKeepRichText(it) } }
+        }
+        item {
+            ToggleSetting(
                 R.string.clipboard_swipe_delete_title,
                 stringResource(R.string.clipboard_swipe_delete_subtitle),
                 settings.watch { it.clipboard.swipeToDelete },
                 info = stringResource(R.string.clipboard_swipe_delete_info),
                 default = SettingsDefaults.clipboard.swipeToDelete,
             ) { scope.launch { repository.setClipboardSwipeToDelete(it) } }
+        }
+        item(visible = swipeToDelete) {
+            ToggleSetting(
+                R.string.clipboard_swipe_right_pins_title,
+                stringResource(R.string.clipboard_swipe_right_pins_subtitle),
+                settings.watch { it.clipboard.swipeRightPins },
+                info = stringResource(R.string.clipboard_swipe_right_pins_info),
+                default = SettingsDefaults.clipboard.swipeRightPins,
+            ) { scope.launch { repository.setClipboardSwipeRightPins(it) } }
         }
         item {
             ToggleSetting(

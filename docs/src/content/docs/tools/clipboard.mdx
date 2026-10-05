@@ -27,6 +27,10 @@ Cards lay out in a staggered grid, two columns by default, rather than a fixed o
 
 The panel opens as tall as the keyboard. A short bar sits across its top edge: drag it up and the panel grows over the app, so more clips fit and there's less to scroll. Drag it down to shrink it again, as far as the keyboard's own height. Where you let go is kept, and the panel opens that tall from then on. It's the same setting as **Panel height** under [Options](#options), where the reset button takes it back to the keyboard's height. The panel never covers more than most of the screen, so on a short screen or with the phone sideways it stops earlier, and with no room to grow at all the bar isn't drawn. The height changes only the history: a search, or a clip open in the editor, still shrinks the panel so the keys fit under it. With TalkBack on, the bar offers **Make the panel taller** and **Make the panel shorter** as actions.
 
+### Clipboard and keys together
+
+The keyboard button at the end of the panel's header stacks the clipboard over the keys. The panel shrinks to its header and about two rows of clips, and the keys come back underneath it, typing into the app as usual. Paste a clip, type a sentence, paste the next one, without opening and closing the panel in between. The height bar steps aside while the keys are showing, since the keys set the height. Tap the button again to give the clipboard the whole keyboard back. The choice stays until you change it, so the panel opens stacked next time. This needs **Full-screen clipboard panel** under [Options](#options), which is on by default; the word suggestions don't show while the panel is stacked.
+
 ### Grid or list
 
 The square button beside the search box switches the history between the grid and a list. The list gives each clip a whole row: the text across the full width, up to three lines of it, with the pin and delete circles at the end, and a picture as a small thumbnail at the start of its row. It's the easier one to read when your clips are long text. The button shows the view a tap takes you to, and the choice sticks. It's the same setting as **History layout** under [Options](#options). The button is a cell of the [panel layout](/languages/custom-layouts/#panel-layouts) (**Grid or list switch** in the component picker), so you can move it or drop it. With the full-screen panel on, it sits at the right end of the header.
@@ -70,7 +74,8 @@ Turn on **Clear button** under [Options](#options) and a bin sits at the end of 
 
 To see a clip's info popup instead, press and hold its card. The popup gives the time it was copied, its type and size, and (if [source tracking](#options) is on) the app it came from. Some clips get buttons there too:
 
-- A **text** clip gets **View full text**, which swaps the popup for the clip's whole text, however long, in a box you can scroll. **Paste** there does what a tap on the card does, and **Close** puts it away. A [hidden password or code](#passwords-are-handled-deliberately) has no such button, since the panel never shows its text.
+- A **text** clip opens straight on its whole text, however long, in a box you can scroll, with every web address in it underlined in your theme's accent colour. Under the text sits a row of icons: ⓘ for the details described above (when it was copied, which app it came from, its type and length), then edit, open link, extract parts, pin and delete as the clip and your settings allow, and **Paste** at the end, which does what a tap on the card does. Tap anywhere outside to put it away. From the details, **View full text** brings the text back.
+- A clip with codes, phone numbers or links inside it gets **Extract** while [entity detection](#pulling-codes-and-links-out-of-a-clip) is on. With one part found, it pastes that part. With more, it lists them in sections, **Links**, **Phone numbers** and **One-time codes**, and a press on one pastes it. A [hidden password or code](#passwords-are-handled-deliberately) has no such button, since the panel never shows its text.
 - A **link**, a clip that is one web address and nothing else, gets **Open link**, which opens it in your browser. A hidden clip never does, since the browser would show what the panel hides.
 - An **image** gets **View**, which shows the picture full screen: pinch or double-tap to zoom, drag to look around, tap or press Back to return to where you were typing. It also gets **Send as sticker**, which runs the picture through the sticker processor before it goes.
 - An **image** also gets **Extract text** while the [text scanner](/tools/scanner/#scanning-text-ocr) is on in your tools <Flavor edition="full" />. The scanner opens on the picture instead of the camera and reads it straight away, in the language you type in. The words come back as chips: keep the ones you want, then **Copy** puts them on the clipboard, where they become a clip of their own, or **Insert** types them. **Scan again** shows the picture with its language chip, so you can read it again in another language. The back button returns to the clipboard.
@@ -89,7 +94,7 @@ Clips are stored under seven kinds. The panel groups them like this:
   <Shot id="tools/clipboard-rich-media" alt="A file, video, and folder clip side by side — each keeps only a reference to the source, not the bytes." />
 </PhoneFrame>
 
-- **Text and rich text**: the plain content, shown as-is.
+- **Text and rich text**: the plain content, shown as-is. A copied **link** with no preview is shown as the address itself, as many lines of it as **Lines per clip** allows, with no separate host line; with a preview, the title and description take its place and the address and host sit underneath.
 - **Links**: shown as the raw URL, or as a fetched title and description if [link previews](#options) are on.
 - **Images**: copied into the app's own storage, so the source app can discard its copy without losing yours. Also captures device screenshots directly, if you turn that on (not in the Play Store build).
 - **Files and videos**: not copied. Only the file's URI, name, MIME type and size are kept, so copying a multi-gigabyte video costs nothing. A video card even shows a frame grabbed from the very start of the clip instead of a blank icon. Copying several files or a whole folder at once keeps up to 20 items from that one copy.
@@ -114,6 +119,10 @@ Matching is a case-insensitive substring search, and it reaches past a clip's ow
 ## Pulling codes and links out of a clip
 
 Turn on entity detection and the panel scans your recent clips for one-time codes, phone numbers and links. Each one becomes a dashed-outline chip above the history grid, so the six digits inside a verification text are one tap away rather than a copy-select-paste. Tapping a chip pastes just that fragment and leaves the full clip in place. Press and hold a chip to see it highlighted inside the message it came from.
+
+With **Show the found parts as icons on each clip** on, the chips give way to icons on the clips themselves: a link, a phone or a code icon at the end of each card's bottom row, for each kind found in it, with a small number when there's more than one. Press an icon to paste its part, or, when it counts more than one, to pick from the list. Every clip shows its own parts this way, not only the newest few the chip strip has room for.
+
+With **Copy picked parts to the clipboard** on, a part you pick, from a chip, an icon or **Extract**, is copied as a clip of its own instead of typed, ready to paste wherever you need it.
 
 <PhoneFrame side caption="Entity chips above the history grid: an OTP and a phone number pulled out of a longer message.">
   <Shot id="tools/clipboard-entity-chips" alt="Entity chips above the history grid: an OTP and a phone number pulled out of a longer message." />
@@ -154,8 +163,9 @@ Everything below lives on the Clipboard screen, under Features on the settings h
 **History**, in the order the rows appear:
 
 - **Clipboard history**: master capture switch, on by default.
-- **Suggest the last copy**: offers your latest copy as a paste chip on the suggestion strip. On by default.
+- **Suggest the last copy**: offers your latest copy as a paste chip on the suggestion strip. On by default. The chip is as wide as what it holds, so a short copy is a short pill with its ✕ right beside it; a long one stops at about half the strip and ends in an ellipsis.
 - **How long the paste chip stays**: 30 s to 30 min, default 5 minutes, or **Until dismissed** at the bottom of the slider. Shown only while "Suggest the last copy" is on. Typing never dismisses the chip, since it's meant to survive writing the message you'll paste into. Shorten it if you'd rather a copied password or address stopped being on screen.
+- **Recent copies on the strip**: 1 to 5, default 1, shown only while "Suggest the last copy" is on. At 1 the strip offers the single paste chip above. Set more and, whenever the strip has nothing else to suggest, it shows that many of your latest text clips as a row of chips you can scroll sideways, each a tap from pasted. The row steps aside while you type and comes back when the candidates go; its ✕ puts it away for the field you're in, and it returns in the next field or the moment you copy something new. Hidden (sensitive) clips never appear in it.
 - **Suggest copied codes**: **Any field** by default, and only shown while "Suggest the last copy" is on. A code on its own is otherwise treated as a secret and kept off the strip, since the chip sits in view while you type something else. A code you copied by hand is the case that rule was never aimed at: you copied it to paste it, and it sits one tap away in the clipboard panel either way. **Code boxes only** narrows it to fields that ask for a code — a number keypad, or a name like "OTP" or "verification code" — if you'd rather a code never showed up over the keys of a message, and **Never** keeps the strip clear of codes entirely. Only a bare code qualifies at any setting. A copied password is never offered.
 - **Pop-up when you copy**: off by default. It lives in this group but it isn't a history setting at all, see [below](#details--edge-cases).
 - **Clipboard expiry**: hours before an unpinned clip is removed, 0–168, default 24 hours (0 means never).
@@ -172,12 +182,18 @@ Everything below lives on the Clipboard screen, under Features on the settings h
 - **Pinned and unpinned tabs**: splits the history into [two tabs](#pinned-and-unpinned-tabs); off by default.
 - **Outline pinned clips**: a thin accent border around each pinned clip; off by default.
 - **Pin and delete buttons**: the pin and bin circles on every clip; on by default. Off, **Pin** and **Delete** move into the clip's press-and-hold popup, and a card with no number, time or rich text tag loses its bottom row.
+- **Type out pasted clips**: pastes a clip one character at a time, as if typed, the way a one-time code goes into a row of code boxes; off by default. A clip longer than 200 characters is pasted all at once. Bare codes are typed out either way, under the control of the One-time codes setting.
+- **Rich text tag**: the small "Rich text" label under a clip that was copied with formatting; on by default. Off, the label goes, and a card with nothing else on that row loses the row.
+- **Keep formatting**: on by default, so a copy that came with bold, links or other formatting pastes it back into apps that take it. Off, every copy from then on is stored as plain text, pastes as plain text everywhere, and never wears the tag. Clips already in the history keep what they have.
 - **Swipe to delete**: a sideways swipe across a clip deletes it; on by default. Off, the swipe does nothing and a **Delete** button joins the clip's press-and-hold popup. The bin works either way, while **Pin and delete buttons** is on.
+- **Swipe right to pin**: shown while swipes are on, off by default. On, the two directions part ways: a swipe left still deletes, a swipe right pins or unpins the clip and lets it slide back into place.
 - **Undo a deleted clip**: shows the Undo bar for a few seconds after you delete a clip with the bin or a swipe; on by default. Off, a delete is immediate and final.
 - **Pinned entries last**: moves pinned clips to the end of the panel instead of the top; off by default. Greyed out while the tabs are on.
 - **Search bar**: enables the [search pill](#finding-a-clip-again) described above; off by default.
 - **Clear button**: the [bin](#clearing-the-history) that deletes every unpinned clip after asking, and empties the system clipboard unless it holds a pinned clip; off by default.
 - **Detect codes, numbers and links**: enables the [entity chips](#pulling-codes-and-links-out-of-a-clip); on by default. Detection runs entirely on the device.
+- **Show the found parts as icons on each clip**: off by default, and only while detection is on. Icons with counts on each clip in place of the chip strip.
+- **Copy picked parts to the clipboard**: off by default, and only while detection is on. A picked code, number or link is copied rather than typed.
 - **Phone number formats**: a nav row, shown only while detection is on, opening the mask editor covered in [Phone number formats](/reference/settings/phone-formats/). Its subtitle counts your saved formats, and says every number becomes a chip once you have deleted them all.
 - **Forget after you paste a password**: the paste-time purge described [above](#passwords-are-handled-deliberately); off by default.
 - **Link previews**: fetches a copied link's page title and description directly from the linked site; off by default, and the toggle's own description says so plainly.

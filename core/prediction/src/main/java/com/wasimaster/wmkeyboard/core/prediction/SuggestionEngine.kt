@@ -443,9 +443,10 @@ class SuggestionEngine(
     /**
      * When on, [shouldAutocorrect] may return a two-word split ("kortehobe" →
      * "korte hobe") when no single-word correction fires and both halves are
-     * known words that clear the same confidence gate. Off by default — the
-     * IME turns it on from the user's setting; the standalone spell checker
-     * judges isolated words and leaves it off.
+     * known words that clear the same confidence gate, and [suggest] offers
+     * such splits as candidates for an unknown word (#413). Off by default —
+     * the IME turns it on from the user's setting; the standalone spell
+     * checker judges isolated words and leaves it off.
      */
     @Volatile
     var autocorrectSplits: Boolean = false
@@ -557,6 +558,15 @@ class SuggestionEngine(
      */
     @Volatile
     var dictionaryCapitals: Map<String, WordSource> = emptyMap()
+
+    /**
+     * Capitals shipped with the app for a language whose bundled list has
+     * none (#517): English's is all lower case, so without a download "monday"
+     * and "london" never got their capital. Asked after [dictionaryCapitals],
+     * so a downloaded list that spells a word its own way still decides it.
+     */
+    @Volatile
+    var bundledCapitals: Map<String, WordSource> = emptyMap()
 
     /** The user's switch over [dictionaryCapitals]. */
     @Volatile
@@ -1444,7 +1454,8 @@ class SuggestionEngine(
         if (!apostropheFixes || mixLanguageIds().none(Apostrophes::servesLanguage)) return emptyList()
         val stamp = generation.get()
         val cached = glideContractions?.takeIf { it.first == stamp }?.second ?: run {
-            val entries = Apostrophes.repairs().mapNotNull { (bare, fixed) ->
+            val repairs = mixLanguageIds().flatMap { Apostrophes.repairs(it).entries }
+            val entries = repairs.mapNotNull { (bare, fixed) ->
                 if (inDictionaries(bare)) return@mapNotNull null
                 dictionaryFrequencyOf(fixed.lowercase()).takeIf { it > 0 }?.let { bare to it }
             }
@@ -2179,7 +2190,11 @@ class SuggestionEngine(
             for (s in apps.complete(lower, limit)) {
                 merged.merge(s.word, flatScore(s.frequency, APP_WEIGHT), ::maxOf)
             }
-            if (!known) {
+            // Offered only while the setting that applies them is on (#413):
+            // a user who turned "Add missing spaces" off did not want "his to"
+            // on the strip while typing "history" either, and the join the
+            // other way round is a different candidate that stays.
+            if (!known && autocorrectSplits) {
                 for (split in splitCandidates(lower, touch)) {
                     merged.merge(split.text, split.score, ::maxOf)
                 }
@@ -3306,13 +3321,17 @@ class SuggestionEngine(
      */
     private fun listSpelling(key: String): String? {
         val all = dictionaryCapitals
-        if (!dictionaryCapitalsEnabled || all.isEmpty()) return null
-        all[primaryLanguageId.ifBlank { EN }]?.let { DictionaryCapitals.spelling(it, key) }?.let { return it }
+        val bundled = bundledCapitals
+        if (!dictionaryCapitalsEnabled || (all.isEmpty() && bundled.isEmpty())) return null
+        fun spelled(lang: String): String? =
+            all[lang]?.let { DictionaryCapitals.spelling(it, key) }
+                ?: bundled[lang]?.let { DictionaryCapitals.spelling(it, key) }
+        spelled(primaryLanguageId.ifBlank { EN })?.let { return it }
         if (activeDictionary.contains(key) || customDictionary.contains(key)) return null
         for (secondary in secondaryDictionaries) {
-            all[secondary.langId]?.let { DictionaryCapitals.spelling(it, key) }?.let { return it }
+            spelled(secondary.langId)?.let { return it }
         }
-        if (englishAsSecondary) all[EN]?.let { DictionaryCapitals.spelling(it, key) }?.let { return it }
+        if (englishAsSecondary) spelled(EN)?.let { return it }
         return null
     }
 
@@ -3627,7 +3646,8 @@ class SuggestionEngine(
      */
     private fun contractionReading(lower: String, langId: String): ElisionReading? {
         if (!Apostrophes.servesLanguage(langId)) return null
-        val fixed = Apostrophes.fix(lower) ?: return declaredReading(lower)
+        val fixed = Apostrophes.fix(lower, langId)
+            ?: return declaredReading(lower, Apostrophes.offer(lower, langId))
         // A repair the user took back with backspace is held back the way any
         // undone correction is (#402): offered on the strip behind what was
         // typed, never committed over it, for as long as the undo memory says.
@@ -3642,14 +3662,15 @@ class SuggestionEngine(
             -> true
             CorrectionStats.Penalty.NONE -> false
         }
-        if (undone || wordOfWrittenLanguage(lower)) return declaredReading(lower, fixed)
+        if (undone || wordOfWrittenLanguage(lower, langId)) return declaredReading(lower, fixed)
         val scored = maxOf(finiteScore(fixed.lowercase()), finiteScore(lower))
         return ElisionReading(fixed, scored + CONTRACTION_LEAD, shadowed = true)
     }
 
     /**
      * Whether [lower] is a word of the language the field is being written
-     * in, when that language is not English: `im` typed into German (#425).
+     * in, when that language is not [tableLang], the one whose table made the
+     * repair: `im` typed into German (#425), `wars` typed into English (#518).
      *
      * The written language rather than every language of the mix, so an
      * English keyboard carrying German as a secondary still repairs `im`
@@ -3657,11 +3678,13 @@ class SuggestionEngine(
      * field has turned German. Only that language's own words count — the
      * classification the field mix itself makes ([languagesOwning]).
      */
-    private fun wordOfWrittenLanguage(lower: String): Boolean {
+    private fun wordOfWrittenLanguage(lower: String, tableLang: String): Boolean {
         val written = detectedLanguageId()
-        if (written.isEmpty() || Apostrophes.servesLanguage(written)) return false
+        if (written.isEmpty() || baseLanguage(written) == baseLanguage(tableLang)) return false
         return written in languagesOwning(lower)
     }
+
+    private fun baseLanguage(id: String): String = id.substringBefore('-').substringBefore('_')
 
     /**
      * [lower] read as the contraction it spells when it is also a word of its

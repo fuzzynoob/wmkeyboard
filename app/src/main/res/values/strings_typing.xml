@@ -57,7 +57,7 @@
 
     <string name="typing_autocorrect_splits_title">Add missing spaces</string>
     <string name="typing_autocorrect_splits_subtitle">Split two words typed together when you press space</string>
-    <string name="typing_autocorrect_splits_info">When the word you typed is unknown, but it divides into two words the keyboard knows, the keyboard can commit the two words with a space between them: "ofthe" becomes "of the". A letter next to the spacebar can also stand in for the space itself, so "amibtomake" becomes "ami tomake", when that tap landed low on its key, toward the spacebar, and the two words are a pair you have typed before. The split applies only when no single word explains the typed text and both halves are clear words. Backspace right after the split puts your text back, like any other correction.</string>
+    <string name="typing_autocorrect_splits_info">When the word you typed is unknown, but it divides into two words the keyboard knows, the keyboard can commit the two words with a space between them: "ofthe" becomes "of the". A letter next to the spacebar can also stand in for the space itself, so "amibtomake" becomes "ami tomake", when that tap landed low on its key, toward the spacebar, and the two words are a pair you have typed before. The split applies only when no single word explains the typed text and both halves are clear words. Backspace right after the split puts your text back, like any other correction. With this setting off, the suggestion strip stops offering two-word splits as well.</string>
 
     <string name="typing_language_detection_title">Detect the language you type</string>
     <string name="typing_language_detection_subtitle">Follow the language of the current message</string>
@@ -116,7 +116,7 @@
     <string name="typing_skip_all_caps_subtitle">Leave words typed in capital letters alone</string>
     <string name="typing_dictionary_capitals_title">Capitals from the word list</string>
     <string name="typing_dictionary_capitals_subtitle">Write a word with the capital letter that its word list gives it</string>
-    <string name="typing_dictionary_capitals_info">Some word lists spell words with a capital letter, such as the nouns in German and the names of places. When you type or swipe one of these words in small letters, the keyboard writes it with its capital letter. A word that the list also spells in small letters stays as you typed it. Backspace immediately after the word puts back what you typed. This uses the word list that you downloaded for the language. The built-in English list has no capital letters.</string>
+    <string name="typing_dictionary_capitals_info">Some word lists spell words with a capital letter, such as the nouns in German and the names of places. When you type or swipe one of these words in small letters, the keyboard writes it with its capital letter. A word that the list also spells in small letters stays as you typed it. Backspace immediately after the word puts back what you typed. This uses the word list that you downloaded for the language. For the built-in English list, the keyboard carries the capitals of days, months, places, names and acronyms itself.</string>
     <string name="typing_autocorrect_on_enter_title">Correct the word before Enter</string>
     <string name="typing_autocorrect_on_enter_subtitle">Enter corrects the last word, as space does</string>
     <string name="typing_autocorrect_on_enter_info">Enter ends a word the same way space does, so autocorrect can change the word before it. In a search box or a chat, Enter also sends the text, and you cannot see the correction before it goes. Turn this off to send the last word as you typed it. Space and punctuation still correct words.</string>
@@ -202,6 +202,9 @@
 
     <string name="typing_contact_emails_in_email_fields_title">Contact emails in email fields too</string>
     <string name="typing_contact_emails_in_email_fields_subtitle">Show them even where the app hides the suggestions</string>
+    <string name="typing_typed_emails_title">Remember email addresses you type</string>
+    <string name="typing_typed_emails_subtitle">Offer them in the next email field</string>
+    <string name="typing_typed_emails_info">When you type an email address into a field that asks for an email address, the keyboard keeps it. The next time an email field opens, the addresses you used most show on the suggestion strip before you type, and typing the start of one narrows the list. It learns only from email fields, never from ordinary text. The addresses stay on this phone. To delete them, use Storage in the settings.</string>
     <string name="typing_contact_emails_in_email_fields_info">Email fields usually tell the keyboard to hide the suggestion strip. This would hide these completions where they help most. With this setting on, contact email completions still show in email fields. Other suggestions stay hidden there. Turn it off to follow the field, and complete email addresses only in ordinary text.</string>
 
     <string name="typing_app_names_title">Suggest app names</string>
@@ -791,13 +794,28 @@
     <string name="typing_punctuation_marks_title">Punctuation marks</string>
     <string name="typing_punctuation_marks_hint">One mark per character, in the order you want them. Leave empty for . , ? ! \'</string>
 
+    <string name="typing_suggestion_pages_title">Swipe down for more suggestions</string>
+    <string name="typing_suggestion_pages_subtitle">Swipe down on the suggestions to see every word the keyboard ranked</string>
+    <string name="typing_suggestion_pages_info">The strip shows only a few words. With this on, swipe down on it while it has words and a grid of up to 24 suggestions covers the keys, best first. Tap one to use it, or swipe the strip again or tap Back to the keys to close the grid. When this is on, a downward swipe over suggestions opens the grid instead of hiding the keyboard; over an empty strip it still hides it if that setting is on. This setting is off by default.</string>
     <string name="typing_suggestion_slots_title">Number of suggestions</string>
     <string name="typing_suggestion_slots_subtitle">How many words the suggestion strip shows at once</string>
     <string name="typing_suggestion_slots_info">The strip splits its width evenly between the suggestions, so more of them means each one is narrower and long words are shrunk further to fit. Three suits a phone. A tablet or a landscape screen has room for more. This setting is 3 by default.</string>
+    <string name="typing_suggestion_emoji_slot_title">Emoji takes a slot</string>
+    <string name="typing_suggestion_emoji_slot_subtitle">Count a suggested emoji as one of the suggestions</string>
+    <string name="typing_suggestion_fixed_slots_title">Keep suggestions in place</string>
+    <string name="typing_suggestion_fixed_slots_subtitle">Same-width slots, and the best word never moves</string>
+    <string name="typing_suggestion_fixed_slots_info">Normally the words share the strip between them: two words split it in half, and an emoji, a row of punctuation marks or a tool\'s chip pushes the words aside to make room. With this setting on, the strip is always cut into the number of suggestions, every slot the same width, and a slot with nothing to show stays empty. The best word keeps the slot it always has. Anything that is not a word takes a slot of its own: a suggested emoji or the punctuation marks the last slot, a tool\'s keyword chip the first. This setting is off by default.</string>
+    <string name="typing_suggestion_tinted_title">Coloured suggestions</string>
+    <string name="typing_suggestion_tinted_subtitle">Put each word on a pill of the theme\'s accent colour</string>
+    <string name="typing_suggestion_tinted_info">Each suggestion sits on a rounded pill in the theme\'s accent colour, with the best word\'s pill the deepest, so the slots are told apart by colour rather than by thin dividers. With a Material You theme the colour follows your wallpaper. This setting is off by default.</string>
+    <string name="typing_suggestion_emoji_count_title">Suggested emoji</string>
+    <string name="typing_suggestion_emoji_count_subtitle">How many emoji ride after the words</string>
+    <string name="typing_suggestion_emoji_count_info">How many suggested emoji can follow the words on the strip, from one to four. Four is the default. While an emoji takes a slot, the slot holds one, whatever this says. Emoji suggestions are turned on and off under Emoji.</string>
+    <string name="typing_suggestion_emoji_slot_info">Suggested emoji normally ride after the words, up to four of them, on top of the number of suggestions. With this setting on, the best emoji takes the last slot and the words get one fewer, so the strip never shows more than the number of suggestions. Emoji suggestions are turned on and off under Emoji. This setting is off by default.</string>
 
     <string name="typing_suggestion_scroll_title">Scroll the suggestions</string>
-    <string name="typing_suggestion_scroll_subtitle">Show each word at full size and scroll the strip sideways when they do not fit</string>
-    <string name="typing_suggestion_scroll_info">Normally the strip splits its width evenly and shrinks long words to fit their slot. With this on, every word keeps its natural size and the strip scrolls sideways instead. Short words still fill the strip as before, so nothing changes until a word overruns. Turn it on if you want five or six suggestions on a narrow phone. This setting is off by default.</string>
+    <string name="typing_suggestion_scroll_subtitle">Show each word at full size, and every word found, in a strip that scrolls sideways</string>
+    <string name="typing_suggestion_scroll_info">Normally the strip splits its width evenly and shrinks long words to fit their slot. With this on, every word keeps its natural size and the strip scrolls sideways instead. The strip also carries on past the number of suggestions, through every word the keyboard found, so the one you want is a swipe away even when it ranked fourth or tenth. Short words still fill the visible part as before. Turn it on if you want five or six suggestions on a narrow phone, or if your word is often not among the first few. This setting is off by default.</string>
 
     <string name="typing_double_space_title">Double space</string>
     <string name="typing_double_space_subtitle">What two quick presses of space type</string>
@@ -814,6 +832,12 @@
 
     <string name="typing_space_cursor_step_title">Cursor speed</string>
     <string name="typing_space_cursor_step_subtitle">How far you slide along the spacebar to move one character</string>
+    <string name="typing_space_cursor_edge_repeat_title">Keep moving while held</string>
+    <string name="typing_space_cursor_edge_repeat_subtitle">A cursor swipe held still, or past the end of the spacebar, keeps going</string>
+    <string name="typing_space_cursor_edge_repeat_info">The spacebar is shorter than a long line of text. With this setting on, a cursor swipe keeps going by itself, about eight characters a second: at once when your finger is past either end of the spacebar, and after a short pause when you hold your finger still away from where the swipe began. Move your finger again, or lift it, to stop. Short swipes and fine adjustments near where you started are not affected. This setting is off by default.</string>
+    <string name="typing_space_cursor_direct_title">Move the cursor directly</string>
+    <string name="typing_space_cursor_direct_subtitle">Place the cursor instead of pressing arrow keys</string>
+    <string name="typing_space_cursor_direct_info">A spacebar swipe normally moves the cursor by pressing the left and right arrow keys, the way a hardware keyboard would. Some search boxes read an arrow key as a step through their suggestions, and some file managers put the cursor back at the start of the name after one. With this setting on, the swipe places the cursor directly instead, and no app sees a key press. The app has to tell the keyboard where its cursor is for this to work; when it does not, the arrow keys are used as before. Selection mode and a held shift always use the arrow keys, which is how they stretch a selection. This setting is off by default.</string>
     <string name="typing_space_cursor_accelerate_title">Speed up long cursor swipes</string>
     <string name="typing_space_cursor_accelerate_subtitle">The further a spacebar swipe goes, the faster the cursor moves</string>
     <string name="typing_space_cursor_accelerate_info">After a short distance at the normal cursor speed, each character needs less movement. The speed increases until it gets to the top speed, and it stays at that speed while you continue in the same direction. When you go back, the speed starts again at the normal speed, so you can correct an overshoot accurately. With the 2-D cursor touchpad, movement up and down also increases speed in the same way. A short swipe moves one character at a time, as before. This setting is off by default.</string>
@@ -910,6 +934,9 @@
         <item quantity="one">%d time</item>
         <item quantity="other">%d times</item>
     </plurals>
+    <string name="typing_mistype_tolerance_title">Mistype tolerance</string>
+    <string name="typing_mistype_tolerance_subtitle">How far into a neighbouring key a tap may land and still count as a slip</string>
+    <string name="typing_mistype_tolerance_info">Every tap is read against where it landed, not only against the key it hit, so a tap near the edge of a key can still be read as the key next to it. This sets how generous that reading is. Above 100%, a tap well inside a neighbouring key is still a likely slip, which suits fast or hectic typing and big fingers. Below 100%, the key you hit is trusted more, which suits careful typing. It changes which words the strip offers and what autocorrect picks. The default is 100%.</string>
     <string name="typing_adapt_taps_title">Learn where my taps land</string>
     <string name="typing_adapt_taps_subtitle">Words you keep teach the keyboard how you miss each key when tapping</string>
     <string name="typing_adapt_taps_info">Nobody taps the exact middle of every key. With this on, every word you type and leave standing records where your finger landed on each letter, and later taps are read against keys moved to match. A slip toward a neighbouring key is then corrected the way you actually make it. Swipes have their own version of this under Glide typing. Turn it off to freeze what has been learned, or use Forget below to start over.</string>

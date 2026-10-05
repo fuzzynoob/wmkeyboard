@@ -14,6 +14,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -283,7 +284,7 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
     // keyboard, up to what the screen can give it, and the bar on top drags it.
     val clipboard = state.settings.clipboard
     val resize = rememberClipPanelResize(clipboard.panelExtraHeightDp)
-    val base = if (clipboard.fullBleed) keyRowsHeight(state) + fullBleedHiddenRows(state) else keyRowsHeight(state)
+    val base = if (clipboard.fullBleed) keyRowsHeight(state) + fullBleedHiddenRows(state, macroRowAtPanelOpen(state)) else keyRowsHeight(state)
     val maxPanel = toolPanelHeight(state, wanted = base + ClipPanelExtraHeightRange.last.dp, floor = base)
     val maxExtra = (maxPanel - base).coerceAtLeast(0.dp)
     val extra = resize.shownDp(clipboard.panelExtraHeightDp).dp.coerceIn(0.dp, maxExtra)
@@ -293,6 +294,20 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
     // No bar where the screen leaves no room to grow: it would drag nothing.
     val bar: (@Composable () -> Unit)? = if (maxExtra < 1.dp) null else {
         { ClipPanelHeightBar(resize, extra, maxExtra, callbacks.clipboard.actions.onPanelHeight) }
+    }
+    // Stacked over the keys (#414): a short panel, the keys under it, and no
+    // height bar, since the keys decide the height now.
+    val stacked = clipboardStacked(state)
+    val keysToggle: @Composable () -> Unit = {
+        ToolCircle(
+            slot = IconSlots.KEY_INPUT_METHOD_PICKER,
+            description = stringResource(
+                if (stacked) R.string.ime_clipboard_keys_hide_desc else R.string.ime_clipboard_keys_show_desc,
+            ),
+            active = stacked,
+            onClick = callbacks.clipboard.actions.onKeysToggle,
+            modifier = Modifier.padding(start = 2.dp),
+        )
     }
     if (clipboard.fullBleed) {
         // Full-bleed: the toolbar row becomes the back header and the
@@ -311,9 +326,11 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
                     title = if (searchShown) "" else stringResource(R.string.ime_tool_clipboard),
                     onClose = onClose,
                     extraHeight = extra,
-                    topHandle = bar,
-                    headerActions = if (shown.isEmpty()) null else {
-                        {
+                    compact = stacked,
+                    compactHeight = ClipStackedHeight,
+                    topHandle = if (stacked) null else bar,
+                    headerActions = {
+                        run {
                             for (key in shown) {
                                 val kind = (key.action as KeyAction.Field).kind
                                 // The pill takes its share of the width; the switch
@@ -327,10 +344,14 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
                                 Box(
                                     modifier = cell
                                         .fillMaxHeight()
-                                        .padding(horizontal = 2.dp),
+                                        // Clear of the header's edges the way its
+                                        // circles are, so the pill no longer sits
+                                        // on the cards scrolled up under it (#414).
+                                        .padding(horizontal = 2.dp, vertical = 4.dp),
                                 ) { fields(kind) }
                             }
                         }
+                        keysToggle()
                     },
                 ) {
                     PanelLayoutGrid(
@@ -345,7 +366,10 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
                     stringResource(R.string.ime_tool_clipboard),
                     onClose = onClose,
                     extraHeight = extra,
-                    topHandle = bar,
+                    compact = stacked,
+                    compactHeight = ClipStackedHeight,
+                    topHandle = if (stacked) null else bar,
+                    headerActions = { keysToggle() },
                 ) {
                     PanelLayoutGrid(state, spec, callbacks, onClose, fields, Modifier.fillMaxSize(), collapsed)
                 }
@@ -364,6 +388,12 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
         }
     }
 }
+
+/**
+ * The clipboard's height while stacked over the keys (#414): its header and
+ * about two rows of cards, which is what a paste between sentences needs.
+ */
+private val ClipStackedHeight = 190.dp
 
 /** The text-editing pad: keys only, filling the key area. */
 @Composable

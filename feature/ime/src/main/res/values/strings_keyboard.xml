@@ -417,7 +417,12 @@
         <item quantity="other">%d new words</item>
     </plurals>
     <string name="ime_learn_scanning_progress">Reading the text…</string>
+    <!-- The row at the top of the grid of extra word suggestions; tapping it goes back to the keys. -->
+    <string name="ime_suggestion_pages_close">Back to the keys</string>
     <string name="ime_learn_empty">No new words here. The keyboard knows every word in this text.</string>
+    <!-- Under the line above: this tool lists words to add, not the words already learned. -->
+    <string name="ime_learn_empty_learned_hint">Looking for the words the keyboard has learned? They are in the personal dictionary in Settings.</string>
+    <string name="ime_learn_open_dictionary_action">Open the dictionary</string>
     <string name="ime_learn_blocked_info">This is a password field, so nothing was read.</string>
     <string name="ime_learn_partial_info">Only part of this field could be read.</string>
     <string name="ime_learn_capped_info">Showing the first %1$d new words.</string>
@@ -570,6 +575,11 @@
     <string name="ime_snippets_empty">No snippets yet.\nVariables: {date} {time} {datetime} {clip}</string>
     <string name="ime_snippets_variables">Variables: {date} {time} {datetime} {clip}</string>
     <string name="ime_snippets_settings_desc">Snippet settings</string>
+    <!-- The search in the snippets panel's header. -->
+    <string name="ime_snippets_search_desc">Search snippets</string>
+    <string name="ime_snippets_search_hint">Search snippets…</string>
+    <string name="ime_snippets_search_clear_desc">Clear the search</string>
+    <string name="ime_snippets_no_match">No snippets match “%1$s”.</string>
 
     <!-- Shown on a snippet that expands from a pattern instead of one word.
          %1$s is the pattern itself, for example ^hello (.+)$ — leave it as is. -->
@@ -625,6 +635,9 @@
     <!-- The clipboard panel. -->
     <string name="ime_clipboard_search_hint">Search the clipboard…</string>
     <string name="ime_clipboard_search_clear_desc">Clear the search</string>
+    <!-- The clipboard header's keyboard button: keep the keys under a smaller clipboard, or give the clipboard the whole keyboard back. -->
+    <string name="ime_clipboard_keys_show_desc">Show the keys under the clipboard</string>
+    <string name="ime_clipboard_keys_hide_desc">Hide the keys</string>
     <string name="ime_clipboard_empty">The clipboard history is empty.\nCopied text shows here.</string>
     <!-- %1$s is what the user typed in the clipboard search box. -->
     <string name="ime_clipboard_no_match">No clips match “%1$s”.</string>
@@ -650,7 +663,14 @@
     <string name="ime_clip_open_link">Open link</string>
     <string name="ime_clip_view_image">View</string>
     <string name="ime_clip_extract_text">Extract text</string>
+    <string name="ime_clip_extract_parts">Extract</string>
+    <string name="ime_clip_extract_links">Links</string>
+    <string name="ime_clip_extract_phones">Phone numbers</string>
+    <string name="ime_clip_extract_codes">One-time codes</string>
+    <string name="ime_clip_entity_copied_toast">Copied to the clipboard</string>
     <string name="ime_clip_view_text">View full text</string>
+    <!-- The (i) icon under a clip's full text, which opens the clip's details: when it was copied, its type, its size. -->
+    <string name="ime_clip_details_desc">Details</string>
     <!-- The bar on top of the clipboard panel that drags it taller or shorter, for a screen reader. -->
     <string name="ime_clipboard_height_desc">Clipboard panel height. Drag up or down</string>
     <string name="ime_clipboard_height_taller">Make the panel taller</string>

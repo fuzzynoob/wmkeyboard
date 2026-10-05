@@ -1205,6 +1205,8 @@ sealed interface WebSearchUi {
     data class Ready(
         val results: List<com.wasimaster.wmkeyboard.core.tools.WebResult>,
         val query: String,
+        /** The backend's own short answer, shown above the results (#470). */
+        val answer: String? = null,
     ) : WebSearchUi
 }
 
@@ -2808,6 +2810,13 @@ data class KeyboardUiState(
     val clipboardQuery: String = "",
     /** Typing edits [clipboardQuery] instead of the field, like emoji search. */
     val clipboardSearchActive: Boolean = false,
+    /**
+     * The clipboard is stacked over the live keys (#414): a short strip of
+     * clips with the key rows under it, typing into the app, so pasting and
+     * typing can alternate without opening and closing the panel. Toggled
+     * from the panel's header and kept until toggled back.
+     */
+    val clipboardWithKeys: Boolean = false,
     /** The clip open in the clipboard panel's editor; see [clipEditActive]. */
     val clipEdit: ClipEdit? = null,
     /** The clipboard panel's Undo bar, while a delete can still be taken back. */
@@ -2818,6 +2827,12 @@ data class KeyboardUiState(
      * or the feature is off. Cleared on paste/dismiss/timeout.
      */
     val clipboardSuggestion: ClipItem? = null,
+    /**
+     * The row of recent copies on the idle strip (#414) was put away with its
+     * ✕, for this field. Back for the next field, and the moment something new
+     * is copied.
+     */
+    val clipChipsDismissed: Boolean = false,
     /**
      * One-time code lifted from a just-arrived notification, offered as a chip
      * on the suggestion strip. Null when there is none, it expired, it was
@@ -2918,6 +2933,13 @@ data class KeyboardUiState(
      * `remember` inside the panel body.
      */
     val snippetFolderOpen: Long? = null,
+    /**
+     * The snippets panel's search text (#471), matched against every snippet's
+     * label, text and triggers, folders or not. Empty when not searching.
+     */
+    val snippetQuery: String = "",
+    /** Typing edits [snippetQuery]; the panel collapses so the keys fit under it. */
+    val snippetSearchActive: Boolean = false,
     /**
      * The picker a held snippet tile opened, or null while the panel is showing
      * tiles. Panel state for the same reason [snippetFolderOpen] is: back has to
@@ -3484,6 +3506,7 @@ data class KeyboardUiState(
         mediaSearchActive && panel.hasMediaSearch -> CaptureTarget.MEDIA_SEARCH
         dictionarySearchActive -> CaptureTarget.DICTIONARY_SEARCH
         clipboardSearchActive -> CaptureTarget.CLIPBOARD_SEARCH
+        snippetSearchActive -> CaptureTarget.SNIPPET_SEARCH
         else -> null
     }
 
@@ -3518,6 +3541,7 @@ data class KeyboardUiState(
         CaptureTarget.DICTIONARY_SEARCH -> dictionaryQuery
         CaptureTarget.CLIPBOARD_SEARCH -> clipboardQuery
         CaptureTarget.CLIP_EDIT -> clipEdit?.draft.orEmpty()
+        CaptureTarget.SNIPPET_SEARCH -> snippetQuery
     }
 
     /**
@@ -3567,12 +3591,26 @@ data class KeyboardUiState(
      * With no folders anywhere this is every snippet, which is what makes the
      * panel identical to its pre-folder self for anyone who never makes one.
      */
-    fun snippetsShown(): List<Snippet> = when {
-        snippetFolders.isEmpty() -> snippets
-        openSnippetFolder() != null -> snippets.filter { it.folderId == snippetFolderOpen }
-        else -> snippets.filter { it.folderId == 0L }
+    fun snippetsShown(): List<Snippet> {
+        // A search looks through every snippet, whatever folder it is filed
+        // in (#471): the point of typing a name is not having to remember
+        // where it was put.
+        val query = snippetQuery.trim()
+        if (query.isNotEmpty()) return snippets.filter { it.matchesQuery(query) }
+        return when {
+            snippetFolders.isEmpty() -> snippets
+            openSnippetFolder() != null -> snippets.filter { it.folderId == snippetFolderOpen }
+            else -> snippets.filter { it.folderId == 0L }
+        }
     }
 }
+
+/** Whether [query] appears in this snippet's label, its text, or any of its triggers. */
+private fun Snippet.matchesQuery(query: String): Boolean =
+    label.contains(query, ignoreCase = true) ||
+        text.contains(query, ignoreCase = true) ||
+        trigger?.contains(query, ignoreCase = true) == true ||
+        aliases.any { it.contains(query, ignoreCase = true) }
 
 /**
  * What the Plugins panel is showing.

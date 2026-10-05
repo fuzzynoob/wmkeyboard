@@ -396,6 +396,19 @@ internal fun TypingCorrectionsSettings(
                     default = SettingsDefaults.suggestionStrip.adaptToTaps,
                 ) { scope.launch { repository.setAdaptToTaps(it) } }
             }
+            // Issue #385: how far a tap may stray into a neighbour.
+            item {
+                SliderSetting(
+                    R.string.typing_mistype_tolerance_title,
+                    subtitle = stringResource(R.string.typing_mistype_tolerance_subtitle),
+                    value = settings.watch { it.suggestionStrip.mistypeTolerance }.toFloat(),
+                    range = 50f..200f,
+                    // Steps of ten: finer than that is not a difference anyone feels.
+                    display = { "${(it.toInt() + 5) / 10 * 10}%" },
+                    info = stringResource(R.string.typing_mistype_tolerance_info),
+                    default = SettingsDefaults.suggestionStrip.mistypeTolerance.toFloat(),
+                ) { scope.launch { repository.setMistypeTolerance((it.toInt() + 5) / 10 * 10) } }
+            }
             item { ForgetTapModelRow(repository) }
             item {
                 ToggleSetting(
@@ -692,6 +705,57 @@ internal fun TypingSuggestionsSettings(
             ) { scope.launch { repository.setSuggestionSlotCount(it.toInt()) } }
         }
         item {
+            // Issue #385: the words the strip has no room for.
+            ToggleSetting(
+                R.string.typing_suggestion_pages_title,
+                stringResource(R.string.typing_suggestion_pages_subtitle),
+                settings.watch { it.suggestionStrip.swipeForMore },
+                info = stringResource(R.string.typing_suggestion_pages_info),
+                default = SettingsDefaults.suggestionStrip.swipeForMore,
+            ) { scope.launch { repository.setSuggestionsSwipeForMore(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.typing_suggestion_emoji_slot_title,
+                stringResource(R.string.typing_suggestion_emoji_slot_subtitle),
+                settings.watch { it.suggestionStrip.emojiTakesSlot },
+                info = stringResource(R.string.typing_suggestion_emoji_slot_info),
+                default = SettingsDefaults.suggestionStrip.emojiTakesSlot,
+            ) { scope.launch { repository.setSuggestionEmojiTakesSlot(it) } }
+        }
+        item {
+            // Issue #509: the tail of emoji after the words.
+            SliderSetting(
+                R.string.typing_suggestion_emoji_count_title,
+                subtitle = stringResource(R.string.typing_suggestion_emoji_count_subtitle),
+                value = settings.watch { it.suggestionStrip.emojiCount }.toFloat(),
+                range = 1f..4f,
+                display = { it.toInt().toString() },
+                info = stringResource(R.string.typing_suggestion_emoji_count_info),
+                default = SettingsDefaults.suggestionStrip.emojiCount.toFloat(),
+            ) { scope.launch { repository.setSuggestionEmojiCount(it.toInt()) } }
+        }
+        item {
+            // Issue #513: words that stay where the eye expects them.
+            ToggleSetting(
+                R.string.typing_suggestion_fixed_slots_title,
+                stringResource(R.string.typing_suggestion_fixed_slots_subtitle),
+                settings.watch { it.suggestionStrip.fixedSlots },
+                info = stringResource(R.string.typing_suggestion_fixed_slots_info),
+                default = SettingsDefaults.suggestionStrip.fixedSlots,
+            ) { scope.launch { repository.setSuggestionFixedSlots(it) } }
+        }
+        item {
+            // Issue #510: slots told apart by colour.
+            ToggleSetting(
+                R.string.typing_suggestion_tinted_title,
+                stringResource(R.string.typing_suggestion_tinted_subtitle),
+                settings.watch { it.suggestionStrip.tintedSlots },
+                info = stringResource(R.string.typing_suggestion_tinted_info),
+                default = SettingsDefaults.suggestionStrip.tintedSlots,
+            ) { scope.launch { repository.setSuggestionTintedSlots(it) } }
+        }
+        item {
             ToggleSetting(
                 R.string.typing_suggestion_scroll_title,
                 stringResource(R.string.typing_suggestion_scroll_subtitle),
@@ -839,6 +903,15 @@ internal fun TypingSuggestionsSettings(
                 info = stringResource(R.string.typing_contact_emails_in_email_fields_info),
                 default = SettingsDefaults.suggestionSources.contactEmailsInEmailFields,
             ) { scope.launch { repository.setContactEmailSuggestionsInEmailFields(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.typing_typed_emails_title,
+                stringResource(R.string.typing_typed_emails_subtitle),
+                settings.watch { it.suggestionSources.typedEmails },
+                info = stringResource(R.string.typing_typed_emails_info),
+                default = SettingsDefaults.suggestionSources.typedEmails,
+            ) { scope.launch { repository.setTypedEmailSuggestions(it) } }
         }
         item {
             ToggleSetting(
@@ -2113,6 +2186,26 @@ internal fun TypingGesturesSettings(
                     info = stringResource(R.string.typing_space_cursor_accelerate_info),
                     default = SettingsDefaults.textEditing.spaceCursorAccelerate,
                 ) { scope.launch { repository.setSpaceCursorAccelerate(it) } }
+            }
+            // Issue #505: a caret move that no search box mistakes for Tab.
+            item {
+                ToggleSetting(
+                    R.string.typing_space_cursor_direct_title,
+                    stringResource(R.string.typing_space_cursor_direct_subtitle),
+                    settings.watch { it.textEditing.spaceCursorDirect },
+                    info = stringResource(R.string.typing_space_cursor_direct_info),
+                    default = SettingsDefaults.textEditing.spaceCursorDirect,
+                ) { scope.launch { repository.setSpaceCursorDirect(it) } }
+            }
+            // Issue #505: the drag goes on past the end of the spacebar.
+            item {
+                ToggleSetting(
+                    R.string.typing_space_cursor_edge_repeat_title,
+                    stringResource(R.string.typing_space_cursor_edge_repeat_subtitle),
+                    settings.watch { it.textEditing.spaceCursorEdgeRepeat },
+                    info = stringResource(R.string.typing_space_cursor_edge_repeat_info),
+                    default = SettingsDefaults.textEditing.spaceCursorEdgeRepeat,
+                ) { scope.launch { repository.setSpaceCursorEdgeRepeat(it) } }
             }
             item {
                 val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)
