@@ -869,6 +869,15 @@ internal fun LayoutSettings(
                 default = SettingsDefaults.layoutBehavior.numberRowInSymbols,
             ) { scope.launch { repository.setNumberRowInSymbols(it) } }
         }
+        item(visible = numberRow) {
+            ToggleSetting(
+                R.string.layout_number_row_on_keypad_title,
+                stringResource(R.string.layout_number_row_on_keypad_subtitle),
+                settings.watch { it.layoutBehavior.numberRowOnKeypad },
+                info = stringResource(R.string.layout_number_row_on_keypad_info),
+                default = SettingsDefaults.layoutBehavior.numberRowOnKeypad,
+            ) { scope.launch { repository.setNumberRowOnKeypad(it) } }
+        }
     }
     // Issue #369: the caret keys as a row of their own under the spacebar.
     val arrowRow = settings.watch { it.layoutBehavior.arrowRow }
@@ -1231,6 +1240,16 @@ internal fun LayoutSizeSettings(
                 enabled = pinned == null,
                 default = SettingsDefaults.keyGapScale,
             ) { scope.launch { repository.setKeyGapScale(it) } }
+        }
+        item {
+            // Issue #530: a tap in a short row's side gap types the key at that end.
+            ToggleSetting(
+                R.string.layout_extend_edge_keys_title,
+                stringResource(R.string.layout_extend_edge_keys_subtitle),
+                settings.watch { it.layoutBehavior.extendEdgeKeys },
+                info = stringResource(R.string.layout_extend_edge_keys_info),
+                default = SettingsDefaults.layoutBehavior.extendEdgeKeys,
+            ) { scope.launch { repository.setExtendEdgeKeys(it) } }
         }
         item {
             val bottomPadding = settings.watch { it.bottomPaddingDp }

@@ -200,6 +200,7 @@ object LanguageRegistry {
             localeTag = "ar-SA",
             layoutIds = listOf(
                 BuiltInLayouts.ARABIC_ID,
+                BuiltInLayouts.ARABIC_PHONETIC_ID,
                 AssetLayouts.AR_HIJAI_ID,
                 AssetLayouts.AR_LETTERS_ID,
                 AssetLayouts.AR_LULUA_ID,
@@ -238,6 +239,7 @@ object LanguageRegistry {
             layoutIds = listOf(
                 BuiltInLayouts.HINDI_ID,
                 BuiltInLayouts.HINDI_PHONETIC_ID,
+                AssetLayouts.HI_DEVANAGARI_ID,
                 AssetLayouts.HI_REMINGTON_GAIL_ID,
                 AssetLayouts.HI_COMPACT_ID,
                 AssetLayouts.HI_PHONETIC_KEYS_ID,
@@ -421,7 +423,12 @@ object LanguageRegistry {
             englishName = "Persian",
             script = ScriptId.ARABIC,
             localeTag = "fa-IR",
-            layoutIds = listOf(AssetLayouts.FA_STANDARD_ID, AssetLayouts.FA_GBOARD_ID, AssetLayouts.FA_T9_ID),
+            layoutIds = listOf(
+                AssetLayouts.FA_STANDARD_ID,
+                BuiltInLayouts.PERSIAN_PHONETIC_ID,
+                AssetLayouts.FA_GBOARD_ID,
+                AssetLayouts.FA_T9_ID,
+            ),
             numeralSystem = NumeralSystem.PERSIAN,
         ),
         LanguageDef(
@@ -479,8 +486,12 @@ object LanguageRegistry {
             englishName = "Urdu",
             script = ScriptId.ARABIC,
             localeTag = "ur-PK",
+            // The Urdu-lettered keyboard leads, so it is still what enabling
+            // Urdu gives; the roman-key phonetic layout is a choice made on the
+            // language's own screen, as Hindi's is.
             layoutIds = listOf(
                 AssetLayouts.UR_PHONETIC_ID,
+                BuiltInLayouts.URDU_PHONETIC_ID,
                 AssetLayouts.UR_NLA_ID,
                 AssetLayouts.UR_PHONETIC_FOUR_ROWS_ID,
                 AssetLayouts.UR_T9_ID,
@@ -668,6 +679,7 @@ object LanguageRegistry {
             localeTag = "mr-IN",
             layoutIds = listOf(
                 AssetLayouts.MR_INSCRIPT_ID,
+                BuiltInLayouts.MARATHI_PHONETIC_ID,
                 AssetLayouts.MR_ALPHABETIC_ID,
                 AssetLayouts.MR_T9_ID,
             ),
@@ -699,6 +711,7 @@ object LanguageRegistry {
             localeTag = "ta-IN",
             layoutIds = listOf(
                 AssetLayouts.TA_TAMIL99_ID,
+                BuiltInLayouts.TAMIL_PHONETIC_ID,
                 AssetLayouts.TA_INSCRIPT_ID,
                 AssetLayouts.TA_ALPHABETIC_ID,
                 AssetLayouts.TA_T9_ID,
@@ -718,7 +731,11 @@ object LanguageRegistry {
             englishName = "Telugu",
             script = ScriptId.TELUGU,
             localeTag = "te-IN",
-            layoutIds = listOf(AssetLayouts.TE_INSCRIPT_ID, AssetLayouts.TE_T9_ID),
+            layoutIds = listOf(
+                AssetLayouts.TE_INSCRIPT_ID,
+                BuiltInLayouts.TELUGU_PHONETIC_ID,
+                AssetLayouts.TE_T9_ID,
+            ),
         ),
         LanguageDef(
             id = "kn",
@@ -728,6 +745,7 @@ object LanguageRegistry {
             localeTag = "kn-IN",
             layoutIds = listOf(
                 AssetLayouts.KN_INSCRIPT_ID,
+                BuiltInLayouts.KANNADA_PHONETIC_ID,
                 AssetLayouts.KN_KPRAO_ID,
                 AssetLayouts.KN_EXTENDED_ID,
                 AssetLayouts.KN_T9_ID,
@@ -741,6 +759,7 @@ object LanguageRegistry {
             localeTag = "ml-IN",
             layoutIds = listOf(
                 AssetLayouts.ML_INSCRIPT_ID,
+                BuiltInLayouts.MALAYALAM_PHONETIC_ID,
                 AssetLayouts.ML_INSCRIPT_ENHANCED_ID,
                 AssetLayouts.ML_ALPHABETIC_ID,
                 AssetLayouts.ML_T9_ID,
@@ -754,6 +773,7 @@ object LanguageRegistry {
             localeTag = "gu-IN",
             layoutIds = listOf(
                 AssetLayouts.GU_INSCRIPT_ID,
+                BuiltInLayouts.GUJARATI_PHONETIC_ID,
                 AssetLayouts.GU_ALPHABETIC_ID,
                 AssetLayouts.GU_T9_ID,
             ),
@@ -766,6 +786,7 @@ object LanguageRegistry {
             localeTag = "pa-IN",
             layoutIds = listOf(
                 AssetLayouts.PA_INSCRIPT_ID,
+                BuiltInLayouts.PUNJABI_PHONETIC_ID,
                 AssetLayouts.PA_JHELUM_ID,
                 AssetLayouts.PA_ALPHABETIC_ID,
                 AssetLayouts.PA_T9_ID,
@@ -777,7 +798,12 @@ object LanguageRegistry {
             englishName = "Odia",
             script = ScriptId.ORIYA,
             localeTag = "or-IN",
-            layoutIds = listOf(AssetLayouts.OR_INSCRIPT_ID, AssetLayouts.OR_PHONETIC_ID, AssetLayouts.OR_T9_ID),
+            layoutIds = listOf(
+                AssetLayouts.OR_INSCRIPT_ID,
+                BuiltInLayouts.ODIA_PHONETIC_ID,
+                AssetLayouts.OR_PHONETIC_ID,
+                AssetLayouts.OR_T9_ID,
+            ),
         ),
         LanguageDef(
             id = "ca",
@@ -1983,7 +2009,12 @@ object LanguageRegistry {
             englishName = "Assamese",
             script = ScriptId.BENGALI,
             localeTag = "as-IN",
-            layoutIds = listOf(AssetLayouts.AS_BENGALI_ID, AssetLayouts.AS_INSCRIPT_ID, AssetLayouts.AS_T9_ID),
+            layoutIds = listOf(
+                AssetLayouts.AS_BENGALI_ID,
+                BuiltInLayouts.ASSAMESE_PHONETIC_ID,
+                AssetLayouts.AS_INSCRIPT_ID,
+                AssetLayouts.AS_T9_ID,
+            ),
             numeralSystem = NumeralSystem.BENGALI,
         ),
         LanguageDef(

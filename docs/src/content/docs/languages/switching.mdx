@@ -13,7 +13,7 @@ import Shot from '@components/Shot.astro';
 
 Once more than one layout is enabled, there are four ways to move between them on the touchscreen: swipe the spacebar, hold the spacebar and drag through a list, use a dedicated key, or reach for Android's own input-method switcher. All four call the same underlying switch. Pick whichever suits your hands, because nothing about what a switch *does* changes. A physical keyboard adds a fifth: its own language key, or <KeyCap>Ctrl</KeyCap>+<KeyCap>Space</KeyCap>. See [Hardware keyboards](/typing/hardware-keyboard/#switching-language) for those.
 
-However you make it, the switch lands right away. A half-typed word is committed as it stands, the keys redraw, and the suggestion strip refills from the new language's dictionary immediately, so you don't have to type a letter first to stop being offered words from the language you just left.
+However you make it, the switch lands right away. A half-typed word is committed as it stands (unless the new layout is a phonetic one and **Carry the word over** is on, see below), the keys redraw, and the suggestion strip refills from the new language's dictionary immediately, so you don't have to type a letter first to stop being offered words from the language you just left.
 
 <PhoneFrame caption="The resting spacebar shows the current language's name, with switch-direction arrows on either side.">
   <Shot id="languages/spacebar-resting-label" alt="The resting spacebar shows the current language's name, with switch-direction arrows on either side." />
@@ -32,7 +32,7 @@ The spacebar has two independent swipe slots, each set under <SettingsPath path=
   <Shot id="languages/spacebar-language-preview" alt="Mid-swipe: the language preview shows every enabled layout, current selection highlighted." />
 </PhoneFrame>
 
-Each slot can be set to Nothing, Language, Cursor, Numpad, or Keyboards (Android's list of keyboard apps, see [Spacebar gestures](/typing/gestures/)). Which slot fires depends on *when* the drag starts, not on how far you drag. The reference point is the long-press delay, 300ms by default. A swipe that crosses the touch-slop threshold before that delay uses the quick-swipe slot, and one that starts after it uses the hold + swipe slot. Once the language preview or the picker list is up, any further drag switches language whatever the slot is set to. You are looking at a language chooser by then, so the drag does what it looks like it does. That never overrides your hold + swipe slot, because the chooser only appears on a hold when that slot is set to Language or Nothing (see below).
+Each slot can be set to Nothing, Language, Cursor, Numpad, or Keyboards (Android's list of keyboard apps, see [Spacebar gestures](/typing/gestures/)). Which slot fires depends on *when* the drag starts, not on how far you drag. The reference point is the long-press delay, 300ms by default. A swipe that crosses the touch-slop threshold before that delay uses the quick-swipe slot, and one that starts after it uses the hold + swipe slot. Once the language preview or the picker list is up, any further drag switches language whatever the slot is set to. You are looking at a language chooser by then, so the drag does what it looks like it does. That never overrides your hold + swipe slot, because the chooser only appears on a hold when that slot is set to Language, or to Nothing with the quick swipe on Language (see below).
 
 With exactly two layouts enabled, a swipe toggles to the other one. Dragging further in the same direction doesn't toggle again. Reverse direction to switch back. With three or more layouts, a quick flick moves exactly one layout over, however fast or far it travels, so the one in the middle is always a flick away. To go further, keep the swipe moving: after a short pause (about a fifth of a second) each further 44dp of horizontal drag steps to the next one in your switch order, while reversing direction answers straight away. After a quick flick the preview stays up for a moment after you lift, so even a flick shows which layout it landed on. **Keep the new language on screen**, beside the other spacebar settings in Typing › Gestures, sets how long: half a second by default, up to a full second, or Off to have it go the instant you lift. A slow swipe that rested on its layout for a quarter of a second or more has already shown it, so the preview goes the instant you lift whatever that is set to. Either end of the list resists wrapping around, since a wrap costs 2.5× the travel of a normal step, so the boundary layout "parks" until a deliberate extra pull cycles you back to the start. (Two layouts of the same language still toggle rather than cycle. The count that matters is enabled layouts, not distinct languages.)
 
@@ -44,7 +44,7 @@ The resting spacebar label follows **The spacebar shows** (also under Typing →
 
 <GestureDemo type="space-hold" caption="Hold the spacebar, then drag to pick a language without lifting." />
 
-Two things have to be true first: more than one layout enabled, and **Press and hold, then swipe** set to Language or Nothing. That slot is the setting for what a hold *does*, so pointing it at Cursor or Numpad hands it the hold outright and no picker opens. Otherwise the picker swallows the very drag you asked for, which is what used to happen. A fresh install ships that slot on **Cursor**, so this gesture is opt-in: set the slot to Language (or Nothing, if you would rather the hold only ever open the picker) to get it.
+Two things have to be true first: more than one layout enabled, and **Press and hold, then swipe** set to Language, or set to Nothing while **Quick swipe on the spacebar** is on Language. With neither slot on Language, holding the spacebar never opens the picker, and turning on **Swipe down to hide the keyboard** doesn't change that: the hold repeats the space, as it does with that switch off. That slot is the setting for what a hold *does*, so pointing it at Cursor or Numpad hands it the hold outright and no picker opens. Otherwise the picker swallows the very drag you asked for, which is what used to happen. A fresh install ships that slot on **Cursor**, so this gesture is opt-in: set the slot to Language (or Nothing, if you would rather the hold only ever open the picker and your quick swipe is on Language) to get it.
 
 With that done, press and hold the spacebar. Shortly before the long-press delay would fire (250ms, or your long-press delay if that is shorter), one of two things opens:
 
@@ -59,7 +59,7 @@ With that done, press and hold the spacebar. Shortly before the long-press delay
 
 <SettingsPath path="Typing / Gestures / Picker for more than four layouts" />
 
-The switch to the list at five layouts is a setting. **Picker for more than four layouts** ships on. Turn it off and the hold keeps the sideways inline preview however many layouts you have on. The preview shows five layouts at a time and slides along as you drag, so the ones off screen are still in reach, and the hold-drag keeps moving the same way the swipe does. The quick-swipe rule still applies: with that slot set to something other than Language, the hold opens the picker at any length. The 🌐 key's long press always opens the picker.
+The switch to the list at five layouts is a setting. **Picker for more than four layouts** ships on. Turn it off and the hold keeps the sideways inline preview however many layouts you have on. The preview shows five layouts at a time and slides along as you drag, so the ones off screen are still in reach, and the hold-drag keeps moving the same way the swipe does. The quick-swipe rule still applies: with the hold slot on Language and the quick swipe on something else, the hold opens the picker at any length. The 🌐 key's long press always opens the picker.
 
 Once the list is open, drag vertically to walk it one row at a time. The first bit of finger movement after the list appears is absorbed as calibration, so drift from before the hold fired never selects a neighbor by accident. Lift your finger after moving and the highlighted row is selected. Lift without moving at all and the list stays open, so you can tap the row you want.
 
@@ -173,6 +173,18 @@ A separate, unrelated toggle, **Remember language per app** (under Per-app langu
 
 **Link romanized languages automatically** sits in the same group and is on by default. It pairs a romanized language such as Banglish with the languages that share its script, so suggestions come from both. Adding a language only makes that language's own links, so a link you removed by hand between two languages already on your list stays removed. Turn it off and adding a language links nothing.
 
+## Switching mid-word onto a phonetic layout
+
+<SettingsPath path="Languages / Switching language / Carry the word over" />
+
+Phonetic layouts spell their script with roman letters: Avro and Khipro write Bengali, Hindi phonetic writes Devanagari, and Urdu phonetic and the [other phonetic layouts](/languages/phonetic/) write theirs. Which means the letters you type on your Latin keyboard are the very letters those layouts take, and noticing halfway through a word that you never switched no longer costs you the word. **Carry the word over** is on by default. Type `tu`, switch to Avro, and what you already typed becomes তু; the `mi` after it finishes তুমি. Without it the `tu` commits as Latin and only the `mi` is Bengali, so the whole word has to be typed again.
+
+The letters are converted whether they were still being composed or already sitting in the field, and their capitals are dropped on the way, because the phonetic layouts spell retroflexes and aspirates with capitals and the `T` of a sentence-opening `Tumi` was not asked for as ট. A word with a digit, an apostrophe or a hyphen in it is left alone, as is anything longer than 32 letters, and so is a password field.
+
+One case argues the other way, and is why the setting exists: finishing an English word, *not* typing a space, and switching to write the next word in Bengali. That word is carried over too, so `hello` becomes হেল্লো. Nothing distinguishes it from the `tu` above — in both, the caret sits after a run of roman letters — so if that is how you switch, turn this off and switches commit the word as they always did.
+
+Only the phonetic layouts take a carried word. Switching to Probhat, Jatiya, a Latin keyboard or a Chinese or Japanese input method commits the word as it stands, since none of them spells with the letters you just typed.
+
 ## Switching from another app or a computer
 
 Automation apps such as Tasker, and `adb` on a computer, can switch too. They send an intent that names a layout or a language, or asks for the next or previous one, and the keyboard switches as if you had pressed 🌐. Only layouts you turned on can be reached this way. It is off until you turn on <SettingsPath path="Privacy / Let other apps control the keyboard" />. See [Automation: adb and Tasker](/reference/automation/) for the intents and a Tasker example.
@@ -197,6 +209,7 @@ Automation apps such as Tasker, and `adb` on a computer, can switch too. They se
 | Emoji key instead of 🌐 | Layout & size → Bottom row keys | On |
 | Comma key opens emoji | Layout & size → Bottom row keys | Off |
 | Your languages / Switch order | Languages | Seeded from your phone's language list, then QWERTY, capped at 4 layouts |
+| Carry the word over | Languages → Switching language | On |
 | Remember language per app | Languages → Per-app language | Off |
 | Forget remembered apps | Languages → Language data | A button, shown once apps are remembered |
 | Link romanized languages automatically | Languages → Language data | On |

@@ -60,6 +60,7 @@ import com.wasimaster.wmkeyboard.core.keyman.KeymanPackage
 import com.wasimaster.wmkeyboard.core.layout.ConvertedLayout
 import com.wasimaster.wmkeyboard.core.layout.FutoLayouts
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
+import com.wasimaster.wmkeyboard.core.layout.KeysCafeLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginImportResult
@@ -91,6 +92,7 @@ import com.wasimaster.wmkeyboard.core.theme.ConvertedFont
 import com.wasimaster.wmkeyboard.core.theme.FlexUnsupported
 import com.wasimaster.wmkeyboard.core.theme.GboardResult
 import com.wasimaster.wmkeyboard.core.theme.GboardTheme
+import com.wasimaster.wmkeyboard.core.theme.HeliUnsupported
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.groupAsFamily
@@ -98,6 +100,7 @@ import com.wasimaster.wmkeyboard.core.theme.themeFamilyName
 import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
 import com.wasimaster.wmkeyboard.core.theme.withFreshIds
 import com.wasimaster.wmkeyboard.core.util.firstJsonDocument
+import com.wasimaster.wmkeyboard.core.util.readCapped
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.content.R as ContentR
@@ -165,6 +168,10 @@ object WMFileTypes {
         // wants it here too. The apps that write the format keep their own
         // filter, and with one installed Android asks which app should open it.
         WaStickersFile.FILE_EXTENSION,
+        // A Samsung Keyboard grid shared from Keys Cafe, claimed for the same
+        // reason again: the file is somebody's own arrangement, and opening it
+        // is how they bring it over. Keys Cafe keeps its own filter.
+        KeysCafeLayouts.FILE_EXTENSION,
     )
 
     /**
@@ -196,6 +203,13 @@ object WMFileTypes {
          * be settled before the grid is stored.
          */
         data class FutoLayout(val converted: ConvertedLayout) : Opened
+
+        /**
+         * A Samsung Keyboard grid shared from Keys Cafe, already converted. Its
+         * own case for the reason [FutoLayout] is: the language is a guess to
+         * settle, and the body has to say that this one keeps its whole frame.
+         */
+        data class KeysCafeLayout(val converted: ConvertedLayout) : Opened
 
         /**
          * An Espanso match file: somebody else's text expander, read into
@@ -328,7 +342,10 @@ object WMFileTypes {
         val text = runCatching {
             context.contentResolver.requireInputStream(uri).use { raw ->
                 val input = if (gzipped) java.util.zip.GZIPInputStream(raw, 32 * 1024) else raw
-                input.readBytes().decodeToString()
+                // Capped on what comes *out*: a few megabytes of gzip inflate
+                // to far more, and this is the one read where the file's own
+                // size says nothing about what it costs to hold.
+                input.readCapped()?.decodeToString()
             }
         }.getOrNull() ?: return Opened.Unreadable
 
@@ -391,6 +408,13 @@ object WMFileTypes {
         // untagged one would have nothing left to be told apart by.
         if (name.endsWith(".${ThemeCodec.FILE_EXTENSION}", ignoreCase = true)) {
             ThemeCodec.decode(text)?.let { return Opened.Theme(it) }
+        }
+
+        // A Keys Cafe grid is base64 text, which no JSON or YAML document is,
+        // so it can sit here safely: the sniff is on the characters, and the
+        // conversion then has to decrypt to a grid or the file falls through.
+        if (KeysCafeLayouts.looksLikeKcf(text)) {
+            KeysCafeLayouts.convert(text, name)?.let { return Opened.KeysCafeLayout(it) }
         }
 
         // The two YAML formats, which are the two that can follow the branch
@@ -1018,6 +1042,21 @@ private fun rememberProposal(
                 // for the reason its own comment gives: a blank langId is
                 // migrated to English on the next read, which would give a
                 // Georgian grid an English dictionary with nothing to say why.
+                repository.upsertCustomLayout(
+                    state.converted.withLanguage(langId)
+                        .copy(id = "custom_${System.currentTimeMillis()}"),
+                )
+                context.getString(R.string.import_done_name, state.converted.layout.name)
+            },
+        )
+
+        is WMFileTypes.Opened.KeysCafeLayout -> ImportProposal(
+            titleRes = R.string.import_name_title,
+            titleArg = state.converted.layout.name,
+            body = context.getString(R.string.import_keyscafe_body),
+            repairs = state.converted.notes.map { it.format(context.resources) },
+            language = state.converted.guessedLangId,
+            applyWithLanguage = { langId ->
                 repository.upsertCustomLayout(
                     state.converted.withLanguage(langId)
                         .copy(id = "custom_${System.currentTimeMillis()}"),
@@ -1662,6 +1701,22 @@ private fun florisDroppedLine(
 
 /** Enough to recognise the file, short enough to stay one line of prose. */
 private const val MAX_NAMED_ELEMENTS = 4
+
+/**
+ * One line of the "what will change" list, for a HeliBoard theme.
+ *
+ * The contrast line is the FlorisBoard one word for word, because it is the
+ * same thing happening — the same guard, in the same place, for the same
+ * reason.
+ */
+internal fun heliDroppedLine(context: android.content.Context, dropped: HeliUnsupported): String =
+    context.getString(
+        when (dropped) {
+            HeliUnsupported.DERIVED_COLOURS -> R.string.import_heli_dropped_derived
+            HeliUnsupported.UNUSED_COLOURS -> R.string.import_heli_dropped_unused
+            HeliUnsupported.LOW_CONTRAST_FALLBACK -> R.string.import_floris_dropped_contrast
+        },
+    )
 
 private fun florisDroppedRes(dropped: FlexUnsupported): Int = when (dropped) {
     FlexUnsupported.SHADOW_COLOR -> R.string.import_floris_dropped_shadow_color

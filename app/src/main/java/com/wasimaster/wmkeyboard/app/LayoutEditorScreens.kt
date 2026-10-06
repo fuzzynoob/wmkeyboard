@@ -40,6 +40,7 @@ import com.wasimaster.wmkeyboard.core.layout.KanaVariantKeyLabel
 import com.wasimaster.wmkeyboard.core.layout.LayerFile
 import com.wasimaster.wmkeyboard.core.layout.LayerSpec
 import com.wasimaster.wmkeyboard.core.ui.WmSlider
+import com.wasimaster.wmkeyboard.core.util.readTextCapped
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.requireOutputStream
 import com.wasimaster.wmkeyboard.core.util.runCancellable
@@ -68,6 +69,7 @@ import com.wasimaster.wmkeyboard.core.keyman.KeymanImport
 import com.wasimaster.wmkeyboard.core.layout.ForeignLayouts
 import com.wasimaster.wmkeyboard.core.layout.FutoLayouts
 import com.wasimaster.wmkeyboard.core.layout.ForeignSource
+import com.wasimaster.wmkeyboard.core.layout.KeysCafeLayouts
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import com.wasimaster.wmkeyboard.core.layout.LayoutMessage
@@ -221,6 +223,7 @@ import androidx.compose.material.icons.outlined.AutoMode
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.Lock
 import androidx.compose.material.icons.outlined.FiberManualRecord
 import androidx.compose.material.icons.outlined.MoreHoriz
 import com.wasimaster.wmkeyboard.core.ui.ScrollRailBox
@@ -505,8 +508,7 @@ internal fun KeyLayoutsScreen(
         scope.launch {
             val text = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.requireInputStream(uri)
-                        .use { it.readBytes().decodeToString() }
+                    context.contentResolver.readTextCapped(uri)
                 }.getOrNull()
             }
             val parsed = text?.let { LayoutFile.decode(it) }
@@ -543,7 +545,11 @@ internal fun KeyLayoutsScreen(
                         // FlorisBoard reader would take one and return null
                         // rather than deferring, so order is the dispatch.
                         val text = bytes.decodeToString()
-                        when {
+                        // Keys Cafe before everything: its file is base64 text,
+                        // which none of the readers below could take for theirs.
+                        // The sniff can pass a HeliBoard text layout of plain
+                        // letters by accident, so a refusal falls through.
+                        KeysCafeLayouts.takeIf { it.looksLikeKcf(text) }?.convert(text, name) ?: when {
                             KeymanImport.looksLikeTouchLayout(text) ->
                                 KeymanImport.convert(text, name)
                             // FUTO before the JSON reader for the same reason:
@@ -936,6 +942,7 @@ internal fun KeyLayoutsScreen(
                                 ForeignSource.FUTO_YAML -> R.string.layout_editor_foreign_from_futo
                                 ForeignSource.KEYMAN_TOUCH_LAYOUT ->
                                     R.string.layout_editor_foreign_from_keyman
+                                ForeignSource.KEYS_CAFE -> R.string.layout_editor_foreign_from_keyscafe
                             },
                         ),
                     )
@@ -5059,6 +5066,7 @@ private fun RoleRow(role: KeyRole?, onChange: (KeyRole?) -> Unit) {
             null to stringResource(CommonR.string.common_none),
             KeyRole.Comma to stringResource(R.string.layout_editor_role_comma),
             KeyRole.Period to stringResource(R.string.layout_editor_role_period),
+            KeyRole.Plain to stringResource(R.string.layout_editor_role_plain),
         ),
         selected = role,
         detail = { slot ->
@@ -5067,12 +5075,14 @@ private fun RoleRow(role: KeyRole?, onChange: (KeyRole?) -> Unit) {
                     null -> Icons.Outlined.Block
                     KeyRole.Comma -> Icons.Outlined.MoreHoriz
                     KeyRole.Period -> Icons.Outlined.FiberManualRecord
+                    KeyRole.Plain -> Icons.Outlined.Lock
                 },
                 description = stringResource(
                     when (slot) {
                         null -> R.string.layout_editor_role_none_desc
                         KeyRole.Comma -> R.string.layout_editor_role_comma_desc
                         KeyRole.Period -> R.string.layout_editor_role_period_desc
+                        KeyRole.Plain -> R.string.layout_editor_role_plain_desc
                     },
                 ),
             )

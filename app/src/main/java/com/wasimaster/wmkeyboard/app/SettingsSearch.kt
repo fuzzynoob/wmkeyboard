@@ -514,6 +514,7 @@ private fun SearchStrings.typingGesturesRows(): List<SettingsSearchEntry> {
         row(R.string.typing_space_cursor_accelerate_title, R.string.typing_space_cursor_accelerate_subtitle),
         row(R.string.typing_space_cursor_direct_title, R.string.typing_space_cursor_direct_subtitle),
         row(R.string.typing_space_cursor_edge_repeat_title, R.string.typing_space_cursor_edge_repeat_subtitle),
+        row(R.string.typing_space_cursor_whole_keyboard_title, R.string.typing_space_cursor_whole_keyboard_subtitle),
         row(R.string.typing_space_cursor_top_speed_title, R.string.typing_space_cursor_top_speed_subtitle),
         row(R.string.typing_space_cursor_magnifier_title, R.string.typing_space_cursor_magnifier_subtitle),
         row(R.string.typing_space_cursor_2d_title, R.string.typing_space_cursor_2d_subtitle),
@@ -794,6 +795,7 @@ private fun SearchStrings.layoutRows(): List<SettingsSearchEntry> {
     return listOf(
         row(R.string.layout_number_row_shift_symbols_title, R.string.layout_number_row_shift_symbols_subtitle),
         row(R.string.layout_number_row_in_symbols_title, R.string.layout_number_row_in_symbols_subtitle),
+        row(R.string.layout_number_row_on_keypad_title, R.string.layout_number_row_on_keypad_subtitle),
         row(R.string.layout_arrow_row_title, R.string.layout_arrow_row_subtitle),
         row(R.string.layout_arrow_row_order_title, R.string.layout_arrow_row_order_subtitle),
         row(R.string.layout_symbols_return_title, R.string.layout_symbols_return_subtitle),
@@ -839,6 +841,7 @@ private fun SearchStrings.layoutSizeRows(): List<SettingsSearchEntry> {
         row(R.string.layout_side_padding_left_title, R.string.layout_side_padding_left_subtitle),
         row(R.string.layout_side_padding_right_title, R.string.layout_side_padding_right_subtitle),
         row(R.string.layout_key_spacing_title, R.string.layout_key_spacing_subtitle),
+        row(R.string.layout_extend_edge_keys_title, R.string.layout_extend_edge_keys_subtitle),
         row(R.string.layout_keyboard_scale_title, R.string.layout_keyboard_scale_subtitle),
         row(R.string.layout_bottom_padding_title, R.string.layout_bottom_padding_subtitle),
         row(R.string.layout_board_corner_top_title, R.string.layout_board_corner_top_subtitle),
@@ -897,11 +900,13 @@ private fun SearchStrings.languageRows(): List<SettingsSearchEntry> {
         row(R.string.languages_translit_hints_row_title),
         row(R.string.languages_phonetic_strip_fixed_title),
         row(R.string.languages_phonetic_strip_source_title, R.string.languages_phonetic_strip_source_subtitle),
+        row(R.string.languages_phonetic_candidates_title, R.string.languages_phonetic_candidates_subtitle),
         row(R.string.languages_phonetic_guide_title),
         row(R.string.languages_ansi_allowed_title, R.string.languages_ansi_allowed_subtitle),
         row(R.string.languages_ansi_version_title, R.string.languages_ansi_version_subtitle),
         row(R.string.languages_fancy_style_row_title, R.string.languages_fancy_style_row_subtitle),
         row(R.string.languages_vietnamese_strict_tones_title, R.string.languages_vietnamese_strict_tones_subtitle),
+        row(R.string.languages_vietnamese_restore_marks_title, R.string.languages_vietnamese_restore_marks_subtitle),
         // The subtitle names the language it is about, so it is a format string
         // with nothing to fill it in here. The title carries the search anyway.
         row(R.string.languages_numeral_system_title),
@@ -916,6 +921,7 @@ private fun SearchStrings.languageRows(): List<SettingsSearchEntry> {
         row(R.string.languages_cjk_full_width_space_title, R.string.languages_cjk_full_width_space_subtitle),
         row(R.string.languages_cjk_jianpin_title, R.string.languages_cjk_jianpin_subtitle),
         row(R.string.languages_cjk_fuzzy_title, R.string.languages_cjk_fuzzy_subtitle),
+        row(R.string.languages_cjk_double_pinyin_custom_title, R.string.languages_cjk_double_pinyin_custom_subtitle),
     )
 }
 
@@ -1020,6 +1026,7 @@ private fun SearchStrings.clipboardRows(): List<SettingsSearchEntry> {
         row(R.string.clipboard_undo_delete_title, R.string.clipboard_undo_delete_subtitle),
         row(R.string.clipboard_pinned_last_title, R.string.clipboard_pinned_last_subtitle),
         row(R.string.clipboard_search_title, R.string.clipboard_search_subtitle),
+        row(R.string.clipboard_search_regex_title, R.string.clipboard_search_regex_subtitle),
         row(R.string.clipboard_clear_button_title, R.string.clipboard_clear_button_subtitle),
         row(R.string.clipboard_entities_title, R.string.clipboard_entities_subtitle),
         row(R.string.clipboard_entity_icons_title, R.string.clipboard_entity_icons_subtitle),
@@ -1545,6 +1552,9 @@ private fun SearchStrings.toolPageRowsB(): List<SettingsSearchEntry> = listOf(
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_actions_title, R.string.toolai_ai_actions_subtitle),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_diff_title, R.string.toolai_ai_diff_subtitle),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_diff_first_title, R.string.toolai_ai_diff_first_subtitle),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_tool_search_title, R.string.toolai_ai_tool_search_subtitle),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_tool_fetch_title, R.string.toolai_ai_tool_fetch_subtitle),
+    toolEntry(ToolbarTool.AI, R.string.toolai_ai_tool_rounds_title, R.string.toolai_ai_tool_rounds_subtitle),
     toolEntry(ToolbarTool.AI, R.string.toolai_ai_chat_nav_title, R.string.toolai_ai_chat_nav_subtitle),
     toolEntry(ToolbarTool.AI, R.string.toolai_chat_enter_sends_title, R.string.toolai_chat_enter_sends_subtitle),
     // The AI history screen's own heading. Indexed on that screen, not on the
@@ -1776,8 +1786,9 @@ private fun SearchStrings.otherRows(): List<SettingsSearchEntry> {
         notifications(R.string.notify_backup_title, R.string.notify_backup_subtitle),
         notifications(R.string.notify_controls_title, R.string.notify_controls_subtitle),
         // Selection actions. The screen's own row is indexed as a section
-        // above; these are the three switches on it.
+        // above; these are the switches on it.
         selectionMacro(R.string.selection_macros_placement_title, R.string.selection_macros_placement_subtitle),
+        selectionMacro(R.string.selection_macros_every_title, R.string.selection_macros_every_subtitle),
         selectionMacro(R.string.selection_macros_detect_title, R.string.selection_macros_detect_subtitle),
         // The Permissions screen's rows. The version-gated Storage row is left
         // out: on most devices a result would land on a screen without it.

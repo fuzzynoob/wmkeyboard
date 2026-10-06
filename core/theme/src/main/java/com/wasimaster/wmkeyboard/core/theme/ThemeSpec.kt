@@ -233,6 +233,13 @@ data class ThemeSpec(
      */
     val suggestionBarBackground: Long? = null,
     /**
+     * Fill behind the toolbar's tools wherever they are drawn: the tools' own
+     * row, and the suggestion strip while it is showing the tools instead of
+     * words. Null follows [suggestionBarBackground], so the two bars stay one
+     * colour until a theme pulls them apart (issue #504). Alpha is honoured.
+     */
+    val toolbarBackground: Long? = null,
+    /**
      * Fill of the side rail shown in one-handed mode, and the colour of the two
      * buttons on it.
      *
@@ -384,6 +391,19 @@ data class ThemeSpec(
     // Panels (clipboard/snippet cards, emoji search bar)
     val chipBackground: Long? = null,
     val suggestionText: Long? = null,
+    /**
+     * The suggestions beside the primary one on the strip: the runner-up on
+     * its left and the rest on its right. Null draws them in [suggestionText],
+     * which is what every theme did before the field existed (issue #504).
+     */
+    val secondarySuggestionText: Long? = null,
+    /**
+     * Their size, as a multiple of the primary suggestion's: null or 1 keeps
+     * them the same size, 0.8 draws them a fifth smaller. A ratio rather than
+     * a size so it rides on the user's own suggestion-size slider. Held to
+     * [SECONDARY_SUGGESTION_SCALE_RANGE] where it is read.
+     */
+    val secondarySuggestionScale: Float? = null,
     /**
      * The quieter text beside the main one: a suggestion's secondary word, a
      * clipboard entry's kind and timestamp, a panel subheading. Null draws
@@ -581,6 +601,28 @@ data class ThemeSpec(
      */
     val keyOverrides: Map<String, KeyOverride> = emptyMap(),
     /**
+     * Glyphs this theme draws on the action keys, as icon-slot id → local path.
+     *
+     * Keys are the ids in `core.icons.IconSlots` (`key.backspace`,
+     * `key.shift_on`, `key.enter_send`, …), as plain strings: `:core:icons`
+     * depends on `:core:settings`, which depends on this module, so the two
+     * cannot see each other and `GboardIconSlotsTest` pins the spellings
+     * together instead. An id this build has no slot for costs its entry.
+     *
+     * Here because a Gboard theme is as likely to replace the delete, shift and
+     * enter glyphs as to recolour them — 264 of the 491 themes in the Rboard
+     * repository do, always as PNGs — and dropping them was the one loss that
+     * made a converted theme look like a different theme. The files are
+     * app-private, written by [withExtractedImages] like every other image
+     * here; the bytes travel in [assets] under [ASSET_KEY_ICON_PREFIX].
+     *
+     * They reach the keyboard through `applyThemeOverrides`, which lays them
+     * onto `IconSettings.themeIcons` — under the user's own icon pack and their
+     * per-slot picks, so a theme dresses the slots nobody has claimed and never
+     * overrules a standing choice.
+     */
+    val keyIcons: Map<String, String> = emptyMap(),
+    /**
      * Auxiliary image bytes for transport, keyed by slot name — the key
      * textures today (`"keyTexture"`, `"keyTextureModifier"`, …), whatever
      * needs to travel tomorrow. The generic sibling of
@@ -765,6 +807,13 @@ data class DecalSpec(
 /** The most decals a theme may carry; past a handful they are just occlusion. */
 const val MAX_DECALS = 6
 
+/**
+ * Bounds for [ThemeSpec.secondarySuggestionScale]. Below half the words are
+ * unreadable beside the primary; a little above one is allowed so a theme can
+ * make the runner-ups the loud ones if it wants to.
+ */
+val SECONDARY_SUGGESTION_SCALE_RANGE = 0.5f..1.2f
+
 /** The most looks one theme may carry; the editor's Add stops here. */
 const val MAX_THEME_VARIANTS = 12
 
@@ -904,6 +953,9 @@ fun ThemeSpec.withEmbeddedImages(): ThemeSpec {
         for ((key, override) in keyOverrides) {
             encode(override.texture)?.let { put("$ASSET_KEY_OVERRIDE_TEXTURE_PREFIX$key", it) }
         }
+        for ((slot, path) in keyIcons) {
+            encode(path)?.let { put("$ASSET_KEY_ICON_PREFIX$slot", it) }
+        }
     }
     return copy(
         backgroundImage = null,
@@ -925,6 +977,7 @@ fun ThemeSpec.withEmbeddedImages(): ThemeSpec {
         decals = decals.map { it.copy(image = null) },
         keyEffectImages = emptyList(),
         keyOverrides = keyOverrides.mapValues { (_, override) -> override.copy(texture = null) },
+        keyIcons = emptyMap(),
         assets = embedded,
         // Each variant embeds its own images; the nested-variant strip keeps
         // the one-level contract even for hand-edited files.
@@ -960,6 +1013,12 @@ const val ASSET_EFFECT_IMAGE_PREFIX = "effectImage:"
  * follows it (`keyOverrideTexture:a`, `keyOverrideTexture:ENTER`).
  */
 const val ASSET_KEY_OVERRIDE_TEXTURE_PREFIX = "keyOverrideTexture:"
+
+/**
+ * Prefix of a theme key glyph's transport slot; the icon-slot id follows it
+ * (`keyIcon:key.backspace`). See [ThemeSpec.keyIcons].
+ */
+const val ASSET_KEY_ICON_PREFIX = "keyIcon:"
 
 /**
  * Inverse of [withEmbeddedImages]: writes any embedded base64 image(s) into
@@ -1016,6 +1075,20 @@ fun ThemeSpec.withExtractedImages(dir: File): ThemeSpec {
                     assets["$ASSET_KEY_OVERRIDE_TEXTURE_PREFIX$key"],
                 ) ?: override.texture,
             )
+        },
+        // Driven off the asset keys rather than off `keyIcons`, because on the
+        // way in that map is empty and the slots are only named in `assets`.
+        // The file name carries no extension: what the bytes are is settled by
+        // sniffing them, the same way a pack's own icon is.
+        keyIcons = run {
+            val extracted = assets.keys
+                .filter { it.startsWith(ASSET_KEY_ICON_PREFIX) }
+                .mapNotNull { key ->
+                    val slot = key.removePrefix(ASSET_KEY_ICON_PREFIX)
+                    val tag = slot.filter { it.isLetterOrDigit() }.ifEmpty { "i" }
+                    write("${id}_keyicon_$tag.img", assets[key])?.let { slot to it }
+                }
+            if (extracted.isEmpty()) keyIcons else extracted.toMap()
         },
         assets = emptyMap(),
         // Variant filenames key off each variant's own id, which is globally
@@ -1150,7 +1223,9 @@ fun ThemeSpec.reseeded(seed: Long, dark: Boolean): ThemeSpec {
         toolbarIcon = null,
         toolCircleActiveBackground = null,
         suggestionText = null,
+        secondarySuggestionText = null,
         suggestionBarBackground = null,
+        toolbarBackground = null,
         navigationBarBackground = null,
         // The recorded roles described the palette that has just been replaced,
         // so nothing on the theme matches them any more. Clearing them lets

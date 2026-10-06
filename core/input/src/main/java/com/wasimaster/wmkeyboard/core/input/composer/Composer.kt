@@ -1,5 +1,8 @@
 package com.wasimaster.wmkeyboard.core.input.composer
 
+import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
+import com.wasimaster.wmkeyboard.core.layout.composerType
+import com.wasimaster.wmkeyboard.core.layout.script
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.ScriptDef
 import com.wasimaster.wmkeyboard.core.script.ScriptId
@@ -93,6 +96,19 @@ interface Composer {
      * [phoneticLanguage] instead.
      */
     val completionLanguage: String? get() = null
+
+    /**
+     * Whether this composer spells its buffer in roman letters: Avro's, Hindi
+     * phonetic's, Khipro's.
+     *
+     * What lets a word half-typed on a Latin keyboard carry into the buffer
+     * when the language is switched mid-word (#522) — the letters already in
+     * the field are the very letters this composer would have taken. False for
+     * every composer whose keys are its own script (Hangul's jamo, 천지인,
+     * Cangjie's strokes, Zhuyin's bopomofo) and for the conversion IMEs, whose
+     * buffer stands for a choice of outputs rather than one reading.
+     */
+    val isRomanBuffer: Boolean get() = false
 
     /**
      * A fixed complex-script layout (Probhat, and later Devanagari, Tamil …):
@@ -293,13 +309,22 @@ object NoComposer : Composer
  * The [Composer] a layout uses, from its resolved [script] and [type]
  * (`LayoutSpec.composerType()`). Unknown/unbuilt composers degrade to
  * [NoComposer] so the layout still types.
+ *
+ * [langId] decides between transliterators that share a script: Bengali and
+ * Assamese are both written in the Bengali script, Hindi and Marathi in
+ * Devanagari, Urdu, Persian and Arabic in the Arabic one, and each has its own
+ * phonetic rules ([PhoneticComposers]). Without it a phonetic layout falls back
+ * to the script's first language — Bengali, Hindi, Urdu — which is what every
+ * caller that only knows a script has always had. Pass it whenever there is a
+ * layout to read it from; [resolvedComposer] does.
  */
-fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
+fun composerFor(script: ScriptDef, type: ComposerType, langId: String? = null): Composer = when (type) {
     ComposerType.NONE, ComposerType.DEAD_KEY -> NoComposer
     ComposerType.INDIC_CLUSTER -> IndicClusterComposer(script)
-    ComposerType.TRANSLITERATE -> when (script.id) {
+    ComposerType.TRANSLITERATE -> langId?.let(PhoneticComposers::forLanguage) ?: when (script.id) {
         ScriptId.BENGALI -> BengaliTransliterateComposer
         ScriptId.DEVANAGARI -> HindiTransliterateComposer
+        ScriptId.ARABIC -> UrduTransliterateComposer
         else -> NoComposer
     }
     ComposerType.HANGUL -> HangulComposer
@@ -316,3 +341,10 @@ fun composerFor(script: ScriptDef, type: ComposerType): Composer = when (type) {
     ComposerType.JYUTPING -> JyutpingComposer
     ComposerType.KHIPRO -> if (script.id == ScriptId.BENGALI) KhiproComposer else NoComposer
 }
+
+/**
+ * The composer this layout types through: [composerFor] with the layout's own
+ * script, composer override and language, so two languages that share a script
+ * get their own phonetic rules.
+ */
+fun LayoutSpec.resolvedComposer(): Composer = composerFor(script(), composerType(), langId)

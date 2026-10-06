@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.app
 
 import androidx.annotation.StringRes
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.AllInclusive
 import androidx.compose.material.icons.outlined.BatteryStd
 import androidx.compose.material.icons.outlined.Devices
 import androidx.compose.material.icons.outlined.Download
@@ -612,6 +613,7 @@ internal object SettingsRowIcons {
         put(R.string.langemoji_lang_auto_download_title) { Icons.Outlined.CloudDownload }
         put(R.string.langemoji_lang_metered_title) { Icons.Outlined.SignalCellularAlt }
         put(R.string.langemoji_lang_autopair_title) { Icons.Outlined.Link }
+        put(R.string.langemoji_lang_carry_word_title) { Icons.Outlined.Translate }
         put(R.string.langemoji_lang_forget_apps_title) { Icons.Outlined.DeleteSweep }
         put(R.string.languages_conjunct_backspace_title) { Icons.AutoMirrored.Outlined.Backspace }
         put(R.string.languages_numeral_system_title) { Icons.Outlined.Numbers }
@@ -627,12 +629,14 @@ internal object SettingsRowIcons {
         put(R.string.languages_fancy_style_row_title) { Icons.Outlined.TextFormat }
         put(R.string.languages_spelling_map_row_title) { Icons.Outlined.Spellcheck }
         put(R.string.languages_phonetic_siblings_row_title) { Icons.Outlined.FindReplace }
+        put(R.string.languages_phonetic_context_row_title) { Icons.Outlined.Link }
         put(R.string.languages_more_layouts_title) { Icons.Outlined.GridOn }
 
         // ---- Layout & size ----
         put(R.string.layout_number_row_title) { Icons.Outlined.Numbers }
         put(R.string.layout_number_row_height_title) { Icons.Outlined.Height }
         put(R.string.layout_number_row_in_symbols_title) { Icons.Outlined.Numbers }
+        put(R.string.layout_number_row_on_keypad_title) { Icons.Outlined.Dialpad }
         put(R.string.layout_number_row_shift_symbols_title) { Icons.Outlined.KeyboardCapslock }
         put(R.string.layout_arrow_row_title) { Icons.Outlined.OpenWith }
         put(R.string.layout_arrow_row_order_title) { Icons.Outlined.Reorder }
@@ -644,6 +648,7 @@ internal object SettingsRowIcons {
         put(R.string.layout_side_padding_left_title) { Icons.Outlined.Padding }
         put(R.string.layout_side_padding_right_title) { Icons.Outlined.Padding }
         put(R.string.layout_key_spacing_title) { Icons.Outlined.SpaceBar }
+        put(R.string.layout_extend_edge_keys_title) { Icons.Outlined.TouchApp }
         put(R.string.layout_keyboard_scale_title) { Icons.Outlined.ZoomOutMap }
         put(R.string.layout_bottom_padding_title) { Icons.Outlined.Padding }
         put(R.string.layout_board_corner_top_title) { Icons.Outlined.RoundedCorner }
@@ -977,6 +982,7 @@ internal object SettingsRowIcons {
         put(R.string.typing_space_cursor_accelerate_title) { Icons.Outlined.FastForward }
         put(R.string.typing_space_cursor_direct_title) { Icons.Outlined.SwapHoriz }
         put(R.string.typing_space_cursor_edge_repeat_title) { Icons.Outlined.FastForward }
+        put(R.string.typing_space_cursor_whole_keyboard_title) { Icons.Outlined.TouchApp }
         put(R.string.typing_space_cursor_top_speed_title) { Icons.Outlined.Speed }
         put(R.string.typing_space_cursor_magnifier_title) { Icons.Outlined.ZoomIn }
         put(R.string.typing_space_swipe_down_hide_title) { Icons.Outlined.SwipeDown }
@@ -1042,6 +1048,7 @@ internal object SettingsRowIcons {
         put(R.string.clipboard_undo_delete_title) { Icons.AutoMirrored.Outlined.Undo }
         put(R.string.clipboard_pinned_last_title) { Icons.Outlined.PushPin }
         put(R.string.clipboard_search_title) { Icons.Outlined.Search }
+        put(R.string.clipboard_search_regex_title) { Icons.Outlined.DataObject }
         put(R.string.clipboard_clear_button_title) { Icons.Outlined.DeleteSweep }
         put(R.string.clipboard_pinned_tabs_title) { Icons.Outlined.Tab }
         put(R.string.clipboard_outline_pinned_title) { Icons.Outlined.BorderStyle }
@@ -1190,6 +1197,7 @@ internal object SettingsRowIcons {
         // row, its search result and the heading are one icon.
         put(R.string.selection_macros_title) { Icons.Outlined.HighlightAlt }
         put(R.string.selection_macros_placement_title) { Icons.Outlined.ViewStream }
+        put(R.string.selection_macros_every_title) { Icons.Outlined.AllInclusive }
         put(R.string.selection_macros_detect_title) { Icons.Outlined.Sensors }
         put(R.string.selection_macros_actions_title) { Icons.Outlined.Checklist }
         put(R.string.selection_macros_ai_title) { Icons.Outlined.AutoAwesome }
@@ -1322,6 +1330,10 @@ internal object SettingsRowIcons {
         put(R.string.toolai_ai_actions_title) { Icons.Outlined.AutoAwesome }
         put(R.string.toolai_ai_diff_title) { Icons.Outlined.Difference }
         put(R.string.toolai_ai_diff_first_title) { Icons.Outlined.Difference }
+        put(R.string.toolai_ai_tool_search_title) { Icons.Outlined.TravelExplore }
+        put(R.string.toolai_ai_tool_search_needs_setup_title) { Icons.Outlined.TravelExplore }
+        put(R.string.toolai_ai_tool_fetch_title) { Icons.AutoMirrored.Outlined.Article }
+        put(R.string.toolai_ai_tool_rounds_title) { Icons.Outlined.Repeat }
         put(R.string.toolai_ai_chat_nav_title) { Icons.AutoMirrored.Outlined.Chat }
         put(R.string.toolai_ai_history_title) { Icons.Outlined.History }
         put(R.string.toolai_ai_history_nav_title) { Icons.Outlined.History }
@@ -1367,9 +1379,11 @@ internal object SettingsRowIcons {
         put(R.string.languages_translit_hints_row_title) { Icons.Outlined.Translate }
         put(R.string.languages_phonetic_strip_fixed_title) { Icons.Outlined.PushPin }
         put(R.string.languages_phonetic_strip_source_title) { Icons.Outlined.Translate }
+        put(R.string.languages_phonetic_candidates_title) { Icons.Outlined.ViewAgenda }
         put(R.string.languages_phonetic_guide_title) { Icons.AutoMirrored.Outlined.MenuBook }
         put(R.string.langemoji_emoji_panel_title) { Icons.Outlined.GridView }
         put(R.string.languages_cjk_double_pinyin_title) { Icons.Outlined.Keyboard }
+        put(R.string.languages_cjk_double_pinyin_custom_title) { Icons.Outlined.EditNote }
         put(R.string.languages_cjk_region_title) { Icons.Outlined.Public }
         put(R.string.layout_one_handed_group_title) { Icons.Outlined.PanTool }
         put(R.string.layout_size_position_title) { Icons.Outlined.FormatSize }
@@ -1424,6 +1438,7 @@ internal object SettingsRowIcons {
         put(R.string.theme_popup_selected_title) { Icons.Outlined.Highlight }
         put(R.string.theme_popup_selected_text_title) { Icons.Outlined.FormatColorText }
         put(R.string.theme_menu_shape_title) { Icons.Outlined.Category }
+        put(R.string.theme_toolbar_background_title) { Icons.Outlined.FormatColorFill }
         put(R.string.theme_tool_shape_title) { Icons.Outlined.Category }
         put(R.string.theme_tool_icons_title) { Icons.Outlined.Widgets }
         put(R.string.theme_tool_circles_title) { Icons.Outlined.Circle }
@@ -1439,6 +1454,8 @@ internal object SettingsRowIcons {
         put(R.string.theme_card_shape_title) { Icons.Outlined.Category }
         put(R.string.theme_card_elevation_title) { Icons.Outlined.Layers }
         put(R.string.theme_suggestion_text_title) { Icons.Outlined.FormatColorText }
+        put(R.string.theme_other_suggestions_title) { Icons.Outlined.FormatColorText }
+        put(R.string.theme_other_suggestions_size_title) { Icons.Outlined.FormatSize }
         put(R.string.theme_secondary_text_title) { Icons.Outlined.FormatColorText }
         put(R.string.theme_divider_title) { Icons.Outlined.HorizontalRule }
         put(R.string.theme_chip_shape_title) { Icons.Outlined.Category }
