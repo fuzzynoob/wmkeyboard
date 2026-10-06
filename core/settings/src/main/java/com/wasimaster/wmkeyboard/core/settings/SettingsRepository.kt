@@ -7734,10 +7734,11 @@ data class SuggestionStripSettings(
 
     /** Whether predictions read [langId]'s downloaded word-pair data. */
     fun wordPairsEnabledFor(langId: String): Boolean = langId !in wordPairsOffLangs
-}
+
     /** Where [langId]'s phonetic layout shows its candidate list; OFF for no phonetic layout. */
     fun phoneticCandidateListFor(langId: String?): PhoneticCandidateList =
         langId?.let { phoneticCandidateLists[it] } ?: PhoneticCandidateList.OFF
+}
 
 
 /**

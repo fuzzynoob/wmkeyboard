@@ -575,6 +575,7 @@ internal fun ClipboardSettings(
     val trackSource = settings.watch { it.clipboard.trackSource }
     val suggestRecent = settings.watch { it.clipboard.suggestRecent }
     val swipeToDelete = settings.watch { it.clipboard.swipeToDelete }
+    val searchOn = settings.watch { it.clipboard.search }
     val detectEntities = settings.watch { it.clipboard.detectEntities }
     val sensitiveHandling = settings.watch { it.clipboard.sensitiveHandling }
     // The slider readouts are plain lambdas, so their format strings are
@@ -1021,7 +1022,7 @@ internal fun ClipboardSettings(
                 default = SettingsDefaults.clipboard.search,
             ) { scope.launch { repository.setClipboardSearch(it) } }
         }
-        item(visible = settings.watch { it.clipboard.search }) {
+        item(visible = searchOn) {
             ToggleSetting(
                 R.string.clipboard_search_regex_title,
                 stringResource(R.string.clipboard_search_regex_subtitle),
