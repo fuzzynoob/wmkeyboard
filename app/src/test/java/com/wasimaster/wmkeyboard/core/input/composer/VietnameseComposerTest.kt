@@ -79,6 +79,37 @@ class VietnameseComposerTest {
     }
 
     @Test
+    fun telexPutsTheToneWhereUnikeyPutsIt() {
+        val c = VietnameseTelexComposer
+        // The old style, which is the one UniKey is set to out of the box and
+        // the only one this engine has: the tone goes on the first vowel of an
+        // open rime, so `oas` is `óa` and not the modern `oá`, and on the main
+        // vowel of a closed one, so `aic` is `áic` where the `i` is the
+        // offglide. Every expectation is UniKey's own answer for the same keys,
+        // read off the engine rather than reasoned out.
+        assertEquals("óa", c.composeBuffer("oas"))
+        assertEquals("óe", c.composeBuffer("oes"))
+        assertEquals("úy", c.composeBuffer("uys"))
+        assertEquals("hóa", c.composeBuffer("hoas"))
+        assertEquals("tóa", c.composeBuffer("toas"))
+        assertEquals("xóa", c.composeBuffer("xoas"))
+        assertEquals("khóe", c.composeBuffer("khoes"))
+        assertEquals("thúy", c.composeBuffer("thuys"))
+        assertEquals("khúy", c.composeBuffer("khuys"))
+        // A coda moves it to the main vowel, and the rimes that spell one keep
+        // it: `oán`, `tiếng`, `nước`, `nguyễn`.
+        assertEquals("oán", c.composeBuffer("oans"))
+        assertEquals("toán", c.composeBuffer("toans"))
+        assertEquals("hoán", c.composeBuffer("hoans"))
+        assertEquals("ngoán", c.composeBuffer("ngoans"))
+        assertEquals("tiếng", c.composeBuffer("tieengs"))
+        assertEquals("nước", c.composeBuffer("nuocsw"))
+        assertEquals("nguyễn", c.composeBuffer("nguyeenx"))
+        assertEquals("ngoéo", c.composeBuffer("ngoeos"))
+        assertEquals("quá", c.composeBuffer("quas"))
+    }
+
+    @Test
     fun telexToneAndMarkCancellation() {
         val c = VietnameseTelexComposer
         assertEquals("as", c.composeBuffer("ass"))

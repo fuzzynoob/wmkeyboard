@@ -124,15 +124,30 @@ internal object VietnameseEngine {
         if (vowels.size == 1) return vowels[0]
         val last = vowels.last()
         val hasCoda = (last + 1..letters.lastIndex).any { !isVowel(letters[it].base) }
-        if (hasCoda) return last
-        if (vowels.size >= 3) return vowels[vowels.size - 2]
-        val a = letters[vowels[0]].base
-        val b = letters[vowels[1]].base
-        return if ((a == 'o' && b == 'a') || (a == 'o' && b == 'e') || (a == 'u' && b == 'y')) {
-            vowels[1]
-        } else {
-            vowels[0]
+        // A closed rime takes the tone on its main vowel, which is not always
+        // the last one: `aic` is `áic`, because the `i` is the offglide the
+        // main vowel `a` leaves behind, and `uyen` is `uýen` for the same
+        // reason. Where the glide leads instead — `oa`, `oe`, `uy`, `uo`, `ua`,
+        // `ue` — the main vowel is the second and the last vowel is the answer.
+        // A three-vowel rime puts it on the second either way.
+        if (hasCoda) {
+            if (vowels.size >= 3) return vowels[vowels.size - 2]
+            val a = letters[vowels[0]].base
+            val b = letters[vowels[1]].base
+            val glideLeads = (a == 'o' && (b == 'a' || b == 'e')) ||
+                (a == 'u' && (b == 'y' || b == 'o' || b == 'a' || b == 'e'))
+            return if (glideLeads) vowels[1] else vowels[0]
         }
+        if (vowels.size >= 3) return vowels[vowels.size - 2]
+        // The first vowel, which is the whole of the old style: `oas` is `óa`
+        // and `oes` is `óe`, where the modern style spells them `oá` and `oé`
+        // and puts the `uy` on the `y` as well. UniKey carries both and this is
+        // the one its Telex is set to out of the box.
+        //
+        // It is also the reason a field holding the modern `hoà` is a word
+        // these keys cannot make: `hoaf` is `hòa`, so the resume declines it
+        // rather than arming a region whose text is not what the keys spell.
+        return vowels[0]
     }
 
     private fun render(letters: List<VLetter>, tone: VTone): String {

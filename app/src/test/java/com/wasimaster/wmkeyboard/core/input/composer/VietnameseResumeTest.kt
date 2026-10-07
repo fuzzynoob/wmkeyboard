@@ -100,8 +100,13 @@ class VietnameseResumeTest {
         val was = VietnameseConfig.strictTones
         VietnameseConfig.strictTones = true
         try {
+            // `hòa` and not `hoà`: the tone lands on the first vowel of an open
+            // rime, which is the style the composer spells and the one UniKey
+            // is set to, so `hoaf` is `hòa` and a field holding the modern
+            // `hoà` is a word these keys cannot make — correctly refused rather
+            // than read back as something the user never typed.
             for (word in listOf(
-                "tói", "tôi", "nước", "đường", "hoà", "quà", "tiếng", "hoặc",
+                "tói", "tôi", "nước", "đường", "hòa", "quà", "tiếng", "hoặc",
             )) {
                 assertRoundTrips(VietnameseTelexComposer, word)
             }
