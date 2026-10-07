@@ -103,7 +103,15 @@ object LayoutJsonDocs {
         "Key.iconBesideLabel" to "On the space bar, draws the icon before the language name instead of in its place.",
         "Key.hideHint" to "Draws no corner hint on this key, even when it has alternates.",
         "Key.forceHint" to "Draws this key's corner hint even when hints are off in the settings. hideHint wins when both are on.",
-        "Key.flick" to "What a flick in each direction types, for a 12-key kana pad.",
+        "Key.flick" to
+            "What a short swipe in each of the eight directions (left, up, right, down, up_left, up_right, " +
+            "down_left, down_right) types instead of the tap, for a kana pad or a MessagEase-style board.",
+        "Key.flickShift" to
+            "What a flick in each direction types while Shift is on. Leave a direction out and Shift makes its flick a " +
+            "capital letter.",
+        "Key.flickActions" to
+            "Flicks that run an action instead of typing, by direction, such as moving the cursor. They win over flick " +
+            "text in the same direction, and work on action keys too.",
         "Key.multitap" to "What tapping the key again types in place of the last tap, in order. After the last entry the cycle goes back to the key itself.",
         "Key.labelScale" to "This key's label size, as a multiple of a letter's. Leave it out and the keyboard decides.",
         "Key.letters" to "Every letter this key stands for, such as \"abc\" on a T9 key. The prediction works out which one you meant.",

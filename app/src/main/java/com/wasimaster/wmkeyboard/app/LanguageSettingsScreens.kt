@@ -13,9 +13,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Search
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapHoriz
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -45,6 +46,7 @@ import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.layout.resolveLayoutKeyman
 import com.wasimaster.wmkeyboard.core.transliteration.BijoyAnsi
+import com.wasimaster.wmkeyboard.core.dictionaries.AvroDictionaryDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryStore
@@ -74,6 +76,7 @@ import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.KeymanBinding
 import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.language
+import com.wasimaster.wmkeyboard.core.layout.isShippedLayoutId
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.prediction.PhoneticSchemes
 import com.wasimaster.wmkeyboard.core.prediction.PhoneticStripSource
@@ -767,7 +770,18 @@ private fun LayoutsGroup(
     val toggle = rememberLayoutToggle(settings, repository, scope) { rulesRefresh++ }
 
     val overflow = settings.watch { overflowLayoutIds(lang, it) }
-    val listed = lang.layoutIds - overflow.toSet()
+    // The user's own layouts for this language sit on the same shelf as the
+    // shipped ones: a grid made in the editor or imported as a file used to be
+    // reachable only from Layout & size, and "turn it on under Languages" sent
+    // people to a screen that did not list it. Edited copies of shipped layouts
+    // keep the shipped id and are already on the shelf; secondary layouts have
+    // no on/off at all.
+    val own = settings.watch { s ->
+        s.customLayouts
+            .filter { it.langId == lang.id && !it.secondary && !isShippedLayoutId(it.id) }
+            .map { it.id }
+    }
+    val listed = (lang.layoutIds - overflow.toSet()) + own
     val title = stringResource(R.string.languages_layouts_title)
 
     HighlightableRow(title, coarse = true) {
@@ -795,6 +809,10 @@ private fun LayoutsGroup(
             spec.keyman?.let { it to spec.name }
         }
     }
+    // #464: QWERTZ for English. The way in used to be duplicating a layout in
+    // the editor and changing its language there, which nobody found.
+    var borrowing by remember { mutableStateOf(false) }
+    val context = LocalContext.current
     SettingsGroup {
         // A converted Keyman layout can only type what its author wrote once
         // its rules are on the device, so each one on the cards gets the row
@@ -802,6 +820,30 @@ private fun LayoutsGroup(
         for ((binding, name) in keymanListed) {
             item { KeymanRulesRow(binding, name, rulesRefresh) }
         }
+        item {
+            WmRow(
+                title = stringResource(R.string.languages_borrow_layout_title),
+                subtitle = stringResource(R.string.languages_borrow_layout_subtitle, lang.englishName),
+                leading = { Icon(Icons.Outlined.SwapHoriz, contentDescription = null) },
+                onClick = { borrowing = true },
+            )
+        }
+    }
+    if (borrowing) {
+        BorrowLayoutDialog(
+            target = lang,
+            onDismiss = { borrowing = false },
+            onPick = { picked ->
+                borrowing = false
+                borrowLayout(scope, repository, settings, lang, picked) { name ->
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.languages_borrow_layout_done, name),
+                        Toast.LENGTH_SHORT,
+                    ).show()
+                }
+            },
+        )
     }
 }
 
@@ -923,6 +965,7 @@ internal fun LanguageDetailScreen(
                 // automatic pass fetching the keywords straight back.
                 EmojiDictDownloadManager.delete(filesDir, langId)
                 NgramPackDownloadManager.delete(filesDir, langId)
+                if (langId == PhoneticSchemes.BENGALI.languageId) AvroDictionaryDownloads.delete(filesDir)
                 removeLanguage()
             },
         )
@@ -1629,6 +1672,20 @@ private fun CjkDictPackManager(
             ) { on -> scope.launch { repository.setFullWidthSpace(langId, on) } }
         }
 
+        // Issue #419: Japanese IMEs step through the candidates with the space
+        // bar and type the highlighted one with Enter. Per language, and off
+        // until asked for, since space committing the top pick is the habit
+        // everyone typing here already has.
+        item {
+            ToggleSetting(
+                R.string.languages_cjk_space_steps_title,
+                stringResource(R.string.languages_cjk_space_steps_subtitle),
+                settings.watch { langId in it.cjk.spaceStepsCandidatesLanguages },
+                info = stringResource(R.string.languages_cjk_space_steps_info),
+                default = langId in SettingsDefaults.cjk.spaceStepsCandidatesLanguages,
+            ) { on -> scope.launch { repository.setSpaceStepsCandidates(langId, on) } }
+        }
+
     }
     // Chinese-only: fuzzy pinyin + Double Pinyin scheme, in a card of their own.
     if (langId == "zh") {
@@ -1793,6 +1850,9 @@ private fun PhoneticStripGroup(
 ) {
     // Branched on by the builder below, so watched once here.
     val fixed = settings.watch { langId in it.suggestionStrip.phoneticFixedStripLangs }
+    val candidateListOn = settings.watch {
+        it.suggestionStrip.phoneticCandidateListFor(langId) != PhoneticCandidateList.OFF
+    }
     SettingsGroup(stringResource(R.string.languages_phonetic_strip_title)) {
         item {
             ToggleSetting(
@@ -1867,7 +1927,31 @@ private fun PhoneticStripGroup(
                     },
                 ) { scope.launch { repository.setPhoneticCandidateList(langId, it) } }
             }
+            item(visible = candidateListOn) { AvroDictionaryRow() }
         }
+    }
+}
+
+/**
+ * Desktop Avro's dictionary, which the candidate list searches besides the
+ * keyboard's own words. The keyboard fetches it as the list is turned on; this
+ * row says where that stands and fetches it again after a failure.
+ */
+@Composable
+private fun AvroDictionaryRow() {
+    val filesDir = LocalContext.current.filesDir
+    val status by AvroDictionaryDownloads.status.collectAsState()
+    LaunchedEffect(Unit) { AvroDictionaryDownloads.refresh(filesDir) }
+    val value = when (val s = status) {
+        is AvroDictionaryDownloads.Status.Downloaded ->
+            stringResource(R.string.languages_avro_dictionary_downloaded, formatBytes(s.sizeBytes))
+        AvroDictionaryDownloads.Status.Downloading -> stringResource(CommonR.string.common_downloading)
+        AvroDictionaryDownloads.Status.Failed -> stringResource(R.string.languages_word_pairs_failed)
+        AvroDictionaryDownloads.Status.NotDownloaded ->
+            stringResource(R.string.languages_avro_dictionary_download, formatBytes(AvroDictionaryDownloads.APPROX_BYTES))
+    }
+    NavRow(R.string.languages_avro_dictionary_title, subtitle = value) {
+        if (status !is AvroDictionaryDownloads.Status.Downloaded) AvroDictionaryDownloads.start(filesDir)
     }
 }
 

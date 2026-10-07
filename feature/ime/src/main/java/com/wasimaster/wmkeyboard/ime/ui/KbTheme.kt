@@ -23,6 +23,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +51,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import com.wasimaster.wmkeyboard.core.fonts.LayoutFonts
 import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import com.wasimaster.wmkeyboard.core.settings.withRotation
 import com.wasimaster.wmkeyboard.core.settings.rotates
@@ -196,6 +198,8 @@ data class KbTheme(
     val keyBorderWidthDp: Float,
     /** Lift under each key; already 0 for a shape that must not cast one. */
     val keyElevation: Dp,
+    /** Colour of that lift's shadow; null draws the platform's black. */
+    val keyShadow: Color?,
     val accent: Color,
     /** Colour of the glide-typing trail; defaults to [accent] when a theme leaves it unset. */
     val gestureTrail: Color,
@@ -516,9 +520,12 @@ private fun contrastRatio(a: Color, b: Color): Float {
  * back to guaranteed contrast when it isn't — accent text on an
  * accent-tinted chip was unreadable in most light themes.
  */
-private fun legibleOn(background: Color, candidates: List<Color>): Color =
-    candidates.firstOrNull { contrastRatio(it, background) >= 3f }
+private fun legibleOn(background: Color, candidates: List<Color>, minRatio: Float = 3f): Color =
+    candidates.firstOrNull { contrastRatio(it, background) >= minRatio }
         ?: if (background.luminance() > 0.5f) Color.Black else Color.White
+
+/** The contrast a popup's chosen alternate keeps against its highlight. */
+private const val SELECTED_GLYPH_CONTRAST = 4.5f
 
 /**
  * The default (system) theme, derived from the Material scheme. In dark
@@ -597,6 +604,7 @@ internal fun defaultKbTheme(
         keyBorder = null,
         keyBorderWidthDp = 0f,
         keyElevation = 0.dp,
+        keyShadow = null,
         accent = scheme.primary,
         gestureTrail = scheme.primary,
         popup = popup,
@@ -606,7 +614,9 @@ internal fun defaultKbTheme(
         popupBorderWidthDp = 0f,
         popupElevation = DEFAULT_POPUP_ELEVATION,
         popupSelected = scheme.primary,
-        popupSelectedText = scheme.onSurface,
+        // onPrimary, not onSurface: in a dark scheme both onSurface and
+        // primary are light, and the chosen alternate came out pale on pale.
+        popupSelectedText = scheme.onPrimary,
         popupTexture = null,
         toolbarIcon = scheme.onSurfaceVariant,
         toolCircle = toolCircle,
@@ -753,6 +763,7 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
             spec.keyShape,
             spec.keyElevationDp.coerceIn(0f, MAX_ELEVATION_DP).dp,
         ).takeIf { keyCastsShadow(spec) } ?: 0.dp,
+        keyShadow = spec.keyShadowColor?.let(::colorOf),
         accent = accent,
         gestureTrail = spec.gestureTrailColor?.let(::colorOf) ?: accent,
         // A light theme's keyText is dark, so a heavy blend produced a dark
@@ -769,7 +780,13 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
             ?: DEFAULT_POPUP_ELEVATION),
         popupSelected = spec.popupSelectedBackground?.let(::colorOf) ?: accent,
         popupSelectedText = spec.popupSelectedText?.let(::colorOf)
-            ?: legibleOn(spec.popupSelectedBackground?.let(::colorOf) ?: accent, listOf(keyText)),
+            // A single glyph on the highlight, so body-text contrast (4.5:1)
+            // rather than the 3:1 a large label gets by with.
+            ?: legibleOn(
+                spec.popupSelectedBackground?.let(::colorOf) ?: accent,
+                listOf(keyText),
+                minRatio = SELECTED_GLYPH_CONTRAST,
+            ),
         popupTexture = spec.popupTexture,
         toolbarIcon = spec.toolbarIcon?.let(::colorOf) ?: secondary,
         toolCircle = spec.toolCircleBackground?.let(::colorOf)
@@ -1166,11 +1183,12 @@ fun KeyboardThemeProvider(
     // different from the rest — its faces simply also carry Latin glyphs, which
     // is what keeps Avro's romanized keys and mixed strips in one face.
     val scriptId = settings.script.id
-    // A theme may carry its own key font, by id. It sits between the
-    // per-script face and the global pick: script correctness still beats the
-    // theme's display face, and an id the device has no font for (the font is
-    // its own addon, which the user may not have installed) resolves to null
-    // in KeyboardFonts.family and falls through to the global setting.
+    // A theme may carry its own key font, by id. It sits below both the
+    // per-script face and the user's own English pick: script correctness still
+    // beats the theme's display face, a font the user chose beats a font a skin
+    // shipped with, and an id the device has no font for (the font is its own
+    // addon, which the user may not have installed) resolves to null in
+    // KeyboardFonts.family and falls through to the system face.
     // A theme may also name a face per script, which does beat the automatic
     // Noto one — a pixel theme with a pixel Bengali font asked for those glyphs,
     // it is not a Latin-only display face about to blank the board. The user's
@@ -1184,9 +1202,13 @@ fun KeyboardThemeProvider(
     val themeScriptFontId = remember(settings, darkSlot, scriptId) {
         settings.activeThemeSpec(darkSlot)?.scriptFontIds?.get(scriptId.name)
     }
+    // A layout's own face may still be on its way ([LayoutFonts]): when it
+    // lands the id is the same, so this is what tells the face to resolve again.
+    val layoutFontsInstalled by LayoutFonts.installs.collectAsState()
     val keyFontFamily = remember(
         scriptId,
         layoutFontId,
+        layoutFontsInstalled,
         themeFontId,
         themeScriptFontId,
         settings.keyFontId,
@@ -1200,11 +1222,16 @@ fun KeyboardThemeProvider(
             settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
             layoutFontId,
             themeScriptFontId,
-        ) // The Latin/Cyrillic/Greek side of the same order: the layout's own
-            // face, then the theme's, then the user's global pick.
+        ) // The Latin/Cyrillic/Greek side of the same order: the user's own
+            // pick, then the layout's face, then the theme's. Only a deliberate
+            // pick counts — "default" is the absence of one and lets the layout
+            // and theme speak. The user's face used to sit last here, so any
+            // theme or layout carrying a font silently overruled the English
+            // font setting while the per-script ones above kept winning (#561).
+            ?: settings.keyFontId.takeIf { it != KeyboardFonts.DEFAULT_ID }
+                ?.let { KeyboardFonts.family(context, it) }
             ?: layoutFontId?.let { KeyboardFonts.family(context, it) }
             ?: themeFontId?.let { KeyboardFonts.family(context, it) }
-            ?: KeyboardFonts.family(context, settings.keyFontId)
     }
     val emojiFontFamily = remember(settings.emojiFont, settings.emojiFontInstalled.installedId) {
         KeyboardFonts.emojiFamily(
@@ -1396,6 +1423,7 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         keyBorder = lerpColorOrNull(a.keyBorder, b.keyBorder, t),
         keyBorderWidthDp = lerpF(a.keyBorderWidthDp, b.keyBorderWidthDp, t),
         keyElevation = lerpDp(a.keyElevation, b.keyElevation, t),
+        keyShadow = lerpColorOrNull(a.keyShadow, b.keyShadow, t),
         accent = lerp(a.accent, b.accent, t),
         gestureTrail = lerp(a.gestureTrail, b.gestureTrail, t),
         popup = lerp(a.popup, b.popup, t),

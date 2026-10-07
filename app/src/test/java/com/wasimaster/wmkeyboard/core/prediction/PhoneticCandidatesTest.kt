@@ -53,7 +53,7 @@ class PhoneticCandidatesTest {
     @Test
     fun aSuffixAfterAVowelTakesAYa() {
         // মা + ের is মায়ের, the way Avro joins a vowel sign onto a vowel.
-        assertTrue(candidates("maer").contains("মায়ের"))
+        assertTrue(candidates("maer").contains("${ma}য়ের"))
     }
 
     @Test

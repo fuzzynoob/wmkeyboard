@@ -53,17 +53,17 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.material.icons.Icons
 import androidx.core.net.toUri
-import androidx.compose.material.icons.outlined.Collections
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.PhotoLibrary
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.PushPin
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.FileDownload
-import androidx.compose.material.icons.outlined.FileUpload
-import androidx.compose.material.icons.outlined.Image
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Collections
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoLibrary
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PushPin
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Edit
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileDownload
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileUpload
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Image
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
@@ -217,7 +217,7 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import kotlin.math.max
 import kotlin.math.roundToInt
-import androidx.compose.material.icons.outlined.SwapHoriz
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapHoriz
 import com.wasimaster.wmkeyboard.core.theme.FlexResult
 import com.wasimaster.wmkeyboard.core.theme.FlexTheme
 import com.wasimaster.wmkeyboard.core.theme.dynamicSnyggPalette
@@ -225,15 +225,15 @@ import com.wasimaster.wmkeyboard.core.theme.GboardResult
 import com.wasimaster.wmkeyboard.core.theme.GboardTheme
 import com.wasimaster.wmkeyboard.core.theme.HeliResult
 import com.wasimaster.wmkeyboard.core.theme.HeliTheme
-import androidx.compose.material.icons.outlined.Crop169
-import androidx.compose.material.icons.outlined.CropFree
-import androidx.compose.material.icons.outlined.CropSquare
-import androidx.compose.material.icons.outlined.Layers
-import androidx.compose.material.icons.outlined.Shuffle
-import androidx.compose.material.icons.outlined.Keyboard
-import androidx.compose.material.icons.outlined.KeyboardHide
-import androidx.compose.material.icons.outlined.Palette
-import androidx.compose.material.icons.outlined.Tune
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Crop169
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CropFree
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CropSquare
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Layers
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Shuffle
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Keyboard
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardHide
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Palette
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tune
 
 // ---- shared helpers ----
 
@@ -2179,6 +2179,7 @@ fun ThemeEditorScreen(
     val landscapePhotoCredit = look.watch { it.backgroundPhotoLandscape }
     val hasOneHandedFill = look.watch { it.oneHandedPanelBackground != null }
     val hasKeyBorder = look.watch { it.keyBorderColor != null }
+    val hasKeyShadow = look.watch { it.keyElevationDp > 0f }
     val texturedSlots = look.watch { t -> KeyTextureSlot.entries.filter { it.pathIn(t) != null }.toSet() }
     val overrideIds = look.watch { it.keyOverrides.keys.sorted() }
     val decals = look.watch { it.decals }
@@ -2986,6 +2987,17 @@ fun ThemeEditorScreen(
                 display = { "%.1f dp".format(it) },
                 info = stringResource(R.string.theme_key_elevation_body),
             ) { update { t -> t.copy(keyElevationDp = (it * 10).toInt() / 10f) } }
+        }
+        item(visible = hasKeyShadow) {
+            // Unset is the platform's own black. Alpha counts: a soft coloured
+            // glow is most of what the themes that set one are after.
+            NullableColorRow(
+                R.string.theme_key_shadow_color_title,
+                look.watch { it.keyShadowColor }, fallback = 0xFF000000,
+                supportsAlpha = true,
+                info = stringResource(R.string.theme_key_shadow_color_body),
+                onChange = { update { t -> t.copy(keyShadowColor = it) } },
+            )
         }
     }
 

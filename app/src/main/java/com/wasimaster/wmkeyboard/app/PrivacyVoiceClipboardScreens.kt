@@ -12,7 +12,7 @@ import androidx.compose.foundation.layout.height
 import com.wasimaster.wmkeyboard.app.lock.AppLockTargets
 import com.wasimaster.wmkeyboard.app.lock.LocalAppLock
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
-import androidx.compose.material.icons.outlined.Settings
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -45,16 +45,16 @@ import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
-import androidx.compose.material.icons.outlined.Memory
-import androidx.compose.material.icons.outlined.PhoneAndroid
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Memory
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhoneAndroid
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Block
-import androidx.compose.material.icons.outlined.Dns
-import androidx.compose.material.icons.outlined.Dashboard
-import androidx.compose.material.icons.outlined.TextFields
-import androidx.compose.material.icons.outlined.TouchApp
-import androidx.compose.material.icons.outlined.ViewCompact
-import androidx.compose.material.icons.outlined.ViewStream
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Block
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Dns
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Dashboard
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.TextFields
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.TouchApp
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ViewCompact
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ViewStream
 
 /** The permission that lets the clipboard read the user's screenshots. */
 private val ImagesPermission: String
@@ -271,6 +271,7 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
                     },
                 ) { scope.launch { repository.setVoiceEngine(it) } }
             }
+            item { VoiceLanguageRow(repository, settings) }
         }
     }
     SettingsGroup(stringResource(R.string.voice_dictation_group)) {
@@ -403,6 +404,17 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
                 settings.watch { it.voiceSpokenPunctuation },
                 default = SettingsDefaults.voiceSpokenPunctuation,
             ) { scope.launch { repository.setVoiceSpokenPunctuation(it) } }
+        }
+        // Plain voice typing is the words exactly as said, so it is never
+        // tidied (#499) and the row goes with the punctuation one above.
+        if (typingMode != com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_PLAIN) item {
+            ToggleSetting(
+                R.string.voice_ai_tidy_title,
+                stringResource(R.string.voice_ai_tidy_subtitle),
+                settings.watch { it.voiceBar.aiTidy },
+                info = stringResource(R.string.voice_ai_tidy_info),
+                default = SettingsDefaults.voiceBar.aiTidy,
+            ) { scope.launch { repository.setVoiceAiTidy(it) } }
         }
     }
     // Offline Whisper has no way to take a hint, so the group only shows for
@@ -575,9 +587,9 @@ internal fun ClipboardSettings(
     val trackSource = settings.watch { it.clipboard.trackSource }
     val suggestRecent = settings.watch { it.clipboard.suggestRecent }
     val swipeToDelete = settings.watch { it.clipboard.swipeToDelete }
-    val searchOn = settings.watch { it.clipboard.search }
     val detectEntities = settings.watch { it.clipboard.detectEntities }
     val sensitiveHandling = settings.watch { it.clipboard.sensitiveHandling }
+    val clipSearch = settings.watch { it.clipboard.search }
     // The slider readouts are plain lambdas, so their format strings are
     // resolved here and captured. The format also puts the number through the
     // locale, which is what gives Bengali or Arabic digits.
@@ -1022,7 +1034,7 @@ internal fun ClipboardSettings(
                 default = SettingsDefaults.clipboard.search,
             ) { scope.launch { repository.setClipboardSearch(it) } }
         }
-        item(visible = searchOn) {
+        item(visible = clipSearch) {
             ToggleSetting(
                 R.string.clipboard_search_regex_title,
                 stringResource(R.string.clipboard_search_regex_subtitle),
