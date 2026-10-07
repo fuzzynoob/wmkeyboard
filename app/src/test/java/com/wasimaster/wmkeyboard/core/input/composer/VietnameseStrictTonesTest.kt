@@ -140,6 +140,75 @@ class VietnameseStrictTonesTest {
         }
     }
 
+    /**
+     * A mark key is spent only when the mark it makes is one the word could
+     * carry.
+     *
+     * Every expectation here is UniKey's own answer for the same keys — read
+     * off the engine itself (fcitx5-unikey's `unikey/`, `UkTelex`,
+     * `spellCheckEnabled` + `autoNonVnRestore` + `freeMarking`), not reasoned
+     * out — because the two questions this test turns on are ones reading the
+     * code gets wrong. A key whose mark is *refused* stays a letter, so the
+     * `oo` of `daboo` is two letters and not the one `ô` would have spent; and
+     * a key whose mark *lived* stays spent even after the mark is taken back
+     * off, so `daaabooo` is one letter shorter than the keys that spelled it.
+     */
+    @Test
+    fun aMarkKeyIsSpentOnlyWhenItsMarkCouldStand() {
+        strict {
+            val c = VietnameseTelexComposer
+            // `dabô` is not a word, so the second `o` is a letter and nothing
+            // is spent — one more `o` is one more letter, never a jump.
+            assertEquals("dabo", c.composeBuffer("dabo"))
+            assertEquals("daboo", c.composeBuffer("daboo"))
+            assertEquals("dabooo", c.composeBuffer("dabooo"))
+            assertEquals("daboooo", c.composeBuffer("daboooo"))
+            // `dâ` *is* the beginning of a word, so the third `a` of `daaa`
+            // cancels a mark that had lived: that key stays spent.
+            assertEquals("daabo", c.composeBuffer("daaabo"))
+            assertEquals("daaboo", c.composeBuffer("daaaboo"))
+            assertEquals("daabooo", c.composeBuffer("daaabooo"))
+            assertEquals("daaboooo", c.composeBuffer("daaaboooo"))
+            // The same two rules with a second run after them.
+            assertEquals("daapoooo", c.composeBuffer("daaapoooo"))
+            // A run on its own: `nô` and `ô` are words and their keys are
+            // spent; `nooo` and `ooooo` are not, so one key is spent and the
+            // rest stand as letters.
+            assertEquals("nô", c.composeBuffer("noo"))
+            assertEquals("noo", c.composeBuffer("nooo"))
+            assertEquals("ô", c.composeBuffer("oo"))
+            assertEquals("ooo", c.composeBuffer("oooo"))
+            assertEquals("oooo", c.composeBuffer("ooooo"))
+            assertEquals("aaa", c.composeBuffer("aaaa"))
+            assertEquals("aaaa", c.composeBuffer("aaaaa"))
+            // `oâ` is not a word's beginning, so the third `a` of `oaa` is a
+            // letter — and the `w` after it has an `a` to horn, which is why
+            // `oaaw` is the keys and `oaw` is `oă`.
+            assertEquals("oaa", c.composeBuffer("oaa"))
+            assertEquals("oaaw", c.composeBuffer("oaaw"))
+            assertEquals("oă", c.composeBuffer("oaw"))
+            // The stroke is exempt: `đ` is a letter, and `dđ` stands.
+            assertEquals("daa", c.composeBuffer("daaa"))
+            assertEquals("dd", c.composeBuffer("ddd"))
+            assertEquals("dđ", c.composeBuffer("dddd"))
+            assertEquals("ddaa", c.composeBuffer("dddaa"))
+            // Not UniKey's answers, these: a word the rules cannot spell is
+            // given back as its keys, which is this keyboard's own reading and
+            // not UniKey's — `banana` is `bânna` there. Left as they are; the
+            // fallback is a separate question from the one this test asks.
+            assertEquals("banana", c.composeBuffer("banana"))
+            assertEquals("rhees", c.composeBuffer("rhees"))
+            assertEquals("dodod", c.composeBuffer("dodod"))
+            assertEquals("nanan", c.composeBuffer("nanan"))
+            // A bare `w` is its own case: the ư it stands for was never typed,
+            // so taking the letter back takes the key with it. `ww` is `w`, and
+            // `wwaa` is the `waa` those keys spell rather than a word that keeps
+            // the `w` the ư was taken from.
+            assertEquals("w", c.composeBuffer("ww"))
+            assertEquals("waa", c.composeBuffer("wwaa"))
+        }
+    }
+
     @Test
     fun everyRealSyllableStillComposes() {
         strict {

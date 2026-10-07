@@ -216,7 +216,10 @@ class VietnameseComposerTest {
         // alone.
         assertEquals("â", c.composeBuffer("aa"))
         assertEquals("aa", c.composeBuffer("aaa"))
-        assertEquals("aâ", c.composeBuffer("aaaa"))
+        // `aâ` is not a word's beginning, so the fourth `a` is a letter rather
+        // than a mark — which is UniKey's answer for the same four keys, and
+        // the reason `daaabooo` loses one letter and not two.
+        assertEquals("aaa", c.composeBuffer("aaaa"))
         assertEquals("tông", c.composeBuffer("toong"))
         assertEquals("nghiêng", c.composeBuffer("nghieeng"))
         assertEquals("hello", c.composeBuffer("hello"))
