@@ -99,7 +99,7 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
                             // and ToggleSetting would key the highlight on the
                             // drawn title instead. The reset control is the one
                             // thing it would otherwise have brought with it.
-                            ResetSetting(title, enabled) { store.setSubsystemEnabled(false) }
+                            RowExtras { ResetSetting(title, enabled) { store.setSubsystemEnabled(false) } }
                             Switch(
                                 checked = enabled,
                                 onCheckedChange = { store.setSubsystemEnabled(it) },
@@ -152,7 +152,7 @@ internal fun PluginsScreen(onNavigate: (String) -> Unit) {
                 item { CaptionText(stringResource(R.string.plugins_installed_empty)) }
             } else {
                 for (plugin in plugins) {
-                    item {
+                    item(key = plugin.id) {
                         val subtitle = when {
                             plugin.author.isNotBlank() && !plugin.enabled -> stringResource(
                                 R.string.plugins_row_version_author_off,

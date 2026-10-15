@@ -48,7 +48,7 @@ If a model stops mid-answer because it hit the length ceiling, the panel says so
   <Shot id="tools/ai-result-changes" alt="A Fix grammar result in the Changes view, with the old spellings struck through." />
 </PhoneFrame>
 
-A finished result gets a **Result** / **Changes** pair of chips. Changes compares the answer against the text the action ran on and marks what the model added and what it took out, the way `git diff` does. It's the one thing the plain result can't show you: after a Fix grammar run, the spelling it corrected is simply gone from the screen.
+A finished result gets a **Result** / **Changes** pair of chips. Changes compares the answer against the text the action ran on and marks what the model added and what it took out, the way `git diff` does. It's the one thing the plain result can't show you: after a Fix grammar run, the spelling it corrected is gone from the screen.
 
 Deleted text is struck through, added text is underlined and slightly bolder. Shape rather than colour alone is deliberate, so the view stays readable on a photo-background theme, in a high-contrast theme, and if you're colour-blind. A changed space or paragraph break is drawn with a visible mark, since an empty highlight tells you nothing. Under the text sits a count of how many parts changed. "Parts" because they're words in prose and single characters in a language that doesn't put spaces between words.
 
@@ -111,13 +111,23 @@ DeepSeek's reasoning models stream their thinking on a separate field. The app f
 
 **Other service** is the escape hatch, and it reaches far more than the named chips do. Anything that speaks OpenAI's chat-completions shape works: OpenRouter, Groq, Together, Mistral, Cerebras, self-hosted vLLM. Three fields:
 
-- **Service address**: the address up to and including the version segment, for example `https://openrouter.ai/api/v1`. The app adds `/chat/completions` itself. That split exists because services genuinely disagree about the prefix (`/v1`, `/openai/v1`, `/api/v1`), so guessing it would break half of them.
+- **Service address**: the address up to and including the version segment, for example `https://openrouter.ai/api/v1`. The app adds `/chat/completions` itself. That split exists because services disagree about the prefix (`/v1`, `/openai/v1`, `/api/v1`), so guessing it would break half of them.
 - **Model**: required here, unlike the named providers. There's no sensible default to guess for a service the app knows nothing about.
 - **API key**: optional. A gateway on your own network often wants none.
 
 :::note
 An `http://` address works, for a service on your own network, and that traffic is plain HTTP. Keep the server on a network you trust.
 :::
+
+### Extra headers
+
+Some services want more in a request than a key. OpenCode Go, for one, reads a session header and a User-Agent of its own, and a gateway in front of a provider may want its own token. Every provider except On-device has an **Extra headers** group under its fields for this. Tap **Add header**, then fill in a name and a value. Each edit saves as you make it, and the value stays hidden until you tap the eye.
+
+- **Yours are sent last.** A header here replaces the app's own of the same name, whatever its capitals, so a `User-Agent` or `Authorization` you add is the one the service sees.
+- **`{session}` stands in for a session id.** Type it anywhere in a value, for example the name `x-opencode-session` with the value `{session}`. One panel action, its lookups included, sends one id, and a [chat](/tools/ai-chat/) sends the same id for every message in that conversation.
+- **Each provider has its own list.** Switching providers shows that provider's headers, not the last one's.
+- A name with a space or other character a header can't hold, or a value with a line break, is left out of the request rather than failing it.
+- A backup without secrets leaves the headers out, the same as API keys.
 
 ### Self-hosted servers
 
@@ -203,17 +213,17 @@ Prompts you'd already customised carry over automatically, and the app checks it
 
 A model answers from what it was trained on, which is a fixed moment in the past. Turn one of these on and it can stop guessing: before it answers, it asks the keyboard to go and find out.
 
-- **Let the model search the web** — on by default, but the row only appears once you've set up a search service. The model writes its own search (usually a better one than the question you asked), reads the results, and answers from them. Searches go through whatever backend the [search tool](/tools/search/) already uses — your SearXNG instance, your Tavily key, or Brave — and count against that service's quota like any other search.
-- **Let the model read a web page** — off by default. The model gives one address and gets the text of that page back. It needs no search service, so it works on its own: paste a link, ask "what does this say?", and the model fetches it.
-- **Lookups per answer** — 1 to 5, default **3**. How many times the model may go and look something up before it has to answer with what it has. Each round is another request carrying everything found so far, so this is the setting that decides what a curious model costs you.
+- **Let the model search the web**: on by default, but the row only appears once you've set up a search service. The model writes its own search (usually a better one than the question you asked), reads the results, and answers from them. Searches go through whatever backend the [search tool](/tools/search/) already uses (your SearXNG instance, your Tavily key, or Brave) and count against that service's quota like any other search.
+- **Let the model read a web page**: off by default. The model gives one address and gets the text of that page back. It needs no search service, so it works on its own: paste a link, ask "what does this say?", and the model fetches it.
+- **Lookups per answer**: 1 to 5, default 3. How many times the model may go and look something up before it has to answer with what it has. Each round is another request carrying everything found so far, so this is the setting that decides what a curious model costs you.
 
 Both tools work in the panel's actions and in [AI chat](/tools/ai-chat/). While one runs, the progress readout says what it's doing and on what: **Searching the web for "…"** with the model's own query, or **Reading example.com…** with the site it opened.
 
 ### Why page reading is the one that's off
 
-**Let the model search the web** sends a query the model wrote. **Let the model read a web page** opens an address, and that address can have come from the text you were typing — a link in a document someone sent you, say. That makes it the one tool here that something in your own field could point somewhere, so it waits until you ask for it.
+**Let the model search the web** sends a query the model wrote. **Let the model read a web page** opens an address, and that address can have come from the text you were typing: a link in a document someone sent you, say. That makes it the one tool here that something in your own field could point somewhere, so it waits until you ask for it.
 
-When it does run, the page is fetched as plain text and cut short at about 6,000 characters. No scripts run, nothing is sent *to* the page, and only `http://` and `https://` addresses are opened at all — a model that invents a `file://` or `content://` address gets a refusal, not your storage.
+When it does run, the page is fetched as plain text and cut short at about 6,000 characters. No scripts run, nothing is sent *to* the page, and only `http://` and `https://` addresses are opened at all. A model that invents a `file://` or `content://` address gets a refusal, not your storage.
 
 ### What your provider needs to support
 
@@ -222,9 +232,9 @@ Most providers do tool calling properly, as part of their API: Claude, OpenAI, G
 - **Brave** takes a single message with no system prompt and has no tool field at all.
 - **On-device models** have no tool API in the local runtime.
 
-For those two the keyboard falls back to explaining the tools to the model in words and watching its answer for a reply in the agreed format. The reader is deliberately forgiving about that format, because local models mangle it: `tool_call` is a special token in several chat templates, so the template rewrites the very thing the keyboard asked for, and a marker can come back with its brackets moved, doubled, or missing altogether. All of those are read, and anything that looks like one is hidden from the answer whether or not it turns out to be a call — machinery the model wrote for the keyboard is never yours to read.
+For those two the keyboard falls back to explaining the tools to the model in words and watching its answer for a reply in the agreed format. The reader is deliberately forgiving about that format, because local models mangle it: `tool_call` is a special token in several chat templates, so the template rewrites the very thing the keyboard asked for, and a marker can come back with its brackets moved, doubled, or missing altogether. All of those are read, and anything that looks like one is hidden from the answer whether or not it turns out to be a call, because machinery the model wrote for the keyboard is never yours to read.
 
-It genuinely works, and a capable local model will use it — but a small one still ignores the format sometimes, or asks you to narrow a request it could have searched as written. The settings group says so when you're on one of those providers. If lookups matter to you, a provider with real tool support is far more reliable.
+It works, and a capable local model will use it, but a small one still ignores the format sometimes, or asks you to narrow a request it could have searched as written. The settings group says so when you're on one of those providers. If lookups matter to you, a provider with real tool support is far more reliable.
 
 ### Seeing what it looked up
 
@@ -240,7 +250,78 @@ Tap a result to open it in your browser, or press and hold to copy its address. 
 
 In [AI chat](/tools/ai-chat/) the record is saved with the answer, so reopening a conversation later still shows what each answer was built on. The panel's actions keep it only while the result is on screen.
 
-Every search and every page fetch is also a row in the [network activity log](/privacy/network-activity/), filed under **AI tool use** rather than **Web search** — you didn't run that search, the model did, and the log should say which.
+Every search and every page fetch is also a row in the [network activity log](/privacy/network-activity/), filed under **AI tool use** rather than **Web search**: you didn't run that search, the model did, and the log should say which.
+
+## MCP servers
+
+<SettingsPath path="Tools / AI writing tools / MCP servers" />
+
+MCP (the Model Context Protocol) is a standard way for a server to offer tools to a model. Add a server here and the model can use its tools in the panel's actions and in [AI chat](/tools/ai-chat/), the same way it uses the two lookups above: to read your notes, search a wiki, add a calendar event, or whatever the server does. The tools run on that server, not on your phone.
+
+### Adding a server
+
+Press the **+** button. The editor asks for:
+
+- **Name**: what the list calls it. Leave it blank and the host name is used.
+- **Address**: the server's `https://` or `http://` address, for example `https://example.com/mcp`.
+- **Type**: **Auto**, **Streamable HTTP** or **SSE**. Auto works for almost every server. It tries Streamable HTTP, the current transport, and falls back to the older SSE one when the server answers like an old server. Pick SSE for an old server that Auto can't reach. Its address often ends in `/sse`.
+- **Headers**: sent with every request to this server. This is where a token goes. A typical one is the name `Authorization` with the value `Bearer` followed by a space and your token. Values are hidden until you tap the eye.
+
+**Save** stores the server. **Connect** saves it too, then asks the server for its tools and reports back: "Connected to *server name*: 12 tools", or the reason it couldn't. A server you just added says **Not connected** in the list until a Connect has worked, and the model is offered nothing from it until then.
+
+Change the address later and the tool list no longer describes the server, so the editor asks you to connect again.
+
+### Pasting a JSON config
+
+Most desktop apps that use MCP keep their servers in a JSON file. Copy that file's text, then press **Paste a JSON config** on the server list. The keyboard reads the formats in common use: Claude Desktop and Cursor's `mcpServers`, VS Code's `servers`, the inner map on its own, or a single server. It shows what it found before anything is saved, then **Add 2 servers** adds them and connects each one.
+
+```json
+{
+  "mcpServers": {
+    "notes": {
+      "url": "https://notes.example.com/mcp",
+      "headers": { "Authorization": "Bearer your-token" }
+    },
+    "files": {
+      "command": "npx",
+      "args": ["-y", "some-file-server"]
+    }
+  }
+}
+```
+
+Here **notes** is added. **files** is listed as skipped: it starts a program on a computer (the `command` line), and a phone has nothing to start it with. A server with no address, or one that isn't `http` or `https`, is skipped too, with the reason beside it.
+
+### Run, Ask or Off
+
+Once a server is connected, its editor lists every tool, with the server's own description and badges for what the server says about it: **Read only**, or **Can change or delete data**. Each tool has three choices:
+
+- **Run**: the tool runs when the model calls it, without asking you.
+- **Ask**: the answer stops and waits for you to allow the call.
+- **Off**: the model isn't told the tool exists.
+
+A new tool starts on **Run** if the server marks it read only, and on **Ask** otherwise. That default matters because a tool can send mail or delete a file, and text in the field you're editing could try to talk a model into calling one. Your own choice always wins over the server's marks.
+
+The list row for each server sums it up ("12 tools: 3 run, 7 ask, 2 off") with a switch that turns the whole server off without deleting it.
+
+### Allowing a call
+
+When the model calls a tool set to **Ask**, an approval card appears in the panel or in the chat. It names the tool and the server and shows exactly what the model wrote as the tool's input. Three buttons:
+
+- **Deny**: the call doesn't happen. The model is told you said no and answers without it.
+- **Allow once**: this call goes ahead.
+- **Always allow**: this call goes ahead, and the tool is set to **Run** from now on.
+
+### What is sent, and where
+
+Nothing goes to a server until the model calls one of its tools, or you press Connect. A call sends the tool's name and the values the model wrote for it straight to your server, with your headers. It doesn't go through any WM Keyboard service. Whatever the server sends back is handed to the model. Every request shows in the [network activity log](/privacy/network-activity/) under **MCP servers**.
+
+### Limits
+
+- **No sign-in yet.** A server that wants you to log in through OAuth can't be used. If it gives out tokens or API keys, add one as a header instead.
+- **Only `http` and `https` servers.** Local servers that start as a program (`command`, `npx`, `uvx`) need a computer to run on.
+- **Every tool costs prompt space.** The name, description and input format of each tool that isn't **Off** go with every request, so 30 tools can cost more than the text you asked about. The server list warns you past 20. Turn off the tools you don't need.
+- **Text only.** Images, audio and links a tool sends back aren't shown to the model. It is told that something was there.
 
 ## Chatting instead of transforming
 
@@ -276,13 +357,15 @@ API keys are never part of a record. It carries the model's name and nothing abo
 Like every tool, AI has an **Enabled** toggle (on by default) and, if [colorful tool icons](/reference/settings/tools/) are on, a per-tool icon color override. Below that:
 
 - **Keyword**: the word that offers this tool on the suggestion strip when you type it alone. Defaults to `ai`.
+- **Extra headers**: none to start with, see [Extra headers](#extra-headers).
 - **Provider**: which of the nine providers above is active. Defaults to **Claude**, though with no key entered yet a fresh install lands on the empty-state screen until you add one.
-- **Max response length**: a token ceiling, roughly ¾ of a word each, picked from steps rather than a slider: 1k through 128k, plus **Provider maximum**. Default **8,192**. A model the app takes for a reasoning model gets 4× this ceiling on its own, capped at 131,072, because reasoning tokens come out of the same budget before the answer starts. That guess is a substring match on the model ID, for strings like "thinking", "qwen3", "grok-4" or "deepseek-v4". The On-device provider swaps this row for **Context size**.
+- **Max response length**: a token ceiling, roughly ¾ of a word each, picked from steps rather than a slider: 1k through 128k, plus **Provider maximum**. Default 8,192. A model the app takes for a reasoning model gets 4× this ceiling on its own, capped at 131,072, because reasoning tokens come out of the same budget before the answer starts. That guess is a substring match on the model ID, for strings like "thinking", "qwen3", "grok-4" or "deepseek-v4". The On-device provider swaps this row for **Context size**.
 - **Translate action's target language**: free text, defaults to **English**.
 - **Show model reasoning**: off by default. Turning it on streams a reasoning model's raw `<think>` passages instead of the step-by-step progress readout.
 - **Model picker on the panel**: on by default. Adds a horizontally-scrolling row to the panel itself for switching between every configured provider and downloaded local model in one tap. It's hidden automatically whenever there are fewer than two to choose from.
 - **Show a changes view**: on by default, see [Seeing what changed](#seeing-what-changed). **Open a result on the changes** below it is off.
 - **Let the model search the web**: on by default, and only shown once a search service is set up. **Let the model read a web page** below it is off, and **Lookups per answer** defaults to 3. See [Letting the model look things up](#letting-the-model-look-things-up).
+- **MCP servers**: the servers whose tools the model can use, see [MCP servers](#mcp-servers). None are set up to start with.
 - **Chat with the model**: opens the conversation screen, see [AI chat](/tools/ai-chat/).
 - **Enter sends the message**: off by default. In the chat on the keyboard, Enter starts a new line and the send button sends. Turn this on to send with Enter instead.
 - **Actions on the panel**: the whole action list, see [Your own actions](#your-own-actions).
@@ -325,7 +408,8 @@ The panel itself sends nothing until you actually tap an action chip: opening th
 - **Dictation, when [Tidy dictation with AI](/tools/voice/#tidying-dictation-with-ai) is on**: each phrase you dictate goes to the same provider as soon as it lands, with no tap, to have its filler words taken out. Its text only, never the audio. Off by default, and an on-device model keeps it on the phone like any other action.
 - **Report**: builds a draft in your mail app and hands it over. The app has no reporting server and sends nothing itself, so a report only exists if you send the mail. API keys are never part of it.
 - **History**: goes nowhere. It's a file in the app's private storage, off unless you turn it on, never written from a password field or in incognito, and deleted when you turn it off. It's deliberately left out of the backup file too, so it can't ride along in something you export and mail to yourself. There's no section for it to travel in, unlike the learned dictionary, which is a section of its own that you tick or leave alone. See [Your data](/privacy/data/).
-- **A lookup the model asked for**: goes to the service that answers it, and only when the model actually asks. A search carries the query the model wrote — not your field text — to whichever search backend you set up. A page fetch carries nothing but the request for that page. Both show in the [network activity log](/privacy/network-activity/) under **AI tool use**, and both are off entirely while [Data saver](/privacy/data-saver/) is holding web search back.
+- **A lookup the model asked for**: goes to the service that answers it, and only when the model actually asks. A search carries the query the model wrote, not your field text, to whichever search backend you set up. A page fetch carries nothing but the request for that page. Both show in the [network activity log](/privacy/network-activity/) under **AI tool use**, and both are off entirely while [Data saver](/privacy/data-saver/) is holding web search back.
+- **A tool on an MCP server**: goes to the server you added, and only when the model calls that tool or you press Connect. A call carries the tool's name and the values the model wrote for it, with your headers. See [MCP servers](#mcp-servers).
 - **The changes view**: is computed on your phone. Comparing two pieces of text is arithmetic, not a request, so nothing is sent to build it.
 
 ## Details & edge cases
@@ -344,7 +428,7 @@ The panel itself sends nothing until you actually tap an action chip: opening th
 - **A model that will not stop looking things up still answers.** When it has used up its **Lookups per answer**, the last request is sent with no tools offered at all, so the model has to write something with what it found. It isn't shown an error.
 - **The round limit is a ceiling, not a target.** Most answers use none. A model only calls a tool when it decides it needs to, and nothing is sent anywhere on a run where it doesn't.
 - **A failed lookup is handed to the model, not to you.** A search with no backend, a page that 404s, an address that isn't one: the model is told in a sentence and carries on, usually by saying it couldn't check. A broken page doesn't fail the whole answer.
-- **What a lookup found isn't kept in a chat's transcript.** Only the model's answer is saved. Ask a follow-up and the model has its own earlier reply to go on, not the search results behind it — so it may look again, which is usually what you'd want anyway.
+- **What a lookup found isn't kept in a chat's transcript.** Only the model's answer is saved. Ask a follow-up and the model has its own earlier reply to go on, not the search results behind it, so it may look again, which is usually what you'd want anyway.
 - **Tools are off on a local model mid-conversation until the chat restarts.** A local chat session carries its instructions from the moment it opened, so turning a tool on part-way through takes effect on the next conversation rather than the next message.
 - **No shared or built-in key for any cloud provider.** Claude, OpenAI, Gemini, Grok, DeepSeek and Brave each need your own API key. There's no free built-in quota here, the way some of the other network tools offer one.
 - **A model download dies with the app's process.** It resumes rather than restarting, but it isn't a foreground service, so backgrounding the app for long enough can stop it. That hasn't changed. The panel just shows you it's happening now.

@@ -14,7 +14,7 @@ import Shot from '@components/Shot.astro';
 Every drag, long-press, and hold on WM Keyboard, flattened onto one page: what it does, where it lives, and the setting that controls it. Each family gets its own short table here. For the reasoning and the numbers behind each one, follow the link into its full page.
 
 <PhoneFrame caption="The Gestures group on the Typing settings screen, home to most of the spacebar and backspace gestures below.">
-  <Shot id="reference/gestures-typing-screen" alt="The Gestures group on the Typing settings screen — home to most of the spacebar and backspace gestures below." />
+  <Shot id="reference/gestures-typing-screen" alt="The Gestures group on the Typing settings screen, home to most of the spacebar and backspace gestures below." />
 </PhoneFrame>
 
 This page covers touch gestures only. For the physical-keyboard leader key, its letter bindings, and panel navigation, see [Hardware shortcuts](/reference/shortcuts/) instead.
@@ -33,6 +33,7 @@ Which action a spacebar swipe runs depends on *when* the drag starts relative to
 | Slot = Language, swipe sideways | Spacebar | Steps through enabled layouts (a flick moves one; a continued swipe steps every 44&nbsp;dp after a 200&nbsp;ms pause, 110&nbsp;dp to wrap past either end) | Either slot set to Language |
 | Slot = Cursor, swipe sideways | Spacebar | Moves the text cursor one character per 16&nbsp;dp of drag | Either slot set to Cursor |
 | Same, dragging vertically | Spacebar | Also steps the cursor a line at a time | 2-D cursor touchpad (Off) |
+| Swipe up at least 24&nbsp;dp, more up than sideways, then keep moving | Spacebar | Opens the 2-D touchpad for that drag: the cursor follows in every direction until you lift | Swipe up for the touchpad (Off) |
 | Same, while the drag moves the cursor | Spacebar | Shows the text at the cursor, enlarged, in a bubble over the text | Cursor magnifier (On) |
 | Slot = Numpad, cross the initial slop | Spacebar | Opens the numeric keypad (one-shot, so the rest of the drag does nothing) | Either slot set to Numpad |
 | Straight downward drag, steeper than it is wide | Spacebar | Dismisses the keyboard | Swipe down to hide the keyboard (Off) |
@@ -133,6 +134,20 @@ Off by default, and only active while the keyboard is on screen. As soon as it c
 | Hold a volume key | Hardware volume rocker | Repeats via Android's own hardware key-repeat | (same) |
 | Press while audio is actually playing | Hardware volume rocker | Falls back to real volume control instead of the cursor | Release the keys while audio plays (On) |
 
+## Swiping with several fingers
+
+<SettingsPath path="Typing / Gestures / Multi-finger swipes" />
+
+| Gesture | Where | What it does | Setting |
+| --- | --- | --- | --- |
+| Two fingers swiped up together | Anywhere on the letters | Selects all | Multi-finger swipes (On); each slot bindable |
+| Two fingers left / right | Anywhere on the letters | Undo / Redo | (same) |
+| Two fingers down | Anywhere on the letters | Paste | (same) |
+| Three or four fingers, any direction | Anywhere on the letters | Nothing until you bind it | (same) |
+| Fingers that head different ways, lean past 35°, or one that lifts first | Anywhere on the letters | Types as usual | None |
+
+Every finger has to travel about 28&nbsp;dp the same way before the swipe is recognised. Two-finger swipes are off while two-thumb typing is on.
+
 ## Dragging inside a panel or the toolbar
 
 A grab-bag of drags that live on their own feature pages, linked below each row.
@@ -142,14 +157,16 @@ A grab-bag of drags that live on their own feature pages, linked below each row.
 | Long-press an emoji | [Emoji picker](/emoji/picker/) | Opens the skin-tone/gender variant popup, with a star-to-favourite toggle | Emoji descriptions adds the name (On) |
 | Long-press a favourited emoji, then tap Reorder favourites | Emoji picker, anywhere an emoji is drawn | Opens the drag-to-reorder list (needs two or more favourites) | None |
 | Drag a row in that list | The reorder list | Moves the favourite, saved on confirm | None |
-| Long-press a Klipy/GIPHY result | [Stickers panel](/emoji/stickers/) | Opens an action sheet: save to each of your packs (or "Save to a new pack" if you have none), Copy, Report | None |
-| Long-press a GIF result | [GIF panel](/emoji/gifs/) | Opens the same sheet with Copy and Report. Saving to a pack is sticker-only | None |
+| Long-press a KLIPY/GIPHY result | [Stickers panel](/emoji/stickers/) | Opens an action sheet: save to each of your packs (or "Save to a new pack" if you have none), Copy, Report | None |
+| Long-press a GIF result | [GIF panel](/emoji/gifs/#long-pressing-a-result) | Opens the same sheet with Add to favourites (or Remove from favourites), Copy and Report. Saving to a pack is sticker-only | None |
 | Hold a sticker in the sticker tray, then slide | [Stickers as you type](/emoji/stickers/#stickers-as-you-type) | Shows the sticker large above the keyboard, and each one you slide over in turn. Lifting closes it and sends nothing | Hold to see them bigger (On) |
 | Swipe a card left or right | [Clipboard panel](/tools/clipboard/) | Deletes it once the drag passes 40% of the card's width. No confirmation, but an Undo bar offers it back for five seconds | Swipe to delete (On) |
 | Swipe the Undo bar left or right | Clipboard panel | Puts the bar away at once, and the delete is final | None |
 | Drag the bar on top of the panel up or down | [Clipboard panel](/tools/clipboard/#making-the-panel-taller) | Makes the panel taller or shorter, and it opens at that height from then on | Panel height (Same as keyboard) |
 | Drag the bar on top of the panel up or down | [GIF and sticker panels](/emoji/gifs/#making-the-panel-taller) | Makes the emoji, GIF and sticker panels taller or shorter together, and they open at that height from then on | Panel height, emoji (Same as keyboard) |
 | Scroll the results down, then up | [GIF and sticker panels](/emoji/gifs/#hiding-the-search-while-you-scroll) | Folds the search box and the chip rows away, then brings them back | Hide the search when you scroll (Off) |
+| Swipe sideways across the panel, more across than up or down, past 56&nbsp;dp or as a flick | [Clock](/tools/clock/), [Clipboard](/tools/clipboard/#pinned-and-unpinned-tabs), [Location](/tools/location/), [KDE Connect](/tools/kde-connect/#the-tabs), Vocabulary, Wikipedia and Themes panels | Moves to the next tab (leftward) or the previous one (rightward); the ends don't wrap. A list, chip row, card or touchpad that takes the drag itself keeps it | None |
+| Same, across the results | [GIF and sticker panels](/emoji/gifs/) | Moves along the emoji / GIF / sticker switch | None |
 | Hold and drag a tool | [Toolbar / toolbox](/tools/overview/) | Pins, unpins, or reorders it | None |
 | Swipe down on the toolbar strip | Toolbar | Dismisses the keyboard | Swipe down to hide, toolbar (Off) |
 | Drag the seek bar | [Media controls](/tools/media/) | Scrubs playback to that point | None |
@@ -168,6 +185,7 @@ Every default on this page, gathered in one place. "Where" is the settings scree
 | Quick swipe on the spacebar | Typing → Gestures | Language |
 | Press and hold, then swipe | Typing → Gestures | Cursor |
 | 2-D cursor touchpad | Typing → Gestures | Off |
+| Swipe up for the touchpad | Typing → Gestures | Off |
 | Cursor magnifier | Typing → Gestures | On |
 | Swipe in from the edge to go back | Typing → Gestures | Off |
 | Swipe down to hide the keyboard | Typing → Gestures | Off |
@@ -180,6 +198,7 @@ Every default on this page, gathered in one place. "Where" is the settings scree
 | Word delete interval | Key press → Timing | 140 ms (60–500 ms) |
 | Volume keys move the cursor | Typing → Volume keys | Off |
 | Release the keys while audio plays | Typing → Volume keys | On |
+| Multi-finger swipes | Typing → Gestures | On |
 | Press and hold delay | Key press → Timing | 300 ms (100–800 ms) |
 | Time before a key repeats | Key press → Timing | 300 ms (150–800 ms) |
 | Delete repeat interval | Key press → Timing | 50 ms (20–200 ms) |
@@ -187,12 +206,12 @@ Every default on this page, gathered in one place. "Where" is the settings scree
 | Caps lock double press | Key press → Timing | 350 ms (150–600 ms) |
 | Press and hold hints | Key press → Press and hold shortcuts | On |
 | All accents on press and hold | Key press → Press and hold shortcuts | Off |
-| Your language's letters first | Key press → Press and hold shortcuts | **On** |
+| Your language's letters first | Key press → Press and hold shortcuts | On |
 | Shifted letter on press and hold | Key press → Press and hold shortcuts | Off |
-| Press and hold ?123 for the number pad | Key press → Press and hold shortcuts | **On** |
+| Press and hold ?123 for the number pad | Key press → Press and hold shortcuts | On |
 | Press and hold enter for emoji | Key press → Press and hold shortcuts | Off |
-| Press and hold A/C/X/V/Z/Y to … | Key press → Press and hold shortcuts | **On** (each) |
-| Choose without lifting | Key press → Alternate keys | **On** |
+| Press and hold A/C/X/V/Z/Y to … | Key press → Press and hold shortcuts | On (each) |
+| Choose without lifting | Key press → Alternate keys | On |
 | Emoji descriptions | Emoji → Emoji panel | On |
 | Swipe down to hide (toolbar) | Appearance → Toolbar | Off |
 | Floating keyboard width | Layout & size → One-handed, split & floating | 320 dp (240–500 dp) |

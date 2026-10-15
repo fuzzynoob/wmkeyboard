@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import com.wasimaster.wmkeyboard.BuildConfig
 import android.graphics.BitmapFactory
 import android.os.Build
+import android.Manifest
 import androidx.annotation.StringRes
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -65,6 +66,22 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileDownload
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileUpload
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Image
 import androidx.compose.material3.AlertDialog
+import androidx.compose.runtime.CompositionLocalProvider
+import com.wasimaster.wmkeyboard.ime.layoutKind
+import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.ime.LayoutMode
+import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.TextEditAction
+import com.wasimaster.wmkeyboard.core.layout.resolveLayout
+import com.wasimaster.wmkeyboard.core.layout.PanelKind
+import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.FilledTonalIconButton
+import androidx.compose.material3.Button
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -138,11 +155,18 @@ import com.wasimaster.wmkeyboard.core.ui.rememberLiveSlider
 import com.wasimaster.wmkeyboard.core.util.PlayServices
 import com.wasimaster.wmkeyboard.core.util.requireOutputStream
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
+import com.wasimaster.wmkeyboard.ime.ui.KeyboardBoardShape
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
+import com.wasimaster.wmkeyboard.core.settings.AppColorScope
+import com.wasimaster.wmkeyboard.core.theme.AppColorSource
+import com.wasimaster.wmkeyboard.core.theme.PaletteStyle
+import com.wasimaster.wmkeyboard.core.theme.paletteStyleSwatch
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.CROP_FRAME_SUFFIX
+import com.wasimaster.wmkeyboard.core.settings.CROP_ORIGINAL_SUFFIX
 import com.wasimaster.wmkeyboard.core.settings.RotationInterval
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -186,8 +210,27 @@ import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
 import com.wasimaster.wmkeyboard.core.theme.keyTextureScaleOrDefault
 import com.wasimaster.wmkeyboard.core.theme.SeedSwatches
 import com.wasimaster.wmkeyboard.core.theme.isAnimatedImageFile
+import com.wasimaster.wmkeyboard.core.theme.FROST_BACKDROP_BLUR_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_BRIGHTNESS_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_FALLBACK_OPACITY_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_GRAIN_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_RIM_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_SATURATION_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FrostPreset
+import com.wasimaster.wmkeyboard.core.theme.FROST_DISPERSION_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_REFRACTION_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FrostSpec
+import com.wasimaster.wmkeyboard.core.theme.FrostStyle
+import com.wasimaster.wmkeyboard.core.theme.FrostSurface
+import com.wasimaster.wmkeyboard.core.theme.WINDOW_BLUR_RADIUS_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FrostBackdropSource
+import com.wasimaster.wmkeyboard.core.theme.WallpaperBackdrop
+import com.wasimaster.wmkeyboard.core.theme.WallpaperBand
+import com.wasimaster.wmkeyboard.core.theme.dressedForGlass
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
+import com.wasimaster.wmkeyboard.core.theme.FutoTheme
+import com.wasimaster.wmkeyboard.core.theme.FutoThemeResult
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
@@ -225,6 +268,8 @@ import com.wasimaster.wmkeyboard.core.theme.GboardResult
 import com.wasimaster.wmkeyboard.core.theme.GboardTheme
 import com.wasimaster.wmkeyboard.core.theme.HeliResult
 import com.wasimaster.wmkeyboard.core.theme.HeliTheme
+import com.wasimaster.wmkeyboard.core.theme.MultilingTheme
+import com.wasimaster.wmkeyboard.core.theme.MultilingThemeResult
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Crop169
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CropFree
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CropSquare
@@ -239,6 +284,64 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tune
 
 private fun colorOf(argb: Long): Color = Color(argb.toInt())
 private fun Color.argb(): Long = toArgb().toLong() and 0xFFFFFFFFL
+
+@StringRes
+private fun frostPresetLabelRes(preset: FrostPreset): Int = when (preset) {
+    FrostPreset.FROSTED -> R.string.theme_glass_preset_frosted
+    FrostPreset.CLEAR -> R.string.theme_glass_preset_clear
+    FrostPreset.MICA -> R.string.theme_glass_preset_mica
+    FrostPreset.SMOKED -> R.string.theme_glass_preset_smoked
+    FrostPreset.LIQUID -> R.string.theme_glass_preset_liquid
+}
+
+@StringRes
+private fun frostStyleLabelRes(style: FrostStyle): Int = when (style) {
+    FrostStyle.FROSTED -> R.string.theme_glass_style_frosted
+    FrostStyle.LIQUID -> R.string.theme_glass_style_liquid
+}
+
+@StringRes
+private fun frostStyleDescRes(style: FrostStyle): Int = when (style) {
+    FrostStyle.FROSTED -> R.string.theme_glass_style_frosted_desc
+    FrostStyle.LIQUID -> R.string.theme_glass_style_liquid_desc
+}
+
+@StringRes
+private fun frostBackdropLabelRes(source: FrostBackdropSource): Int = when (source) {
+    FrostBackdropSource.AUTO -> R.string.theme_glass_backdrop_auto
+    FrostBackdropSource.IMAGE -> R.string.theme_glass_backdrop_image
+    FrostBackdropSource.WALLPAPER -> R.string.theme_glass_backdrop_wallpaper
+    FrostBackdropSource.NONE -> R.string.theme_glass_backdrop_none
+}
+
+@StringRes
+private fun frostBackdropDescRes(source: FrostBackdropSource): Int = when (source) {
+    FrostBackdropSource.AUTO -> R.string.theme_glass_backdrop_auto_desc
+    FrostBackdropSource.IMAGE -> R.string.theme_glass_backdrop_image_desc
+    FrostBackdropSource.WALLPAPER -> R.string.theme_glass_backdrop_wallpaper_desc
+    FrostBackdropSource.NONE -> R.string.theme_glass_backdrop_none_desc
+}
+
+@StringRes
+private fun wallpaperBandLabelRes(band: WallpaperBand): Int = when (band) {
+    WallpaperBand.BOTTOM -> R.string.theme_glass_wallpaper_band_bottom
+    WallpaperBand.CENTER -> R.string.theme_glass_wallpaper_band_center
+    WallpaperBand.TOP -> R.string.theme_glass_wallpaper_band_top
+}
+
+@StringRes
+private fun frostSurfaceLabelRes(surface: FrostSurface): Int = when (surface) {
+    FrostSurface.KEYS -> R.string.theme_glass_surface_keys
+    FrostSurface.MODIFIER_KEYS -> R.string.theme_glass_surface_modifier_keys
+    FrostSurface.ENTER_KEY -> R.string.theme_glass_surface_enter_key
+    FrostSurface.SPACE_BAR -> R.string.theme_glass_surface_space_bar
+    FrostSurface.BARS -> R.string.theme_glass_surface_bars
+    FrostSurface.TOOLS -> R.string.theme_glass_surface_tools
+    FrostSurface.CHIPS -> R.string.theme_glass_surface_chips
+    FrostSurface.CARDS -> R.string.theme_glass_surface_cards
+    FrostSurface.POPUPS -> R.string.theme_glass_surface_popups
+    FrostSurface.MENUS -> R.string.theme_glass_surface_menus
+}
 
 private fun themeImagesDir(context: android.content.Context): File =
     File(context.filesDir, "theme_images").apply { mkdirs() }
@@ -318,6 +421,17 @@ private fun gradientTypeDescRes(type: GradientType): Int = when (type) {
  * something the user meant to keep.
  */
 private const val FREE_CROP_ASPECT = -1f
+
+/**
+ * Sentinel for the crop dialog's "keyboard" ratio: the shape the docked board
+ * last had on screen in that orientation ([KeyboardBoardShape]), which is the
+ * box the image is centre-cropped to. A sentinel rather than the number, so a
+ * remembered frame follows the board when its height setting changes.
+ */
+private const val KEYBOARD_CROP_ASPECT = -2f
+
+/** What the keyboard ratio falls back to before the board has been measured. */
+private const val FALLBACK_KEYBOARD_ASPECT = 2.4f
 
 /**
  * The display name for a theme id in the same namespace as keyboardThemeId.
@@ -1046,6 +1160,24 @@ fun ThemesScreen(
             }
         }
     }
+    // A FUTO theme is a ZIP, read and saved the way the file dialog does it.
+    val futoLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri).use { FutoTheme.read(it) }
+                }.getOrElse { FutoThemeResult.Unreadable }
+            }
+            message = if (result is FutoThemeResult.Converted) {
+                saveFutoTheme(context, repository, result)
+            } else {
+                context.getString(R.string.import_futo_theme_unreadable_body)
+            }
+        }
+    }
     // HeliBoard and LeanType have no theme file: a theme is a line of JSON,
     // copied out of their colour screen and pasted into a forum post. So this
     // import takes text from either source, and the button opens a two-way
@@ -1094,6 +1226,51 @@ fun ThemesScreen(
                 }.getOrNull()
             }
             applyHeliTheme(text)
+        }
+    }
+    // Multiling O has no theme file either: a theme is the colours block of its
+    // settings export, pasted or saved to a text file, or a link to the
+    // community theme page with the block in it. The same two-way chooser.
+    var multilingChooser by remember { mutableStateOf(false) }
+    suspend fun applyMultilingTheme(text: String?) {
+        if (text.isNullOrBlank()) {
+            message = context.getString(R.string.import_heli_clipboard_empty_body)
+            return
+        }
+        val result = withContext(Dispatchers.Default) { MultilingTheme.read(text) }
+        if (result !is MultilingThemeResult.Converted) {
+            message = context.getString(R.string.import_multiling_theme_unreadable_body)
+            return
+        }
+        val stored = result.theme.copy(id = "custom_${System.currentTimeMillis()}")
+        repository.upsertCustomTheme(stored)
+        // Saved, not switched to, like the other converted themes.
+        message = buildString {
+            append(
+                context.getString(
+                    R.string.import_heli_done,
+                    stored.name,
+                    result.coloursUsed,
+                    result.coloursRead,
+                ),
+            )
+            if (result.dropped.isNotEmpty()) {
+                append("\n\n").append(context.getString(R.string.import_repairs_pending_title))
+                for (line in result.dropped) append("\n• ").append(multilingDroppedLine(context, line))
+            }
+        }
+    }
+    val multilingLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val text = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.readTextCapped(uri)
+                }.getOrNull()
+            }
+            applyMultilingTheme(text)
         }
     }
     // Gboard themes: a ZIP picked here, or the Rboard collection on its own
@@ -1320,6 +1497,8 @@ fun ThemesScreen(
         )
     }
 
+    AppColorsGroup(repository, settings)
+
     // The gallery is a grid of theme cards, which are their own surfaces, so
     // it keeps a plain header rather than being wrapped in a settings card.
     val grouped = settings.watch { it.themeGalleryGrouped() }
@@ -1376,6 +1555,16 @@ fun ThemesScreen(
             Icon(Icons.Outlined.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(6.dp))
             Text(stringResource(R.string.theme_import_heli_action))
+        }
+        OutlinedButton(onClick = { futoLauncher.launch(FutoTheme.IMPORT_MIME_TYPES) }) {
+            Icon(Icons.Outlined.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.theme_import_futo_action))
+        }
+        OutlinedButton(onClick = { multilingChooser = true }) {
+            Icon(Icons.Outlined.SwapHoriz, contentDescription = null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(6.dp))
+            Text(stringResource(R.string.theme_import_multiling_action))
         }
         // The Play build has no Rboard browser (it would fetch a collection of
         // unlicensed third-party artwork from inside the app), so there is
@@ -1436,6 +1625,27 @@ fun ThemesScreen(
                 TextButton(onClick = {
                     heliChooser = false
                     heliLauncher.launch(HeliTheme.IMPORT_MIME_TYPES)
+                }) { Text(stringResource(R.string.import_heli_file_action)) }
+            },
+        )
+    }
+    if (multilingChooser) {
+        val clipboard = LocalClipboardManager.current
+        AlertDialog(
+            onDismissRequest = { multilingChooser = false },
+            title = { Text(stringResource(R.string.import_multiling_theme_title)) },
+            text = { Text(stringResource(R.string.import_multiling_theme_body)) },
+            confirmButton = {
+                TextButton(onClick = {
+                    multilingChooser = false
+                    val pasted = clipboard.getText()?.text
+                    scope.launch { applyMultilingTheme(pasted) }
+                }) { Text(stringResource(R.string.import_heli_paste_action)) }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    multilingChooser = false
+                    multilingLauncher.launch(MultilingTheme.IMPORT_MIME_TYPES)
                 }) { Text(stringResource(R.string.import_heli_file_action)) }
             },
         )
@@ -1645,6 +1855,129 @@ fun ThemesScreen(
 }
 
 /** The label of one [ThemeGalleryStyle] choice. */
+/**
+ * The keyboard taking the colors of the app it types in (issue #592).
+ *
+ * Only the switch until it is on: the rest are refinements of a feature the
+ * user has not asked for yet. The per-app choices themselves are made on the
+ * keyboard, in the app they are about; here they can only be counted and
+ * cleared.
+ */
+@Composable
+private fun AppColorsGroup(repository: SettingsRepository, settings: LiveSettings) {
+    val scope = rememberCoroutineScope()
+    val on = settings.watch { it.appColors.enabled }
+    val picks = settings.watch { it.appColors.pickByPackage.size }
+    SettingsGroup(
+        stringResource(R.string.theme_app_colors_section_title),
+        info = stringResource(R.string.theme_app_colors_section_body),
+    ) {
+        item {
+            ToggleSetting(
+                R.string.theme_app_colors_title,
+                stringResource(R.string.theme_app_colors_subtitle),
+                checked = on,
+                default = SettingsDefaults.appColors.enabled,
+            ) { scope.launch { repository.setAppColorsEnabled(it) } }
+        }
+        item(visible = on) {
+            ChoiceSetting(
+                title = R.string.theme_app_colors_scope_title,
+                options = AppColorScope.entries.map { it to stringResource(appColorScopeLabelRes(it)) },
+                selected = settings.watch { it.appColors.scope },
+                default = SettingsDefaults.appColors.scope,
+                detail = { ChoiceDetail(stringResource(appColorScopeDescRes(it))) },
+            ) { value -> scope.launch { repository.setAppColorsScope(value) } }
+        }
+        item(visible = on) {
+            ChoiceSetting(
+                title = R.string.theme_app_colors_source_title,
+                options = AppColorSource.entries.map { it to stringResource(appColorSourceLabelRes(it)) },
+                selected = settings.watch { it.appColors.source },
+                default = SettingsDefaults.appColors.source,
+                detail = { ChoiceDetail(stringResource(appColorSourceDescRes(it))) },
+            ) { value -> scope.launch { repository.setAppColorsSource(value) } }
+        }
+        item(visible = on) {
+            ChoiceSetting(
+                title = R.string.theme_app_colors_style_title,
+                subtitle = stringResource(R.string.theme_app_colors_style_subtitle),
+                options = PaletteStyle.entries.map { it to stringResource(it.labelRes) },
+                selected = settings.watch { it.appColors.style },
+                default = SettingsDefaults.appColors.style,
+                detail = { style ->
+                    ChoiceDetail(
+                        description = stringResource(paletteStyleDescRes(style)),
+                        leading = { PaletteStyleSwatch(style) },
+                    )
+                },
+            ) { value -> scope.launch { repository.setAppColorsStyle(value) } }
+        }
+        item(visible = on && picks > 0) {
+            ActionRow(
+                title = R.string.theme_app_colors_reset_title,
+                subtitle = pluralStringResource(R.plurals.theme_app_colors_reset_subtitle, picks, picks),
+                action = stringResource(R.string.theme_app_colors_reset_action),
+            ) { scope.launch { repository.clearAppColorPicks() } }
+        }
+    }
+}
+
+/**
+ * One style, drawn as the three colours it grows out of a sample app colour.
+ * The sample is a plain blue because the screen has no app in hand; on the
+ * keyboard the same swatches are drawn in the real app's colour.
+ */
+@Composable
+private fun PaletteStyleSwatch(style: PaletteStyle) {
+    val colors = remember(style) { paletteStyleSwatch(PALETTE_SAMPLE_SEED, style) }
+    Canvas(Modifier.size(width = 24.dp, height = 12.dp)) {
+        val radius = size.height / 2f
+        colors.forEachIndexed { index, argb ->
+            drawCircle(
+                color = Color(argb.toInt()),
+                radius = radius,
+                center = Offset(radius + index * radius * 1.2f, radius),
+            )
+        }
+    }
+}
+
+private const val PALETTE_SAMPLE_SEED = 0xFF1E88E5L
+
+private fun appColorScopeLabelRes(scope: AppColorScope): Int = when (scope) {
+    AppColorScope.FOLLOWING -> R.string.theme_app_colors_scope_following_label
+    AppColorScope.ALL -> R.string.theme_app_colors_scope_all_label
+}
+
+private fun appColorScopeDescRes(scope: AppColorScope): Int = when (scope) {
+    AppColorScope.FOLLOWING -> R.string.theme_app_colors_scope_following_desc
+    AppColorScope.ALL -> R.string.theme_app_colors_scope_all_desc
+}
+
+private fun appColorSourceLabelRes(source: AppColorSource): Int = when (source) {
+    AppColorSource.AUTO -> R.string.theme_app_colors_source_auto_label
+    AppColorSource.ICON -> R.string.theme_app_colors_source_icon_label
+    AppColorSource.APP_THEME -> R.string.theme_app_colors_source_app_label
+}
+
+private fun appColorSourceDescRes(source: AppColorSource): Int = when (source) {
+    AppColorSource.AUTO -> R.string.theme_app_colors_source_auto_desc
+    AppColorSource.ICON -> R.string.theme_app_colors_source_icon_desc
+    AppColorSource.APP_THEME -> R.string.theme_app_colors_source_app_desc
+}
+
+private fun paletteStyleDescRes(style: PaletteStyle): Int = when (style) {
+    PaletteStyle.TONAL_SPOT -> R.string.theme_app_colors_style_tonal_spot_desc
+    PaletteStyle.VIBRANT -> R.string.theme_app_colors_style_vibrant_desc
+    PaletteStyle.EXPRESSIVE -> R.string.theme_app_colors_style_expressive_desc
+    PaletteStyle.FIDELITY -> R.string.theme_app_colors_style_fidelity_desc
+    PaletteStyle.NEUTRAL -> R.string.theme_app_colors_style_neutral_desc
+    PaletteStyle.MONOCHROME -> R.string.theme_app_colors_style_monochrome_desc
+    PaletteStyle.RAINBOW -> R.string.theme_app_colors_style_rainbow_desc
+    PaletteStyle.FRUIT_SALAD -> R.string.theme_app_colors_style_fruit_salad_desc
+}
+
 private fun themeGalleryStyleLabelRes(style: ThemeGalleryStyle): Int = when (style) {
     ThemeGalleryStyle.AUTO -> R.string.theme_gallery_style_auto_label
     ThemeGalleryStyle.GROUPED -> R.string.theme_gallery_style_grouped_label
@@ -2236,8 +2569,43 @@ fun ThemeEditorScreen(
     // typed buffer serves both, so switching between them loses nothing.
     val previewSandbox = remember(familyId) { mutableStateOf(ThemePreviewSandbox()) }
     var keyboardDocked by rememberSaveable(familyId) { mutableStateOf(false) }
+    // Picking (#265): the preview stops typing and every press on it opens the
+    // style of what was pressed — a key's own sheet, the toolbar's, the strip's.
+    var picking by rememberSaveable(familyId) { mutableStateOf(false) }
+    var partSheet by rememberSaveable(lookId) { mutableStateOf<ThemePart?>(null) }
+    var overrideEditorId by rememberSaveable(lookId) { mutableStateOf<String?>(null) }
+    // The picked key's own name for the sheet's heading ("Left", "Clipboard"),
+    // which an id alone cannot always give back.
+    var overrideEditorTitle by rememberSaveable(lookId) { mutableStateOf<String?>(null) }
+    val picker = remember(lookId) {
+        PreviewPicker(
+            onKey = { pick ->
+                overrideEditorTitle = pick.title
+                overrideEditorId = pick.id
+            },
+            onToolbar = { partSheet = ThemePart.TOOLBAR },
+            onStrip = { partSheet = ThemePart.STRIP },
+        )
+    }
     // Back takes the docked keyboard down first, as it would a real one.
     BackHandler(enabled = keyboardDocked) { keyboardDocked = false }
+    // …and leaves picking once nothing it opened is still up.
+    BackHandler(enabled = picking && partSheet == null && overrideEditorId == null) { picking = false }
+    // Picking happens on the pinned miniature, where an open sheet leaves the
+    // keyboard in sight above it; the docked one would sit under the sheet.
+    LaunchedEffect(picking) { if (picking) keyboardDocked = false }
+    // The strip shows only while there is something on it, so its sheet puts a
+    // few words there, and taking them away again brings the toolbar back.
+    val sampleWords = stringResource(R.string.theme_pick_strip_sample_words)
+    LaunchedEffect(partSheet, sampleWords) {
+        val sample = if (partSheet == ThemePart.STRIP) {
+            sampleWords.split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        } else {
+            emptyList()
+        }
+        val box = previewSandbox.value.copy(sampleSuggestions = sample)
+        previewSandbox.value = if (sample.isEmpty()) box else box.showingPanel(PanelMode.NONE)
+    }
     val reduceMotion = settings.watch { it.reduceMotion }
     RegisterPinned {
         AnimatedVisibility(
@@ -2245,18 +2613,47 @@ fun ThemeEditorScreen(
             enter = if (reduceMotion) EnterTransition.None else expandVertically() + fadeIn(),
             exit = if (reduceMotion) ExitTransition.None else shrinkVertically() + fadeOut(),
         ) {
-            Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                ThemeKeyboardPreview(
-                    settings = settings.watch { it },
-                    theme = look.watch { it },
-                    sandbox = previewSandbox,
-                    miniature = true,
-                    // The gallery card's miniature grows into this one. Both
-                    // draw the same theme at two sizes, which is what
-                    // [wmSharedBounds] is for — the keys scale rather than
-                    // being laid out again mid-flight.
-                    modifier = Modifier.wmSharedBounds(landingKey("preview")),
-                )
+            Column {
+                AnimatedVisibility(
+                    visible = picking,
+                    enter = if (reduceMotion) EnterTransition.None else expandVertically() + fadeIn(),
+                    exit = if (reduceMotion) ExitTransition.None else shrinkVertically() + fadeOut(),
+                ) {
+                    PickBar(
+                        settings = settings,
+                        sandbox = previewSandbox,
+                        onPart = { partSheet = it },
+                        onDone = { picking = false },
+                    )
+                }
+                Box(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
+                    ThemeKeyboardPreview(
+                        settings = settings.watch { it },
+                        theme = look.watch { it },
+                        sandbox = previewSandbox,
+                        miniature = true,
+                        // The gallery card's miniature grows into this one. Both
+                        // draw the same theme at two sizes, which is what
+                        // [wmSharedBounds] is for — the keys scale rather than
+                        // being laid out again mid-flight.
+                        modifier = Modifier.wmSharedBounds(landingKey("preview")),
+                        picker = picker.takeIf { picking },
+                    )
+                    // The pencil the issue asked for on the keyboard itself: the
+                    // way into picking, in the corner of the bar it also edits.
+                    if (!picking) {
+                        FilledTonalIconButton(
+                            onClick = { picking = true },
+                            modifier = Modifier.align(Alignment.TopEnd).padding(4.dp).size(32.dp),
+                        ) {
+                            Icon(
+                                Icons.Outlined.Edit,
+                                contentDescription = stringResource(R.string.theme_pick_start_desc),
+                                modifier = Modifier.size(18.dp),
+                            )
+                        }
+                    }
+                }
             }
         }
     }
@@ -2284,7 +2681,14 @@ fun ThemeEditorScreen(
         }
     }
     RegisterFab {
-        FloatingActionButton(onClick = { keyboardDocked = !keyboardDocked }) {
+        FloatingActionButton(
+            onClick = {
+                keyboardDocked = !keyboardDocked
+                // Picking lives on the pinned miniature, so the docked board
+                // is for typing again.
+                if (keyboardDocked) picking = false
+            },
+        ) {
             Icon(
                 if (keyboardDocked) Icons.Outlined.KeyboardHide else Icons.Outlined.Keyboard,
                 contentDescription = stringResource(
@@ -2534,19 +2938,10 @@ fun ThemeEditorScreen(
             )
         }
         item {
-            // Both bars follow the board until the theme says otherwise, so
-            // their fallback swatch is the board's own colour and Auto is the
-            // resting state (issue #109).
-            NullableColorRow(
-                R.string.theme_suggestion_bar_title,
-                look.watch { it.suggestionBarBackground },
-                fallback = look.watch { it.boardBackground },
-                supportsAlpha = true,
-                info = stringResource(R.string.theme_suggestion_bar_body),
-                onChange = { update { t -> t.copy(suggestionBarBackground = it) } },
-            )
-        }
-        item {
+            // The navigation bar follows the board until the theme says
+            // otherwise, so its fallback swatch is the board's own colour and
+            // Auto is the resting state (issue #109). The strip's twin of this
+            // row lives on the strip's own sheet (#265).
             NullableColorRow(
                 R.string.theme_navigation_bar_title,
                 look.watch { it.navigationBarBackground },
@@ -2732,9 +3127,10 @@ fun ThemeEditorScreen(
     if (cropOpen && cropSource != null) {
         CropImageDialog(
             path = cropSource,
+            landscape = false,
             onCropped = { newPath ->
                 scope.launch {
-                    File(cropSource).delete()
+                    deleteWithCropSidecars(cropSource)
                     val (family, theme) = look.now() ?: return@launch
                     // The crop decodes one frame and writes it back, so an
                     // animation does not survive it. Whether the theme still
@@ -2760,9 +3156,10 @@ fun ThemeEditorScreen(
     if (cropLandscapeOpen && cropLandscapeSource != null) {
         CropImageDialog(
             path = cropLandscapeSource,
+            landscape = true,
             onCropped = { newPath ->
                 scope.launch {
-                    File(cropLandscapeSource).delete()
+                    deleteWithCropSidecars(cropLandscapeSource)
                     val (family, theme) = look.now() ?: return@launch
                     // As above: the cropped landscape image is a still now, so
                     // only the portrait one can keep the flag on.
@@ -3022,6 +3419,258 @@ fun ThemeEditorScreen(
             }
         }
     }
+    // ---- Glass ----
+    val frostSpec = look.watch { it.frost }
+    val frostOn = frostSpec?.enabled == true
+    val frost = frostSpec ?: FrostSpec()
+    val lookDark = look.watch { it.dark }
+    // The accent-board switch only means something to a theme that follows
+    // the wallpaper by role, as Frost does.
+    val followsByRole = look.watch { it.followWallpaper && it.wallpaperRoles.isNotEmpty() }
+    fun updateFrost(transform: (FrostSpec) -> FrostSpec) =
+        update { t -> t.copy(frost = transform(t.frost ?: FrostSpec())) }
+    // What the glass would stand on in the editor's own preview, which has no
+    // window to blur: the image, or the wallpaper, or nothing.
+    val usesWallpaper = when (frost.backdropSource) {
+        FrostBackdropSource.WALLPAPER -> true
+        FrostBackdropSource.AUTO -> !hasImage
+        FrostBackdropSource.IMAGE, FrostBackdropSource.NONE -> false
+    }
+    val hasBackdrop = usesWallpaper || (hasImage && frost.backdropSource != FrostBackdropSource.NONE)
+    val wallpaperPixelsPossible = Build.VERSION.SDK_INT <= Build.VERSION_CODES.S_V2
+    var wallpaperReadable by remember { mutableStateOf(WallpaperBackdrop.canReadPixels(context)) }
+    val wallpaperPermission = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestPermission(),
+    ) { wallpaperReadable = WallpaperBackdrop.canReadPixels(context) }
+    SettingsGroup(
+        stringResource(R.string.theme_glass_section_title),
+        foldKey = "theme/glass",
+        info = stringResource(R.string.theme_glass_section_body),
+    ) {
+        item {
+            ToggleSetting(
+                R.string.theme_glass_title,
+                stringResource(R.string.theme_glass_subtitle),
+                checked = frostOn,
+            ) { on -> updateFrost { it.copy(enabled = on) } }
+        }
+        if (!frostOn) return@SettingsGroup
+        item {
+            // A preset writes ordinary fields: the glass sliders and, where a
+            // fill is still opaque, its opacity. Nothing remembers the pick.
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Text(
+                    stringResource(R.string.theme_glass_preset_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                Row(
+                    modifier = Modifier.horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FrostPreset.entries.forEach { preset ->
+                        AssistChip(
+                            onClick = { update { t -> t.dressedForGlass(preset) } },
+                            label = { Text(stringResource(frostPresetLabelRes(preset))) },
+                        )
+                    }
+                }
+                Text(
+                    stringResource(R.string.theme_glass_preset_body),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+        }
+        item {
+            ChoiceControl(
+                options = FrostStyle.entries.map { it to stringResource(frostStyleLabelRes(it)) },
+                selected = frost.glassStyle,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                label = stringResource(R.string.theme_glass_style_label),
+                detail = { style -> ChoiceDetail(stringResource(frostStyleDescRes(style))) },
+            ) { style -> updateFrost { f -> f.copy(style = style.name) } }
+        }
+        item(visible = frost.glassStyle == FrostStyle.LIQUID) {
+            SliderRow(
+                R.string.theme_glass_refraction_title,
+                value = frost.refraction,
+                range = FROST_REFRACTION_RANGE,
+                display = { if (it < 0.005f) offLabel else "${(it * 100).roundToInt()}%" },
+                info = stringResource(R.string.theme_glass_refraction_body),
+            ) { updateFrost { f -> f.copy(refraction = (it * 100).roundToInt() / 100f) } }
+        }
+        item(visible = frost.glassStyle == FrostStyle.LIQUID) {
+            SliderRow(
+                R.string.theme_glass_dispersion_title,
+                value = frost.dispersion,
+                range = FROST_DISPERSION_RANGE,
+                display = { if (it < 0.005f) offLabel else "${(it * 100).roundToInt()}%" },
+                info = stringResource(R.string.theme_glass_dispersion_body),
+            ) { updateFrost { f -> f.copy(dispersion = (it * 100).roundToInt() / 100f) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.theme_glass_window_blur_title,
+                stringResource(R.string.theme_glass_window_blur_subtitle),
+                checked = frost.windowBlur,
+            ) { on -> updateFrost { it.copy(windowBlur = on) } }
+        }
+        item {
+            SliderRow(
+                R.string.theme_glass_blur_strength_title,
+                value = frost.windowBlurRadiusDp.toFloat(),
+                range = WINDOW_BLUR_RADIUS_RANGE.first.toFloat()..WINDOW_BLUR_RADIUS_RANGE.last.toFloat(),
+                display = { "${it.roundToInt()} dp" },
+                info = stringResource(R.string.theme_glass_blur_strength_body),
+            ) { updateFrost { f -> f.copy(windowBlurRadiusDp = it.roundToInt()) } }
+        }
+        item(visible = frost.windowBlur) {
+            SliderRow(
+                R.string.theme_glass_fallback_title,
+                value = frost.fallbackOpacity,
+                range = FROST_FALLBACK_OPACITY_RANGE,
+                display = { "${(it * 100).roundToInt()}%" },
+                info = stringResource(R.string.theme_glass_fallback_body),
+            ) { updateFrost { f -> f.copy(fallbackOpacity = (it * 100).roundToInt() / 100f) } }
+        }
+        item {
+            val selected = frost.surfaceSet
+            Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
+                Text(
+                    stringResource(R.string.theme_glass_surfaces_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    FrostSurface.entries.forEach { surface ->
+                        val on = surface in selected
+                        FilterChip(
+                            selected = on,
+                            onClick = {
+                                updateFrost { f ->
+                                    val next = if (on) f.surfaceSet - surface else f.surfaceSet + surface
+                                    f.copy(surfaces = next.sortedBy { it.ordinal }.map { it.name })
+                                }
+                            },
+                            label = { Text(stringResource(frostSurfaceLabelRes(surface))) },
+                        )
+                    }
+                }
+            }
+        }
+        item {
+            ChoiceControl(
+                options = FrostBackdropSource.entries.map { it to stringResource(frostBackdropLabelRes(it)) },
+                selected = frost.backdropSource,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                label = stringResource(R.string.theme_glass_backdrop_label),
+                detail = { source -> ChoiceDetail(stringResource(frostBackdropDescRes(source))) },
+            ) { source -> updateFrost { f -> f.copy(backdrop = source.name) } }
+        }
+        item(visible = usesWallpaper) {
+            ChoiceControl(
+                options = WallpaperBand.entries.map { it to stringResource(wallpaperBandLabelRes(it)) },
+                selected = frost.band,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                label = stringResource(R.string.theme_glass_wallpaper_band_label),
+            ) { band -> updateFrost { f -> f.copy(wallpaperBand = band.name) } }
+        }
+        item(visible = usesWallpaper && wallpaperPixelsPossible && !wallpaperReadable) {
+            // Android 12 and below read the wallpaper's pixels with the
+            // storage permission; without it the glass paints the
+            // wallpaper's colours instead, which is also all Android 13 allows.
+            NavRow(
+                R.string.theme_glass_wallpaper_permission_title,
+                subtitle = stringResource(R.string.theme_glass_wallpaper_permission_subtitle),
+            ) { wallpaperPermission.launch(Manifest.permission.READ_EXTERNAL_STORAGE) }
+        }
+        item(visible = usesWallpaper && !wallpaperPixelsPossible) {
+            Text(
+                stringResource(R.string.theme_glass_wallpaper_colours_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        item(visible = followsByRole) {
+            ToggleSetting(
+                R.string.theme_glass_accent_board_title,
+                stringResource(R.string.theme_glass_accent_board_subtitle),
+                checked = frost.accentBoard,
+            ) { on -> updateFrost { it.copy(accentBoard = on) } }
+        }
+        item(visible = hasImage && frost.backdropSource != FrostBackdropSource.WALLPAPER &&
+            frost.backdropSource != FrostBackdropSource.NONE
+        ) {
+            ToggleSetting(
+                R.string.theme_glass_blur_board_title,
+                stringResource(R.string.theme_glass_blur_board_subtitle),
+                checked = frost.blurBoard,
+            ) { on -> updateFrost { it.copy(blurBoard = on) } }
+        }
+        item(visible = !hasBackdrop) {
+            Text(
+                stringResource(R.string.theme_glass_no_image_body),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+            )
+        }
+        item(visible = hasBackdrop) {
+            SliderRow(
+                R.string.theme_glass_backdrop_blur_title,
+                value = frost.backdropBlur,
+                range = FROST_BACKDROP_BLUR_RANGE,
+                display = { if (it < 0.5f) offLabel else it.toInt().toString() },
+                info = stringResource(R.string.theme_glass_backdrop_blur_body),
+            ) { updateFrost { f -> f.copy(backdropBlur = it.roundToInt().toFloat()) } }
+        }
+        item(visible = hasBackdrop) {
+            SliderRow(
+                R.string.theme_glass_saturation_title,
+                value = frost.saturation,
+                range = FROST_SATURATION_RANGE,
+                display = { "%.2f×".format(it) },
+            ) { updateFrost { f -> f.copy(saturation = (it * 20).roundToInt() / 20f) } }
+        }
+        item(visible = hasBackdrop) {
+            SliderRow(
+                R.string.theme_glass_brightness_title,
+                value = frost.brightness,
+                range = FROST_BRIGHTNESS_RANGE,
+                display = { "%+d%%".format((it * 100).roundToInt()) },
+            ) { updateFrost { f -> f.copy(brightness = (it * 100).roundToInt() / 100f) } }
+        }
+        item {
+            SliderRow(
+                R.string.theme_glass_rim_title,
+                value = frost.rim,
+                range = FROST_RIM_RANGE,
+                display = { if (it < 0.005f) offLabel else "${(it * 100).roundToInt()}%" },
+                info = stringResource(R.string.theme_glass_rim_body),
+            ) { updateFrost { f -> f.copy(rim = (it * 100).roundToInt() / 100f) } }
+        }
+        item(visible = frost.rim > 0f) {
+            NullableColorRow(
+                R.string.theme_glass_rim_color_title,
+                frost.rimColor,
+                fallback = if (lookDark) 0xB3FFFFFF else 0xE6FFFFFF,
+                supportsAlpha = true,
+                onChange = { updateFrost { f -> f.copy(rimColor = it) } },
+            )
+        }
+        item {
+            SliderRow(
+                R.string.theme_glass_grain_title,
+                value = frost.grain,
+                range = FROST_GRAIN_RANGE,
+                display = { if (it < 0.005f) offLabel else "${(it * 100).roundToInt()}%" },
+            ) { updateFrost { f -> f.copy(grain = (it * 100).roundToInt() / 100f) } }
+        }
+    }
+
     SettingsGroup(
         stringResource(R.string.theme_texture_section_title),
         foldKey = "theme/texture",
@@ -3106,7 +3755,6 @@ fun ThemeEditorScreen(
         }
     }
 
-    var overrideEditorId by rememberSaveable(lookId) { mutableStateOf<String?>(null) }
     var addOverrideOpen by rememberSaveable(lookId) { mutableStateOf(false) }
     SettingsGroup(
         stringResource(R.string.theme_key_override_section_title),
@@ -3129,15 +3777,27 @@ fun ThemeEditorScreen(
                             )
                         }
                     },
-                    onClick = { overrideEditorId = id },
+                    onClick = {
+                        overrideEditorTitle = null
+                        overrideEditorId = id
+                    },
                 )
             }
         }
         item {
-            OutlinedButton(
-                onClick = { addOverrideOpen = true },
+            // Pressing the key itself is the usual way in (#265); typing its
+            // letter stays for the key a layout the preview is not showing has.
+            Row(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-            ) { Text(stringResource(R.string.theme_key_override_add_action)) }
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                Button(onClick = { picking = true }) {
+                    Text(stringResource(R.string.theme_key_override_pick_action))
+                }
+                OutlinedButton(onClick = { addOverrideOpen = true }) {
+                    Text(stringResource(R.string.theme_key_override_add_action))
+                }
+            }
         }
     }
     if (addOverrideOpen) {
@@ -3147,6 +3807,7 @@ fun ThemeEditorScreen(
                 update { t ->
                     t.copy(keyOverrides = t.keyOverrides + (id to (t.keyOverrides[id] ?: KeyOverride())))
                 }
+                overrideEditorTitle = null
                 overrideEditorId = id
             },
             onDismiss = { addOverrideOpen = false },
@@ -3155,6 +3816,7 @@ fun ThemeEditorScreen(
     overrideEditorId?.let { id ->
         KeyOverrideDialog(
             id = id,
+            title = overrideEditorTitle,
             look = look,
             popupsShown = popupsOn,
             // The theme's own effect group hides itself under reduce motion,
@@ -3163,7 +3825,10 @@ fun ThemeEditorScreen(
             onChange = { changed ->
                 update { t -> t.copy(keyOverrides = t.keyOverrides + (id to changed)) }
             },
-            onDismiss = { overrideEditorId = null },
+            onDismiss = {
+                overrideEditorId = null
+                overrideEditorTitle = null
+            },
         )
     }
 
@@ -3414,100 +4079,139 @@ fun ThemeEditorScreen(
         }
     }
 
-    SettingsGroup(stringResource(R.string.theme_toolbar_section_title), foldKey = "theme/toolbar") {
+    // The toolbar and the strip are styled on sheets of their own (#265),
+    // opened from these two rows or by pressing either part on the preview, so
+    // the page carries one short group for them instead of two long ones.
+    SettingsGroup(
+        stringResource(R.string.theme_parts_section_title),
+        info = stringResource(R.string.theme_parts_section_body),
+    ) {
         item {
-            // The fill behind the tools, its own row or the strip while the
-            // tools hold it. Auto follows the suggestion strip's fill, which
-            // itself follows the board, so the fallback swatch walks that chain.
-            NullableColorRow(
-                R.string.theme_toolbar_background_title,
-                look.watch { it.toolbarBackground },
-                fallback = look.watch { it.suggestionBarBackground ?: it.boardBackground },
-                supportsAlpha = true,
-                info = stringResource(R.string.theme_toolbar_background_body),
-                onChange = { update { t -> t.copy(toolbarBackground = it) } },
-            )
-        }
-        item {
-            val toolShape = look.watchWith { s, t -> keyShapeKindOrNull(t.toolShape) ?: s.toolShape }
             WmRow(
-                title = stringResource(R.string.theme_tool_shape_title),
-                icon = SettingsRowIcons[R.string.theme_tool_shape_title],
-                subtitle = keyShapeName(toolShape),
-                trailing = {
-                    KeyShapeSwatch(
-                        kind = toolShape,
-                        radiusDp = look.watchWith { s, t -> t.toolCircleRadiusDp ?: s.toolCircleRadiusDp },
-                        color = MaterialTheme.colorScheme.primary,
+                title = stringResource(R.string.theme_toolbar_section_title),
+                icon = SettingsRowIcons[R.string.theme_toolbar_section_title],
+                subtitle = stringResource(R.string.theme_parts_toolbar_subtitle),
+                onClick = { partSheet = ThemePart.TOOLBAR },
+            )
+        }
+        item {
+            WmRow(
+                title = stringResource(R.string.theme_strip_sheet_title),
+                icon = SettingsRowIcons[R.string.theme_strip_sheet_title],
+                subtitle = stringResource(R.string.theme_parts_strip_subtitle),
+                onClick = { partSheet = ThemePart.STRIP },
+            )
+        }
+        item {
+            WmRow(
+                title = stringResource(R.string.theme_pick_start_title),
+                icon = SettingsRowIcons[R.string.theme_pick_start_title],
+                subtitle = stringResource(R.string.theme_pick_start_subtitle),
+                onClick = { picking = true },
+            )
+        }
+    }
+    if (partSheet == ThemePart.TOOLBAR) {
+        ThemePartSheet(
+            title = stringResource(R.string.theme_toolbar_section_title),
+            onDismiss = { partSheet = null },
+        ) {
+            SettingsGroup {
+                item {
+                    // The fill behind the tools, its own row or the strip while the
+                    // tools hold it. Auto follows the suggestion strip's fill, which
+                    // itself follows the board, so the fallback swatch walks that chain.
+                    NullableColorRow(
+                        R.string.theme_toolbar_background_title,
+                        look.watch { it.toolbarBackground },
+                        fallback = look.watch { it.suggestionBarBackground ?: it.boardBackground },
+                        supportsAlpha = true,
+                        info = stringResource(R.string.theme_toolbar_background_body),
+                        onChange = { update { t -> t.copy(toolbarBackground = it) } },
                     )
-                },
-                onClick = { toolShapePickerOpen = true },
-            )
-        }
-        item {
-            NullableColorRow(
-                R.string.theme_tool_icons_title, look.watch { it.toolbarIcon },
-                fallback = look.watch { t ->
-                    colorOf(t.keyText).copy(alpha = 0.65f)
-                        .compositeOver(colorOf(t.boardBackground)).argb()
-                },
-                onChange = { update { t -> t.copy(toolbarIcon = it) } },
-            )
-        }
-        item {
-            NullableColorRow(
-                R.string.theme_tool_circles_title,
-                look.watch { it.toolCircleBackground }, fallback = look.watch { it.effectiveToolCircle() },
-                supportsAlpha = true,
-                onChange = { update { t -> t.copy(toolCircleBackground = it) } },
-            )
-        }
-        item {
-            NullableColorRow(
-                R.string.theme_tool_circle_active_title,
-                look.watch { it.toolCircleActiveBackground }, fallback = look.watch { it.effectivePressed() },
-                supportsAlpha = true,
-                onChange = { update { t -> t.copy(toolCircleActiveBackground = it) } },
-            )
-        }
-        item {
-            // The glyph on an active tool. Its own row rather than a shade of
-            // the fill: a FlorisBoard sheet states the two separately, and
-            // deriving one from the other threw away a colour the theme set.
-            NullableColorRow(
-                R.string.theme_tool_circle_active_icon_title,
-                look.watch { it.toolCircleActiveIcon },
-                fallback = look.watch { it.toolCircleActiveBackground?.let(::onColorFor) ?: it.accent },
-                onChange = { update { t -> t.copy(toolCircleActiveIcon = it) } },
-            )
-        }
-        item {
-            // Colour then width, the way the key border is set: the colour is
-            // what turns the outline on, and the width row appears with it.
-            NullableColorRow(
-                R.string.theme_tool_border_title,
-                look.watch { it.toolBorderColor }, fallback = look.watch { it.toolbarIcon ?: it.keyText },
-                supportsAlpha = true,
-                onChange = { update { t -> t.copy(toolBorderColor = it) } },
-            )
-        }
-        if (hasToolBorder) {
-            item {
-                SliderRow(
-                    R.string.theme_tool_border_width_title,
-                    value = look.watch { it.toolBorderWidthDp },
-                    range = 0f..3f,
-                    display = { "%.1f dp".format(it) },
-                ) { update { t -> t.copy(toolBorderWidthDp = (it * 10).toInt() / 10f) } }
+                }
+                item {
+                    val toolShape = look.watchWith { s, t -> keyShapeKindOrNull(t.toolShape) ?: s.toolShape }
+                    WmRow(
+                        title = stringResource(R.string.theme_tool_shape_title),
+                        icon = SettingsRowIcons[R.string.theme_tool_shape_title],
+                        subtitle = keyShapeName(toolShape),
+                        trailing = {
+                            KeyShapeSwatch(
+                                kind = toolShape,
+                                radiusDp = look.watchWith { s, t -> t.toolCircleRadiusDp ?: s.toolCircleRadiusDp },
+                                color = MaterialTheme.colorScheme.primary,
+                            )
+                        },
+                        onClick = { toolShapePickerOpen = true },
+                    )
+                }
+                item {
+                    NullableColorRow(
+                        R.string.theme_tool_icons_title, look.watch { it.toolbarIcon },
+                        fallback = look.watch { t ->
+                            colorOf(t.keyText).copy(alpha = 0.65f)
+                                .compositeOver(colorOf(t.boardBackground)).argb()
+                        },
+                        onChange = { update { t -> t.copy(toolbarIcon = it) } },
+                    )
+                }
+                item {
+                    NullableColorRow(
+                        R.string.theme_tool_circles_title,
+                        look.watch { it.toolCircleBackground }, fallback = look.watch { it.effectiveToolCircle() },
+                        supportsAlpha = true,
+                        onChange = { update { t -> t.copy(toolCircleBackground = it) } },
+                    )
+                }
+                item {
+                    NullableColorRow(
+                        R.string.theme_tool_circle_active_title,
+                        look.watch { it.toolCircleActiveBackground }, fallback = look.watch { it.effectivePressed() },
+                        supportsAlpha = true,
+                        onChange = { update { t -> t.copy(toolCircleActiveBackground = it) } },
+                    )
+                }
+                item {
+                    // The glyph on an active tool. Its own row rather than a shade of
+                    // the fill: a FlorisBoard sheet states the two separately, and
+                    // deriving one from the other threw away a colour the theme set.
+                    NullableColorRow(
+                        R.string.theme_tool_circle_active_icon_title,
+                        look.watch { it.toolCircleActiveIcon },
+                        fallback = look.watch { it.toolCircleActiveBackground?.let(::onColorFor) ?: it.accent },
+                        onChange = { update { t -> t.copy(toolCircleActiveIcon = it) } },
+                    )
+                }
+                item {
+                    // Colour then width, the way the key border is set: the colour is
+                    // what turns the outline on, and the width row appears with it.
+                    NullableColorRow(
+                        R.string.theme_tool_border_title,
+                        look.watch { it.toolBorderColor }, fallback = look.watch { it.toolbarIcon ?: it.keyText },
+                        supportsAlpha = true,
+                        onChange = { update { t -> t.copy(toolBorderColor = it) } },
+                    )
+                }
+                if (hasToolBorder) {
+                    item {
+                        SliderRow(
+                            R.string.theme_tool_border_width_title,
+                            value = look.watch { it.toolBorderWidthDp },
+                            range = 0f..3f,
+                            display = { "%.1f dp".format(it) },
+                        ) { update { t -> t.copy(toolBorderWidthDp = (it * 10).toInt() / 10f) } }
+                    }
+                }
+                item {
+                    SliderRow(
+                        R.string.theme_tool_elevation_title,
+                        value = look.watch { it.toolElevationDp },
+                        range = 0f..MAX_ELEVATION_DP,
+                        display = { "%.1f dp".format(it) },
+                    ) { update { t -> t.copy(toolElevationDp = (it * 10).toInt() / 10f) } }
+                }
             }
-        }
-        item {
-            SliderRow(
-                R.string.theme_tool_elevation_title,
-                value = look.watch { it.toolElevationDp },
-                range = 0f..MAX_ELEVATION_DP,
-                display = { "%.1f dp".format(it) },
-            ) { update { t -> t.copy(toolElevationDp = (it * 10).toInt() / 10f) } }
         }
     }
 
@@ -3519,39 +4223,6 @@ fun ThemeEditorScreen(
                 supportsAlpha = true,
                 onChange = { update { t -> t.copy(chipBackground = it) } },
             )
-        }
-        item {
-            NullableColorRow(
-                R.string.theme_suggestion_text_title,
-                look.watch { it.suggestionText }, fallback = look.watch { it.keyText },
-                onChange = { update { t -> t.copy(suggestionText = it) } },
-            )
-        }
-        item {
-            // The suggestions beside the primary one: their own colour, and
-            // their size as a share of the primary's (#504). Auto is the
-            // strip's text colour at full size, which is what they always were.
-            NullableColorRow(
-                R.string.theme_other_suggestions_title,
-                look.watch { it.secondarySuggestionText },
-                fallback = look.watch { it.suggestionText ?: it.keyText },
-                info = stringResource(R.string.theme_other_suggestions_body),
-                onChange = { update { t -> t.copy(secondarySuggestionText = it) } },
-            )
-        }
-        item {
-            SliderRow(
-                R.string.theme_other_suggestions_size_title,
-                value = look.watch { it.secondarySuggestionScale ?: 1f },
-                range = SECONDARY_SUGGESTION_SCALE_RANGE,
-                display = { "${(it * 100).roundToInt()}%" },
-                info = stringResource(R.string.theme_other_suggestions_size_body),
-            ) {
-                // Stored in 5% steps, and the resting value stays null so a
-                // theme that never touched the slider stays "same size".
-                val stepped = (it * 20).roundToInt() / 20f
-                update { t -> t.copy(secondarySuggestionScale = stepped.takeIf { s -> s != 1f }) }
-            }
         }
         item {
             // The quieter line beside the main one, and the hairlines between
@@ -3575,6 +4246,65 @@ fun ThemeEditorScreen(
                 info = stringResource(R.string.theme_divider_body),
                 onChange = { update { t -> t.copy(dividerColor = it) } },
             )
+        }
+    }
+
+    // The strip's own colours and the size of the words beside the first one,
+    // on a sheet the strip opens when it is pressed on the preview (#265). The
+    // preview puts a few words on the strip while the sheet is up.
+    if (partSheet == ThemePart.STRIP) {
+        ThemePartSheet(
+            title = stringResource(R.string.theme_strip_sheet_title),
+            onDismiss = { partSheet = null },
+        ) {
+            SettingsGroup {
+                item {
+                    // The strip follows the board until the theme says otherwise, so
+                    // its fallback swatch is the board's own colour and Auto is the
+                    // resting state (issue #109).
+                    NullableColorRow(
+                        R.string.theme_suggestion_bar_title,
+                        look.watch { it.suggestionBarBackground },
+                        fallback = look.watch { it.boardBackground },
+                        supportsAlpha = true,
+                        info = stringResource(R.string.theme_suggestion_bar_body),
+                        onChange = { update { t -> t.copy(suggestionBarBackground = it) } },
+                    )
+                }
+                item {
+                    NullableColorRow(
+                        R.string.theme_suggestion_text_title,
+                        look.watch { it.suggestionText }, fallback = look.watch { it.keyText },
+                        onChange = { update { t -> t.copy(suggestionText = it) } },
+                    )
+                }
+                item {
+                    // The suggestions beside the primary one: their own colour, and
+                    // their size as a share of the primary's (#504). Auto is the
+                    // strip's text colour at full size, which is what they always were.
+                    NullableColorRow(
+                        R.string.theme_other_suggestions_title,
+                        look.watch { it.secondarySuggestionText },
+                        fallback = look.watch { it.suggestionText ?: it.keyText },
+                        info = stringResource(R.string.theme_other_suggestions_body),
+                        onChange = { update { t -> t.copy(secondarySuggestionText = it) } },
+                    )
+                }
+                item {
+                    SliderRow(
+                        R.string.theme_other_suggestions_size_title,
+                        value = look.watch { it.secondarySuggestionScale ?: 1f },
+                        range = SECONDARY_SUGGESTION_SCALE_RANGE,
+                        display = { "${(it * 100).roundToInt()}%" },
+                        info = stringResource(R.string.theme_other_suggestions_size_body),
+                    ) {
+                        // Stored in 5% steps, and the resting value stays null so a
+                        // theme that never touched the slider stays "same size".
+                        val stepped = (it * 20).roundToInt() / 20f
+                        update { t -> t.copy(secondarySuggestionScale = stepped.takeIf { s -> s != 1f }) }
+                    }
+                }
+            }
         }
     }
 
@@ -4622,6 +5352,132 @@ private enum class KeyTextureSlot(@StringRes val titleRes: Int, val fileTag: Str
     }
 }
 
+/** The parts of the keyboard with a sheet of their own in the theme editor (#265). */
+private enum class ThemePart { TOOLBAR, STRIP }
+
+/**
+ * One part of the keyboard's style, on a sheet that opens half-way (#265).
+ *
+ * Half-way is the point: the editor's pinned preview sits at the top of the
+ * screen, so a sheet that leaves it showing lets every row be judged against
+ * the keyboard it changes, which a dialog over the whole screen could not.
+ * The scrim is light for the same reason.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ThemePartSheet(title: String, onDismiss: () -> Unit, content: @Composable () -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(),
+        scrimColor = MaterialTheme.colorScheme.scrim.copy(alpha = PartSheetScrimAlpha),
+    ) {
+        Text(
+            title,
+            style = MaterialTheme.typography.titleLarge,
+            modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 8.dp),
+        )
+        // Out of the screen's staged entrance: that ledger hands places to the
+        // groups the page composed as it opened, and a group arriving on a
+        // sheet long after would queue behind a wave that has already passed.
+        CompositionLocalProvider(LocalScreenReveal provides null) {
+            Column(
+                modifier = Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(bottom = 24.dp),
+            ) { content() }
+        }
+    }
+}
+
+private const val PartSheetScrimAlpha = 0.12f
+
+/**
+ * The strip over the preview while the editor is picking (#265): which grid
+ * the keyboard shows, since every key on it now picks rather than switches,
+ * and the toolbar and the strip as parts to pick in their own right.
+ *
+ * The typing layers are the ones the keyboard can reach from the letters; the
+ * panels are every panel that is a grid of keys, the same set the layout
+ * editor lists, named the way it names them.
+ */
+@Composable
+private fun PickBar(
+    settings: LiveSettings,
+    sandbox: MutableState<ThemePreviewSandbox>,
+    onPart: (ThemePart) -> Unit,
+    onDone: () -> Unit,
+) {
+    val box = sandbox.value
+    val activeLayoutId = settings.watch { it.activeLayoutId }
+    val customs = settings.watch { it.customLayouts }
+    val layoutId = box.layoutId ?: activeLayoutId
+    val hasFn = remember(customs, layoutId) { resolveLayout(customs, layoutId).layer(LayoutLayer.FN) != null }
+    val layers = remember(hasFn) {
+        listOfNotNull(
+            LayoutLayer.LETTERS to LayoutMode.LETTERS,
+            LayoutLayer.SYMBOLS to LayoutMode.SYMBOLS,
+            LayoutLayer.SYMBOLS_SHIFTED to LayoutMode.SYMBOLS_SHIFTED,
+            (LayoutLayer.FN to LayoutMode.FN).takeIf { hasFn },
+        )
+    }
+    val panels = remember {
+        PanelKind.entries.filter { it.shipped }.mapNotNull { kind ->
+            PanelMode.entries.firstOrNull { it.layoutKind == kind }?.let { kind to it }
+        }
+    }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.padding(start = 16.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                stringResource(R.string.theme_pick_hint),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onDone) { Text(stringResource(CommonR.string.common_done)) }
+        }
+        LazyRow(
+            contentPadding = PaddingValues(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            items(layers) { (layer, mode) ->
+                FilterChip(
+                    selected = box.panel == PanelMode.NONE && box.layoutMode == mode,
+                    onClick = { sandbox.value = sandbox.value.showingLayer(mode) },
+                    label = { Text(stringResource(layerTitleRes(layer)), maxLines = 1) },
+                )
+            }
+            items(panels) { (kind, mode) ->
+                FilterChip(
+                    selected = box.panel == mode,
+                    onClick = { sandbox.value = sandbox.value.showingPanel(mode) },
+                    label = { Text(stringResource(panelTitleRes(kind)), maxLines = 1) },
+                )
+            }
+            // The two parts that are not keys, as chips with the pencil the
+            // issue asked for: pressing them on the preview works too, but the
+            // strip is not on screen until there is something on it.
+            item {
+                PartChip(stringResource(R.string.theme_toolbar_section_title)) { onPart(ThemePart.TOOLBAR) }
+            }
+            item {
+                PartChip(stringResource(R.string.theme_strip_sheet_title)) { onPart(ThemePart.STRIP) }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PartChip(title: String, onClick: () -> Unit) {
+    AssistChip(
+        onClick = onClick,
+        label = { Text(title, maxLines = 1) },
+        leadingIcon = { Icon(Icons.Outlined.Edit, contentDescription = null, modifier = Modifier.size(16.dp)) },
+    )
+}
+
 /**
  * The special keys the per-key style editor offers, with the id convention the
  * keyboard resolves (`keyOverrideId`): the action's name in uppercase.
@@ -4630,13 +5486,24 @@ private val specialOverrideKeys = listOf(
     "ENTER", "SPACE", "SHIFT", "DELETE", "SYMBOLS", "EMOJI", "LANGUAGESWITCH",
 )
 
-/** How an override id reads in the editor list: `A` for a letter, `Enter` for a special. */
-private fun keyOverrideDisplayName(id: String): String =
-    if (id.length <= 2 && id.none { it.isUpperCase() }) {
-        id.uppercase()
-    } else {
-        id.lowercase().replaceFirstChar { it.uppercase() }
+/**
+ * How an override id reads in the editor list: `A` for a letter, `Enter` for a
+ * special, and the operation or tool's own name for a key that carries one
+ * (`EDIT_LEFT` as "Left", `TOOL_CLIPBOARD` as "Clipboard", #265).
+ */
+@Composable
+private fun keyOverrideDisplayName(id: String): String {
+    if (id.length <= 2 && id.none { it.isUpperCase() }) return id.uppercase()
+    val param = id.substringAfter('_', missingDelimiterValue = "")
+    val named = when (id.substringBefore('_')) {
+        "EDIT" -> TextEditAction.entries.firstOrNull { it.name == param }
+            ?.let { stringResource(textEditActionTitle(it)) }
+        "TOOL" -> ToolbarTool.entries.firstOrNull { it.name == param }
+            ?.let { stringResource(toolTitle(it)) }
+        else -> null
     }
+    return named ?: humanisedOverrideId(id)
+}
 
 /** Picks which key gets its own style: type a letter, or choose a special key. */
 @Composable
@@ -4693,6 +5560,8 @@ private fun AddKeyOverrideDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit)
 @Composable
 private fun KeyOverrideDialog(
     id: String,
+    /** The picked key's own name, when it was picked on the preview; null names it by [id]. */
+    title: String?,
     look: OpenLook,
     /** Off while key popups are, which is what hides the two popup colours. */
     popupsShown: Boolean,
@@ -4741,160 +5610,158 @@ private fun KeyOverrideDialog(
             offerNone = true,
         )
     }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(keyOverrideDisplayName(id)) },
-        text = {
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+    // A sheet rather than a dialog (#265): it leaves the pinned preview in
+    // sight above it, so the key changes under the user's eyes as they pick.
+    ThemePartSheet(
+        title = title ?: keyOverrideDisplayName(id),
+        onDismiss = onDismiss,
+    ) {
+        Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            NullableColorRow(
+                R.string.theme_key_background_title,
+                override.background, fallback = theme.keyBackground,
+                supportsAlpha = true,
+                onChange = { onChange(override.copy(background = it)) },
+            )
+            NullableColorRow(
+                R.string.theme_key_text_title,
+                override.text, fallback = theme.keyText,
+                onChange = { onChange(override.copy(text = it)) },
+            )
+            NullableColorRow(
+                R.string.theme_hint_text_title,
+                override.hint, fallback = theme.hintText ?: theme.keyText,
+                onChange = { onChange(override.copy(hint = it)) },
+            )
+            NullableColorRow(
+                R.string.theme_key_border_title,
+                override.border, fallback = theme.keyBorderColor ?: theme.keyText,
+                onChange = { onChange(override.copy(border = it)) },
+            )
+            if (popupsShown) {
                 NullableColorRow(
-                    R.string.theme_key_background_title,
-                    override.background, fallback = theme.keyBackground,
-                    supportsAlpha = true,
-                    onChange = { onChange(override.copy(background = it)) },
+                    R.string.theme_popup_background_title,
+                    override.popupBackground,
+                    fallback = theme.popupBackground ?: theme.keyBackground,
+                    onChange = { onChange(override.copy(popupBackground = it)) },
                 )
                 NullableColorRow(
-                    R.string.theme_key_text_title,
-                    override.text, fallback = theme.keyText,
-                    onChange = { onChange(override.copy(text = it)) },
+                    R.string.theme_popup_text_title,
+                    override.popupText, fallback = theme.popupText ?: theme.keyText,
+                    onChange = { onChange(override.copy(popupText = it)) },
                 )
-                NullableColorRow(
-                    R.string.theme_hint_text_title,
-                    override.hint, fallback = theme.hintText ?: theme.keyText,
-                    onChange = { onChange(override.copy(hint = it)) },
-                )
-                NullableColorRow(
-                    R.string.theme_key_border_title,
-                    override.border, fallback = theme.keyBorderColor ?: theme.keyText,
-                    onChange = { onChange(override.copy(border = it)) },
-                )
-                if (popupsShown) {
-                    NullableColorRow(
-                        R.string.theme_popup_background_title,
-                        override.popupBackground,
-                        fallback = theme.popupBackground ?: theme.keyBackground,
-                        onChange = { onChange(override.copy(popupBackground = it)) },
+            }
+            WmRow(
+                title = stringResource(R.string.theme_key_override_texture_title),
+                subtitle = stringResource(
+                    if (override.texture != null) {
+                        R.string.theme_texture_set_label
+                    } else {
+                        R.string.theme_key_override_texture_unset
+                    },
+                ),
+                leading = { ImageThumb(override.texture) },
+                trailing = {
+                    if (override.texture != null) {
+                        IconButton(
+                            onClick = {
+                                override.texture?.let { File(it).delete() }
+                                onChange(override.copy(texture = null))
+                            },
+                        ) {
+                            Icon(
+                                Icons.Outlined.Delete,
+                                contentDescription =
+                                    stringResource(CommonR.string.common_remove),
+                            )
+                        }
+                    }
+                },
+                onClick = {
+                    texturePicker.launch(
+                        PickVisualMediaRequest(
+                            ActivityResultContracts.PickVisualMedia.ImageOnly,
+                        ),
                     )
-                    NullableColorRow(
-                        R.string.theme_popup_text_title,
-                        override.popupText, fallback = theme.popupText ?: theme.keyText,
-                        onChange = { onChange(override.copy(popupText = it)) },
-                    )
-                }
-                WmRow(
-                    title = stringResource(R.string.theme_key_override_texture_title),
-                    subtitle = stringResource(
-                        if (override.texture != null) {
-                            R.string.theme_texture_set_label
-                        } else {
-                            R.string.theme_key_override_texture_unset
-                        },
-                    ),
-                    leading = { ImageThumb(override.texture) },
-                    trailing = {
-                        if (override.texture != null) {
-                            IconButton(
-                                onClick = {
-                                    override.texture?.let { File(it).delete() }
-                                    onChange(override.copy(texture = null))
-                                },
-                            ) {
-                                Icon(
-                                    Icons.Outlined.Delete,
-                                    contentDescription =
-                                        stringResource(CommonR.string.common_remove),
-                                )
-                            }
+                },
+            )
+            if (effectsShown) {
+                // Only the drawn kinds: a per-key image set would be a
+                // transport and memory cost out of proportion to the
+                // feature. See KeyOverride.effect.
+                val kinds = KeyEffectKind.entries.filter { it != KeyEffectKind.CUSTOM_IMAGE }
+                ChoiceControl(
+                    options = listOf<KeyEffectKind?>(null).plus(kinds).map { kind ->
+                        kind to when (kind) {
+                            null -> stringResource(CommonR.string.common_auto)
+                            KeyEffectKind.STARS ->
+                                stringResource(R.string.theme_effect_stars_label)
+                            KeyEffectKind.HEARTS ->
+                                stringResource(R.string.theme_effect_hearts_label)
+                            KeyEffectKind.SPARKLE ->
+                                stringResource(R.string.theme_effect_sparkle_label)
+                            KeyEffectKind.CONFETTI ->
+                                stringResource(R.string.theme_effect_confetti_label)
+                            else -> stringResource(R.string.theme_effect_emoji_label)
                         }
                     },
-                    onClick = {
-                        texturePicker.launch(
-                            PickVisualMediaRequest(
-                                ActivityResultContracts.PickVisualMedia.ImageOnly,
-                            ),
-                        )
-                    },
-                )
-                if (effectsShown) {
-                    // Only the drawn kinds: a per-key image set would be a
-                    // transport and memory cost out of proportion to the
-                    // feature. See KeyOverride.effect.
-                    val kinds = KeyEffectKind.entries.filter { it != KeyEffectKind.CUSTOM_IMAGE }
-                    ChoiceControl(
-                        options = listOf<KeyEffectKind?>(null).plus(kinds).map { kind ->
-                            kind to when (kind) {
-                                null -> stringResource(CommonR.string.common_auto)
-                                KeyEffectKind.STARS ->
-                                    stringResource(R.string.theme_effect_stars_label)
-                                KeyEffectKind.HEARTS ->
-                                    stringResource(R.string.theme_effect_hearts_label)
-                                KeyEffectKind.SPARKLE ->
-                                    stringResource(R.string.theme_effect_sparkle_label)
-                                KeyEffectKind.CONFETTI ->
-                                    stringResource(R.string.theme_effect_confetti_label)
-                                else -> stringResource(R.string.theme_effect_emoji_label)
-                            }
-                        },
-                        selected = override.effectKind,
-                        modifier = Modifier.padding(vertical = 8.dp),
-                        label = stringResource(R.string.theme_key_override_effect_label),
-                    ) { kind -> onChange(override.copy(effect = kind?.name)) }
-                    if (override.effectKind == KeyEffectKind.EMOJI) {
-                        // Local state while typing, for the reason the theme's
-                        // own emoji field keeps it: the DataStore echo would
-                        // scramble the caret mid-edit.
-                        var emoji by remember(id) { mutableStateOf(override.effectParam.orEmpty()) }
-                        OutlinedTextField(
-                            value = emoji,
-                            onValueChange = { text ->
-                                val clipped = text.take(16)
-                                emoji = clipped
-                                onChange(override.copy(effectParam = clipped))
-                            },
-                            singleLine = true,
-                            label = {
-                                Text(stringResource(R.string.theme_effect_emoji_field_label))
-                            },
-                            modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                        )
-                    }
-                }
-                WmRow(
-                    title = stringResource(R.string.theme_key_override_shape_title),
-                    icon = SettingsRowIcons[R.string.theme_key_override_shape_title],
-                    subtitle = keyShapeKindOrNull(override.shape)?.let { keyShapeName(it) }
-                        ?: stringResource(CommonR.string.common_auto),
-                    onClick = { shapePickerOpen = true },
-                )
-                ChoiceControl(
-                    options = listOf(
-                        null to stringResource(CommonR.string.common_auto),
-                        false to stringResource(CommonR.string.common_off),
-                        true to stringResource(CommonR.string.common_on),
-                    ),
-                    selected = override.bold,
+                    selected = override.effectKind,
                     modifier = Modifier.padding(vertical = 8.dp),
-                    label = stringResource(R.string.theme_key_override_bold_label),
-                ) { bold -> onChange(override.copy(bold = bold)) }
-                ToggleSetting(
-                    title = R.string.theme_key_override_label_size_title,
-                    subtitle = override.labelScale?.let { "${(it * 100).toInt()}%" }
-                        ?: stringResource(CommonR.string.common_auto),
-                    checked = override.labelScale != null,
-                ) { on -> onChange(override.copy(labelScale = if (on) 1f else null)) }
-                override.labelScale?.let { scale ->
-                    SliderRow(
-                        R.string.theme_key_override_label_size_title,
-                        value = scale,
-                        range = KEY_OVERRIDE_LABEL_SCALE_RANGE,
-                        display = { "${(it * 100).toInt()}%" },
-                    ) { onChange(override.copy(labelScale = (it * 20).toInt() / 20f)) }
+                    label = stringResource(R.string.theme_key_override_effect_label),
+                ) { kind -> onChange(override.copy(effect = kind?.name)) }
+                if (override.effectKind == KeyEffectKind.EMOJI) {
+                    // Local state while typing, for the reason the theme's
+                    // own emoji field keeps it: the DataStore echo would
+                    // scramble the caret mid-edit.
+                    var emoji by remember(id) { mutableStateOf(override.effectParam.orEmpty()) }
+                    OutlinedTextField(
+                        value = emoji,
+                        onValueChange = { text ->
+                            val clipped = text.take(16)
+                            emoji = clipped
+                            onChange(override.copy(effectParam = clipped))
+                        },
+                        singleLine = true,
+                        label = {
+                            Text(stringResource(R.string.theme_effect_emoji_field_label))
+                        },
+                        modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                    )
                 }
             }
-        },
-        confirmButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_done)) }
-        },
-    )
+            WmRow(
+                title = stringResource(R.string.theme_key_override_shape_title),
+                icon = SettingsRowIcons[R.string.theme_key_override_shape_title],
+                subtitle = keyShapeKindOrNull(override.shape)?.let { keyShapeName(it) }
+                    ?: stringResource(CommonR.string.common_auto),
+                onClick = { shapePickerOpen = true },
+            )
+            ChoiceControl(
+                options = listOf(
+                    null to stringResource(CommonR.string.common_auto),
+                    false to stringResource(CommonR.string.common_off),
+                    true to stringResource(CommonR.string.common_on),
+                ),
+                selected = override.bold,
+                modifier = Modifier.padding(vertical = 8.dp),
+                label = stringResource(R.string.theme_key_override_bold_label),
+            ) { bold -> onChange(override.copy(bold = bold)) }
+            ToggleSetting(
+                title = R.string.theme_key_override_label_size_title,
+                subtitle = override.labelScale?.let { "${(it * 100).toInt()}%" }
+                    ?: stringResource(CommonR.string.common_auto),
+                checked = override.labelScale != null,
+            ) { on -> onChange(override.copy(labelScale = if (on) 1f else null)) }
+            override.labelScale?.let { scale ->
+                SliderRow(
+                    R.string.theme_key_override_label_size_title,
+                    value = scale,
+                    range = KEY_OVERRIDE_LABEL_SCALE_RANGE,
+                    display = { "${(it * 100).toInt()}%" },
+                ) { onChange(override.copy(labelScale = (it * 20).toInt() / 20f)) }
+            }
+        }
+    }
 }
 
 /**
@@ -5178,39 +6045,93 @@ private fun GradientEditor(
 
 // ---- image cropper ----
 
+/** The uncropped picture a cropped background was cut from, kept beside it. */
+private fun cropOriginalOf(path: String): File = File(path + CROP_ORIGINAL_SUFFIX)
+
+/** Where the last crop's frame sat in [cropOriginalOf], kept beside it. */
+private fun cropFrameOf(path: String): File = File(path + CROP_FRAME_SUFFIX)
+
+/** Deletes a background image together with what its crop kept beside it. */
+private fun deleteWithCropSidecars(path: String) {
+    File(path).delete()
+    cropOriginalOf(path).delete()
+    cropFrameOf(path).delete()
+}
+
+/**
+ * The last crop: the ratio option it was made with and its rectangle, as
+ * fractions of the original so a different decode size does not move it.
+ */
+private data class CropFrame(
+    val aspect: Float,
+    val left: Float,
+    val top: Float,
+    val width: Float,
+    val height: Float,
+) {
+    fun encode(): String = "$aspect $left $top $width $height"
+
+    companion object {
+        fun decode(text: String): CropFrame? {
+            val parts = text.trim().split(' ').mapNotNull { it.toFloatOrNull() }
+            if (parts.size != 5) return null
+            val (aspect, left, top, width, height) = parts
+            if (width <= 0f || height <= 0f) return null
+            return CropFrame(aspect, left, top, width, height)
+        }
+    }
+}
+
 /**
  * Pinch/drag cropper. The frame is the crop; the image pans and zooms under
  * it (cover-scaled, so the frame is always filled). Confirming maps the
  * frame back into bitmap coordinates and writes a new image file.
+ *
+ * It always works on the uncropped picture. The first crop copies the source
+ * beside the result ([cropOriginalOf]) and every later one starts from that
+ * copy, so a second crop can move to a part the first one cut away; the frame
+ * it was left at ([cropFrameOf]) is where the dialog opens next time.
  */
 @Composable
 private fun CropImageDialog(
     path: String,
+    landscape: Boolean,
     onCropped: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, path) {
+    val source = remember(path) { cropOriginalOf(path).takeIf { it.isFile } ?: File(path) }
+    val savedFrame = remember(path) {
+        runCatching { cropFrameOf(path).takeIf { it.isFile }?.readText() }.getOrNull()
+            ?.let { CropFrame.decode(it) }
+    }
+    // The shape the image is actually drawn into, measured by the keyboard.
+    val keyboardAspect = remember(landscape) {
+        KeyboardBoardShape.aspect(context, landscape) ?: FALLBACK_KEYBOARD_ASPECT
+    }
+    val bitmap by produceState<android.graphics.Bitmap?>(initialValue = null, source) {
         value = withContext(Dispatchers.IO) {
             runCatching {
                 // Downsample huge photos; a keyboard background never needs
                 // more than ~2048 px on a side.
                 val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
-                BitmapFactory.decodeFile(path, bounds)
+                BitmapFactory.decodeFile(source.path, bounds)
                 var sample = 1
                 while (bounds.outWidth / (sample * 2) >= 2048 || bounds.outHeight / (sample * 2) >= 2048) {
                     sample *= 2
                 }
-                BitmapFactory.decodeFile(path, BitmapFactory.Options().apply { inSampleSize = sample })
+                BitmapFactory.decodeFile(source.path, BitmapFactory.Options().apply { inSampleSize = sample })
             }.getOrNull()
         }
     }
-    var aspect by rememberSaveable { mutableFloatStateOf(2.4f) }
+    var aspect by rememberSaveable(path) { mutableFloatStateOf(savedFrame?.aspect ?: KEYBOARD_CROP_ASPECT) }
     var zoom by remember { mutableFloatStateOf(1f) }
     var offset by remember { mutableStateOf(Offset.Zero) }
     var frame by remember { mutableStateOf(IntSize.Zero) }
     var saving by remember { mutableStateOf(false) }
+    // Applied once, at the first layout of the frame it was saved for.
+    var pendingRestore by remember(path) { mutableStateOf(savedFrame) }
 
     fun coverScale(bmp: android.graphics.Bitmap): Float =
         if (frame == IntSize.Zero) 1f
@@ -5223,6 +6144,23 @@ private fun CropImageDialog(
         return Offset(o.x.coerceIn(-maxX, maxX), o.y.coerceIn(-maxY, maxY))
     }
 
+    // Zoom and pan that put the frame back over the saved rectangle: the same
+    // width, centred on the same point. The board may have changed shape since,
+    // so the height follows the frame and the clamp keeps it on the picture.
+    fun restore(saved: CropFrame, bmp: android.graphics.Bitmap) {
+        val cover = coverScale(bmp)
+        val s = frame.width / (saved.width * bmp.width)
+        zoom = (s / cover).coerceIn(1f, 6f)
+        val scaled = cover * zoom
+        val centreX = (saved.left + saved.width / 2f) * bmp.width
+        val centreY = (saved.top + saved.height / 2f) * bmp.height
+        offset = clampOffset(
+            Offset((bmp.width / 2f - centreX) * scaled, (bmp.height / 2f - centreY) * scaled),
+            bmp,
+            zoom,
+        )
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.theme_crop_image_title)) },
@@ -5231,12 +6169,12 @@ private fun CropImageDialog(
                 val bmp = bitmap
                 // Free resolves to the source image's own ratio, so the
                 // crop frame matches the picture and nothing is cut.
-                val effectiveAspect = if (aspect == FREE_CROP_ASPECT && bmp != null) {
-                    bmp.width.toFloat() / bmp.height.coerceAtLeast(1)
-                } else if (aspect == FREE_CROP_ASPECT) {
-                    2.4f
-                } else {
-                    aspect
+                val effectiveAspect = when {
+                    aspect == KEYBOARD_CROP_ASPECT -> keyboardAspect
+                    aspect == FREE_CROP_ASPECT && bmp != null ->
+                        bmp.width.toFloat() / bmp.height.coerceAtLeast(1)
+                    aspect == FREE_CROP_ASPECT -> keyboardAspect
+                    else -> aspect
                 }
                 if (bmp == null) {
                     Text(
@@ -5253,7 +6191,13 @@ private fun CropImageDialog(
                             .onGloballyPositioned {
                                 if (frame != it.size) {
                                     frame = it.size
-                                    offset = clampOffset(offset, bmp, zoom)
+                                    val saved = pendingRestore
+                                    if (saved != null) {
+                                        pendingRestore = null
+                                        restore(saved, bmp)
+                                    } else {
+                                        offset = clampOffset(offset, bmp, zoom)
+                                    }
                                 }
                             }
                             .pointerInput(bmp, effectiveAspect) {
@@ -5280,7 +6224,7 @@ private fun CropImageDialog(
                     Spacer(Modifier.height(8.dp))
                     ChoiceControl(
                         options = listOf(
-                            2.4f to stringResource(R.string.theme_crop_ratio_keyboard_label),
+                            KEYBOARD_CROP_ASPECT to stringResource(R.string.theme_crop_ratio_keyboard_label),
                             1.7f to stringResource(R.string.theme_crop_ratio_wide_label),
                             1f to stringResource(R.string.theme_crop_ratio_square_label),
                             // A split or a floating keyboard is none of the
@@ -5295,7 +6239,7 @@ private fun CropImageDialog(
                                 icon = when (ratio) {
                                     FREE_CROP_ASPECT -> Icons.Outlined.CropFree
                                     1f -> Icons.Outlined.CropSquare
-                                    2.4f -> Icons.Outlined.Keyboard
+                                    KEYBOARD_CROP_ASPECT -> Icons.Outlined.Keyboard
                                     else -> Icons.Outlined.Crop169
                                 },
                             )
@@ -5304,6 +6248,7 @@ private fun CropImageDialog(
                         aspect = value
                         zoom = 1f
                         offset = Offset.Zero
+                        pendingRestore = null
                     }
                 }
             }
@@ -5314,6 +6259,7 @@ private fun CropImageDialog(
                 onClick = {
                     val bmp = bitmap ?: return@TextButton
                     saving = true
+                    val chosenAspect = aspect
                     scope.launch(Dispatchers.IO) {
                         val saved = runCatching {
                             val s = coverScale(bmp) * zoom
@@ -5329,6 +6275,19 @@ private fun CropImageDialog(
                                 cropped.compress(android.graphics.Bitmap.CompressFormat.JPEG, 92, out)
                             }
                             if (cropped !== bmp) cropped.recycle()
+                            // Keep the uncropped picture with the result. A
+                            // copy, not a move: the theme still points at the
+                            // old file until the caller's write lands.
+                            source.copyTo(cropOriginalOf(file.absolutePath), overwrite = true)
+                            cropFrameOf(file.absolutePath).writeText(
+                                CropFrame(
+                                    aspect = chosenAspect,
+                                    left = srcLeft / bmp.width.toFloat(),
+                                    top = srcTop / bmp.height.toFloat(),
+                                    width = srcW / bmp.width.toFloat(),
+                                    height = srcH / bmp.height.toFloat(),
+                                ).encode(),
+                            )
                             file.absolutePath
                         }.getOrNull()
                         withContext(Dispatchers.Main) {

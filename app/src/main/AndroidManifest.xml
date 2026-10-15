@@ -41,9 +41,28 @@
     <!-- Only used by the optional voice input tool; audio goes to the
          device's speech recognizer while dictating, never stored. -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Voice typing through a Bluetooth headset (#581) on Android 11 and
+         older: the headset's microphone only opens while the keyboard holds
+         its voice link, and startBluetoothSco is checked against this. From
+         Android 12 setCommunicationDevice needs nothing (FUTO's keyboard
+         does the same without it), so it is not declared there. A normal
+         permission, granted at install. -->
+    <uses-permission
+        android:name="android.permission.MODIFY_AUDIO_SETTINGS"
+        android:maxSdkVersion="30" />
     <!-- Only used by the optional contact-name suggestions setting; names
          are read into memory for the suggestion strip, never stored. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
+
+    <!-- Only used by the optional location tool (#350), and by "Use my
+         location" for the weather and compass tools: one reading when the
+         user taps, never in the background, no background-location
+         permission. Fine is asked for with coarse, so Android 12 offers its
+         precise-or-approximate choice; either works. A build made with
+         -Pwmkb.noLocation=true strips both (src/nolocation), and the tool
+         then keeps its saved places only. -->
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
     <!-- Only used by the optional calendar tool to list the day's events;
          read-only, never written, and only queried while the tool is open. -->
@@ -95,7 +114,40 @@
          rather than on launch. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- "Display over other apps", for one optional feature: the floating
+         keyboard button (issue #374), a small button drawn over other apps
+         while the keyboard is closed that brings it up, text field or not.
+         The button is the only window drawn with it; nothing on screen is
+         read. A special grant on a system Settings screen, asked for only
+         when the user turns the button on, after a disclosure. -->
+    <uses-permission android:name="android.permission.SYSTEM_ALERT_WINDOW" />
+
+    <!-- The clock tool's alarms and timers. All of it only after the user
+         sets an alarm or starts a timer; none of it does anything otherwise.
+         - SCHEDULE_EXACT_ALARM: an alarm set for 6:30 rings at 6:30, not at
+           whatever minute Doze lets through. From Android 12 a special grant
+           the user gives on a system screen, asked after a disclosure; without
+           it alarms still ring, only less exactly. Not USE_EXACT_ALARM, which
+           Play keeps for apps whose main job is an alarm clock.
+         - USE_FULL_SCREEN_INTENT: the ring screen lights up a locked phone.
+         - FOREGROUND_SERVICE(_SYSTEM_EXEMPTED): the sound keeps playing while
+           an alarm rings, and only then. The service stops the moment the ring
+           is answered, and by itself after the auto-silence time.
+         - WAKE_LOCK: the phone stays awake for those same minutes.
+         No RECEIVE_BOOT_COMPLETED: the keyboard's own start after a reboot
+         re-arms the alarms (ClockEngine.rearmOnStart). -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SYSTEM_EXEMPTED" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
     <uses-feature android:name="android.hardware.camera" android:required="false" />
+    <!-- Declaring fine location implies these as required, which would hide
+         the keyboard from every device without GPS in the store. -->
+    <uses-feature android:name="android.hardware.location" android:required="false" />
+    <uses-feature android:name="android.hardware.location.gps" android:required="false" />
+    <uses-feature android:name="android.hardware.location.network" android:required="false" />
     <uses-feature android:name="android.hardware.camera.front" android:required="false" />
     <uses-feature android:name="android.hardware.camera.flash" android:required="false" />
     <uses-feature android:name="android.hardware.sensor.accelerometer" android:required="false" />
@@ -417,7 +469,8 @@
         <!--
              Where an opened .wmtheme.json / .wmlayout.json / .wmsettings.json /
              .wmconfig.json / .wmsnippets.json / .wmstickers / .wmicons lands, and
-             the foreign ones (.flex, .kmp, .wastickers, .kcf) beside them:
+             the foreign ones (.flex, .kmp, .wastickers, .kcf, .klc, .keylayout)
+             beside them:
              one confirm dialog, the import, a result. Deliberately not
              MainActivity — tapping a theme in a file manager should not drop
              anyone into the settings app.
@@ -516,6 +569,14 @@
                 <data android:pathPattern=".*\\..*\\.kcf" />
                 <data android:pathPattern=".*\\..*\\..*\\.kcf" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.kcf" />
+                <data android:pathPattern=".*\\.klc" />
+                <data android:pathPattern=".*\\..*\\.klc" />
+                <data android:pathPattern=".*\\..*\\..*\\.klc" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.klc" />
+                <data android:pathPattern=".*\\.keylayout" />
+                <data android:pathPattern=".*\\..*\\.keylayout" />
+                <data android:pathPattern=".*\\..*\\..*\\.keylayout" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.keylayout" />
             </intent-filter>
 
             <intent-filter android:label="@string/import_file_label">
@@ -583,6 +644,14 @@
                 <data android:pathPattern=".*\\..*\\.kcf" />
                 <data android:pathPattern=".*\\..*\\..*\\.kcf" />
                 <data android:pathPattern=".*\\..*\\..*\\..*\\.kcf" />
+                <data android:pathPattern=".*\\.klc" />
+                <data android:pathPattern=".*\\..*\\.klc" />
+                <data android:pathPattern=".*\\..*\\..*\\.klc" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.klc" />
+                <data android:pathPattern=".*\\.keylayout" />
+                <data android:pathPattern=".*\\..*\\.keylayout" />
+                <data android:pathPattern=".*\\..*\\..*\\.keylayout" />
+                <data android:pathPattern=".*\\..*\\..*\\..*\\.keylayout" />
             </intent-filter>
 
             <!--
@@ -715,6 +784,25 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="sgnl" android:host="addstickers" />
             </intent-filter>
+
+            <!--
+                 The same for a Telegram sticker set: tg://addstickers?set=…,
+                 and tg://addemoji?set=… for a set of custom emoji. It is what
+                 the "Open in Telegram" button on a t.me/addstickers page
+                 fires. Beside Telegram the system asks which app to use.
+
+                 Only these two hosts. The rest of tg:// (chats, logins,
+                 proxies, payments) is Telegram's. The https form on t.me is
+                 not claimed, for the reason given above for signal.art.
+            -->
+            <intent-filter android:label="@string/import_telegram_chooser_label">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="tg" />
+                <data android:host="addstickers" />
+                <data android:host="addemoji" />
+            </intent-filter>
         </activity>
 
         <!--
@@ -810,6 +898,16 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- Same trampoline pattern for the location tool's precise and
+             approximate location (#350). -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.LocationPermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- Same trampoline pattern for the calendar tool's
              android.permission.READ_CALENDAR. -->
         <activity
@@ -854,6 +952,18 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- Invisible trampoline for the AI reply tool's tidy-up (#234): it
+             shows Android's own consent dialog for deleting the screenshot a
+             reply was drafted from. No noHistory, for the reason the scanner
+             below has none: the dialog's result comes back to this activity. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.ReplyShotDeleteActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
@@ -1025,6 +1135,45 @@
             android:name="com.wasimaster.wmkeyboard.ime.KeyboardControlReceiver"
             android:exported="false" />
 
+        <!-- The clock tool: alarm and timer wake-ups, the buttons on its
+             notifications, and the system events that make a registered
+             wake-up wrong (clock or zone changed, exact-alarm grant changed,
+             the app updated). Direct-boot aware so an alarm rings before the
+             first unlock after a reboot; its data is in device-protected
+             storage for the same reason. -->
+        <receiver
+            android:name="com.wasimaster.wmkeyboard.core.clock.ClockReceiver"
+            android:directBootAware="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.TIME_SET" />
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- Plays an alarm or a timer while it rings, and only then. -->
+        <service
+            android:name="com.wasimaster.wmkeyboard.core.clock.ClockRingService"
+            android:directBootAware="true"
+            android:exported="false"
+            android:foregroundServiceType="systemExempted" />
+
+        <!-- The ring screen: over the lock screen, lights the display, out of
+             recents so an answered alarm leaves nothing behind. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.clock.ClockRingActivity"
+            android:directBootAware="true"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.WMKeyboard"
+            android:turnScreenOn="true"
+            tools:targetApi="27" />
+
         <!-- Control from adb and automation apps (Tasker, MacroDroid,
              Automate). Exported with no permission on purpose: those are the
              audience, and no platform permission is one Tasker could hold.
@@ -1105,6 +1254,23 @@
             android:name="com.wasimaster.wmkeyboard.app.SyncJobService"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- The Harper spell checker, in every edition. A build made without
+             libharper_jni.so (F-Droid) has it switched off at startup by
+             HarperSpellChecker.syncAvailability, so Android's settings never
+             list one that cannot answer. -->
+        <service
+            android:name="com.wasimaster.wmkeyboard.spell.HarperSpellCheckerService"
+            android:exported="true"
+            android:label="@string/spell_checker_name"
+            android:permission="android.permission.BIND_TEXT_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.textservice.SpellCheckerService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.view.textservice.scs"
+                android:resource="@xml/spellchecker" />
+        </service>
     </application>
 
 </manifest>

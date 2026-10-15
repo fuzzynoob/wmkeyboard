@@ -60,6 +60,15 @@ open class WMApplication : Application() {
         // The network activity log, before anything in this process can make
         // a request. Cheap: it reads two small files, or waits for the unlock.
         NetLog.attach(this)
+        // The Play gates of the LiteRT interpreter (WhisperEngine,
+        // LocalSubjectCutout), ML Kit's ink recogniser (HandwritingModels) and
+        // the whisper.cpp, ExecuTorch, Whistle, Harper and Tesseract libraries. Before the spell
+        // checker's sync below, which asks the grammar gate whether this build
+        // has Harper at all.
+        installOnDemandDelivery(this)
+        // The spell checker is declared in every edition; off where the
+        // library it needs was left out of the build.
+        com.wasimaster.wmkeyboard.spell.HarperSpellChecker.syncAvailability(this)
         // Publishes the Drive token provider, if this build has one at all, so
         // the backup job can find it. Here rather than in the activity or the
         // keyboard because either of those may be what started the process, and
@@ -72,9 +81,6 @@ open class WMApplication : Application() {
         installLlmDelivery(this)
         // The same for ML Kit's translator and OnDeviceTranslator.
         installTranslateDelivery(this)
-        // And for the LiteRT interpreter (WhisperEngine, LocalSubjectCutout)
-        // and ML Kit's ink recogniser (HandwritingModels).
-        installOnDemandDelivery(this)
         // The Dropbox and OneDrive client ids, which live in BuildConfig and
         // so cannot be read from the library module that needs them.
         BackupClients.install(
@@ -86,5 +92,11 @@ open class WMApplication : Application() {
         // keyboard and the settings app share this process, and either may be
         // the one running. Does nothing while sync is off.
         SyncWatcher.start(this, SettingsRepository(this))
+        // The clock tool's alarms and timers. Android drops every registered
+        // wake-up at a reboot, and the app has no boot receiver on purpose:
+        // the keyboard starts at boot anyway, and this puts them back then.
+        // Free for anyone who never set one (one file-exists check), and off
+        // the main thread for those who did.
+        com.wasimaster.wmkeyboard.core.clock.ClockEngine.rearmOnStart(this)
     }
 }

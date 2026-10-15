@@ -56,10 +56,18 @@ object LayoutJsonDocs {
             "Whether a big screen may widen this grid with Tab, caps lock, arrows and the rest. Turn it off for a grid you already laid " +
             "out wide by hand.",
         "LayoutSpec.keyman" to "The Keyman keyboard whose rules decide what the keys type. Only a converted Keyman layout has one.",
+        "LayoutSpec.inputMethod" to
+            "The imported input method (a .cin table, a Rime schema or an m17n file) whose files decide what the keys " +
+            "type. Only a layout made by importing one has it.",
         "LayoutSpec.appearance" to "This layout's own label font and size, over the theme and the settings.",
+        "LayoutSpec.script" to
+            "The script the keys write, when it is not the language's, such as PIQAD for Klingon pIqaD. It decides the font the keys use.",
         "LayoutSpec.secondary" to
             "A grid that a key or the Secondary layout tool opens, not a language: a symbols page of your own, or a macro pad. Only its " +
             "letters layer is used.",
+        "LayoutSpec.handwriting" to
+            "A writing area in place of the letter keys, recognised in this layout's language. The letters layer is then only " +
+            "the bottom row under it.",
         "LayoutSpec.themeId" to "A theme of this layout's own, used while the layout is on screen. A layer's themeId beats it.",
         "LayoutSpec.version" to "The revision of the layout format. The app brings an older one up to date when it reads it.",
 
@@ -76,6 +84,8 @@ object LayoutJsonDocs {
         "LayerSpec.bottomRowAsLaidOut" to
             "Draws the bottom row exactly as it is here. The Bottom row settings do not hide, move, swap or change its keys.",
         "LayerSpec.themeId" to "A theme for while this layer is on screen, over the layout's theme and the settings.",
+        "LayerSpec.flickHints" to
+            "Whether this layer's flick keys draw their arms on the key face. Leave it out to follow the keyboard's setting.",
 
         "LayoutAppearance.fontId" to
             "The label font: \"default\", \"google:<Name>\", \"installed:<name>\" or \"custom\". A font this device does not have falls " +
@@ -94,9 +104,15 @@ object LayoutJsonDocs {
             "Press and hold entries that run an action instead of typing, such as Tab or a tool. They come after the longPress " +
             "characters.",
         "Key.actionAlternatesFirst" to
-            "The keyboard sets this from the settings. Do not write it. It puts the action entries before the characters.",
+            "An older way to write actionAlternatesAt 0. Use actionAlternatesAt instead.",
+        "Key.actionAlternatesAt" to
+            "Where the actionAlternates go among the longPress characters: 0 puts them first, 1 after the first " +
+            "character, and so on. Leave it out to put them after all the characters.",
         "Key.alternateColumns" to "How many columns this key's hold popup uses. 0 follows the setting.",
         "Key.clipboardAction" to "A clipboard shortcut that a press and hold runs instead of opening the popup.",
+        "Key.holdAction" to
+            "An action that a press and hold runs at once, with no popup. A delete or a cursor move repeats while you " +
+            "hold. It spends the press and hold, so the key's alternates stop opening.",
         "Key.role" to "Which punctuation slot this key fills, so an email or web address field can change it to @ or /.",
         "Key.icon" to "The name of an icon to draw in place of the label. The label still names the key for a screen reader.",
         "Key.iconHint" to "The name of an icon to draw as the corner hint, in place of the first alternate.",
@@ -128,6 +144,11 @@ object LayoutJsonDocs {
 
         "KeymanBinding.keyboardId" to "The id of the Keyman keyboard.",
         "KeymanBinding.version" to "The version of the Keyman keyboard the layout came from.",
+
+        "InputMethodBinding.id" to "The folder the imported input method's files are kept in.",
+        "InputMethodBinding.kind" to
+            "How the method types: table offers the entries a code starts, reading converts syllables like pinyin, " +
+            "rules writes the text in place.",
 
         "PanelLayoutSpec.panel" to "Which panel this layout is for. Apply keeps the panel you are editing.",
         "PanelLayoutSpec.grid" to "The panel's grid: rows of keys and of component cells.",
@@ -173,6 +194,11 @@ object LayoutJsonDocs {
         "action:send_key.meta" to "The modifiers held with the key, as Android meta flags. 4096 is Ctrl, 2 is Alt and 1 is Shift.",
         "action:fn" to "Shows the Fn layer for one key, then goes back. A quick second tap keeps it.",
         "action:kana_variant" to "Changes the last kana to its dakuten, handakuten and small forms, one after another.",
+        "action:add_stroke" to "Adds a stroke to the last Korean letter typed: ㄱ to ㅋ, ㄴ to ㄷ to ㅌ, ㅏ to ㅑ, and back.",
+        "action:double_consonant" to "Changes the last Korean consonant typed to its double form and back: ㄱ to ㄲ, ㅂ to ㅃ.",
+        "action:reading_column" to
+            "A scrolling list in place of the key. While a T9 pinyin reading is typed it lists the syllables " +
+            "the next keys could spell, to pick one. Otherwise it lists the key's longPress entries, to type one.",
         "action:broadcast" to "Sends an Android broadcast, for an automation app like Tasker. It types nothing.",
         "action:broadcast.action" to "The intent action of the broadcast. An app must listen for this exact text.",
         "action:braille_dot" to

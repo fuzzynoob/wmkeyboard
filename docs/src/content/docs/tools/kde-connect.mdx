@@ -11,7 +11,7 @@ import KeyCap from '@components/KeyCap.astro';
 
 [KDE Connect](https://kdeconnect.kde.org/) links a phone to a computer over your home network. The **KDE Connect** tool speaks that protocol from inside the keyboard, so you can reach your computer from whatever app you are typing in, and the computer can type back. It works with KDE Connect on Linux, Windows and macOS, with GSConnect on GNOME, and with Valent.
 
-You do **not** need the KDE Connect app on the phone. The keyboard shows up on the computer as a device of its own, named after the phone's model followed by **WM Keyboard**, for example *Pixel 8 - WM Keyboard*. If you do have the app, both keep working side by side, as two devices, and the name tells you which is which.
+You do not need the KDE Connect app on the phone. The keyboard shows up on the computer as a device of its own, named after the phone's model followed by **WM Keyboard**, for example *Pixel 8 - WM Keyboard*. If you do have the app, both keep working side by side, as two devices, and the name tells you which is which.
 
 <PhoneFrame caption="The Input tab: a touchpad for the computer, the three mouse buttons, and the switch that sends your typing there.">
   {/* shot: tools/kde-connect-input */}
@@ -44,6 +44,8 @@ The code is what makes pairing safe. It is calculated from both devices' keys, s
 
 Tap the device name in the panel's header at any time to switch computers, pair another one, or unpair.
 
+Swipe sideways across the panel to move between tabs. On the touchpads a swipe moves the pointer instead, so start it off the pad.
+
 Not every computer can do everything. A tab or button for something the computer does not support is left out, or says so when you open it.
 
 ### Input
@@ -74,9 +76,12 @@ KDE Connect on macOS does not let a phone control its players, so on a Mac this 
 
 ### Send
 
+Until something has been sent or received, the three buttons fill the tab as large tiles. Once there are transfers they shrink to a row above the list.
+
 - **Clipboard** sends what is on the phone's clipboard right now.
 - **Text in the field** sends your selection, or the whole field if nothing is selected.
 - **Files…** opens a file picker and sends what you choose.
+- A place goes from the [Location tool](/tools/location/#sending-a-place-to-your-computer) instead: its **Send to** button sends it as a map link, which the computer opens in its browser.
 
 Transfers are listed with their progress and can be cancelled. Files the computer sends to the phone are listed here too, with an **Open** button.
 

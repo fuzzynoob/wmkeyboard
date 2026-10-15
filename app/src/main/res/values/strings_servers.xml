@@ -34,6 +34,7 @@
     <string name="servers_section_dictionary">Dictionary</string>
     <string name="servers_section_vocabulary">Vocabulary lookups</string>
     <string name="servers_section_weather">Weather</string>
+    <string name="servers_section_maps">Maps and addresses</string>
     <string name="servers_section_currency">Currency rates</string>
     <string name="servers_section_ai">AI providers</string>
     <string name="servers_section_updates">Update check</string>
@@ -47,6 +48,7 @@
     <string name="servers_klipy">KLIPY</string>
     <string name="servers_giphy">GIPHY</string>
     <string name="servers_signal_sticker_cdn">Signal sticker storage</string>
+    <string name="servers_telegram_bot_api">Telegram Bot API</string>
     <string name="servers_unsplash">Unsplash</string>
     <string name="servers_pexels">Pexels</string>
     <string name="servers_wikipedia">Wikipedia or another MediaWiki</string>
@@ -56,6 +58,7 @@
     <string name="servers_wiktionary">Wiktionary</string>
     <string name="servers_open_meteo">Open-Meteo forecast</string>
     <string name="servers_open_meteo_geocoding">Open-Meteo place search</string>
+    <string name="servers_nominatim">OpenStreetMap Nominatim</string>
     <string name="servers_currency_api">currency-api</string>
     <string name="servers_currency_api_mirror">currency-api, second server</string>
     <string name="servers_frankfurter">Frankfurter</string>

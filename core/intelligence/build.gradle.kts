@@ -62,6 +62,23 @@ android {
     lint { lintConfig = rootProject.file("config/lint/lint.xml") }
 }
 
+// Play builds leave src/main/jniLibs (Harper) and src/full/jniLibs
+// (Tesseract) out of this module, so out of the base APK: the on-demand
+// :feature:grammar and :feature:ocr splits package the same directories
+// instead. The files stay here because the native build scripts and
+// F-Droid's recipe write and scan exactly these paths.
+//
+// Through the new DSL's extension type, not the `android` accessor's
+// `sourceSets`: under AGP 9 that one is typed as the old API's
+// AndroidLibrarySourceSet, and the container's objects fail the cast at
+// configuration time.
+if (playStoreChannel) {
+    extensions.getByType<com.android.build.api.dsl.LibraryExtension>().sourceSets.apply {
+        getByName("main").jniLibs.setSrcDirs(emptyList<String>())
+        getByName("full").jniLibs.setSrcDirs(emptyList<String>())
+    }
+}
+
 androidComponents {
     onVariants { variant ->
         // Static-source-dir mechanism rather than a flavour folder for the
@@ -105,6 +122,9 @@ dependencies {
     // on Play none of the libraries below that used to bring it along are in
     // the base any more.
     "fullImplementation"(libs.mlkit.common)
+    // InkPackImports serves imported handwriting packs to ML Kit's own OkHttp
+    // client, so it speaks OkHttp's interceptor API.
+    "fullImplementation"(libs.okhttp)
     if (!playStoreChannel) {
         // Handwriting. Play builds leave it out of the base APK; the on-demand
         // :feature:handwriting module carries it instead, so the recogniser's

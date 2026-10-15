@@ -26,8 +26,12 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Devices
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Dns
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Notifications
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoStories
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.DeleteSweep
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Label
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.StickyNote2
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowBack
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Article
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Rule
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Chat
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.TextSnippet
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AdsClick
@@ -35,6 +39,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Autorenew
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HighlightAlt
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.History
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Hub
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Collections
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Phone
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoLibrary
@@ -94,6 +99,7 @@ import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import kotlin.math.min
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.animation.EnterExitState
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -319,11 +325,18 @@ internal fun HighlightableRow(
         title == null -> false
         else -> title == stringResource(target)
     }
-    HighlightFrame(
-        requested = requested,
-        rank = if (coarse) HighlightRank.SECTION else HighlightRank.ROW,
-        content = content,
-    )
+    // The same two names are what a row's link is made of (#646), so the row
+    // publishes them for its link button, and a plain row takes the long
+    // press here. A group's heading takes its own, in [SettingsGroup]: the
+    // whole group would otherwise answer a hold on any row inside it.
+    CompositionLocalProvider(LocalRowLinkKey provides RowLinkKey(title, highlightKey)) {
+        HighlightFrame(
+            requested = requested,
+            rank = if (coarse) HighlightRank.SECTION else HighlightRank.ROW,
+            modifier = if (coarse) Modifier else Modifier.settingLinkHold(),
+            content = content,
+        )
+    }
 }
 
 /**
@@ -414,6 +427,7 @@ internal fun ScrollAnchor(active: Boolean, content: @Composable () -> Unit) {
 private fun HighlightFrame(
     requested: Boolean,
     rank: HighlightRank,
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     var flashing by remember { mutableStateOf(false) }
@@ -445,7 +459,7 @@ private fun HighlightFrame(
         SettingsHighlight.clear()
     }
     Column(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .bringIntoViewRequester(requester)
             .then(if (flashing && SettingsHighlight.hold) Modifier.testTag(SettingsHighlight.HIGHLIGHT_TAG) else Modifier)
@@ -506,6 +520,7 @@ internal object SettingsRouteIcons {
         "ai_actions" to { Icons.Outlined.AutoAwesome },
         "ai_history" to { Icons.Outlined.History },
         "ai_chat" to { Icons.AutoMirrored.Outlined.Chat },
+        "ai_mcp" to { Icons.Outlined.Hub },
         "modes" to { Icons.Outlined.Tune },
         "emoji" to { Icons.Outlined.EmojiEmotions },
         "emoji/panel" to { Icons.Outlined.GridView },
@@ -520,6 +535,10 @@ internal object SettingsRouteIcons {
         "vocab/lists" to { Icons.Outlined.AutoStories },
         "vocab/review" to { Icons.Outlined.AutoStories },
         "vocab/browse" to { Icons.Outlined.AutoStories },
+        "clock" to { Icons.Outlined.Schedule },
+        "notes" to { Icons.Outlined.StickyNote2 },
+        "notes/tags" to { Icons.Outlined.Label },
+        "notes/trash" to { Icons.Outlined.DeleteSweep },
         "plugins" to { Icons.Outlined.Extension },
         "addons" to { Icons.Outlined.Extension },
         "accessibility" to { Icons.Outlined.Accessibility },
@@ -550,6 +569,7 @@ internal object SettingsRouteIcons {
         "blacklist" to { Icons.Outlined.VisibilityOff },
         "learnedcorrections" to { Icons.Outlined.Spellcheck },
         "phoneformats" to { Icons.Outlined.Phone },
+        "cliprules" to { Icons.AutoMirrored.Outlined.Rule },
         "hwshortcuts" to { SymbolIcons.KeyboardExternalInput },
         "musicapps" to { Icons.Outlined.MusicNote },
         "launchercombos" to { Icons.Outlined.VerticalSplit },

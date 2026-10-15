@@ -29,7 +29,7 @@ The exported file is the whole theme, written as plain JSON with no wrapper or f
 
 ## Importing a theme
 
-There are three ways a theme gets imported, and they don't all behave the same way: two apply the theme immediately, one doesn't. Three more buttons on the same row, **FlorisBoard**, **HeliBoard** and **Gboard**, read someone else's format rather than this one. They're covered separately below.
+There are three ways a theme gets imported, and they don't all behave the same way: two apply the theme immediately, one doesn't. Five more buttons on the same row, **FlorisBoard**, **HeliBoard**, **FUTO**, **Multiling O** and **Gboard**, read someone else's format rather than this one. They're covered separately below.
 
 ### From the Import button
 
@@ -37,14 +37,14 @@ There are three ways a theme gets imported, and they don't all behave the same w
 
 The **Import** button, first of the row above the cards, opens a file picker scoped to JSON-ish files. It's intentionally permissive about the exact MIME type, since file providers report a `.json` file as `text/plain` or `application/octet-stream` about as often as they get it right. Pick a `.wmtheme.json` file and it's added to Your themes under a freshly generated ID. The ID stored inside the file itself is discarded, so importing the same file twice creates two separate custom themes rather than updating one in place. Any embedded background image is written back out to local storage as part of the import.
 
-Importing this way both adds the theme **and switches the keyboard to it immediately**: there's no separate confirmation step for "use it now."
+Importing this way both adds the theme and switches the keyboard to it immediately: there's no separate confirmation step for "use it now."
 
 ### By opening the file elsewhere
 
 Tapping a `.wmtheme.json` file in a file manager, or choosing "open with" on one from a chat app, hands it to a small confirmation dialog rather than dropping you into the settings app. It asks "Import *theme name*?" with the note that the theme is added to your themes and applied to the keyboard, then **Import** and **Cancel**. Confirming has the same immediate-apply effect as the in-app Import button: added to Your themes and switched on right away.
 
 :::caution
-This file association is matched by filename, since a theme file carries no internal tag to identify it: a `.wmtheme.json` extension is the only signal. WM Keyboard is still offered for a file renamed to plain `.json` — it accepts JSON files by type as well as by name — but it will no longer recognize the contents as a theme, and will offer to open the file in its editor instead. The in-app Import button above isn't affected, since it doesn't check the filename.
+This file association is matched by filename, since a theme file carries no internal tag to identify it: a `.wmtheme.json` extension is the only signal. WM Keyboard is still offered for a file renamed to plain `.json`, because it accepts JSON files by type as well as by name, but it will no longer recognize the contents as a theme, and will offer to open the file in its editor instead. The in-app Import button above isn't affected, since it doesn't check the filename.
 :::
 
 <PhoneFrame side caption="Opening a theme file from a file manager shows a one-tap import confirmation.">
@@ -53,7 +53,7 @@ This file association is matched by filename, since a theme file carries no inte
 
 ### From an addon repository
 
-See [Addon repositories](/development/addon-repos/) for how repositories work generally. Installing a theme from one behaves differently from the two file-based flows above: it's added to Your themes but **not** switched on automatically. Browsing a repository shouldn't repaint your keyboard behind your back, so after the install finishes you get a separate, dismissable prompt: "*Theme name* is installed", asking "Use it as your keyboard theme now?" with a **Switch to it** button and a **Not now** dismiss option. Declining leaves the theme sitting in Your themes, installed but not worn, until you tap it yourself.
+See [Addon repositories](/development/addon-repos/) for how repositories work generally. Installing a theme from one behaves differently from the two file-based flows above: it's added to Your themes but not switched on automatically. Browsing a repository shouldn't repaint your keyboard behind your back, so after the install finishes you get a separate, dismissable prompt: "*Theme name* is installed", asking "Use it as your keyboard theme now?" with a **Switch to it** button and a **Not now** dismiss option. Declining leaves the theme sitting in Your themes, installed but not worn, until you tap it yourself.
 
 A theme listing in a repository also isn't previewable in the addon browser the way a dictionary or sticker pack is. You judge a theme by seeing the keyboard wearing it, which a static preview panel can't honestly show. Unlike a plugin, a theme's checksum in the repository manifest is optional rather than enforced, since a theme isn't executable code. A theme with no checksum installs exactly like one that has it, with no extra warning either way.
 
@@ -64,6 +64,12 @@ The gallery's **FlorisBoard** button reads FlorisBoard's own `.flex` theme packa
 ### From a HeliBoard or LeanType theme
 
 The **HeliBoard** button reads the colour themes those two keyboards share. They have no theme file at all: a theme is a line of JSON copied out of the menu at the top of their colour screen, which is why their themes circulate as forum posts. So the button asks where yours is, **Paste** or **Open a file**, and reads either. Both of that keyboard's export shapes work, the ten named colours and the forty-odd internal roles of its *all colours* mode. Like a FlorisBoard import, the theme is saved without being switched on, and the result message says how many of its colours landed. See [Importing other keyboards](/reference/importing-other-keyboards/).
+
+### From a Multiling O theme
+
+The **FUTO** button reads a FUTO Keyboard theme `.zip`, the hand-written `theme.txt` kind or one saved by FUTO's own theme editor, with its background picture and font. The theme is saved without being switched on, and the result message lists anything that did not come across, such as pictures drawn per key. A FUTO theme also opens from a file manager. See [Importing other keyboards](/reference/importing-other-keyboards/#futo-keyboard-themes).
+
+The **Multiling O** button reads the colours of a Multiling O Keyboard theme. That keyboard shares a theme as a block of text from its settings export, starting with `OK_Settings_Begin`, or as a link with the block in it. The button asks for **Paste** or **Open a file**, the same as the HeliBoard one. The theme is saved without being switched on, and the result message says how many of its colours landed. See [Importing other keyboards](/reference/importing-other-keyboards/#multiling-o-themes).
 
 ### From a Gboard theme or the Rboard collection
 

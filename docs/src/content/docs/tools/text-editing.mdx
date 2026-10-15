@@ -24,7 +24,7 @@ The panel is a d-pad cluster: <KeyCap>◀</KeyCap> and <KeyCap>▶</KeyCap> span
 
 Tap <KeyCap>Select</KeyCap> to turn selection mode on. The key lights up while it's active. With Select on, every arrow, Home, or End move extends the selection instead of just moving the caret. The panel wraps each move in a real Shift press rather than a background modifier flag, since some editors only pick up Shift state from the key events themselves. Tap <KeyCap>Select</KeyCap> again to turn it off, or see below for the two actions that flip it automatically. The toolbar's [Selection mode](#selection-mode) tool is the same mode from outside the panel: either one turns it on, either one turns it off, and both light up while it's on. The difference is how long it lasts. The panel's toggle ends when the panel does, and the tool's mode stays on until you press it again.
 
-<KeyCap>Select</KeyCap> answers the same three gestures the tool does. One tap toggles, **two quick taps** select the word at the cursor, **three** select the line, and a **press and hold** turns selection mode on only for as long as your finger stays down. Both extra gestures read the same two switches under <SettingsPath path="Tools / Selection mode / Options" /> the tool does, so turning either off turns it off on both surfaces. The one thing that overrides the hold is a long press you assigned yourself: give a Select key alternates in the [layout editor](/languages/custom-layouts/) and the hold opens those instead, which the editor warns you about as you bind them. Tapping is never affected.
+<KeyCap>Select</KeyCap> answers the same three gestures the tool does. One tap toggles, two quick taps select the word at the cursor, three select the line, and a press and hold turns selection mode on only for as long as your finger stays down. Both extra gestures read the same two switches under <SettingsPath path="Tools / Selection mode / Options" /> the tool does, so turning either off turns it off on both surfaces. The one thing that overrides the hold is a long press you assigned yourself: give a Select key alternates in the [layout editor](/languages/custom-layouts/) and the hold opens those instead, which the editor warns you about as you bind them. Tapping is never affected.
 
 Once something is selected, the keyboard can offer what to do with it: [Selection actions](/smart/selection-actions/) puts the edits, a find and replace, the case options, Call, Open, QR and a good deal more above the keys, depending on what you selected. That bar is off by default and lives under Advanced.
 
@@ -51,26 +51,40 @@ The panel above costs one tap to open and another to act. If you reach for the s
 | Tool | What it does |
 |---|---|
 | Cursor left / Cursor right | Move the cursor one character |
-| Word left / Word right | Jump a whole word (Ctrl+Arrow) |
+| Word left / Word right | Jump a whole word (Ctrl+Arrow, or where you set a word to end) |
 | Cursor up / Cursor down | Move the cursor a line |
 | Line start / Line end | Jump to the start or end of the line |
 | Page up / Page down | Scroll the cursor a page |
-| Select word | Select the word at the cursor |
+| Select word | Select the word at the cursor; press again to take the words beside it too |
 | Select line | Select the entire line at the cursor |
 | Select all | Select the whole field |
 | Selection mode | Every cursor move selects text until you turn it back off |
 
 **Select all** is the panel's <KeyCap>Select all</KeyCap> key on the toolbar: it selects the whole field and leaves selection mode where it found it. **Select word** and **Select line** don't send Ctrl+Shift+Arrow. The keyboard works out the word or line boundaries around the cursor itself and sets the selection directly. Both turn selection mode on afterward. Both do nothing if the cursor sits on whitespace or punctuation with no word to grab, or on an empty line.
 
+Press **Select word** again while its selection is still there and the selection grows by one word on each side. Each press after that grows it again. With <KeyCap>Shift</KeyCap> up, a press goes back one step instead, down to the first word. While **Shift changes the case of the selection** is on, pressing Shift with text selected changes its case, so turn that off to use Shift this way.
+
+### Where a word ends
+
+Out of the box, **Word left** and **Word right** send Ctrl and an arrow key, and the app decides what a word is. Most apps treat `wmkeyboard.pages.dev` as one word and `GrapheneOS` as one word, so the cursor cannot stop at `wmkeyboard.|`. **Word steps**, on the settings page of each of the three word tools, lets the keyboard measure the steps itself:
+
+- **As the app decides**: Ctrl and an arrow key, as before.
+- **At spaces**: the cursor stops only at spaces.
+- **At spaces and punctuation**: the cursor also stops between letters and marks, so `wmkeyboard.pages.dev` is five steps.
+
+With either of the last two, **Stop at capitals** also splits a word at a capital inside it: `GrapheneOS` is `Graphene` and `OS`, and `HTMLParser` is `HTML` and `Parser`. **Select word** takes its word by the same rules. A field that does not say where its cursor is gets the Ctrl and arrow key anyway.
+
+The delete keys have their own two switches for the same thing, on the [Key press](/reference/settings/keypress/#timing) screen.
+
 ### Hold Shift to select
 
-Tap Shift before a cursor tool and the move extends the selection instead of collapsing it, the way Shift+Arrow does on a physical keyboard. Shift lock works too, which is the easier one for dragging a selection out over several taps. Shift isn't spent by the move, so it stays on and every following tap keeps extending. To stop, tap Shift again: that puts it back down and leaves the selection where it is. One more Shift tap after that, with the selection still standing, re-cases it (see [Details & edge cases](#details--edge-cases)).
+Tap Shift before a cursor tool and the move extends the selection instead of collapsing it, the way Shift+Arrow does on a physical keyboard. Shift lock works too, which is the easier one for dragging a selection out over several taps. Shift isn't spent by the move, so it stays on and every following tap keeps extending. To stop, tap Shift again: that puts it back down and leaves the selection where it is. A cut or a paste puts Shift down for you, lock included, the way you let go of Shift on a physical keyboard once the shortcut is done, and so does leaving the letters for the symbols or the number pad. The cursor keys after it move the cursor again instead of selecting. One more Shift tap after that, with the selection still standing, re-cases it (see [Details & edge cases](#details--edge-cases)).
 
 Only a Shift you pressed yourself counts. The keyboard arms Shift by itself at the start of a sentence, and an ALL CAPS field arms the lock, so reading those would turn an ordinary cursor tap into a selection you never asked for and your next keystroke would type over it.
 
 Auto-capitalize leaves your Shift alone while a selection is live, so the second tap extends the selection instead of dropping it.
 
-A held or locked Shift reaches every cursor move you make from the keyboard itself, not only the toolbar's tools: the [spacebar cursor swipe](/typing/gestures/) on both axes, the [volume keys](/typing/gestures/) when they're set to move the cursor, and a layout's own arrow keys. Lock Shift and scrub the spacebar and you're dragging a selection out with one thumb each. The text-editing panel as shipped has no Shift key, so its own <KeyCap>Select</KeyCap> toggle is the answer there, unless you put a <KeyCap>Shift</KeyCap> key on the panel in its [layout editor](/languages/custom-layouts/#panel-layouts), where it works exactly like this.
+A held or locked Shift reaches every cursor move you make from the keyboard itself, not only the toolbar's tools: the [spacebar cursor swipe](/typing/gestures/) on both axes, the [volume keys](/typing/gestures/) when they're set to move the cursor, and a layout's own arrow keys. Lock Shift and scrub the spacebar and you're dragging a selection out with one thumb each. In a one-line field such as a search box, Shift with up or down selects to the start or the end of the text, the way a desktop text box does, rather than stepping into the box's suggestions or out of the field. A selection grown up or to the left keeps growing that way: the end you started from stays put. The text-editing panel as shipped has no Shift key, so its own <KeyCap>Select</KeyCap> toggle is the answer there, unless you put a <KeyCap>Shift</KeyCap> key on the panel in its [layout editor](/languages/custom-layouts/#panel-layouts), where it works exactly like this.
 
 ### Selection mode
 
@@ -91,7 +105,7 @@ Turning it off keeps the selection. Only the *extending* stops, so what you've s
 Two more gestures on the same button:
 
 - **Press and hold** for a temporary mode. Selection mode is on for as long as your finger stays down and off the moment you let go, again leaving the selection intact. Good for one quick selection when you don't want to remember to switch the mode back off. It's on by default and can be turned off under [Options](#options).
-- **Press twice quickly** to select the word at the cursor, or **three times** to select the line. Both leave the mode on, so you can widen the selection from there with any cursor move. The first press of a pair still toggles the mode, exactly the way the first tap of a Shift double-tap still arms Shift. If that trips you up, the shortcut is switchable off.
+- **Press twice quickly** to select the word at the cursor, or three times to select the line. Both leave the mode on, so you can widen the selection from there with any cursor move. The first press of a pair still toggles the mode, exactly the way the first tap of a Shift double-tap still arms Shift. If that trips you up, the shortcut is switchable off.
 
 Selection mode ends by itself when you move to a different text field, and a press and hold ends when the keyboard closes. It survives everything else: panels opening and closing, layout switches, and any amount of cursor movement.
 
@@ -137,7 +151,7 @@ Backspace repeats on hold like the rest of the keyboard, and Enter sends a norma
 
 ## The quick alternative: spacebar cursor swipe
 
-You don't have to open a panel at all for the most common move: sliding the cursor a short distance. By default, a **long** swipe on the spacebar moves the cursor (a **short** swipe switches language instead), and there's an optional 2-D touchpad mode that adds vertical line movement to the same gesture. Full mechanics, including how to reassign what each swipe length does, live on [Gestures](/typing/gestures/).
+You don't have to open a panel at all for the most common move: sliding the cursor a short distance. By default, a long swipe on the spacebar moves the cursor (a short swipe switches language instead), and there's an optional 2-D touchpad mode that adds vertical line movement to the same gesture. Full mechanics, including how to reassign what each swipe length does, live on [Gestures](/typing/gestures/).
 
 ## Options
 
@@ -145,7 +159,7 @@ You don't have to open a panel at all for the most common move: sliding the curs
 
 <SettingsPath path="Tools / Text editing / Options" />
 
-**Key repeat interval**: default **60 ms**, adjustable from 30–200 ms. It sets the pause between repeats while you hold an arrow key in the panel, and while you hold one of the toolbar's cursor tools. The panel's two delete keys are the exception: they repeat at the keyboard's own **Key repeat interval for delete** under Key press, because they *are* the delete keys — see below. Lower is faster. The delay before repeating starts is the keyboard's own key repeat delay in the panel, and the system's long-press timeout on the toolbar.
+**Key repeat interval**: default **60 ms**, adjustable from 30–200 ms. It sets the pause between repeats while you hold an arrow key in the panel, and while you hold one of the toolbar's cursor tools. The panel's two delete keys are the exception: they repeat at the keyboard's own **Key repeat interval for delete** under Key press, because they *are* the delete keys (see below). Lower is faster. The delay before repeating starts is the keyboard's own key repeat delay in the panel, and the system's long-press timeout on the toolbar.
 
 ### Panel layout
 
@@ -167,9 +181,9 @@ A layout you made on an earlier version, when the pad had an editor of its own, 
 
 <SettingsPath path="Tools / Cursor left / Options" />
 
-**Hold to repeat on the toolbar**: on by default. Holding one of the eight repeating cursor tools on the toolbar keeps moving the cursor. Turn it off and a hold there opens that tool's settings page instead, the way a hold on any other toolbar tool does. It's one switch shown on all eight of their settings screens, so flipping it on any one of them flips it everywhere.
+**Hold to repeat on the toolbar**: on by default. Holding one of the eight repeating cursor tools on the toolbar keeps moving the cursor. Turn it off and a hold there does the tool's [press and hold action](/tools/overview/#hold-a-tool-for-a-second-action) instead: out of the box a word left or right for the arrows, page up or down for up and down, and the start or end of the line for the word moves. Page up and down hold to their settings page. It's one switch shown on all eight of their settings screens, so flipping it on any one of them flips it everywhere.
 
-**Hold to repeat in the toolbox**: off by default, and this one is **per tool**. Turn it on and holding that tool in the toolbox grid repeats the move as well.
+**Hold to repeat in the toolbox**: off by default, and this one is per tool. Turn it on and holding that tool in the toolbox grid repeats the move as well.
 
 It's per tool, and off to start with, because of what it costs. A hold in the toolbox is how you reach any tool's settings page from the keyboard. A tool that repeats there has spent that gesture, so its own page is then only reachable under <SettingsPath path="Tools" />. That's a fair trade for the one or two moves you actually hold down and a bad one across the whole grid, which is why it's answered a tool at a time rather than all at once.
 
@@ -220,7 +234,9 @@ This is the only place cut lives: there's no Cut button in the text-editing pane
 
 ## Details & edge cases
 
-- **Shift on a live selection re-cases it, and the keys follow.** Lower case puts Shift down, Title case arms it, UPPER turns the lock on, so the case you just gave the selection is the case the next thing you type comes out in — no need to unselect, press Shift again and reselect. It re-cases rather than switching Shift off, with one exception: a Shift that's currently holding the selection open. There the first tap is read as putting the modifier down, so a selection you dragged out with Shift can always be ended with the same key; the tap after that re-cases. That's the "Tapping Shift with text selected cycles its case" toggle in the next bullet, on by default; turn it off and Shift goes back to being a plain Shift.
+- **Shift on a live selection re-cases it, and the keys follow.** Lower case puts Shift down, Title case arms it, UPPER turns the lock on, so the case you just gave the selection is the case the next thing you type comes out in. There is no need to unselect, press Shift again and reselect. It re-cases rather than switching Shift off, with one exception: a Shift that's currently holding the selection open. There the first tap is read as putting the modifier down, so a selection you dragged out with Shift can always be ended with the same key; the tap after that re-cases. That's the "Tapping Shift with text selected cycles its case" toggle in the next bullet, on by default; turn it off and Shift goes back to being a plain Shift.
+- **Shift can change the case of a word with nothing selected.** Turn on **Shift changes the case of the word at the cursor**, under the selection one on the Typing screen, and Shift with the cursor on a word or right after it steps that word through lowercase, Title Case and UPPERCASE, the way SwiftKey does: `cursor| touching` or `cur|sor touching`. The cursor stays where it was. While you type a word, Shift is still for the next letter. Off by default.
+- **A selection the keyboard sets is brought into view.** Find on the selection bar, and the Find & replace panel, select the match in the field. Many editors leave a selection set from outside where it is, under the keyboard or off the screen, so the keyboard nudges the selection a step and back, which makes the editor scroll to it. The same nudge puts the cursor back on screen when the keyboard grows under it, for example when the suggestion strip opens for a word you tapped.
 - **Two Typing-screen toggles change what Select mode does elsewhere on the keyboard**, even though neither is on this page's own settings screens. Typing a bracket or quote with text selected wraps the selection in the pair instead of replacing it (on by default). Either half works: `(` and `)` both turn a selected "abc" into "(abc)". Tapping Shift with text selected cycles its case instead of arming Shift for the next letter (also on by default, and a no-op in caseless scripts like Bengali). Both live under <SettingsPath path="Typing / Automatic corrections" />.
 - **Every tool on this page works before you've unlocked your device for the first time after a restart** (direct boot). The panel, the cursor tools, undo/redo and the numpad only touch the input connection, never stored data, so none of them wait on your device being unlocked. Compare [Media controls](/tools/media/), which can't.
 - **Nothing here is edition-gated.** The panel, every cursor tool, undo/redo, and the numpad all work identically on the full and lite builds.

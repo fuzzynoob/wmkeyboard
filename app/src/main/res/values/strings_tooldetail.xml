@@ -12,6 +12,7 @@
     <!-- Replaces the line above while the tool has no API key, when the switch cannot be pressed. -->
     <string name="tooldetail_enabled_needs_key_subtitle">Add the API key below to turn this tool on</string>
     <string name="tooldetail_enabled_needs_instance_subtitle">Needs a SearXNG instance. Add its address under Search settings.</string>
+    <string name="tooldetail_enabled_voice_off_subtitle">Voice typing is off. Turn it on under All voice typing settings below.</string>
     <string name="tooldetail_enabled_needs_layout_subtitle">Make a secondary layout under Key layouts below to turn this tool on</string>
     <!-- A switch under the one above. Off takes the tool out of the toolbox grid
          (the panel that lists every tool) while it stays on everywhere else. -->
@@ -80,7 +81,7 @@
     <!-- Flashlight tool. -->
     <string name="tooldetail_flashlight_auto_off_title">Turn off with the keyboard</string>
     <string name="tooldetail_flashlight_auto_off_subtitle">Turn the torch off when the keyboard closes</string>
-    <string name="tooldetail_flashlight_auto_off_info">On: the torch goes off when the keyboard closes or when you change apps, so it is never left on in your pocket. Off: the torch stays on until you turn it off again, from the tool or from the quick settings tile of the system.</string>
+    <string name="tooldetail_flashlight_auto_off_info">On: a torch you turned on from the keyboard goes off when the keyboard closes or when you change apps, so it is never left on in your pocket. A torch turned on from the quick settings tile or another app is left alone. Off: the torch stays on until you turn it off again, from the tool or from the quick settings tile of the system.</string>
 
     <!-- Compass tool. -->
     <string name="tooldetail_compass_degrees_title">Degree readout</string>
@@ -195,6 +196,18 @@
     <string name="tooldetail_select_mode_taps_title">Two presses select a word</string>
     <string name="tooldetail_select_mode_taps_subtitle">Two quick presses select the word at the cursor. Three select the full line</string>
     <string name="tooldetail_select_mode_taps_info">The first press of a pair still turns selection mode on or off, in the same way the shift key gives you caps lock. Turn this off if you press the tool twice in quick succession and want no word selected.</string>
+    <string name="tooldetail_word_steps_group">Where a word ends</string>
+    <string name="tooldetail_word_steps_title">Word steps</string>
+    <string name="tooldetail_word_steps_subtitle">Where Word left and Word right stop, and what Select word takes</string>
+    <string name="tooldetail_word_steps_info">The same setting applies to Word left, Word right and Select word.\n\nPress Select word again to also select the word on each side. Press shift and then Select word to go back one step. If \"Shift changes the case of the selection\" is on, shift changes the case instead.</string>
+    <string name="tooldetail_word_steps_app">As the app decides</string>
+    <string name="tooldetail_word_steps_app_desc">The app moves the cursor as it does for Ctrl and an arrow key. Most apps treat \"wmkeyboard.pages.dev\" as one word.</string>
+    <string name="tooldetail_word_steps_spaces">At spaces</string>
+    <string name="tooldetail_word_steps_spaces_desc">The cursor stops only at spaces. An address is one word.</string>
+    <string name="tooldetail_word_steps_punctuation">At spaces and punctuation</string>
+    <string name="tooldetail_word_steps_punctuation_desc">The cursor also stops at a dot, a slash or another mark, so it can stop at \"wmkeyboard.|\".</string>
+    <string name="tooldetail_word_steps_capitals_title">Stop at capitals</string>
+    <string name="tooldetail_word_steps_capitals_subtitle">\"GrapheneOS\" is two words: \"Graphene\" and \"OS\"</string>
     <string name="tooldetail_select_mode_info">While selection mode is on, every cursor move selects text: the cursor tools, the text editing panel, the spacebar cursor swipe and the volume keys. Turn it off to keep what you selected and stop selecting more.</string>
 
     <!-- Trackpad tool on the toolbar (issue #39). -->
@@ -268,6 +281,9 @@
     <string name="tooldetail_power_drop_trail_info">This drops only the trail. Glide typing still works. The keyboard draws the trail on every frame of a gesture, so it costs more than the decode that it decorates.</string>
     <string name="tooldetail_power_drop_popup_title">Key popup</string>
     <string name="tooldetail_power_drop_popup_subtitle">Stop the character bubble over each key</string>
+    <!-- A glass theme blurs the app behind the keyboard; this stops that blur. -->
+    <string name="tooldetail_power_drop_glass_blur_title">Glass blur</string>
+    <string name="tooldetail_power_drop_glass_blur_subtitle">Stop glass themes blurring the app behind the keyboard and its popups</string>
     <string name="tooldetail_power_drop_glide_title">Glide typing</string>
     <string name="tooldetail_power_drop_glide_subtitle">Turn glide typing off</string>
     <string name="tooldetail_power_drop_glide_info">A swipe decode is the most expensive thing the keyboard does. It is also why many people use the keyboard, so this setting is off by default and only the trail is dropped.</string>
@@ -452,9 +468,17 @@
     <string name="tooldetail_media_spacing_value" tools:ignore="PluralsCandidate">%1$d dp</string>
     <string name="tooldetail_media_hide_header_title">Hide the search when you scroll</string>
     <string name="tooldetail_media_hide_header_subtitle">Scroll down to fold the search box and the chips away, and scroll up to bring them back</string>
+    <string name="tooldetail_gif_collections_group">Favourites and recent</string>
+    <string name="tooldetail_gif_collections_info">Long-press a GIF and choose Add to favourites. A Favourites chip then leads the category chips. Long-press it again to remove it.</string>
+    <string name="tooldetail_gif_recent_title">Recent GIFs</string>
+    <string name="tooldetail_gif_recent_subtitle">Show a Recent chip with the GIFs you sent last</string>
+    <string name="tooldetail_gif_recent_info">The list keeps the last 48 GIFs and stays on the phone. Incognito does not add to it. Turn this off to delete the list.</string>
+    <string name="tooldetail_gif_favourites_offline_title">Keep favourites on the phone</string>
+    <string name="tooldetail_gif_favourites_offline_subtitle">Save a copy of each favourite, so it shows and sends without a connection</string>
+    <string name="tooldetail_gif_favourites_offline_info">The copies download when you add a favourite or open Favourites, and only on a connection that data saving allows. Turn this off to delete the copies. Your favourites stay.</string>
     <string name="tooldetail_media_hide_header_info">The results get the room that the search box, the source chips and the category chips take. When you are at the top of the results, pull down to bring them back. While you type a search, the search box always shows. This applies to both tools.</string>
     <string name="tooldetail_media_keys_group">Sources and API keys</string>
-    <string name="tooldetail_media_klipy_label">Klipy API key</string>
+    <string name="tooldetail_media_klipy_label">KLIPY API key</string>
     <string name="tooldetail_media_klipy_hint">Free from partner.klipy.com. The Tenor API closed in the middle of 2026</string>
     <string name="tooldetail_media_giphy_label">GIPHY API key</string>
     <string name="tooldetail_media_giphy_hint">Free from developers.giphy.com</string>
@@ -489,12 +513,12 @@
     <string name="tooldetail_media_filter_medium">Medium</string>
     <string name="tooldetail_media_filter_high">High</string>
     <!-- Descriptions of the four filter levels. G, PG, PG-13 and R are the
-         rating letters of Klipy and GIPHY. Keep them as they are. -->
+         rating letters of KLIPY and GIPHY. Keep them as they are. -->
     <string name="tooldetail_media_filter_off_desc">Every result. The R rating</string>
     <string name="tooldetail_media_filter_low_desc">Hides only the strongest results. The PG-13 rating</string>
     <string name="tooldetail_media_filter_medium_desc">Suitable for most chats. The PG rating</string>
     <string name="tooldetail_media_filter_high_desc">Hides the most. The G rating</string>
-    <string name="tooldetail_media_filter_info">Klipy and GIPHY give each result a rating. Each service applies your level to its own results.</string>
+    <string name="tooldetail_media_filter_info">KLIPY and GIPHY give each result a rating. Each service applies your level to its own results.</string>
     <string name="tooldetail_media_limit_group">Results</string>
     <string name="tooldetail_media_limit_title">Results for each search</string>
     <string name="tooldetail_media_limit_subtitle">How many items one search or the trending view loads. Your own sticker packs always show fully.</string>
@@ -803,8 +827,49 @@
     <!-- %1$s is the name of a tool, for example "Undo". -->
     <string name="tooldetail_hold_pick_title">Press and hold <xliff:g id="tool" example="Undo">%1$s</xliff:g></string>
 
+    <!-- Notes tool (#560). -->
+    <string name="tooldetail_notes_group">Notes</string>
+    <string name="tooldetail_notes_open_title">Your notes</string>
+    <plurals name="tooldetail_notes_open_subtitle">
+        <item quantity="one">%1$d note</item>
+        <item quantity="other">%1$d notes</item>
+    </plurals>
+    <string name="tooldetail_notes_open_none_subtitle">Nothing saved yet</string>
+    <string name="tooldetail_notes_tags_subtitle">Rename, recolour or remove the tags on your notes</string>
+    <string name="tooldetail_notes_trash_subtitle">Notes you deleted, until they are gone for good</string>
+    <string name="tooldetail_notes_sort_title">Sort notes by</string>
+    <string name="tooldetail_notes_sort_updated_label">Last edited</string>
+    <string name="tooldetail_notes_sort_created_label">Date created</string>
+    <string name="tooldetail_notes_sort_title_label">Title</string>
+    <string name="tooldetail_notes_markdown_title">Format Markdown</string>
+    <string name="tooldetail_notes_markdown_subtitle">Show headings, lists and checklists formatted in the keyboard and in previews. Off, every note is plain text.</string>
+    <string name="tooldetail_notes_panel_start_title">The keyboard panel opens on</string>
+    <string name="tooldetail_notes_panel_start_subtitle">What you see when you tap the tool</string>
+    <string name="tooldetail_notes_panel_start_list_label">The list of notes</string>
+    <string name="tooldetail_notes_panel_start_last_label">The note you edited last</string>
+    <string name="tooldetail_notes_trash_days_title">Keep trashed notes for</string>
+    <string name="tooldetail_notes_trash_7_label">7 days</string>
+    <string name="tooldetail_notes_trash_30_label">30 days</string>
+    <string name="tooldetail_notes_trash_90_label">90 days</string>
+    <string name="tooldetail_notes_trash_never_label">Until I delete them</string>
+    <string name="tooldetail_notes_save_selection_title">Save as note from a selection</string>
+    <string name="tooldetail_notes_save_selection_subtitle">What the selection bar\'s Save as note does</string>
+    <string name="tooldetail_notes_save_new_label">Make a new note each time</string>
+    <string name="tooldetail_notes_save_append_label">Add to the note I edited last</string>
+    <string name="tooldetail_notes_clear_title">Delete all notes</string>
+    <string name="tooldetail_notes_clear_subtitle">Every note, every tag and the trash</string>
+    <string name="tooldetail_notes_clear_confirm">Delete every note? This cannot be undone. A backup that holds the Notes section can bring them back.</string>
+
     <!-- Media control tool. -->
     <string name="tooldetail_mediactl_group">Media control</string>
+    <string name="tooldetail_find_history_title">Remember searches</string>
+    <string name="tooldetail_find_history_subtitle">Offer your last ten searches when the Find field is empty. Never kept in incognito or from a password field</string>
+    <string name="tooldetail_find_history_clear_title">Search history</string>
+    <string name="tooldetail_find_history_clear_action">Clear</string>
+    <plurals name="tooldetail_find_history_count">
+        <item quantity="one">%d search remembered</item>
+        <item quantity="other">%d searches remembered</item>
+    </plurals>
     <string name="tooldetail_mediactl_pin_title">Pin while music plays</string>
     <string name="tooldetail_mediactl_pin_subtitle">Put the media tool on the toolbar on its own while a music app is playing</string>
     <string name="tooldetail_mediactl_pin_info">The pin is temporary. It goes on the end of the toolbar, it never moves the tools you pinned yourself, and it disappears when the player does. If you have already pinned the media tool, nothing changes.</string>
@@ -952,4 +1017,9 @@
     <string name="tooldetail_media_wiki_hint">https://commons.wikimedia.org</string>
     <string name="tooldetail_hold_nothing_value">Does nothing</string>
     <string name="tooldetail_hold_nothing_subtitle">The hold only vibrates. Nothing opens and nothing runs.</string>
+    <string name="tooldetail_hold_default_title">Default</string>
+    <!-- %1$s is the name of a tool, for example Redo. -->
+    <string name="tooldetail_hold_default_pairing_subtitle">Runs <xliff:g id="tool" example="Redo">%1$s</xliff:g>, the same pair as HeliBoard</string>
+    <string name="tooldetail_hold_settings_title">Settings page</string>
+    <string name="tooldetail_hold_settings_subtitle">Opens the settings of this tool, as the hold did before</string>
 </resources>

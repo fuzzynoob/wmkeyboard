@@ -31,6 +31,7 @@ object BuiltInLayouts {
     const val HALMAK_ID = "builtin_halmak"
     const val AVRO_ID = "builtin_avro"
     const val KHIPRO_ID = "builtin_khipro"
+    const val KHIPRO_DARK_ID = "builtin_khipro_dark"
     const val PROBHAT_ID = "builtin_probhat"
     const val JATIYA_ID = "builtin_jatiya"
     const val FRENCH_ID = "builtin_french"
@@ -174,6 +175,21 @@ object BuiltInLayouts {
         name = "Khipro",
         langId = "bn",
         composer = ComposerType.KHIPRO,
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(khiproRows)),
+        tabletExpand = false,
+    )
+
+    /**
+     * Khipro Dark (issue #631): the same keys as [KHIPRO], read by Khipro's
+     * newer edition, which leaves consonants apart until `/` joins them
+     * (`lagbe` is লাগবে, `ntrz///` is ন্ত্র্য). Its own layout rather than a
+     * switch on Khipro's, so the globe key flips between the two.
+     */
+    val KHIPRO_DARK = LayoutSpec(
+        id = KHIPRO_DARK_ID,
+        name = "Khipro Dark",
+        langId = "bn",
+        composer = ComposerType.KHIPRO_DARK,
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(khiproRows)),
         tabletExpand = false,
     )
@@ -438,7 +454,7 @@ object BuiltInLayouts {
      * add the language tail at runtime, and both feed `findLayout`.
      */
     val all: List<LayoutSpec> = listOf(
-        QWERTY, AZERTY, DVORAK, COLEMAK, WORKMAN, HALMAK, AVRO, KHIPRO, PROBHAT, JATIYA, FRENCH,
+        QWERTY, AZERTY, DVORAK, COLEMAK, WORKMAN, HALMAK, AVRO, KHIPRO, KHIPRO_DARK, PROBHAT, JATIYA, FRENCH,
         GERMAN, SPANISH, KOREAN, RUSSIAN, ARABIC, GREEK, HEBREW, HINDI, HINDI_PHONETIC,
         URDU_PHONETIC, MARATHI_PHONETIC, GUJARATI_PHONETIC, PUNJABI_PHONETIC, ODIA_PHONETIC,
         ASSAMESE_PHONETIC, TAMIL_PHONETIC, TELUGU_PHONETIC, KANNADA_PHONETIC, MALAYALAM_PHONETIC,
@@ -549,7 +565,12 @@ object BuiltInLayouts {
  * is what keeps the spacebar and the enter key where the hand expects them
  * whatever the grid above is doing.
  */
-private fun bottomRow(symbols: Boolean = false, scale: Float = 1f) = listOf(
+private fun bottomRow(
+    symbols: Boolean = false,
+    scale: Float = 1f,
+    /** Appended to the full stop's hold, after the shared punctuation. */
+    periodExtras: List<String> = emptyList(),
+) = listOf(
     Key(
         if (symbols) "ABC" else "?123",
         action = if (symbols) KeyAction.Letters else KeyAction.Symbols,
@@ -561,7 +582,7 @@ private fun bottomRow(symbols: Boolean = false, scale: Float = 1f) = listOf(
     Key(
         ".",
         role = KeyRole.Period,
-        longPress = listOf("…", ",", "?", "!", ":", ";", "।"),
+        longPress = listOf("…", ",", "?", "!", ":", ";", "।") + periodExtras,
         width = scale,
     ),
     Key("⏎", action = KeyAction.Enter, width = 1.5f * scale),
@@ -886,6 +907,15 @@ private val halmakRows = listOf(
     bottomRow(),
 )
 
+/**
+ * ZWNJ then ZWJ, on the hold of hasant and of the full stop on every fixed
+ * Bengali layout (issue #668). ZWNJ after hasant keeps two consonants from
+ * forming a conjunct; ZWJ asks for a half form, as in the র-ফলা of র‍্যাব.
+ * Desktop Jatiya and Probhat put them on AltGr and shift layers a phone
+ * does not have. The popup draws both by name, since neither has a glyph.
+ */
+private val BengaliJoiners = listOf("\u200C", "\u200D")
+
 private val probhatRows = listOf(
     listOf(
         Key("দ", shiftLabel = "ধ"), Key("ূ", shiftLabel = "ঊ"), Key("ী", shiftLabel = "ঈ"),
@@ -906,10 +936,10 @@ private val probhatRows = listOf(
         Key("য়", shiftLabel = "য"), Key("শ", shiftLabel = "ঢ়"), Key("চ", shiftLabel = "ছ"),
         Key("আ", shiftLabel = "ঋ", longPress = listOf("ৃ")), Key("ব", shiftLabel = "ভ"),
         Key("ন", shiftLabel = "ণ"), Key("ম", shiftLabel = "ঙ"),
-        Key("্", shiftLabel = "।", longPress = listOf("ঁ", "়", "॥")),
+        Key("্", shiftLabel = "।", longPress = listOf("ঁ", "়", "॥") + BengaliJoiners),
         Key("⌫", action = KeyAction.Delete, width = 1.3f),
     ),
-    bottomRow(),
+    bottomRow(periodExtras = BengaliJoiners),
 )
 
 private val jatiyaRows = listOf(
@@ -924,7 +954,7 @@ private val jatiyaRows = listOf(
         Key("ু", shiftLabel = "ূ", longPress = listOf("উ", "ঊ")),
         Key("ি", shiftLabel = "ী", longPress = listOf("ই", "ঈ")),
         Key("ব", shiftLabel = "ভ"),
-        Key("্", shiftLabel = "।", longPress = listOf("॥", "ৎ")),
+        Key("্", shiftLabel = "।", longPress = listOf("॥", "ৎ") + BengaliJoiners),
         Key("া", shiftLabel = "অ", longPress = listOf("আ")),
         Key("ক", shiftLabel = "খ"), Key("ত", shiftLabel = "থ"),
         Key("দ", shiftLabel = "ধ"),
@@ -938,7 +968,7 @@ private val jatiyaRows = listOf(
         Key("স", shiftLabel = "ষ"), Key("ম", shiftLabel = "শ"),
         Key("⌫", action = KeyAction.Delete, width = 1.3f),
     ),
-    bottomRow(),
+    bottomRow(periodExtras = BengaliJoiners),
 )
 
 // Korean 2-beolsik: compatibility jamo in the standard phone arrangement, tense
@@ -1194,20 +1224,25 @@ private val symbolsShiftedRows = listOf(
 
 /**
  * 4-column keypad grid shared by the numeric field kinds: digits on the left 3
- * columns (0 under 8, phone-pad style), delete/enter anchoring the right column,
- * and the field-specific characters filling the rest.
+ * columns (0 under 8, phone-pad style), delete over enter anchoring the right
+ * column, and the field-specific characters filling the rest.
+ *
+ * The keys every pad has stay put across all five (issue #594): the digits,
+ * delete in the low-right slot under the thumb, enter below it, and space,
+ * on the pads that carry one, at the top of the right column. Someone who
+ * moves delete on one pad then finds it where they expect on the others, and
+ * the field-specific keys are the only ones that differ.
  */
 private fun numpad(
+    rightTop: Key,
     rightMid: Key,
-    rightLow: Key,
     bottomLeft: Key,
     bottomRight: Key,
     zero: Key = Key("0"),
-    rightTop: Key = Key("⌫", action = KeyAction.Delete),
 ) = listOf(
     listOf(Key("1"), Key("2"), Key("3"), rightTop),
     listOf(Key("4"), Key("5"), Key("6"), rightMid),
-    listOf(Key("7"), Key("8"), Key("9"), rightLow),
+    listOf(Key("7"), Key("8"), Key("9"), Key("⌫", action = KeyAction.Delete)),
     listOf(bottomLeft, zero, bottomRight, Key("⏎", action = KeyAction.Enter)),
 )
 
@@ -1228,47 +1263,46 @@ private fun padSpace() = Key(PAD_SPACE_LABEL, action = KeyAction.Space)
  * keeps the pad stable across the many apps that forget to set the flags.
  */
 private val numberRows = numpad(
-    // Space and backspace trade places relative to the other keypads:
-    // deleting is the frequent correction while typing a number, so it sits
-    // on the low-right slot under the thumb, and space takes the top.
     rightTop = padSpace(),
     rightMid = Key("-", longPress = listOf("+", "%", "*", "/")),
-    rightLow = Key("⌫", action = KeyAction.Delete),
     bottomLeft = Key(".", longPress = listOf(":")),
     bottomRight = Key(","),
 )
 
 /** TYPE_CLASS_PHONE: dial pad with pause (,) and wait (;) on long press. */
 private val phoneRows = numpad(
+    rightTop = padSpace(),
     rightMid = Key("-", longPress = listOf("(", ")", "/", ".")),
-    rightLow = padSpace(),
     bottomLeft = Key("*", longPress = listOf(",")),
     bottomRight = Key("#", longPress = listOf(";")),
     zero = Key("0", longPress = listOf("+")),
 )
 
-/** TYPE_DATETIME_VARIATION_DATE: separators for 20/07/2026, 2026-07-20, 20.7.26. */
+/**
+ * TYPE_DATETIME_VARIATION_DATE: separators for 20/07/2026, 2026-07-20, 20.7.26.
+ * No space here, so the slot space holds on the other pads takes the slash.
+ */
 private val dateRows = numpad(
-    rightMid = Key("/", longPress = listOf(":")),
-    rightLow = Key("-"),
+    rightTop = Key("/", longPress = listOf(":")),
+    rightMid = Key("-"),
     bottomLeft = Key("."),
     bottomRight = Key(","),
 )
 
 /** TYPE_DATETIME_VARIATION_TIME: colon-led (17:45), space for AM/PM-ish suffixes. */
 private val timeRows = numpad(
+    rightTop = padSpace(),
     rightMid = Key(":", longPress = listOf(".")),
-    rightLow = padSpace(),
     bottomLeft = Key("."),
     bottomRight = Key("-"),
 )
 
 /** TYPE_DATETIME_VARIATION_NORMAL: date and time separators together. */
 private val dateTimeRows = numpad(
+    rightTop = padSpace(),
     rightMid = Key("/", longPress = listOf(".")),
-    rightLow = Key(":"),
     bottomLeft = Key("-"),
-    bottomRight = padSpace(),
+    bottomRight = Key(":"),
 )
 
 /**

@@ -38,6 +38,10 @@ import com.wasimaster.wmkeyboard.core.settings.PhotoSearchEngine
 import com.wasimaster.wmkeyboard.core.settings.PhotoSearchTarget
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.HandwritingFullScreenMode
+import com.wasimaster.wmkeyboard.core.tools.AiPrompts
+import com.wasimaster.wmkeyboard.core.tools.ReplyEmoji
+import com.wasimaster.wmkeyboard.core.tools.ReplyImageMode
+import com.wasimaster.wmkeyboard.core.tools.ReplyLength
 import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.CurrencyLabel
@@ -62,8 +66,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -83,12 +89,12 @@ import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.DialogProperties
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingDownloadProgress
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModelSizes
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
+import com.wasimaster.wmkeyboard.core.handwriting.InkPackImports
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import com.wasimaster.wmkeyboard.ime.WMKeyboardService
@@ -108,7 +114,6 @@ import com.wasimaster.wmkeyboard.core.settings.StickerTriggerAction
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
 import com.wasimaster.wmkeyboard.core.tools.Weekend
 import com.wasimaster.wmkeyboard.core.tools.isSouthernHemisphere
-import com.wasimaster.wmkeyboard.core.tools.GeoPlace
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.MediaCategoryCache
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
@@ -127,11 +132,12 @@ import com.wasimaster.wmkeyboard.core.ocr.OcrPacks
 import androidx.compose.runtime.collectAsState
 import com.wasimaster.wmkeyboard.core.settings.TranslateEngine
 import com.wasimaster.wmkeyboard.core.settings.DeepLWriteStyle
-import com.wasimaster.wmkeyboard.core.tools.WeatherClient
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.core.settings.HoldRepeatCursorTools
+import com.wasimaster.wmkeyboard.core.settings.DefaultToolHoldActions
+import com.wasimaster.wmkeyboard.core.settings.holdActionOf
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.script.FancyStyles
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
@@ -142,6 +148,7 @@ import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.ToolBlocker
 import com.wasimaster.wmkeyboard.core.settings.toolBlocker
 import com.wasimaster.wmkeyboard.core.settings.PowerSavingTrigger
+import com.wasimaster.wmkeyboard.core.settings.CursorWordSteps
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.ToolHoldAction
@@ -167,9 +174,10 @@ import androidx.compose.foundation.lazy.rememberLazyListState
  * way to give any other tool a hold, and nobody looked under Appearance for it
  * anyway (#31). The bound tool runs whether or not it is itself on the toolbar.
  *
- * A tool with nothing bound keeps the original behaviour and opens its own
- * settings page, which the row says in as many words — an explicit "settings"
- * entry in the picker made the default look like a choice the user had made.
+ * A tool with nothing bound does its default ([holdActionOf]): HeliBoard's
+ * pairing where it has one (#639), its own settings page where it has none.
+ * The picker's first row is that default, named; a tool with a pairing also
+ * gets a "settings page" row, since there the page has become a choice.
  * The caret tools and Selection mode say their reason instead of hiding the
  * row: their hold is already spent, on a repeat or on arming the mode, and
  * someone looking for the row here should find out why.
@@ -187,6 +195,8 @@ private fun ToolHoldRow(
     val tracks = settings.watch { tool == ToolbarTool.TRACKPAD && it.trackpad.holdToOpen }
     val picksVoiceMode = settings.watch { tool == ToolbarTool.VOICE && it.voiceBar.holdPicksTypingMode }
     val bound = settings.watch { it.toolbarBehavior.holdActions[tool] }
+    val resolved = settings.watch { it.toolbarBehavior.holdActionOf(tool) }
+    val pairing = DefaultToolHoldActions[tool]
     if (repeats || selects || tracks || picksVoiceMode) {
         // Reads rather than opens: this tool's hold has none to give.
         WmRow(
@@ -206,10 +216,10 @@ private fun ToolHoldRow(
     NavRow(
         title = R.string.tooldetail_hold_title,
         subtitle = stringResource(R.string.tooldetail_hold_subtitle),
-        value = when (bound) {
-            null -> stringResource(R.string.tooldetail_hold_settings_value)
+        value = when (resolved) {
+            ToolHoldAction.OpenSettings -> stringResource(R.string.tooldetail_hold_settings_value)
             ToolHoldAction.None -> stringResource(R.string.tooldetail_hold_nothing_value)
-            is ToolHoldAction.Run -> stringResource(toolTitle(bound.tool))
+            is ToolHoldAction.Run -> stringResource(toolTitle(resolved.tool))
         },
     ) { editing = true }
     if (editing) {
@@ -218,10 +228,23 @@ private fun ToolHoldRow(
             current = (bound as? ToolHoldAction.Run)?.tool,
             // Every tool but this one: holding a tool to run itself is a slow tap.
             options = ToolbarTool.entries.filter { isSupportedTool(it) && it != tool },
-            noneSubtitle = stringResource(R.string.tooldetail_hold_settings_value),
+            // The default row says what the default is: the pairing (#639),
+            // or the settings page for a tool without one.
+            noneTitle = stringResource(R.string.tooldetail_hold_default_title),
+            noneSubtitle = pairing?.let {
+                stringResource(R.string.tooldetail_hold_default_pairing_subtitle, stringResource(toolTitle(it)))
+            } ?: stringResource(R.string.tooldetail_hold_settings_value),
             // The third answer (#136): a hold that does nothing at all.
             nothingSubtitle = stringResource(R.string.tooldetail_hold_nothing_subtitle),
             nothingSelected = bound == ToolHoldAction.None,
+            // Only where the default is a pairing: elsewhere the page is
+            // already what the default row gives.
+            settingsSubtitle = pairing?.let { stringResource(R.string.tooldetail_hold_settings_subtitle) },
+            settingsSelected = bound == ToolHoldAction.OpenSettings,
+            onPickSettings = {
+                editing = false
+                scope.launch { repository.setToolHoldAction(tool, ToolHoldAction.OpenSettings) }
+            },
             onDismiss = { editing = false },
             onPick = { picked ->
                 editing = false
@@ -246,6 +269,9 @@ private fun ToolHoldRow(
  * only the hold picker has a use for: a key that does nothing is a blank, a
  * hold that does nothing is a choice. [nothingSelected] says whether it is the
  * standing one, since the row is not a tool and [current] cannot name it.
+ * [settingsSubtitle] is a third such row, "Settings page", for the hold picker
+ * of a tool whose default is a pairing (#639); [noneTitle] renames the "None"
+ * row, which the hold picker calls "Default".
  */
 @Composable
 internal fun ToolPickerDialog(
@@ -258,6 +284,10 @@ internal fun ToolPickerDialog(
     nothingSubtitle: String? = null,
     nothingSelected: Boolean = false,
     onPickNothing: () -> Unit = {},
+    noneTitle: String? = null,
+    settingsSubtitle: String? = null,
+    settingsSelected: Boolean = false,
+    onPickSettings: () -> Unit = {},
 ) {
     val list = rememberLazyListState()
     val rail = rememberScrollRailState(list)
@@ -269,11 +299,11 @@ internal fun ToolPickerDialog(
                 LazyColumn(state = list, modifier = rows) {
                     if (noneSubtitle != null) item {
                         WmRow(
-                            title = stringResource(CommonR.string.common_none),
+                            title = noneTitle ?: stringResource(CommonR.string.common_none),
                             supporting = { CaptionText(noneSubtitle) },
                             trailing = {
                                 RadioButton(
-                                    selected = current == null && !nothingSelected,
+                                    selected = current == null && !nothingSelected && !settingsSelected,
                                     onClick = { onPick(null) },
                                 )
                             },
@@ -288,6 +318,16 @@ internal fun ToolPickerDialog(
                                 RadioButton(selected = nothingSelected, onClick = onPickNothing)
                             },
                             onClick = onPickNothing,
+                        )
+                    }
+                    if (settingsSubtitle != null) item {
+                        WmRow(
+                            title = stringResource(R.string.tooldetail_hold_settings_title),
+                            supporting = { CaptionText(settingsSubtitle) },
+                            trailing = {
+                                RadioButton(selected = settingsSelected, onClick = onPickSettings)
+                            },
+                            onClick = onPickSettings,
                         )
                     }
                     items(options, key = { it.name }) { tool ->
@@ -309,6 +349,53 @@ internal fun ToolPickerDialog(
     )
 }
 /** One tool's screen: the enable switch plus every setting the tool has. */
+/**
+ * Where Word left, Word right and Select word stop (#662): the app's own idea
+ * of a word, or the keyboard's, measured at spaces or at punctuation too, and
+ * optionally at a capital inside a word. Shared by the three tools' pages,
+ * since the setting is one for all three.
+ */
+@Composable
+private fun WordStepsGroup(repository: SettingsRepository, settings: LiveSettings) {
+    val scope = rememberCoroutineScope()
+    val steps = settings.watch { it.textEditing.cursorWordSteps }
+    SettingsGroup(stringResource(R.string.tooldetail_word_steps_group)) {
+        item {
+            ChoiceSetting(
+                R.string.tooldetail_word_steps_title,
+                subtitle = stringResource(R.string.tooldetail_word_steps_subtitle),
+                options = listOf(
+                    CursorWordSteps.APP to stringResource(R.string.tooldetail_word_steps_app),
+                    CursorWordSteps.SPACES to stringResource(R.string.tooldetail_word_steps_spaces),
+                    CursorWordSteps.PUNCTUATION to stringResource(R.string.tooldetail_word_steps_punctuation),
+                ),
+                selected = steps,
+                info = stringResource(R.string.tooldetail_word_steps_info),
+                default = SettingsDefaults.textEditing.cursorWordSteps,
+                detail = { choice ->
+                    ChoiceDetail(
+                        stringResource(
+                            when (choice) {
+                                CursorWordSteps.APP -> R.string.tooldetail_word_steps_app_desc
+                                CursorWordSteps.SPACES -> R.string.tooldetail_word_steps_spaces_desc
+                                CursorWordSteps.PUNCTUATION -> R.string.tooldetail_word_steps_punctuation_desc
+                            },
+                        ),
+                    )
+                },
+            ) { scope.launch { repository.setCursorWordSteps(it) } }
+        }
+        item(visible = steps != CursorWordSteps.APP) {
+            ToggleSetting(
+                R.string.tooldetail_word_steps_capitals_title,
+                stringResource(R.string.tooldetail_word_steps_capitals_subtitle),
+                settings.watch { it.textEditing.cursorWordStopsAtCapitals },
+                default = SettingsDefaults.textEditing.cursorWordStopsAtCapitals,
+            ) { scope.launch { repository.setCursorWordStopsAtCapitals(it) } }
+        }
+    }
+}
+
 @Composable
 internal fun ToolDetailSettings(
     repository: SettingsRepository,
@@ -350,6 +437,8 @@ internal fun ToolDetailSettings(
                         stringResource(R.string.tooldetail_enabled_needs_instance_subtitle)
                     ToolBlocker.NEEDS_SECONDARY_LAYOUT ->
                         stringResource(R.string.tooldetail_enabled_needs_layout_subtitle)
+                    ToolBlocker.VOICE_OFF ->
+                        stringResource(R.string.tooldetail_enabled_voice_off_subtitle)
                 },
                 usable && toolOn,
                 switchKey = landingKey("switch"),
@@ -410,6 +499,39 @@ internal fun ToolDetailSettings(
                     stringResource(R.string.statistics_subtitle),
                     route = "statistics",
                 ) { onNavigate("statistics") }
+            }
+        }
+        // The search history lives in its own file, not in the settings (see
+        // FindHistoryPrefs), so this page reads and writes that file directly.
+        ToolbarTool.FIND_REPLACE -> {
+            val historyContext = LocalContext.current
+            val history = remember { com.wasimaster.wmkeyboard.ime.FindHistoryPrefs(historyContext) }
+            var remembering by remember { mutableStateOf(history.enabled) }
+            var count by remember { mutableStateOf(history.entries().size) }
+            SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_find_history_title,
+                        stringResource(R.string.tooldetail_find_history_subtitle),
+                        remembering,
+                        default = true,
+                    ) {
+                        history.enabled = it
+                        remembering = it
+                        count = history.entries().size
+                    }
+                }
+                item(visible = remembering) {
+                    ActionRow(
+                        R.string.tooldetail_find_history_clear_title,
+                        subtitle = pluralStringResource(R.plurals.tooldetail_find_history_count, count, count),
+                        action = stringResource(R.string.tooldetail_find_history_clear_action),
+                        enabled = count > 0,
+                    ) {
+                        history.clear()
+                        count = 0
+                    }
+                }
             }
         }
         ToolbarTool.MEDIA_CONTROL -> {
@@ -976,6 +1098,28 @@ internal fun ToolDetailSettings(
                 }
             }
             SettingsGroup(
+                stringResource(R.string.location_camera_group),
+                info = stringResource(R.string.location_camera_info),
+            ) {
+                item {
+                    ToggleSetting(
+                        R.string.location_camera_stamp_title,
+                        stringResource(R.string.location_camera_stamp_subtitle),
+                        settings.watch { it.camera.locationStamp },
+                        default = SettingsDefaults.camera.locationStamp,
+                    ) { scope.launch { repository.setCameraLocationStamp(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.location_camera_caption_title,
+                        stringResource(R.string.location_camera_caption_subtitle),
+                        settings.watch { it.camera.locationCaption },
+                        info = stringResource(R.string.location_camera_caption_info),
+                        default = SettingsDefaults.camera.locationCaption,
+                    ) { scope.launch { repository.setCameraLocationCaption(it) } }
+                }
+            }
+            SettingsGroup(
                 stringResource(R.string.tooldetail_camera_search_group),
                 info = stringResource(R.string.tooldetail_camera_search_info),
             ) {
@@ -1267,6 +1411,9 @@ internal fun ToolDetailSettings(
                 }
             }
         }
+        // Select word grows over the words beside it, measured as the two word
+        // moves measure (#662), so its page carries the same rows.
+        ToolbarTool.SELECT_WORD -> WordStepsGroup(repository, settings)
         // The caret movers, which are the only tools a hold repeats. Home, End
         // and the two select tools are not in the set — a second press of those
         // lands exactly where the first one did — so their pages stay plain.
@@ -1312,6 +1459,9 @@ internal fun ToolDetailSettings(
                         ) { scope.launch { repository.setTextEditRepeatMs(it.toInt()) } }
                     }
                 }
+            }
+            if (tool == ToolbarTool.CURSOR_WORD_LEFT || tool == ToolbarTool.CURSOR_WORD_RIGHT) {
+                WordStepsGroup(repository, settings)
             }
         }
         ToolbarTool.NUMPAD -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
@@ -1470,6 +1620,14 @@ internal fun ToolDetailSettings(
                         settings.watch { it.powerSaving.dropKeyPopup },
                         default = SettingsDefaults.powerSaving.dropKeyPopup,
                     ) { scope.launch { repository.setPowerSavingDropKeyPopup(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_power_drop_glass_blur_title,
+                        stringResource(R.string.tooldetail_power_drop_glass_blur_subtitle),
+                        settings.watch { it.powerSaving.dropGlassBlur },
+                        default = SettingsDefaults.powerSaving.dropGlassBlur,
+                    ) { scope.launch { repository.setPowerSavingDropGlassBlur(it) } }
                 }
             }
             SettingsGroup(stringResource(R.string.tooldetail_power_drop_helpers_group)) {
@@ -1739,6 +1897,22 @@ internal fun ToolDetailSettings(
                         info = stringResource(R.string.tooldetail_handwriting_pause_info),
                         default = SettingsDefaults.handwritingCommitDelayMs.toFloat(),
                     ) { scope.launch { repository.setHandwritingCommitDelayMs(it.roundToInt()) } }
+                }
+                // The canvas and the keys around it are a panel layout (#568),
+                // edited where the trackpad's are.
+                item {
+                    val customPanels by repository.customPanelLayouts.collectAsStateWithLifecycle(emptyList())
+                    NavRow(
+                        title = R.string.panel_layout_row_title,
+                        subtitle = stringResource(R.string.panel_layout_row_subtitle),
+                        value = stringResource(
+                            if (customPanels.none { it.panel == PanelKind.HANDWRITING }) {
+                                R.string.panel_layout_value_default
+                            } else {
+                                R.string.panel_layout_value_custom
+                            },
+                        ),
+                    ) { onNavigate(panelEditRoute(PanelKind.HANDWRITING)) }
                 }
                 // Issue #386. Automatic rides on Android's own stylus
                 // handwriting, which only exists from Android 14; below that
@@ -2122,7 +2296,52 @@ internal fun ToolDetailSettings(
                     ) { onNavigate(panelEditRoute(panel)) }
                 }
             }
-            if (tool == ToolbarTool.GIF) OfflineGifPacksGroup()
+            if (tool == ToolbarTool.GIF) {
+                // The GIF panel's favourites and recent GIFs (#597).
+                val context = LocalContext.current
+                SettingsGroup(
+                    stringResource(R.string.tooldetail_gif_collections_group),
+                    info = stringResource(R.string.tooldetail_gif_collections_info),
+                ) {
+                    item {
+                        ToggleSetting(
+                            R.string.tooldetail_gif_recent_title,
+                            stringResource(R.string.tooldetail_gif_recent_subtitle),
+                            settings.watch { it.gif.recentGifs },
+                            info = stringResource(R.string.tooldetail_gif_recent_info),
+                            default = SettingsDefaults.gif.recentGifs,
+                        ) { on ->
+                            scope.launch {
+                                repository.setRecentGifs(on)
+                                if (!on) {
+                                    withContext(Dispatchers.IO) {
+                                        com.wasimaster.wmkeyboard.core.tools.GifCollections.get(context).clearRecents()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    item {
+                        ToggleSetting(
+                            R.string.tooldetail_gif_favourites_offline_title,
+                            stringResource(R.string.tooldetail_gif_favourites_offline_subtitle),
+                            settings.watch { it.gif.favouritesOffline },
+                            info = stringResource(R.string.tooldetail_gif_favourites_offline_info),
+                            default = SettingsDefaults.gif.favouritesOffline,
+                        ) { on ->
+                            scope.launch {
+                                repository.setGifFavouritesOffline(on)
+                                if (!on) {
+                                    withContext(Dispatchers.IO) {
+                                        com.wasimaster.wmkeyboard.core.tools.GifCollections.get(context).dropCopies()
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                OfflineGifPacksGroup()
+            }
             SettingsGroup(
                 stringResource(R.string.tooldetail_media_keys_group),
                 info = stringResource(R.string.tooldetail_media_info),
@@ -3006,7 +3225,11 @@ internal fun ToolDetailSettings(
         }
         ToolbarTool.TYPING_TEST -> TypingTestToolSettings(repository, settings)
         ToolbarTool.AI -> AiToolSettings(repository, settings, onNavigate)
+        ToolbarTool.AI_REPLY -> AiReplyToolSettings(repository, settings, onNavigate)
         ToolbarTool.VOCABULARY -> VocabularyToolSettings(repository, settings, onNavigate)
+        ToolbarTool.NOTES -> NotesToolSettings(repository, settings, onNavigate)
+        ToolbarTool.LOCATION -> LocationToolSettings(repository, settings)
+        ToolbarTool.CLOCK -> ClockToolSettings(onNavigate)
         ToolbarTool.MODES -> SettingsGroup(stringResource(R.string.tooldetail_modes_group)) {
             item {
                 NavRow(
@@ -3904,11 +4127,31 @@ private fun HandwritingModelManager(settings: LiveSettings) {
     val progress = remember { mutableStateMapOf<String, HandwritingDownloadProgress>() }
     val sizes = remember { mutableStateMapOf<String, Long>() }
     val reduceMotion = LocalReduceMotion.current
-    LaunchedEffect(languages) {
+    // Bumped by an offline import, so the rows re-read what ML Kit now has.
+    var imports by remember { mutableIntStateOf(0) }
+    LaunchedEffect(languages, imports) {
         for (language in languages) {
             statuses[language.tag] =
                 if (HandwritingModels.isDownloaded(language.tag)) "downloaded" else "missing"
             sizes[language.tag] = HandwritingModelSizes.installedBytes(context, language.tag)
+        }
+    }
+    // Each model's pack files, to fetch on another device (#666). Empty on
+    // Play until the recogniser's module, which carries the list, is here.
+    val importLinks by produceState(emptyList<OfflineLink>(), languages) {
+        value = withContext(Dispatchers.IO) {
+            languages.flatMap { language ->
+                val urls = InkPackImports.packUrls(context, language.tag)
+                urls.mapIndexed { index, url ->
+                    OfflineLink(
+                        context.getString(
+                            R.string.offline_import_handwriting_link_label,
+                            language.displayName, index + 1, urls.size,
+                        ),
+                        url,
+                    )
+                }
+            }.distinctBy { it.url }
         }
     }
     if (languages.isEmpty()) {
@@ -4011,6 +4254,13 @@ private fun HandwritingModelManager(settings: LiveSettings) {
                     },
                 )
             }
+        }
+        item {
+            OfflineImportRow(
+                subtitle = stringResource(R.string.offline_import_handwriting_subtitle),
+                links = importLinks,
+                onImported = { imports++ },
+            )
         }
     }
     if (missing.isNotEmpty()) {
@@ -4177,148 +4427,31 @@ internal fun WeatherLocationSetting(repository: SettingsRepository, settings: Li
         subtitle = summary,
     ) { editing = true }
     if (!editing) return
-
-    var place by remember { mutableStateOf(savedPlace) }
-    var lat by remember { mutableStateOf(savedLatitude?.toString().orEmpty()) }
-    var lon by remember { mutableStateOf(savedLongitude?.toString().orEmpty()) }
-    var query by remember { mutableStateOf("") }
-    var results by remember { mutableStateOf<List<GeoPlace>>(emptyList()) }
-    var searching by remember { mutableStateOf(false) }
-    var searchFailed by remember { mutableStateOf(false) }
-    val parsedLat = lat.trim().toFloatOrNull()?.takeIf { it in -90f..90f }
-    val parsedLon = lon.trim().toFloatOrNull()?.takeIf { it in -180f..180f }
-
-    fun search() {
-        if (query.isBlank() || searching) return
-        searching = true
-        searchFailed = false
-        scope.launch {
-            val found = withContext(Dispatchers.IO) {
-                runCatching { WeatherClient.geocode(query) }.getOrNull()
-            }
-            searching = false
-            if (found == null) {
-                searchFailed = true
-            } else {
-                results = found
-                searchFailed = found.isEmpty()
-            }
-        }
-    }
-
-    AlertDialog(
-        onDismissRequest = { editing = false },
-        // Typing in the search/coordinate fields moves the dialog around the
-        // keyboard, so a tap can land on the scrim where the dialog just was
-        // and silently swallow the half-entered location. Explicit
-        // Cancel/Save only; back still dismisses.
-        properties = DialogProperties(dismissOnClickOutside = false),
-        title = { Text(stringResource(R.string.privacy_weather_dialog_title)) },
-        text = {
-            val unknownRegion = stringResource(R.string.privacy_weather_region_unknown)
-            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    OutlinedTextField(
-                        value = query,
-                        onValueChange = { query = it },
-                        label = { Text(stringResource(R.string.privacy_weather_search_hint)) },
-                        singleLine = true,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { search() }, enabled = query.isNotBlank() && !searching) {
-                        Text(if (searching) "…" else stringResource(CommonR.string.common_search))
-                    }
-                }
-                if (searchFailed) {
-                    Text(
-                        if (results.isEmpty() && !searching) {
-                            stringResource(R.string.privacy_weather_no_matches_error)
-                        } else {
-                            stringResource(R.string.privacy_weather_search_error)
-                        },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(top = 4.dp),
-                    )
-                }
-                for (result in results) {
-                    ListItem(
-                        headlineContent = { Text(result.name) },
-                        supportingContent = {
-                            Text(
-                                stringResource(
-                                    R.string.privacy_weather_result_summary,
-                                    result.region.ifBlank { unknownRegion },
-                                    result.latitude,
-                                    result.longitude,
-                                )
-                            )
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                place = result.name
-                                lat = result.latitude.toString()
-                                lon = result.longitude.toString()
-                                results = emptyList()
-                            },
-                    )
-                }
-                Spacer(Modifier.height(8.dp))
-                Text(
-                    stringResource(R.string.privacy_weather_manual_info),
-                    style = MaterialTheme.typography.bodySmall,
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = place,
-                    onValueChange = { place = it },
-                    label = { Text(stringResource(R.string.privacy_weather_name_hint)) },
-                    singleLine = true,
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = lat,
-                    onValueChange = { lat = it },
-                    label = { Text(stringResource(R.string.privacy_weather_latitude_hint)) },
-                    singleLine = true,
-                    isError = lat.isNotBlank() && parsedLat == null,
-                )
-                Spacer(Modifier.height(8.dp))
-                OutlinedTextField(
-                    value = lon,
-                    onValueChange = { lon = it },
-                    label = { Text(stringResource(R.string.privacy_weather_longitude_hint)) },
-                    singleLine = true,
-                    isError = lon.isNotBlank() && parsedLon == null,
-                )
-            }
+    val lookupNames = settings.watch { it.location.lookupAddress }
+    PlaceEditorDialog(
+        title = stringResource(R.string.privacy_weather_dialog_title),
+        initialName = savedPlace,
+        initialPoint = if (savedLatitude != null && savedLongitude != null) {
+            com.wasimaster.wmkeyboard.core.location.GeoPoint(savedLatitude.toDouble(), savedLongitude.toDouble())
+        } else {
+            null
         },
-        confirmButton = {
-            TextButton(
-                enabled = parsedLat != null && parsedLon != null,
-                onClick = {
-                    scope.launch {
-                        repository.setWeatherLocation(parsedLat, parsedLon, place.trim())
-                    }
-                    editing = false
-                },
-            ) { Text(stringResource(CommonR.string.common_save)) }
-        },
-        dismissButton = {
-            Row {
-                if (savedLatitude != null) {
-                    TextButton(onClick = {
-                        scope.launch { repository.setWeatherLocation(null, null, "") }
-                        editing = false
-                    }) { Text(stringResource(CommonR.string.common_clear)) }
-                }
-                TextButton(onClick = { editing = false }) {
-                    Text(stringResource(CommonR.string.common_cancel))
-                }
+        lookupNames = lookupNames,
+        onSave = { name, point ->
+            scope.launch {
+                repository.setWeatherLocation(point.latitude.toFloat(), point.longitude.toFloat(), name)
             }
+            editing = false
         },
+        onClear = if (savedLatitude != null) {
+            {
+                scope.launch { repository.setWeatherLocation(null, null, "") }
+                editing = false
+            }
+        } else {
+            null
+        },
+        onDismiss = { editing = false },
     )
 }
 // ---- privacy ----
@@ -4389,3 +4522,147 @@ private fun grammarCategoryInfo(category: GrammarCategory): Int = when (category
 }
 
 private val DictionarySourceRowHeight = 64.dp
+
+/**
+ * The AI reply tool's page (#234).
+ *
+ * The provider, the key and the model are the AI tool's and stay there — this
+ * tool borrows them, and two places to set the same key would be two places to
+ * get it wrong. What is here is only what a drafted reply needs: how many, how
+ * long, who the user is, and what happens to the copies it was built from.
+ */
+@Composable
+private fun AiReplyToolSettings(
+    repository: SettingsRepository,
+    settings: LiveSettings,
+    onNavigate: (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val numberFormat = stringResource(R.string.values_number)
+    val charsFormat = stringResource(R.string.values_characters)
+
+    SettingsGroup(stringResource(R.string.toolai_reply_drafts_title)) {
+        item {
+            SliderSetting(
+                R.string.toolai_reply_count_title,
+                value = settings.watch { it.ai.reply.count }.toFloat(),
+                range = 1f..AiPrompts.MAX_REPLIES.toFloat(),
+                display = { numberFormat.format(it.roundToInt()) },
+                default = SettingsDefaults.ai.reply.count.toFloat(),
+            ) { scope.launch { repository.setAiReplyCount(it.roundToInt()) } }
+        }
+        item {
+            ChoiceSetting(
+                title = R.string.toolai_reply_length_title,
+                subtitle = stringResource(R.string.toolai_reply_length_subtitle),
+                options = listOf(
+                    ReplyLength.SHORT to stringResource(R.string.toolai_reply_length_short),
+                    ReplyLength.MEDIUM to stringResource(R.string.toolai_reply_length_medium),
+                    ReplyLength.LONG to stringResource(R.string.toolai_reply_length_long),
+                ),
+                selected = settings.watch { it.ai.reply.length },
+                default = SettingsDefaults.ai.reply.length,
+            ) { scope.launch { repository.setAiReplyLength(it) } }
+        }
+        item {
+            ChoiceSetting(
+                title = R.string.toolai_reply_emoji_title,
+                subtitle = stringResource(R.string.toolai_reply_emoji_subtitle),
+                options = listOf(
+                    ReplyEmoji.MATCH to stringResource(R.string.toolai_reply_emoji_match),
+                    ReplyEmoji.ALLOW to stringResource(R.string.toolai_reply_emoji_allow),
+                    ReplyEmoji.AVOID to stringResource(R.string.toolai_reply_emoji_avoid),
+                ),
+                selected = settings.watch { it.ai.reply.emoji },
+                default = SettingsDefaults.ai.reply.emoji,
+            ) { scope.launch { repository.setAiReplyEmoji(it) } }
+        }
+    }
+
+    SettingsGroup(stringResource(R.string.toolai_reply_voice_title)) {
+        item {
+            TextFieldSetting(
+                label = stringResource(R.string.toolai_reply_persona_label),
+                value = settings.watch { it.ai.reply.persona },
+                hint = stringResource(R.string.toolai_reply_persona_hint),
+            ) { repository.setAiReplyPersona(it) }
+        }
+        item {
+            TextFieldSetting(
+                label = stringResource(R.string.toolai_reply_language_label),
+                value = settings.watch { it.ai.reply.language },
+                hint = stringResource(R.string.toolai_reply_language_hint),
+            ) { repository.setAiReplyLanguage(it) }
+        }
+        item {
+            SliderSetting(
+                R.string.toolai_reply_context_title,
+                value = settings.watch { it.ai.reply.contextChars }.toFloat(),
+                range = 300f..8_000f,
+                display = { charsFormat.format(it.roundToInt()) },
+                default = SettingsDefaults.ai.reply.contextChars.toFloat(),
+            ) { scope.launch { repository.setAiReplyContextChars(it.roundToInt()) } }
+        }
+    }
+
+    SettingsGroup(stringResource(R.string.toolai_reply_shots_title)) {
+        item {
+            ChoiceSetting(
+                title = R.string.toolai_reply_image_mode_title,
+                subtitle = stringResource(R.string.toolai_reply_image_mode_subtitle),
+                options = listOf(
+                    ReplyImageMode.AUTO to stringResource(R.string.toolai_reply_image_mode_auto),
+                    ReplyImageMode.IMAGE to stringResource(R.string.toolai_reply_image_mode_image),
+                    ReplyImageMode.OCR to stringResource(R.string.toolai_reply_image_mode_ocr),
+                ),
+                selected = settings.watch { it.ai.reply.imageMode },
+                default = SettingsDefaults.ai.reply.imageMode,
+            ) { scope.launch { repository.setAiReplyImageMode(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.toolai_reply_catch_shots_title,
+                stringResource(R.string.toolai_reply_catch_shots_subtitle),
+                settings.watch { it.ai.reply.catchScreenshots },
+                default = SettingsDefaults.ai.reply.catchScreenshots,
+            ) { scope.launch { repository.setAiReplyCatchScreenshots(it) } }
+        }
+    }
+
+    SettingsGroup(stringResource(R.string.toolai_reply_tones_title)) {
+        item {
+            NavRow(
+                R.string.toolai_reply_tones_nav_title,
+                stringResource(R.string.toolai_reply_tones_nav_subtitle),
+            ) { onNavigate("ai_reply_tones") }
+        }
+    }
+
+    SettingsGroup(stringResource(R.string.toolai_reply_after_title)) {
+        item {
+            ToggleSetting(
+                R.string.toolai_reply_tidy_title,
+                stringResource(R.string.toolai_reply_tidy_subtitle),
+                settings.watch { it.ai.reply.tidyUp },
+                default = SettingsDefaults.ai.reply.tidyUp,
+            ) { scope.launch { repository.setAiReplyTidyUp(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.toolai_reply_history_title,
+                stringResource(R.string.toolai_reply_history_subtitle),
+                settings.watch { it.ai.reply.keepHistory },
+                default = SettingsDefaults.ai.reply.keepHistory,
+            ) { scope.launch { repository.setAiReplyKeepHistory(it) } }
+        }
+    }
+
+    SettingsGroup(stringResource(R.string.toolai_reply_provider_title)) {
+        item {
+            NavRow(
+                R.string.toolai_reply_provider_nav_title,
+                stringResource(R.string.toolai_reply_provider_nav_subtitle),
+            ) { onNavigate("tool/${ToolbarTool.AI.name}") }
+        }
+    }
+}

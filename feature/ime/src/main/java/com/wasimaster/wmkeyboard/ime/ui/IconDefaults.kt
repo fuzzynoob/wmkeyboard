@@ -2,6 +2,7 @@ package com.wasimaster.wmkeyboard.ime.ui
 
 import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoStories
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.History
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowBack
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowForward
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Assignment
@@ -78,6 +79,9 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Public
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PushPin
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCode2
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QueryStats
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FindReplace
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.StickyNote2
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.LocationOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCodeScanner
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Schedule
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.School
@@ -101,6 +105,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VisibilityOff
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.icons.SymbolIcons
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Quickreply
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.ime.EnterAction
 
@@ -181,6 +186,10 @@ object IconDefaults {
         // The settings app's own Statistics glyph, so the tool and the row it
         // opens look like the same thing.
         ToolbarTool.STATISTICS -> Icons.Outlined.QueryStats
+        ToolbarTool.FIND_REPLACE -> Icons.Outlined.FindReplace
+        ToolbarTool.NOTES -> Icons.Outlined.StickyNote2
+        ToolbarTool.LOCATION -> Icons.Outlined.LocationOn
+        ToolbarTool.CLOCK -> Icons.Outlined.Schedule
         ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
         ToolbarTool.KDE_CONNECT -> Icons.Outlined.Phonelink
         ToolbarTool.PLUGINS -> Icons.Outlined.Extension
@@ -210,6 +219,9 @@ object IconDefaults {
         ToolbarTool.COPY -> Icons.Outlined.ContentCopy
         ToolbarTool.CUT -> Icons.Outlined.ContentCut
         ToolbarTool.PASTE -> Icons.Outlined.ContentPaste
+        // Material's own "quick reply": a speech bubble with a flash in it,
+        // which is exactly what this tool does.
+        ToolbarTool.AI_REPLY -> Icons.Outlined.Quickreply
     }
 
     /**
@@ -301,6 +313,8 @@ object IconDefaults {
         put(IconSlots.CHROME_SEARCH_CLOSE, Icons.Outlined.Close)
         put(IconSlots.CHROME_INCOGNITO, KeyboardIcons.Incognito)
         put(IconSlots.CHROME_POWER_SAVING, Icons.Outlined.BatterySaver)
+        put(IconSlots.CHROME_SHOW_KEYS, Icons.Outlined.Keyboard)
+        put(IconSlots.CHROME_HIDE_KEYS, Icons.Outlined.KeyboardHide)
 
         put(IconSlots.EMOJI_TAB_SEARCH, Icons.Outlined.Search)
         put(IconSlots.EMOJI_TAB_RECENT, Icons.Outlined.Schedule)

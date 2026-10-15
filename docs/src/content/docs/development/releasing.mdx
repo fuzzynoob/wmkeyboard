@@ -16,7 +16,7 @@ of it, so nothing here needs a branch or a patched source tree.
 
 | | GitHub release | F-Droid | Play Store |
 |---|---|---|---|
-| Flavor | `full` **and** `lite`, each in `intl` **and** `en` | `lite`, `intl` | `full`, `en` |
+| Flavor | `full` and `lite`, each in `intl` and `en` | `lite`, `intl` | `full`, `en` |
 | Gradle task | the four `assemble*Release` | `assembleLiteRelease`, an alias for `assembleLiteIntlRelease` | `bundleFullEnRelease` |
 | `wmkb.enablePlayStore` | `false` | `false` | `true` |
 | `wmkb.enableGms` | `true` | `false` | `true` |
@@ -30,7 +30,12 @@ of it, so nothing here needs a branch or a patched source tree.
 | On-device translation (ML Kit) | bundled | absent | on-demand `:feature:translate` module |
 | LiteRT interpreter (offline Whisper, the sticker editor's own background remover) | bundled | absent | on-demand `:feature:litert` module |
 | Handwriting recognition (ML Kit) | bundled | absent | on-demand `:feature:handwriting` module |
+| Text engines (Avro, Khipro, Bijoy, Hindi, Urdu, the Indic languages) | committed prebuilt library | compiled from source by the recipe | the same prebuilt library, in the base module |
+| Harper, whisper.cpp, ExecuTorch (grammar, Offline Whisper, Asr4All, Parakeet, Moonshine) | committed prebuilt libraries | compiled from source by the recipe | the same prebuilt libraries, in the on-demand `:feature:speech` (whisper.cpp, ExecuTorch) and `:feature:grammar` (Harper) modules |
+| Whistle, Tesseract (Whistle dictation, the scanner's offline reader) | committed prebuilt libraries, full only | absent | the same prebuilt libraries, in the on-demand `:feature:speech` (Whistle, arm64 only) and `:feature:ocr` (Tesseract) modules |
 | In-app updates | GitHub releases, downloads and installs | checks F-Droid, links out | Play In-App Updates |
+| Native libraries in the APK | uncompressed and page-aligned | uncompressed and page-aligned | uncompressed and page-aligned; Play compresses the download itself |
+| Bundled layouts | JSON compacted at build time | same | same |
 
 The flags read from a `-P` Gradle property first, then `local.properties`, then
 the environment, then default to `false`. `-P` winning is what lets a fastlane
@@ -57,7 +62,7 @@ APK and installs it. Two things follow. Play's Device and Network Abuse policy
 forbids an app distributed through Play from updating itself by any other
 route, so that code and its two permissions must never reach a Play build,
 which is what the source-set and manifest split below enforces. And a
-GitHub-channel build has to be **signed with the release key**, or it can
+GitHub-channel build has to be signed with the release key, or it can
 never install over the published APK: Android refuses an update signed with a
 different key, and the app checks for that itself so the refusal at least
 arrives as a sentence rather than a silent failure.
@@ -130,9 +135,9 @@ same way as its regular build; the publish job attaches a mapping only when the
 two differ, and warns when they do.
 
 The release also carries the files you need to read a crash report from those
-APKs. The `*-mapping.txt.gz` files are the R8 mappings — one per flavor
-combination (`full-intl`, `full-en`, `lite-intl`, `lite-en`), plus a fifth,
-`*-play-mapping.txt.gz` — and `*-full-intl-native-symbols.zip` and
+APKs. The `*-mapping.txt.gz` files are the R8 mappings, one per flavor
+combination (`full-intl`, `full-en`, `lite-intl`, `lite-en`) plus a fifth,
+`*-play-mapping.txt.gz`. The files `*-full-intl-native-symbols.zip` and
 `*-full-en-native-symbols.zip` hold the native debug symbols. The two language
 builds are separate R8 runs, so their mappings are not interchangeable even
 though the Kotlin that went in was identical. Retrace a stack trace with the
@@ -162,16 +167,16 @@ whole body, and comments the result.
 What makes the lookup deterministic rather than a guess is that the record
 names its build. `DebugLog` writes `version: 0.5.9 (24) fullEn (Play Store)`,
 and the flavor there is the whole two-dimension name, which `:app` hands the
-log on startup — `:core:common` compiles against `:core:config`, whose
+log on startup. `:core:common` compiles against `:core:config`, whose
 `BuildConfig.FLAVOR` carries the `capabilities` dimension alone and would say
-just `full`. A record from an F-Droid install is refused with a note instead: the
+only `full`. A record from an F-Droid install is refused with a note instead: the
 F-Droid build's mapping is not published. From 0.5.10 that build is
 identical to the release's `-fdroid.apk`, so its mapping could be.
 
 ### Why a mapping is checked before it is used
 
 A wrong mapping does not fail. It renames every frame, into names that read
-perfectly and mean nothing — [#271](https://github.com/wasi-master/wmkeyboard/issues/271)
+perfectly and mean nothing. [#271](https://github.com/wasi-master/wmkeyboard/issues/271)
 was a crash in the translate panel, from an F-Droid install, and the first
 version of this workflow retraced it into `WmSlider` and `SoundPack` because
 it picked whichever mapping renamed *more* frames, 57 against 56.
@@ -183,9 +188,9 @@ class alone proves nothing, because every mapping of this app holds thousands
 of two-letter class names. The method and line together are what a different
 R8 run cannot fake.
 
-The separation is absolute, and measured rather than assumed — across #252,
-#253, #237 and #271 the correct mapping accounts for **100%** of the frames
-and every wrong one for **0–20%**, with nothing in between. Below 60% nothing
+The separation is absolute, and measured rather than assumed. Across #252,
+#253, #237 and #271 the correct mapping accounts for 100% of the frames
+and every wrong one for 0–20%, with nothing in between. Below 60% nothing
 is posted but a note saying so, which is what #271 gets now.
 
 Commenting `/retrace` on an issue re-runs it against the issue body, which is
@@ -219,7 +224,7 @@ inside a fence long enough that no backtick run in it can escape.
 3. **Add the API-key secrets** you want baked into public builds:
    `WMKB_KLIPY_API_KEY`, `WMKB_GIPHY_API_KEY`, `WMKB_BRAVE_API_KEY`,
    `WMKB_TRANSLATE_API_KEY`, `WMKB_UNSPLASH_API_KEY`, `WMKB_PEXELS_API_KEY`,
-   `WMKB_DROPBOX_APP_KEY`, `WMKB_ONEDRIVE_CLIENT_ID`. Any you leave out just
+   `WMKB_DROPBOX_APP_KEY`, `WMKB_ONEDRIVE_CLIENT_ID`. Any you leave out
    make that tool show its "needs an API key" state, or leave that backup
    destination off the list, so a release without them still builds and runs.
 
@@ -451,13 +456,26 @@ instead.
    `app/dictionaries-src/`, and `.wmng` n-gram packs are downloaded at runtime
    rather than built at all. No binary dictionary is committed. Apart from
    `gradle/wrapper/gradle-wrapper.jar`, which F-Droid checks against its own
-   known-good list, the only prebuilt binaries in the tree are the Harper
-   `.so` files under `core/intelligence/src/full/` and the LLM module's, both
-   of which belong to variants a `lite` build never assembles. The recipe
-   deletes them before building so the scanner has nothing to complain about.
+   known-good list, the only prebuilt binaries in the tree are native
+   libraries. Some belong to variants a `lite` build never assembles
+   (Tesseract, Whistle, the LLM module's placeholders). The rest, the text
+   engines, Harper, whisper.cpp and ExecuTorch under the `src/main/jniLibs`
+   of `:core:language`, `:core:intelligence` and `:core:voice`, ship in
+   `lite` itself. The recipe
+   deletes all of them before the source scan, then its `build:` step runs
+   `native/build-lite-libs.sh`, which compiles the `lite` ones from source with
+   the NDK the recipe names, Rust and CMake.
 
-2. **Test the exact build locally** before you submit, because a failed build
-   on their side means a round trip:
+2. **Test the exact build** before you submit, because a failed build on
+   their side means a round trip. The release workflow's `fdroid` job runs
+   F-Droid's own `fdroid build` in F-Droid's buildserver image, from the recipe
+   in this repo, so a dry run of the workflow is that test:
+
+   ```sh
+   gh workflow run release.yml -f dry_run=true
+   ```
+
+   The Gradle half alone is quicker to check on your own machine:
 
    ```sh
    ./gradlew clean assembleLiteRelease -Pwmkb.enablePlayStore=false -Pwmkb.enableGms=false
@@ -473,7 +491,7 @@ instead.
    auto-provisioning switched off. Together that makes any `jvmToolchain(n)` in
    the tree fatal unless `n` is a JDK their image already carries.
    `:tools:dictc` asked for 17 and failed the build outright with
-   `Cannot find a Java installation ... matching {languageVersion=17}`. Set a **jvmTarget**
+   `Cannot find a Java installation ... matching {languageVersion=17}`. Set a `jvmTarget`
    instead: it fixes the bytecode level without demanding a particular JDK be
    installed.
    :::
@@ -524,13 +542,18 @@ its build and publishes that. If they are not, that version fails and does
 not ship on F-Droid. `AllowedAPKSigningKeys` pins the certificate, so a
 reference APK signed with anything else is refused as well.
 
-The `fdroid` job in the release workflow builds that file. It is the recipe
-copied exactly: `assembleLiteRelease` run from `app/`, the recipe's three
-`-P` flags, no API keys, no ABI split, on its own runner so nothing leaks in
-from the other builds. It skips the recipe's `prebuild` seds, because they
-only delete lines a `lite` build never reads. That was checked before the
-switch by rebuilding 0.5.9 and comparing it with the APK F-Droid had
-published.
+The `fdroid` job in the release workflow builds that file, and it does not
+imitate F-Droid's build: it runs it. `.github/scripts/fdroid-build.sh` installs
+fdroidserver master in F-Droid's buildserver image, writes the recipe from
+this repo with one entry for the commit being released, and runs `fdroid
+build`, the same steps as the `fdroid build` job in fdroiddata's CI. The job
+then signs the unsigned APK with `apksigner sign --alignment-preserved`,
+checks with `apksigcopier compare` that the signature carries back onto it,
+and checks the `lite` engines are inside. Until 0.5.14 the job ran
+`assembleLiteRelease` with the recipe's flags instead, which was enough while
+the recipe was Gradle alone. From 0.6.0 the recipe compiles Harper, whisper.cpp
+and ExecuTorch with the NDK and Rust, and only fdroidserver itself reproduces
+that faithfully.
 
 The rules that follow from this:
 
@@ -541,6 +564,13 @@ The rules that follow from this:
   A timestamp or a random value in `BuildConfig`, a dependency pulled by a
   version range, a JDK toolchain other than the one their image carries.
   When a build fails the comparison, their build log holds the diff.
+- **Native code must not remember where it was built.** A path in a
+  compiled library (`__FILE__` in an assert, a Rust panic message, a libc++
+  header) differs between F-Droid's machine and the runner. The scripts under
+  `native/` map every such path away and pin every tool: the NDK in the
+  recipe, Rust and `cargo-ndk` in `harper-jni/build.sh`, and the commits of
+  whisper.cpp, ExecuTorch and PyTorch in theirs. A new native library joins
+  `native/build-lite-libs.sh` the same way, or stays out of `lite`.
 - **Build it from a real clone.** AGP writes the commit hash into
   `META-INF/version-control-info.textproto`. From a git worktree or a
   tarball it cannot read the repository and writes `NO_VALID_GIT_FOUND`
@@ -576,8 +606,8 @@ The two editions are not the same app, so they do not share a description.
 
 | Tree | Read by | Holds |
 |---|---|---|
-| `fastlane/metadata/android/en-US/` | **F-Droid**, and the shared source for images and changelogs | the **lite** edition's `title.txt`, `short_description.txt` and `full_description.txt`, plus `images/` and `changelogs/` |
-| `fastlane/play/metadata/android/en-US/` | **Play**, via supply's `metadata_path` | the same three text files, written for the **full** edition, and nothing else |
+| `fastlane/metadata/android/en-US/` | **F-Droid**, and the shared source for images and changelogs | the lite edition's `title.txt`, `short_description.txt` and `full_description.txt`, plus `images/` and `changelogs/` |
+| `fastlane/play/metadata/android/en-US/` | **Play**, via supply's `metadata_path` | the same three text files, written for the full edition, and nothing else |
 
 F-Droid scans a fixed set of paths inside the source repo and there is no way
 to point it somewhere else, so the default tree has to be the F-Droid one.
@@ -590,9 +620,10 @@ under the Play tree for a version whose Play notes must differ, which
 `internal` prefers when it exists.
 
 :::caution[The lite description must not promise what lite does not ship]
-The lite flavour has no ML Kit, no Whisper and no Harper, so it has no
-handwriting, no text or QR scanning, no offline dictation and no on-device AI
-models. `fastlane/metadata/android/en-US/full_description.txt` names those as
+The lite flavour has no ML Kit, no LiteRT and no Whistle, so it has no
+handwriting, no text or QR scanning, no LiteRT Whisper, no Whistle dictation
+and no on-device AI chat models. It does have the Harper grammar checker and
+offline dictation through whisper.cpp and ExecuTorch, built from source. `fastlane/metadata/android/en-US/full_description.txt` names those as
 *absent* and links [`/privacy/policy-fdroid/`](/privacy/policy-fdroid/); the
 Play copy describes them as present and links
 [`/privacy/policy/`](/privacy/policy/). Adding a feature to one description
@@ -627,8 +658,8 @@ non-UTF-8 locale otherwise raises rather than counting.
    - **Data safety**: this project collects nothing and shares nothing. The
      optional network tools send what you typed into that tool to the service
      you chose, which belongs under that tool's own disclosure rather than as
-     app-wide collection. **But the form covers bundled SDKs as well as your
-     own code**, and the full edition bundles ML Kit. Google
+     app-wide collection. But the form covers bundled SDKs as well as your
+     own code, and the full edition bundles ML Kit. Google
      [documents](https://developers.google.com/ml-kit/android-data-disclosure)
      that its SDKs send device and app information, a per-installation
      identifier, and performance and error data to Google for diagnostics and
@@ -655,7 +686,7 @@ non-UTF-8 locale otherwise raises rather than counting.
 
    | Surface | Console form? | What to say |
    |---|---|---|
-   | Accessibility API, from `TouchPassthroughService` binding `BIND_ACCESSIBILITY_SERVICE` | **Yes**, and because `isAccessibilityTool="true"` it also wants a **video** of the feature and the disability audience | It carves the key grid out of TalkBack's touch exploration so screen-reader users can still use the keyboard's gestures. It subscribes to no accessibility events, cannot read window content, and is inert unless pass-through is switched on. |
+   | Accessibility API, from `TouchPassthroughService` binding `BIND_ACCESSIBILITY_SERVICE` | **Yes**, and because `isAccessibilityTool="true"` it also wants a video of the feature and the disability audience | It carves the key grid out of TalkBack's touch exploration so screen-reader users can still use the keyboard's gestures. It subscribes to no accessibility events, cannot read window content, and is inert unless pass-through is switched on. |
    | Photo and video permissions, from `READ_MEDIA_IMAGES` | **Yes** | It feeds the screenshot observer that offers a just-taken screenshot on the strip. The Photo Picker cannot replace it: a picker returns a file the user chose, and this needs to notice that a new one appeared. FUTO Keyboard ships the same permission for the same reason on Play, so this is a well-trodden justification rather than a novel one. |
    | Notification access, from `MediaNotificationListener` | No form. Prominent disclosure plus Data safety is the whole requirement | Two jobs, both user-facing: the media-control tool needs the active media session, and one-time-code capture reads codes to offer them on the strip. Both are off until the user enables them, and `SpecialAccessActivity` shows the disclosure before the system screen opens. |
    | `PACKAGE_USAGE_STATS`, for the clipboard's "Show source app" setting | No form. Same as above | On a copy it reads which app was in the foreground in the ten seconds before, so the clip can say where it came from. It reads no history and no time-in-app, keeps the answer with the clip on the device, and the setting is off until the user turns it on. |
@@ -675,7 +706,8 @@ non-UTF-8 locale otherwise raises rather than counting.
 
    Go to internal first, always. Play's own device catalogue tells you within
    minutes if an on-demand module (`:feature:llm`, `:feature:translate`,
-   `:feature:litert`, `:feature:handwriting`) or the unbundled ML Kit path
+   `:feature:litert`, `:feature:handwriting`, `:feature:speech`,
+   `:feature:grammar`, `:feature:ocr`) or the unbundled ML Kit path
    is misconfigured, and that is far cheaper to learn there than in
    production.
 
@@ -711,7 +743,7 @@ bundle install
 | `apks` | sideload APKs, full and lite in both language builds, one per ABI |
 | `internal` | checks the changelog, builds the AAB (or takes `aab:path`), uploads to the internal track. Only the build path checks signing, since a prebuilt `aab:` is assumed already signed |
 | `promote` | move the internal release to production (`to:`, `from:`, `rollout:` options) |
-| `listing` | push the **Play** store-listing text, from `fastlane/play/metadata/`, nothing else |
+| `listing` | push the Play store-listing text, from `fastlane/play/metadata/`, nothing else |
 | `graphics` | push the icon, feature graphic and screenshots to Play, nothing else |
 | `check_key` | validate the service-account key against the Play API |
 
@@ -730,7 +762,7 @@ files to Play. `play/store-listing/` and `play/store-listing-tablet10/` are
 the composed slides those copies come from.
 
 :::caution[Screenshot shape is a hard Play rule]
-A Play screenshot's long side may not be more than **twice** its short side.
+A Play screenshot's long side may not be more than twice its short side.
 The phone slides are composed on a 1080x2400 device canvas, which is 2.22x.
 The API refuses that, with an error naming neither the file nor the rule. Run
 `python3 play/pipeline/pad_phone_shots.py` after you regenerate the slides. It
@@ -771,7 +803,7 @@ and already fine.
 ## Deploying the docs
 
 The site at [wmkeyboard.pages.dev](https://wmkeyboard.pages.dev) is a
-Cloudflare **Pages** project connected to this repository, so a push to `main`
+Cloudflare Pages project connected to this repository, so a push to `main`
 that touches `docs/` deploys itself. The settings are:
 
 | Setting | Value |

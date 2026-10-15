@@ -77,6 +77,7 @@ import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
@@ -136,8 +137,11 @@ import com.wasimaster.wmkeyboard.core.settings.slotThemeId
 import com.wasimaster.wmkeyboard.core.settings.themeSelectionTarget
 import com.wasimaster.wmkeyboard.app.ThemePreview
 import com.wasimaster.wmkeyboard.core.theme.BuiltInThemes
+import com.wasimaster.wmkeyboard.core.theme.FrostSurface
 import com.wasimaster.wmkeyboard.core.theme.flattenedThemes
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.theme.PaletteStyle
+import com.wasimaster.wmkeyboard.ime.AppColors
 import com.wasimaster.wmkeyboard.core.theme.DEFAULT_THEME_ID
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
 import com.wasimaster.wmkeyboard.core.tools.AltCalendars
@@ -200,6 +204,8 @@ private fun ToolPanelKey(
     Box(
         modifier = modifier
             .clip(shape)
+            // Glass like the board's own keys, and only where those have faces.
+            .then(if (kb.keysHaveFaces) Modifier.frostGlass(kb, shape, FrostSurface.MODIFIER_KEYS) else Modifier)
             .background(if (pressed) kb.pressedKey else kb.keyFace(kb.modifierKey), shape)
             .panelKeyBorder(kb, shape)
             .pointerInput(repeatable) {
@@ -261,7 +267,17 @@ private fun PanelMessage(text: String, modifier: Modifier = Modifier) {
  * qibla direction computed from the saved weather location.
  */
 @Composable
-internal fun CompassPanel(state: KeyboardUiState) {
+internal fun CompassPanel(
+    state: KeyboardUiState,
+    /**
+     * The Location tool (#350): Use my location for the qibla, and a place to
+     * point at, picked on the Location panel's Found tab.
+     */
+    location: LocationCallbacks? = null,
+) {
+    val onUseMyLocation = location?.onUseMyLocationForTools
+    val locationUi = location?.state?.collectAsState()?.value
+    val place = locationUi?.compassTarget
     val context = LocalContext.current
     val sensorManager = remember {
         context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -269,6 +285,22 @@ internal fun CompassPanel(state: KeyboardUiState) {
     val sensor = remember { sensorManager.getDefaultSensor(Sensor.TYPE_ROTATION_VECTOR) }
     // Raw sensor heading; the displayed azimuth chases it per frame below.
     var target by remember { mutableFloatStateOf(0f) }
+    // Magnetic to true north, once a saved place says where the phone is (#350).
+    // The rotation-vector sensor points at magnetic north, and the qibla
+    // bearing is a true one; with a saved place the gap between the two is
+    // known, so the rose turns to true north and the marker lands where the
+    // Kaaba is rather than up to twenty degrees off it. Cached: the panel
+    // recomposes every frame while the rose turns.
+    val savedLat = state.settings.weather.latitude
+    val savedLon = state.settings.weather.longitude
+    val declination = remember(savedLat, savedLon) {
+        if (savedLat != null && savedLon != null) {
+            android.hardware.GeomagneticField(savedLat, savedLon, 0f, System.currentTimeMillis()).declination
+        } else {
+            0f
+        }
+    }
+    val declinationNow by rememberUpdatedState(declination)
     var azimuth by remember { mutableFloatStateOf(0f) }
     var hasReading by remember { mutableStateOf(false) }
 
@@ -280,7 +312,7 @@ internal fun CompassPanel(state: KeyboardUiState) {
             override fun onSensorChanged(event: SensorEvent) {
                 SensorManager.getRotationMatrixFromVector(rotation, event.values)
                 SensorManager.getOrientation(rotation, orientation)
-                target = (Math.toDegrees(orientation[0].toDouble()).toFloat() + 360f) % 360f
+                target = (Math.toDegrees(orientation[0].toDouble()).toFloat() + declinationNow + 360f) % 360f
                 hasReading = true
             }
             override fun onAccuracyChanged(sensor: Sensor?, accuracy: Int) {}
@@ -322,6 +354,13 @@ internal fun CompassPanel(state: KeyboardUiState) {
     val qiblaBearing = if (state.settings.sensorTools.compassQibla && latitude != null && longitude != null) {
         Qibla.bearing(latitude.toDouble(), longitude.toDouble()).toFloat()
     } else null
+    // Measured from a fresh reading when there is one, else from the saved place.
+    val origin = locationUi?.origin ?: if (latitude != null && longitude != null) {
+        com.wasimaster.wmkeyboard.core.location.GeoPoint(latitude.toDouble(), longitude.toDouble())
+    } else {
+        null
+    }
+    val targetBearing = if (place != null && origin != null) origin.bearingTo(place.point).toFloat() else null
 
     val kb = LocalKbTheme.current
     Column(
@@ -371,6 +410,24 @@ internal fun CompassPanel(state: KeyboardUiState) {
                             drawText(label, pos.x, pos.y + textPaint.textSize / 3f, textPaint)
                             restore()
                         }
+                    }
+                }
+                // A place from the Location tool, the same way as the qibla.
+                if (targetBearing != null) {
+                    val angle = Math.toRadians(targetBearing.toDouble())
+                    val dir = Offset(sin(angle).toFloat(), -cos(angle).toFloat())
+                    val pos = center + dir * (radius - 34.dp.toPx())
+                    drawLine(kb.accent, center + dir * (radius - 12.dp.toPx()), center + dir * radius, 5f)
+                    val pinPaint = android.graphics.Paint().apply {
+                        isAntiAlias = true
+                        textSize = 14.sp.toPx()
+                        textAlign = android.graphics.Paint.Align.CENTER
+                    }
+                    drawContext.canvas.nativeCanvas.apply {
+                        save()
+                        rotate(azimuth, pos.x, pos.y)
+                        drawText("📍", pos.x, pos.y + pinPaint.textSize / 3f, pinPaint)
+                        restore()
                     }
                 }
                 // Qibla marker rotates with the rose so it points at the
@@ -431,6 +488,41 @@ internal fun CompassPanel(state: KeyboardUiState) {
                 fontSize = 12.sp,
                 modifier = Modifier.padding(bottom = 2.dp),
             )
+            if (qiblaBearing == null && onUseMyLocation != null) {
+                ToolPanelChip(
+                    stringResource(R.string.ime_location_use_my_location_action),
+                    selected = true,
+                    modifier = Modifier.padding(bottom = 4.dp),
+                ) { onUseMyLocation() }
+            }
+        }
+        if (place != null && location != null) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.padding(bottom = 4.dp, start = 12.dp, end = 12.dp),
+            ) {
+                Text(
+                    if (origin != null) {
+                        val bearing = origin.bearingTo(place.point).roundToInt() % 360
+                        stringResource(
+                            R.string.ime_location_compass_target,
+                            "📍 " + place.label,
+                            com.wasimaster.wmkeyboard.core.location.LocationFormatter.distance(origin.distanceTo(place.point)),
+                            bearing,
+                            cardinal(bearing),
+                        )
+                    } else {
+                        stringResource(R.string.ime_location_compass_needs_position, "📍 " + place.label)
+                    },
+                    color = kb.toolbarIcon,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Spacer(Modifier.width(8.dp))
+                ToolPanelChip(stringResource(R.string.ime_location_compass_clear_action)) { location.onCompassClear() }
+            }
         }
     }
 }
@@ -765,6 +857,7 @@ private fun WeatherStat(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = modifier
             .clip(shape)
+            .frostGlass(kb, shape, FrostSurface.CHIPS)
             .background(kb.chip)
             .chipBorder(kb, shape)
             .padding(horizontal = 6.dp, vertical = 6.dp),
@@ -788,6 +881,8 @@ internal fun WeatherPanel(
     state: KeyboardUiState,
     onRefresh: () -> Unit,
     onOpenSettings: () -> Unit,
+    /** Reads the phone's position once and saves it as the weather location (#350); null hides the offer. */
+    onUseMyLocation: (() -> Unit)? = null,
 ) {
     // Keyboard height, no more: the stat grid scrolls, and growing the
     // window upward for it shoved the app's own content off screen.
@@ -835,6 +930,17 @@ internal fun WeatherPanel(
                         .width(160.dp)
                         .focusRing(focusedAction == 0),
                 ) { onOpenSettings() }
+                if (onUseMyLocation != null) {
+                    Spacer(Modifier.height(8.dp))
+                    val useMine = stringResource(R.string.ime_location_use_my_location_action)
+                    ToolPanelKey(
+                        description = useMine,
+                        label = useMine,
+                        modifier = Modifier
+                            .height(40.dp)
+                            .width(160.dp),
+                    ) { onUseMyLocation() }
+                }
             }
             WeatherUi.Loading -> PanelMessage(stringResource(R.string.ime_weather_progress))
             WeatherUi.Error -> Column(
@@ -899,17 +1005,23 @@ internal fun WeatherPanel(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        IconButton(
-                            onClick = onRefresh,
-                            modifier = Modifier.focusRing(focusedAction == 0, CircleShape),
+                        IconHint(
+                            stringResource(
+                                R.string.ime_weather_refresh_desc,
+                            ),
                         ) {
-                            Icon(
-                                Icons.Outlined.Refresh,
-                                contentDescription = stringResource(
-                                    R.string.ime_weather_refresh_desc,
-                                ),
-                                tint = kb.toolbarIcon,
-                            )
+                            IconButton(
+                                onClick = onRefresh,
+                                modifier = Modifier.focusRing(focusedAction == 0, CircleShape),
+                            ) {
+                                Icon(
+                                    Icons.Outlined.Refresh,
+                                    contentDescription = stringResource(
+                                        R.string.ime_weather_refresh_desc,
+                                    ),
+                                    tint = kb.toolbarIcon,
+                                )
+                            }
                         }
                     }
                     Spacer(Modifier.height(6.dp))
@@ -1118,19 +1230,25 @@ internal fun CalendarPanel(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                IconButton(
-                    onClick = {
-                        if (shownMonth == 1) { shownMonth = 12; shownYear-- } else shownMonth--
-                    },
-                    modifier = Modifier
-                        .size(30.dp)
-                        .focusRing(focusedAction == 0, CircleShape),
+                IconHint(
+                    stringResource(
+                        R.string.ime_calendar_previous_month_desc,
+                    ),
                 ) {
-                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
-                        contentDescription = stringResource(
-                            R.string.ime_calendar_previous_month_desc,
-                        ),
-                        tint = kb.toolbarIcon)
+                    IconButton(
+                        onClick = {
+                            if (shownMonth == 1) { shownMonth = 12; shownYear-- } else shownMonth--
+                        },
+                        modifier = Modifier
+                            .size(30.dp)
+                            .focusRing(focusedAction == 0, CircleShape),
+                    ) {
+                        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowLeft,
+                            contentDescription = stringResource(
+                                R.string.ime_calendar_previous_month_desc,
+                            ),
+                            tint = kb.toolbarIcon)
+                    }
                 }
                 Column(
                     modifier = Modifier.weight(1f),
@@ -1157,6 +1275,7 @@ internal fun CalendarPanel(
                     Box(
                         modifier = Modifier
                             .clip(kb.chipShape())
+                            .frostGlass(kb, kb.chipShape(), FrostSurface.CHIPS)
                             .background(kb.chip)
                             .chipBorder(kb, kb.chipShape())
                             .focusRing(focusedAction == 1, kb.chipShape())
@@ -1174,17 +1293,19 @@ internal fun CalendarPanel(
                         )
                     }
                 }
-                IconButton(
-                    onClick = {
-                        if (shownMonth == 12) { shownMonth = 1; shownYear++ } else shownMonth++
-                    },
-                    modifier = Modifier
-                        .size(30.dp)
-                        .focusRing(focusedAction == 2, CircleShape),
-                ) {
-                    Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,
-                        contentDescription = stringResource(R.string.ime_calendar_next_month_desc),
-                        tint = kb.toolbarIcon)
+                IconHint(stringResource(R.string.ime_calendar_next_month_desc)) {
+                    IconButton(
+                        onClick = {
+                            if (shownMonth == 12) { shownMonth = 1; shownYear++ } else shownMonth++
+                        },
+                        modifier = Modifier
+                            .size(30.dp)
+                            .focusRing(focusedAction == 2, CircleShape),
+                    ) {
+                        Icon(Icons.AutoMirrored.Outlined.KeyboardArrowRight,
+                            contentDescription = stringResource(R.string.ime_calendar_next_month_desc),
+                            tint = kb.toolbarIcon)
+                    }
                 }
             }
             // Weekday initials, with the user's weekend tinted. Which days those
@@ -1411,6 +1532,7 @@ private fun CalendarDayEvents(
                 modifier = Modifier
                     .padding(start = 8.dp)
                     .clip(kb.chipShape())
+                    .frostGlass(kb, kb.chipShape(), FrostSurface.CHIPS)
                     .background(kb.chipActive)
                     .chipBorder(kb, kb.chipShape())
                     .clickable {
@@ -1487,6 +1609,7 @@ private fun EventRow(event: DeviceCalendarEvent, timeFormat: SimpleDateFormat) {
             // would have nothing to fill.
             .height(IntrinsicSize.Min)
             .clip(shape)
+            .frostGlass(kb, shape, FrostSurface.CHIPS)
             .background(kb.chip, shape)
             .chipBorder(kb, shape),
         verticalAlignment = Alignment.CenterVertically,
@@ -1562,6 +1685,8 @@ internal fun hasCalendarPermission(context: Context): Boolean =
 internal fun ThemesPanel(
     state: KeyboardUiState,
     onThemeSelect: (String) -> Unit,
+    onAppColorPick: (String, Int) -> Unit,
+    onAppColorStyle: (PaletteStyle) -> Unit,
     onIconPackSelect: (String) -> Unit,
     onEmojiFontSelect: (EmojiFontChoice, String) -> Unit,
     onFontSelect: (ScriptId, String) -> Unit,
@@ -1658,13 +1783,17 @@ internal fun ThemesPanel(
             )
         },
     ) {
-        ThemesPanelBody(
-            state, kb, tab, locked, selectedId, auto, themes,
-            packs, packStore, packRevision, faces,
-            scriptTabs, fontScript, { fontScript = it }, fontStore, fontRevision,
-            modeTheme, autoOn, darkSlot, randomSlot,
-            onThemeSelect, onIconPackSelect, onEmojiFontSelect, onFontSelect, onOpenRoute,
-        )
+        val tabs = ThemesPanelTab.entries
+        Box(Modifier.fillMaxSize().swipeTabs(tab.ordinal, tabs.size) { tab = tabs[it] }) {
+            ThemesPanelBody(
+                state, kb, tab, locked, selectedId, auto, themes,
+                packs, packStore, packRevision, faces,
+                scriptTabs, fontScript, { fontScript = it }, fontStore, fontRevision,
+                modeTheme, autoOn, darkSlot, randomSlot,
+                onThemeSelect, onAppColorPick, onAppColorStyle,
+                onIconPackSelect, onEmojiFontSelect, onFontSelect, onOpenRoute,
+            )
+        }
     }
 }
 
@@ -1705,6 +1834,8 @@ private fun ThemesPanelBody(
     darkSlot: Boolean,
     randomSlot: Boolean,
     onThemeSelect: (String) -> Unit,
+    onAppColorPick: (String, Int) -> Unit,
+    onAppColorStyle: (PaletteStyle) -> Unit,
     onIconPackSelect: (String) -> Unit,
     onEmojiFontSelect: (EmojiFontChoice, String) -> Unit,
     onFontSelect: (ScriptId, String) -> Unit,
@@ -1789,6 +1920,14 @@ private fun ThemesPanelBody(
                 return@Column
             }
             ThemesPanelTab.THEMES -> Unit
+        }
+        // The app's own colours sit above the grid while the keyboard is
+        // taking them, so the alternative colours and styles are one press
+        // away in the app they are for.
+        val appColors by AppColors.current.collectAsState()
+        val sample = appColors
+        if (state.settings.appColors.enabled && sample != null) {
+            AppColorStrip(sample, state.settings.appColors, onAppColorPick, onAppColorStyle)
         }
         // Index 0 is the leading "Auto" card, so a theme sits one past its own
         // position, and the store card closes the list one past the last theme.
@@ -1892,6 +2031,7 @@ private fun ThemesTabChips(
                 modifier = Modifier
                     .weight(1f)
                     .clip(shape)
+                    .frostGlass(kb, shape, FrostSurface.CHIPS)
                     .background(if (active) kb.chipActive else kb.chip)
                     .chipBorder(kb, shape)
                     .focusRing(index == focused, shape)
@@ -2725,6 +2865,7 @@ private fun StyleChip(
     Box(
         modifier = Modifier
             .clip(shape)
+            .frostGlass(kb, shape, FrostSurface.CHIPS)
             .background(if (selected) kb.chipActive else kb.chip)
             .chipBorder(kb, shape)
             .focusRing(focused, shape)

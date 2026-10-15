@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.core.clock.ClockEngine
+import com.wasimaster.wmkeyboard.core.clock.ClockNotifications
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -20,6 +22,7 @@ import androidx.core.net.toUri
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.app.updates.UpdateChannel
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
+import com.wasimaster.wmkeyboard.core.location.LocationAccess
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 
 /**
@@ -42,6 +45,7 @@ internal fun PermissionsSettings() {
     // The screen opens on free-standing text, which brings no spacing of its
     // own the way a group's SectionHeader does.
     Spacer(Modifier.height(12.dp))
+    val locationDeclared = LocationAccess.declared(LocalContext.current)
 
     SettingsGroup(
         stringResource(R.string.privacy_permissions_runtime_group_title),
@@ -59,6 +63,14 @@ internal fun PermissionsSettings() {
                 R.string.privacy_permissions_camera_title,
                 R.string.privacy_permissions_camera_subtitle,
                 PermissionDisclosures.CAMERA,
+            )
+        }
+        // Not in a build made with -Pwmkb.noLocation=true.
+        item(visible = locationDeclared) {
+            RuntimePermissionRow(
+                R.string.privacy_permissions_location_title,
+                R.string.privacy_permissions_location_subtitle,
+                PermissionDisclosures.LOCATION,
             )
         }
         item {
@@ -111,6 +123,30 @@ internal fun PermissionsSettings() {
                 ::hasUsageAccess,
             )
         }
+        item {
+            SpecialAccessRow(
+                R.string.privacy_permissions_overlay_title,
+                R.string.privacy_permissions_overlay_subtitle,
+                SpecialAccess.OVERLAY,
+            ) { Settings.canDrawOverlays(it) }
+        }
+        // The clock tool's two grants, only where Android asks for them.
+        item(visible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            SpecialAccessRow(
+                R.string.privacy_permissions_exact_alarms_title,
+                R.string.privacy_permissions_exact_alarms_subtitle,
+                SpecialAccess.EXACT_ALARMS,
+                ClockEngine::canScheduleExact,
+            )
+        }
+        item(visible = ChannelFeatures.CLOCK_FULL_SCREEN && Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            SpecialAccessRow(
+                R.string.privacy_permissions_full_screen_title,
+                R.string.privacy_permissions_full_screen_subtitle,
+                SpecialAccess.FULL_SCREEN,
+                ClockNotifications::canUseFullScreen,
+            )
+        }
         item(visible = ChannelFeatures.GESTURE_PASSTHROUGH) {
             SpecialAccessRow(
                 R.string.privacy_permissions_accessibility_title,
@@ -157,6 +193,13 @@ internal fun PermissionsSettings() {
             InstallPermissionRow(
                 R.string.privacy_permissions_biometric_title,
                 R.string.privacy_permissions_biometric_subtitle,
+            )
+        }
+        // The Play build declares no ring service; see ChannelFeatures.
+        item(visible = ChannelFeatures.CLOCK_RING_SERVICE) {
+            InstallPermissionRow(
+                R.string.privacy_permissions_clock_ring_title,
+                R.string.privacy_permissions_clock_ring_subtitle,
             )
         }
     }

@@ -24,11 +24,14 @@ Each screen that downloads something has an import row with two buttons:
 | A language's word list, word pairs and emoji names | <SettingsPath path="Languages & layouts / (a language) / Dictionaries / Language pack" /> | The language pack zip, or the loose `.txt.gz` and `.json.gz` files |
 | Chinese, Japanese and Cantonese conversion tables | The same Language pack row | Inside the language pack, or the loose `.tsv` |
 | Offline voice models <Flavor edition="full" /> | <SettingsPath path="Voice typing" />, below the model catalog | The model's `.tflite` and its `filters_vocab_*.bin` |
+| Handwriting models <Flavor edition="full" /> | <SettingsPath path="Tools / Handwriting / Recognition models" />, below the models | The model's two or three `.zip` files from `dl.google.com` |
 | Text recognition data <Flavor edition="full" /> | <SettingsPath path="Tools / Text scan (OCR) / Tesseract languages" />, below the languages | `<language>.traineddata` |
 | GIF packs | <SettingsPath path="Tools / GIFs / Offline GIF packs" /> | A CleverKeys GIF pack zip |
 | Anything above, plus AI models and the background remover | <SettingsPath path="About / Storage / Import downloaded files" /> | Any of these |
 
 The Storage row takes every kind of file, so it is the one to use for a folder of mixed downloads. It is also the only way in for an on-device AI model other than the AI model screen's own import, and for the sticker editor's background remover (`u2netp.tflite`).
+
+A handwriting model is made of two or three files, which Google publishes for ML Kit to fetch: a small recogniser spec, the recogniser itself (shared by every language in one script) and, for most languages, a word list. **Get the files** lists them per language. Leave them as `.zip` files, loose or zipped together; the import checks each against the SHA-1 checksum ML Kit ships with. Once every file a language needs is in, its model installs the way a download would, through ML Kit itself, and the import answers ML Kit's requests for those files from the phone. Files that arrive before the rest of their set are kept until it is complete. The import needs no network and no internet permission.
 
 Files are recognised by name, which is the name they are published under. Renaming one (a browser adding `(1)` to a second download, for instance) makes it unrecognisable, and the report says so rather than guessing.
 
@@ -36,11 +39,15 @@ Files are recognised by name, which is the name they are published under. Renami
 
 A language pack is one zip holding everything a language downloads: its word lists, its word-pair data, its emoji names, and for Chinese, Japanese and Cantonese their conversion tables. There is one per folder of the [data repository](https://github.com/wasi-master/wmkeyboard-data), named `wmkb-lang-<code>.zip`, on its [language packs release](https://github.com/wasi-master/wmkeyboard-data/releases/tag/language-packs). **Get the files** on a language's screen links its own pack directly. The packs are rebuilt whenever the data changes.
 
-Some folders serve two languages. The Bangla pack also carries Banglish, and importing it installs both. Where a pack holds more than one word list for a language, the import asks which one to install, since a language uses one at a time. English's pack has three: AOSP **United States**, AOSP **United Kingdom** and the counted **Frequency** list. The dialog opens on the one a download would start on, the others are listed as not used, and **Cancel** installs none of them. To switch later, import the pack again and pick another; the new list replaces the old one. The word list is kept at the size you last chose for downloads (Large, 300,000 words, until you pick another), the same cap a download applies.
+Some folders serve two languages. The Bangla pack also carries Banglish, and importing it installs both, along with desktop Avro's dictionary (`bn_avro_dictionary.txt.gz`) for the Avro candidate list and the Khipro spellings (`bn_khipro_glide.txt.gz`) that glide typing on Khipro reads. Where a pack holds more than one word list for a language, the import asks which one to install, since a language uses one at a time. English's pack has three: AOSP **United States**, AOSP **United Kingdom** and the counted **Frequency** list. The dialog opens on the one a download would start on, the others are listed as not used, and **Cancel** installs none of them. To switch later, import the pack again and pick another; the new list replaces the old one. The word list is kept at the size you last chose for downloads (Large, 300,000 words, until you pick another), the same cap a download applies.
 
 ## Voice models
 
-A Whisper model is two files: the graph and a vocabulary file that several models share. Import both together, or in either order. A vocabulary imported first waits for its model; a model imported without its vocabulary is placed and reported as still needing it, and becomes ready the moment the vocabulary arrives. Graphs are matched on their exact size as well as their name, because two different files have been published as `whisper-tiny.en.tflite` and only one of them works.
+A whisper.cpp Whisper model is one `.bin` file, and it is only installed if it matches the SHA-256 the catalog has for it. A LiteRT Whisper model is two files: the graph and a vocabulary file that several models share. Import both together, or in either order. A vocabulary imported first waits for its model; a model imported without its vocabulary is placed and reported as still needing it, and becomes ready the moment the vocabulary arrives. Graphs are matched on their exact size as well as their name, because two different files have been published as `whisper-tiny.en.tflite` and only one of them works.
+
+The [Whistle](/tools/whistle/) model is one file, `whistle.cact`. Only the exact file the app downloads is accepted: its SHA-256 is checked before it is put in place.
+
+The [Asr4All](/tools/asr4all/) models can't be imported yet; they download from the Voice typing screen.
 
 ## GIF packs
 
@@ -50,12 +57,11 @@ Only the **Discord community** packs carry animated GIFs. The **thumbnail** pack
 
 ## What cannot work offline
 
-Two things on the full edition have no file to import:
+One thing on the full edition has no file to import:
 
-- **Handwriting.** The recogniser's models are downloaded and stored by Google's ML Kit, which offers no way to install one from a file.
-- **On-device translation.** The same: ML Kit keeps its language models to itself.
+- **On-device translation.** Google's ML Kit downloads and keeps its language models itself, and offers no way to install one from a file.
 
-Everything reaching an online service (web and image search, GIFs from Klipy or GIPHY, the dictionary and synonyms lookups, cloud AI providers, the currency rates, backups to a cloud account) needs the connection by definition. On a build with no internet permission those say that the build cannot connect, rather than waiting for a network that will never come.
+Everything reaching an online service (web and image search, GIFs from KLIPY or GIPHY, the dictionary and synonyms lookups, cloud AI providers, the currency rates, backups to a cloud account) needs the connection by definition. On a build with no internet permission those say that the build cannot connect, rather than waiting for a network that will never come.
 
 ## Details & edge cases
 

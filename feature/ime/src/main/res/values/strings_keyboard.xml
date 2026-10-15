@@ -262,6 +262,8 @@
     <string name="ime_power_saving_on_desc">Power saving is on</string>
     <string name="ime_panel_back_desc">Back to the keyboard</string>
     <string name="ime_toolbox_desc">Toolbox</string>
+    <string name="ime_hardware_keys_show_desc">Show keys</string>
+    <string name="ime_hardware_keys_hide_desc">Hide keys</string>
 
     <!-- The chip that offers the last copied text. -->
     <!-- Marks a chip that holds a one-time code the keyboard found in a
@@ -271,6 +273,7 @@
     <string name="ime_clip_chip_image">Copied image</string>
     <string name="ime_clip_chip_item">Copied item</string>
     <string name="ime_clip_chip_dismiss_desc">Hide the copied text</string>
+    <string name="ime_clip_chip_more_desc">Show more recent copies</string>
     <!-- The ✕ on the chip that offers a code found in a notification. -->
     <string name="ime_otp_chip_dismiss_desc">Hide the code</string>
     <!-- Screen reader text for the chip that offers a snippet the user marked
@@ -311,6 +314,14 @@
          dictionary". Tapping the chip opens that language's page, where the
          pack downloads. -->
     <string name="ime_conversion_pack_offer">Download the %1$s to type characters</string>
+    <!-- Holding a Chinese or Japanese candidate (#580). -->
+    <string name="ime_candidate_menu_earlier">Earlier</string>
+    <string name="ime_candidate_menu_later">Later</string>
+    <string name="ime_candidate_menu_never">Never show</string>
+    <string name="ime_candidate_menu_first_desc">Type only %1$s, the first character</string>
+    <string name="ime_candidate_menu_last_desc">Type only %1$s, the last character</string>
+    <string name="ime_candidate_menu_close_desc">Close the candidate menu</string>
+    <string name="ime_conversion_pack_improve_offer">Download %1$s for better candidates</string>
     <!-- The ✕ on that chip: screen reader text. -->
     <string name="ime_conversion_pack_offer_dismiss_desc">Dismiss</string>
     <!-- The chip offering to decode a swiped word's stroke against every word
@@ -402,10 +413,15 @@
     <string name="ime_tool_dictionary">Dictionary</string>
     <string name="ime_tool_vocabulary">Vocabulary</string>
     <string name="ime_tool_learn_from_text">Learn from text</string>
+    <string name="ime_tool_find_replace">Find &amp; replace</string>
+    <string name="ime_tool_notes">Notes</string>
+    <string name="ime_tool_location">Location</string>
+    <string name="ime_tool_clock">Clock</string>
     <!-- Learn from text (#174): the panel that lists words the keyboard does not know yet. -->
     <string name="ime_learn_select_all_action">Select all</string>
     <string name="ime_learn_select_none_action">Select none</string>
     <string name="ime_learn_add_action">Add %1$d</string>
+    <string name="ime_learn_text_action">Learn text</string>
     <string name="ime_learn_pairs_label">Word pairs</string>
     <string name="ime_learn_pairs_desc">Also learn the word pairs in this text</string>
     <string name="ime_learn_sort_frequent_label">Most used</string>
@@ -435,6 +451,7 @@
         <item quantity="other">%d word pairs</item>
     </plurals>
     <string name="ime_learn_result_both">%1$s · %2$s</string>
+    <string name="ime_learn_result_text_only">Learned text statistics</string>
     <string name="ime_learn_count_label">×%1$d</string>
     <string name="ime_learn_seen_label">seen %1$d</string>
     <string name="ime_learn_edited_label">%1$s → %2$s</string>
@@ -665,6 +682,7 @@
     <string name="ime_clip_extract_text">Extract text</string>
     <string name="ime_clip_extract_parts">Extract</string>
     <string name="ime_clip_extract_links">Links</string>
+    <string name="ime_clip_extract_places">Places</string>
     <string name="ime_clip_extract_phones">Phone numbers</string>
     <string name="ime_clip_extract_codes">One-time codes</string>
     <string name="ime_clip_entity_copied_toast">Copied to the clipboard</string>
@@ -676,9 +694,13 @@
     <string name="ime_clipboard_height_taller">Make the panel taller</string>
     <string name="ime_clipboard_height_shorter">Make the panel shorter</string>
     <string name="ime_media_height_desc">Emoji, GIF and sticker panel height. Drag up or down</string>
+    <string name="ime_full_bleed_height_desc">Tool height. Drag up or down</string>
+    <string name="ime_panel_over_keys_height_desc">Panel height over the keys. Drag up or down</string>
     <!-- The bin beside the clipboard search bar, for a screen reader. -->
     <string name="ime_clipboard_clear_desc">Delete all unpinned clips</string>
     <!-- The question the bin asks before it deletes. %1$d is how many clips it deletes. -->
+    <!-- Asked before a pinned clip is deleted, when that setting is on (#636). -->
+    <string name="ime_clip_delete_pinned_question">Delete this pinned clip?</string>
     <plurals name="ime_clip_clear_question">
         <item quantity="one">Delete %1$d unpinned clip? Pinned clips stay.</item>
         <item quantity="other">Delete %1$d unpinned clips? Pinned clips stay.</item>
@@ -688,6 +710,56 @@
     <string name="ime_clipboard_tab_pinned">Pinned</string>
     <string name="ime_clipboard_tab_unpinned_empty">No unpinned clips.\nNew copies show here.</string>
     <string name="ime_clipboard_tab_pinned_empty">No pinned clips.\nPin a clip to keep it here.</string>
+    <!-- A clip pinned or unpinned while the tabs are on moves to the other tab; this says where it went (#612). -->
+    <string name="ime_clip_pinned_notice">Pinned. It is in the Pinned tab now</string>
+    <string name="ime_clip_unpinned_notice">Unpinned. It is in the Unpinned tab now</string>
+    <!-- The .* button beside the clipboard search, for a screen reader (#612). -->
+    <string name="ime_clipboard_regex_on_desc">Search with regular expressions</string>
+    <string name="ime_clipboard_regex_off_desc">Search as plain text</string>
+    <!-- The filter button inside the clipboard search bar (#612). -->
+    <string name="ime_clipboard_filter_desc">Filter and sort the clips</string>
+    <string name="ime_clip_order_newest">Newest first</string>
+    <string name="ime_clip_order_oldest">Oldest first</string>
+    <string name="ime_clip_filter_all">All</string>
+    <string name="ime_clip_filter_images">Images</string>
+    <string name="ime_clip_filter_files">Files</string>
+    <!-- The button that brings back the folded strip of parts found in clips. %1$d is how many parts it holds. -->
+    <plurals name="ime_clip_entity_show_desc">
+        <item quantity="one">Show %1$d part found in your clips</item>
+        <item quantity="other">Show %1$d parts found in your clips</item>
+    </plurals>
+    <string name="ime_clip_entity_hide_desc">Hide the parts found in your clips</string>
+    <!-- Picking several clips to combine or delete them (#612). -->
+    <string name="ime_clip_select">Select</string>
+    <string name="ime_clip_select_cancel_desc">Stop selecting</string>
+    <plurals name="ime_clip_selected_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+    <string name="ime_clip_picked_desc">Selected</string>
+    <string name="ime_clip_not_picked_desc">Not selected</string>
+    <!-- Joining the picked clips into one clip (#612). -->
+    <string name="ime_clip_combine">Combine</string>
+    <plurals name="ime_clip_combine_title">
+        <item quantity="one">Combine %1$d clip</item>
+        <item quantity="other">Combine %1$d clips</item>
+    </plurals>
+    <string name="ime_clip_combine_joiner">Between the clips</string>
+    <string name="ime_clip_combine_base">In front of them all (optional)</string>
+    <string name="ime_clip_combine_append">Keep only the part that matches this pattern (optional)</string>
+    <string name="ime_clip_combine_bad_pattern">The pattern is not finished, so nothing can be combined yet</string>
+    <string name="ime_clip_combine_no_match">No clip has a part that matches the pattern</string>
+    <string name="ime_clip_joiner_space">Space</string>
+    <string name="ime_clip_joiner_newline">New line</string>
+    <string name="ime_clip_joiner_comma">Comma</string>
+    <string name="ime_clip_joiner_semicolon">Semicolon</string>
+    <string name="ime_clip_joiner_bar">Bar</string>
+    <!-- Dragging clips into an order of the user's own (#612). -->
+    <string name="ime_clip_reorder">Reorder</string>
+    <string name="ime_clip_reorder_hint">Drag a clip by its handle to move it. It stays where you put it.</string>
+    <string name="ime_clip_reorder_done">Done</string>
+    <string name="ime_clip_reorder_handle_desc">Drag to move this clip</string>
+    <string name="ime_clip_reorder_top_desc">Move to the top</string>
     <string name="ime_clipboard_view_list_desc">Show clips as a list</string>
     <string name="ime_clipboard_view_grid_desc">Show clips as a grid</string>
     <!-- Spoken before a clip's content when clip numbers are on. %1$d is the clip's number in the history. -->
@@ -731,6 +803,7 @@
     </plurals>
     <!-- Labels in the press-and-hold details popup for one clip. -->
     <string name="ime_clip_info_copied">Copied</string>
+    <string name="ime_clip_info_edited">Edited</string>
     <string name="ime_clip_info_from">From</string>
     <string name="ime_clip_info_type">Type</string>
     <string name="ime_clip_info_size">Size</string>
@@ -754,6 +827,7 @@
     <!-- Last row of the language list. It opens the system list of the other
          keyboards that are installed on the device. -->
     <string name="ime_language_picker_other_keyboards">Other keyboards…</string>
+    <string name="ime_language_picker_language_settings">Language settings</string>
 
     <!-- The chip the suggestion strip shows for a tool. %1$s is a tool name. -->
     <string name="ime_smart_open_tool">Open %1$s</string>
@@ -776,6 +850,8 @@
     <string name="ime_smart_wiki_word">“%1$s” on Wikipedia</string>
     <string name="ime_smart_translate_offer">Translate</string>
     <string name="ime_smart_gif_offer">Find a GIF</string>
+    <!-- The message button on a contact chip, for screen readers. %1$s is the contact's name. -->
+    <string name="ime_smart_contact_message">Text <xliff:g id="name" example="Jane Doe">%1$s</xliff:g></string>
 
     <!-- Badge on the preview of a theme that moves while you type. -->
     <string name="ime_theme_animated_badge">Animated</string>
@@ -803,6 +879,10 @@
     <string name="ime_selection_macro_hindi_unavailable_toast">Hindi phonetic is not loaded</string>
     <string name="ime_selection_macro_no_app_toast">No app can open this</string>
     <string name="ime_find_not_addressable">This field cannot be searched</string>
+    <string name="ime_find_secure_field">Password fields cannot be searched</string>
+    <!-- The chip after the recent searches in the Find and replace panel that forgets them. -->
+    <string name="ime_find_history_clear">Clear</string>
+    <string name="ime_find_history_desc">Recent search</string>
     <!-- The Find and replace panel. -->
     <string name="ime_find_hint">Find</string>
     <string name="ime_replace_hint">Replace with</string>
@@ -812,6 +892,9 @@
     <string name="ime_find_whole_word_desc">Whole word</string>
     <string name="ime_find_regex_label" translatable="false">.*</string>
     <string name="ime_find_regex_desc">Regular expression</string>
+    <string name="ime_find_preserve_case_label" translatable="false">AB</string>
+    <string name="ime_find_preserve_case_desc">Preserve case</string>
+    <string name="ime_find_clear_desc">Clear <xliff:g id="field" example="Find">%1$s</xliff:g></string>
     <string name="ime_find_prev_desc">Previous match</string>
     <string name="ime_find_next_desc">Next match</string>
     <string name="ime_find_replace_action">Replace</string>

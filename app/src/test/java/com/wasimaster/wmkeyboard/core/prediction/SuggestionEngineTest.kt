@@ -810,7 +810,9 @@ class SuggestionEngineTest {
             insert("a", 9500)
             insert("lot", 800)
         }
+        // The strip offers splits only while "Add missing spaces" is on (#413).
         val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+            .apply { autocorrectSplits = true }
         assertEquals("of the", e.suggest("ofthe", previousWord = null).first())
         assertTrue("a lot" in e.suggest("alot", previousWord = null))
         // Capitalization pattern carries over the whole phrase.
@@ -944,6 +946,68 @@ class SuggestionEngineTest {
         )
     }
 
+    @Test fun `a downloaded secondary with real counts does not bury the typed primary word`() {
+        // #653: bundled English on its 0..10000 scale, Italian downloaded with
+        // corpus counts in the millions. "visit" typed in full stays first.
+        val dictionary = Trie().apply {
+            insert("the", 10_000)
+            insert("visit", 238)
+        }
+        val italian = Trie().apply {
+            insert("di", 19_000_000)
+            insert("visita", 900_000)
+            insert("visitare", 400_000)
+            insert("visite", 300_000)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null)).apply {
+            primaryLanguageId = "en"
+            secondaryDictionaries = listOf(SecondaryDictionary("it", italian))
+        }
+        val s = e.suggest("visit", previousWord = null)
+        assertEquals("expected visit first in $s", "visit", s.first())
+        assertTrue("Italian still offered in $s", "visita" in s)
+    }
+
+    @Test fun `english as a secondary still shows beside a downloaded primary`() {
+        // The reverse of #653: Italian primary downloaded with corpus counts,
+        // bundled English riding as the secondary at half its 0..10000 scale.
+        val italian = Trie().apply {
+            insert("di", 19_000_000)
+            insert("visita", 900_000)
+            insert("visitare", 400_000)
+        }
+        val english = Trie().apply {
+            insert("the", 10_000)
+            insert("visit", 2_000)
+        }
+        val e = SuggestionEngine(english, BengaliPhoneticIndex(emptyList()), UserLexicon(null)).apply {
+            englishSources = false
+            englishAsSecondary = true
+            primaryLanguageId = "it"
+            customDictionary = italian
+        }
+        val s = e.suggest("visit", previousWord = null)
+        assertTrue("English visit offered in $s", "visit" in s)
+    }
+
+    @Test fun `a downloaded primary list does not correct every word it lacks`() {
+        // #403: a Greek list with corpus counts in the millions read at its raw
+        // scale cleared the lone-candidate floor by ten nats, so any unknown
+        // word one slip from a rare listed one was replaced.
+        val greek = Trie().apply {
+            insert("kai", 19_000_000)
+            insert("einai", 10_000_000)
+            insert("kalimera", 5_000)
+        }
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), UserLexicon(null)).apply {
+            englishSources = false
+            primaryLanguageId = "el"
+            customDictionary = greek
+        }
+        assertNull("rare listed word must not fire unopposed", e.shouldAutocorrect("kalimeri"))
+        assertEquals("einai", e.shouldAutocorrect("eiani"))
+    }
+
     @Test fun `words the primary covers do not inflate a secondary`() {
         // "world" is a primary (English) word: committing it must count toward
         // the primary, leaving the untouched secondary damped below neutral —
@@ -968,14 +1032,20 @@ class SuggestionEngineTest {
     // ---- missing-space splits ----
 
     @Test fun `stray spacebar-neighbour letter offers the split in the strip`() {
-        val e = engine().apply { touchModel = KeyTouchModel(mapOf('b' to TouchPoint(5f, 3f))) }
+        val e = engine().apply {
+            touchModel = KeyTouchModel(mapOf('b' to TouchPoint(5f, 3f)))
+            autocorrectSplits = true
+        }
         val low = List(9) { i -> if (i == 3) TouchPoint(5f, 3.4f) else null }
         val out = e.suggest("thebworld", previousWord = null, touch = low)
         assertTrue("expected 'the world' in $out", "the world" in out)
     }
 
     @Test fun `boundary letter far from the spacebar never reads as a space`() {
-        val e = engine().apply { touchModel = KeyTouchModel(mapOf('x' to TouchPoint(2f, 3f))) }
+        val e = engine().apply {
+            touchModel = KeyTouchModel(mapOf('x' to TouchPoint(2f, 3f)))
+            autocorrectSplits = true
+        }
         val low = List(9) { i -> if (i == 3) TouchPoint(2f, 3.4f) else null }
         val out = e.suggest("thexworld", previousWord = null, touch = low)
         assertTrue("unexpected split in $out", "the world" !in out)
@@ -1214,11 +1284,14 @@ class SuggestionEngineTest {
     private fun banglishEngine(
         shift: Double = SuggestionEngine.FIELD_SHIFT_AGGRESSIVE,
     ): SuggestionEngine {
+        // On the bundled list's 0..10000 scale: a list topping out above it is
+        // read as a downloaded one and scaled down onto it (the engine's
+        // SourceScales), which would take "bark" down with it.
         val dictionary = Trie().apply {
             insert("bark", 2000)
-            insert("how", 90_000)
-            insert("are", 80_000)
-            insert("you", 100_000)
+            insert("how", 9_000)
+            insert("are", 8_000)
+            insert("you", 10_000)
         }
         val banglish = Trie().apply {
             insert("bari", 1)
@@ -1349,14 +1422,20 @@ class SuggestionEngineTest {
 
     @Test fun systemDictionaryIndexNormalisesAndSplitsEntries() {
         val source =
-            SystemUserDictionary.index(listOf("AOSP", "aosp", "on my way", " x ", "")).source
+            SystemUserDictionary.index(listOf("AOSP", "aosp", "on my way", " x ", "", "plan b")).source
         assertTrue(source.contains("aosp"))
         assertEquals(1, source.frequencyOf("aosp"))
         // A multi-word entry indexes as its parts, never as one token.
         assertTrue(source.contains("way"))
         assertFalse(source.contains("on my way"))
-        // Single characters are not words.
-        assertFalse(source.contains("x"))
+        // A row that is one letter was added on purpose ("I", #620); one
+        // letter out of a phrase was not.
+        assertTrue(source.contains("x"))
+        assertFalse(source.contains("b"))
+    }
+
+    @Test fun aOneLetterRowKeepsItsCapital() {
+        assertEquals("I", SystemUserDictionary.index(listOf("I")).shapes["i"])
     }
 
     // ---- capitalization of learned and platform-dictionary words (#44) ----

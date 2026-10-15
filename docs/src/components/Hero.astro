@@ -11,6 +11,7 @@ import { Image } from 'astro:assets';
 import { LinkButton } from 'starlight-theme-black/components';
 import ThemeBlackHero from 'starlight-theme-black/overrides/Hero.astro';
 import ThemeDeck from './ThemeDeck.astro';
+import InstallDialog from './InstallDialog.astro';
 import logoImg from '../assets/logo.png';
 import languages from '../data/languages.json';
 import wordlists from '../data/wordlists.json';
@@ -54,6 +55,7 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 				<a href="/tools/whisper/"><strong data-count={29}>29</strong> Whisper models</a>
 				<a href="/tools/ai/"><strong data-count={8}>8</strong> local LLMs</a>
 			</div>
+			<InstallDialog />
 		</div>
 	)
 }
@@ -173,6 +175,20 @@ const { title = data.title, tagline, actions = [] } = data.hero || {};
 		justify-content: center;
 		gap: 0.75rem 1rem;
 		padding-top: 0.25rem;
+	}
+
+	/* On a phone the Install button gets its own row, and a taller one: it is
+	   the one thing someone handed this link came here to press. */
+	@media (max-width: 40rem) {
+		.wm-hero-actions {
+			align-self: stretch;
+		}
+		.wm-hero-actions > :global(:first-child) {
+			flex-basis: 100%;
+			justify-content: center;
+			min-height: 3rem;
+			font-size: 1rem;
+		}
 	}
 
 	.wm-hero-screen :global(.wm-stats) {

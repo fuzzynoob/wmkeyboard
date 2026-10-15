@@ -18,6 +18,7 @@ object JyutpingComposer : Composer {
     override val isTransliterating: Boolean get() = true
     override val isConversion: Boolean get() = true
     override val missingPack: String? get() = CjkDictionaries.missingJyutping
+    override val readsLatinLetters: Boolean get() = true
 
     /**
      * Tones are digits 1–6, so a digit typed mid-syllable feeds the buffer
@@ -69,6 +70,13 @@ object JyutpingComposer : Composer {
         CjkLearning.learn(NAMESPACE, cand.reading, cand.text)
     }
 
+    override val adjustsChoices: Boolean get() = true
+
+    override fun adjustChoice(buffer: String, index: Int, adjustment: CandidateAdjustment) {
+        val cand = ranked(buffer.lowercase()).getOrNull(index) ?: return
+        CjkLearning.adjust(NAMESPACE, cand.reading, cand.text, cand.text, adjustment)
+    }
+
 
     /** A candidate word and the number of input chars (tone digits included) it covers. */
     private data class Cand(val text: String, val consumed: Int, val reading: String)
@@ -89,11 +97,18 @@ object JyutpingComposer : Composer {
         val segs = JyutpingSyllables.segment(buffer)
         if (segs.isEmpty()) {
             return dict.candidates(buffer, LOOKUP_LIMIT)
-                .map { Cand(HanVariant.toTraditional(it), buffer.length, buffer) }
+                .flatMap { word -> HanVariant.traditionalForms(word).map { Cand(it, buffer.length, buffer) } }
+                .distinctBy { it.text }
         }
         val input = latticeInput(segs)
-        val decoded = Lattice.decode(input, dict, CjkDictionaries.ngrams, Lattice.Opts(limit = LOOKUP_LIMIT))
-            .map { Cand(HanVariant.toTraditional(it.text), it.consumed, it.reading) }
+        val decoded = Lattice.decode(
+            input,
+            dict,
+            CjkDictionaries.ngrams,
+            Lattice.Opts(limit = LOOKUP_LIMIT),
+            adjust = CjkLearning.adjustFor(NAMESPACE),
+        )
+            .flatMap { c -> HanVariant.traditionalForms(c.text).map { Cand(it, c.consumed, c.reading) } }
             .distinctBy { it.text }
         return CjkLearning.rank(NAMESPACE, decoded, { it.text }, { it.reading })
     }

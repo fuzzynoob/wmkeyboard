@@ -21,7 +21,9 @@ object JapaneseComposer : Composer {
 
     override val isTransliterating: Boolean get() = true
     override val isConversion: Boolean get() = true
+    override val keepsUnconvertedReading: Boolean get() = true
     override val missingPack: String? get() = CjkDictionaries.missingJapanese
+    override val readsLatinLetters: Boolean get() = true
 
     /** Reading space for learned picks: kana readings. */
     private const val NAMESPACE = "ja_kana"
@@ -53,6 +55,16 @@ object JapaneseComposer : Composer {
 
     override fun composeBuffer(buffer: String): String = Kana.toHiragana(buffer)
 
+    /**
+     * A hyphen typed inside a word is the long-vowel mark, as in every romaji
+     * IME: `ka-do` is かーど and converts to カード (#596). Without this the
+     * hyphen is punctuation, committing `ka` as か and typing a literal `-`.
+     * Between words it stays a hyphen. The kana layouts type ー itself, which
+     * is a letter and joins the word already.
+     */
+    override fun buffersChar(c: Char, composing: CharSequence): Boolean =
+        c == '-' && composing.isNotEmpty()
+
     override fun candidates(buffer: String): List<String> = candidates(buffer, LIMIT)
 
     override fun candidates(buffer: String, limit: Int): List<String> =
@@ -73,6 +85,13 @@ object JapaneseComposer : Composer {
     override fun learnChoice(buffer: String, index: Int) {
         val cand = ranked(buffer).getOrNull(index) ?: return
         CjkLearning.learn(NAMESPACE, cand.reading, cand.text)
+    }
+
+    override val adjustsChoices: Boolean get() = true
+
+    override fun adjustChoice(buffer: String, index: Int, adjustment: CandidateAdjustment) {
+        val cand = ranked(buffer).getOrNull(index) ?: return
+        CjkLearning.adjust(NAMESPACE, cand.reading, cand.text, cand.text, adjustment)
     }
 
 
@@ -117,6 +136,7 @@ object JapaneseComposer : Composer {
                     charPerUnit = false,
                     maxAmbiguousSpan = if (loose) Int.MAX_VALUE else 2,
                 ),
+                adjust = CjkLearning.adjustFor(NAMESPACE),
             )
             for (cand in decoded) out.getOrPut(cand.text) { Cand(cand.text, cand.consumed, cand.reading) }
         }

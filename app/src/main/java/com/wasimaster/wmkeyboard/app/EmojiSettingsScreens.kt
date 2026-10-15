@@ -40,6 +40,8 @@ import com.wasimaster.wmkeyboard.core.settings.EmojiGridEmojiSizeRange
 import com.wasimaster.wmkeyboard.core.settings.EmojiRecentsRange
 import com.wasimaster.wmkeyboard.core.settings.MediaPanelExtraHeightRange
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarMode
+import com.wasimaster.wmkeyboard.core.settings.BarRow
+import com.wasimaster.wmkeyboard.core.settings.modesOverridingRow
 import com.wasimaster.wmkeyboard.core.settings.EmojiFontChoice
 import com.wasimaster.wmkeyboard.core.settings.EmojiSkinTone
 import com.wasimaster.wmkeyboard.core.util.PlayServices
@@ -55,7 +57,13 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import kotlin.math.roundToInt
 import com.wasimaster.wmkeyboard.core.emoji.EmojiSearchExamples
+import com.wasimaster.wmkeyboard.core.fonts.FontFile
+import com.wasimaster.wmkeyboard.core.fonts.FontImportResult
 import com.wasimaster.wmkeyboard.core.fonts.FontStore
+import com.wasimaster.wmkeyboard.core.util.requireInputStream
+import com.wasimaster.wmkeyboard.content.R as ContentR
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import kotlinx.coroutines.launch
 
 // ---- emoji ----
@@ -74,7 +82,10 @@ internal fun EmojiSettings(
     // What decides which rows the groups hold; each row reads its own value.
     val predictionOn = settings.watch { it.emojiPrediction }
     val barMode = settings.watch { it.emojiBarMode }
+    val emojiRowOverridden = settings.watch { it.modesOverridingRow(BarRow.EMOJI).isNotEmpty() }
     val emojiButtonOn = settings.watch { it.emojiToolbar }
+    val stripOwnSize = settings.watch { it.toolbarBehavior.stripOwnSize }
+    val dpFormat = stringResource(R.string.typing_value_dp)
     SettingsGroup(stringResource(R.string.langemoji_emoji_access_title)) {
         item {
             ToggleSetting(
@@ -85,29 +96,84 @@ internal fun EmojiSettings(
                 default = SettingsDefaults.emojiToolbar,
             ) { scope.launch { repository.setEmojiToolbar(it) } }
         }
-        // Which tool that button is (#462). Here, beside the switch that
-        // shows it, because this is the row people come to when they want it
-        // to be something else.
+        // Which tools stay beside the suggestions, in order (#462). Here, beside
+        // the switch that shows them, because this is the row people come to
+        // when they want the emoji button to be something else, or more.
         item(visible = emojiButtonOn) {
-            val shortcut = settings.watch { it.toolbarBehavior.stripShortcut }
+            val shortcuts = settings.watch { it.toolbarBehavior.stripShortcuts }
             var picking by remember { mutableStateOf(false) }
             NavRow(
                 title = R.string.langemoji_strip_shortcut_title,
                 subtitle = stringResource(R.string.langemoji_strip_shortcut_subtitle),
-                value = stringResource(toolTitle(shortcut)),
+                value = stringResource(R.string.langemoji_strip_tools_add_value),
             ) { picking = true }
             if (picking) {
                 ToolPickerDialog(
                     title = stringResource(R.string.langemoji_strip_shortcut_title),
-                    current = shortcut,
-                    options = ToolbarTool.entries.filter { isSupportedTool(it) },
+                    current = null,
+                    options = ToolbarTool.entries.filter { isSupportedTool(it) && it !in shortcuts },
                     onDismiss = { picking = false },
                     onPick = { picked ->
                         picking = false
-                        if (picked != null) scope.launch { repository.setStripShortcut(picked) }
+                        if (picked != null) scope.launch { repository.setStripShortcuts(shortcuts + picked) }
                     },
                 )
             }
+        }
+        // The chosen buttons themselves: drag to change the order they sit in
+        // beside the suggestions, the bin to take one off.
+        item(visible = emojiButtonOn) {
+            val shortcuts = settings.watch { it.toolbarBehavior.stripShortcuts }
+            // Every tool's name, not only the chosen ones': the list adopts a
+            // change a frame after it lands, so a tool just taken off is still
+            // drawn once more by name.
+            val names = ToolbarTool.entries.associateWith { stringResource(toolTitle(it)) }
+            ReorderableColumn(
+                items = shortcuts,
+                label = { names[it] ?: it.name },
+                onReorder = { order -> scope.launch { repository.setStripShortcuts(order) } },
+                onDelete = { tool -> scope.launch { repository.setStripShortcuts(shortcuts - tool) } },
+                keepLast = false,
+            )
+        }
+        // Which end of the strip they sit at.
+        item(visible = emojiButtonOn) {
+            ToggleSetting(
+                R.string.langemoji_strip_at_end_title,
+                stringResource(R.string.langemoji_strip_at_end_subtitle),
+                settings.watch { it.toolbarBehavior.stripShortcutsAtEnd },
+                default = SettingsDefaults.toolbarBehavior.stripShortcutsAtEnd,
+            ) { scope.launch { repository.setStripShortcutsAtEnd(it) } }
+        }
+        // Their size, apart from the toolbar's tools (which the Toolbar page's
+        // sliders size). Off, a tool on both looks the same in either spot.
+        item(visible = emojiButtonOn) {
+            ToggleSetting(
+                R.string.langemoji_strip_own_size_title,
+                stringResource(R.string.langemoji_strip_own_size_subtitle),
+                settings.watch { it.toolbarBehavior.stripOwnSize },
+                default = SettingsDefaults.toolbarBehavior.stripOwnSize,
+            ) { scope.launch { repository.setStripOwnSize(it) } }
+        }
+        item(visible = emojiButtonOn && stripOwnSize) {
+            SliderSetting(
+                R.string.langemoji_strip_tool_width_title,
+                subtitle = stringResource(R.string.langemoji_strip_tool_width_subtitle),
+                value = settings.watch { it.toolbarBehavior.stripToolWidthDp }.toFloat(),
+                range = 30f..64f,
+                display = { dpFormat.format(it.roundToInt()) },
+                default = SettingsDefaults.toolbarBehavior.stripToolWidthDp.toFloat(),
+            ) { scope.launch { repository.setStripToolWidthDp(it.roundToInt()) } }
+        }
+        item(visible = emojiButtonOn && stripOwnSize) {
+            SliderSetting(
+                R.string.langemoji_strip_icon_size_title,
+                subtitle = stringResource(R.string.langemoji_strip_icon_size_subtitle),
+                value = settings.watch { it.toolbarBehavior.stripIconSizeDp }.toFloat(),
+                range = 14f..30f,
+                display = { dpFormat.format(it.roundToInt()) },
+                default = SettingsDefaults.toolbarBehavior.stripIconSizeDp.toFloat(),
+            ) { scope.launch { repository.setStripIconSizeDp(it.roundToInt()) } }
         }
         item {
             ToggleSetting(
@@ -188,6 +254,9 @@ internal fun EmojiSettings(
                 default = SettingsDefaults.emojiBarMode,
                 detail = { mode -> ChoiceDetail(stringResource(emojiBarModeDescRes(mode))) },
             ) { scope.launch { repository.setEmojiBarMode(it) } }
+        }
+        item(visible = emojiRowOverridden) {
+            ModeRowOverrides(BarRow.EMOJI, settings, onNavigate)
         }
         item(visible = barMode != EmojiBarMode.OFF) {
             ChoiceSetting(
@@ -520,6 +589,7 @@ internal fun EmojiPanelSettings(
                     EmojiTabMode.RECENTS to stringResource(R.string.langemoji_emoji_recent_label),
                     EmojiTabMode.MOST_USED to
                         stringResource(R.string.langemoji_emoji_most_used_label),
+                    EmojiTabMode.OFF to stringResource(R.string.langemoji_emoji_tab_off_label),
                 ),
                 selected = tabMode,
                 default = SettingsDefaults.emojiTabMode,
@@ -591,11 +661,17 @@ internal fun EmojiPanelSettings(
     }
 }
 /**
- * The emoji faces in the font library, with the one in use ticked.
+ * The emoji faces in the font library, with the one in use ticked, and the
+ * button that adds a file of the user's own to it.
  *
  * Emoji fonts live in the same [FontStore] as the text faces — same files, same
  * lifecycle — but are listed apart, since drawing key labels in a colour emoji
  * font is not a choice anyone makes on purpose.
+ *
+ * The import is here, and not only under "Custom", because Custom is a single
+ * slot that each import overwrites (#657): someone without the download route,
+ * such as an offline build, had to pick the file again every time they went
+ * back to a face they had used before.
  */
 @Composable
 private fun InstalledEmojiFontList(repository: SettingsRepository, settings: LiveSettings) {
@@ -604,10 +680,52 @@ private fun InstalledEmojiFontList(repository: SettingsRepository, settings: Liv
     val store = remember { FontStore.get(context) }
     val revision by store.revision.collectAsStateWithLifecycle()
     val fonts = remember(revision) { store.emojiFonts() }
+    // A refused import, already in words: it is resolved on the main thread
+    // as the result lands, against the language the screen is showing.
+    var importError by remember { mutableStateOf<String?>(null) }
+    val importFont = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri).use {
+                        FontFile.import(it, store, name = fontFileLabel(context, uri), emoji = true)
+                    }
+                }.getOrElse {
+                    FontImportResult.Failed(ContentR.string.core_content_font_error_read)
+                }
+            }
+            when (result) {
+                // Selected straight away: importing a face and then having to
+                // find it in the list to use it is one step too many.
+                is FontImportResult.Imported -> repository.setInstalledEmojiFont(result.font.id)
+                is FontImportResult.NotAFont -> importError = context.getString(result.messageRes)
+                FontImportResult.TooManyFonts -> importError = context.resources.getQuantityString(
+                    R.plurals.fonts_import_limit_message,
+                    FontStore.MAX_FONTS,
+                    FontStore.MAX_FONTS,
+                )
+                is FontImportResult.Failed -> importError =
+                    context.getString(result.messageRes, *result.messageArgs.toTypedArray())
+            }
+        }
+    }
+    importError?.let { message ->
+        AlertDialog(
+            onDismissRequest = { importError = null },
+            text = { Text(message) },
+            confirmButton = {
+                TextButton(onClick = { importError = null }) {
+                    Text(stringResource(CommonR.string.common_ok))
+                }
+            },
+        )
+    }
 
     if (fonts.isEmpty()) {
         CaptionText(stringResource(R.string.langemoji_emoji_fonts_empty))
-        return
     }
     val installedId = settings.watch { it.emojiFontInstalled.installedId }
     for (font in fonts) {
@@ -644,6 +762,12 @@ private fun InstalledEmojiFontList(repository: SettingsRepository, settings: Liv
             onClick = { scope.launch { repository.setInstalledEmojiFont(font.id) } },
         )
     }
+    Spacer(Modifier.height(8.dp))
+    OutlinedButton(
+        onClick = { importFont.launch(FONT_MIME_TYPES) },
+        modifier = Modifier.padding(horizontal = 16.dp),
+    ) { Text(stringResource(R.string.langemoji_emoji_fonts_add_action)) }
+    Spacer(Modifier.height(8.dp))
 }
 
 /** What each emoji suggestion answer does to the typed word, for the sheet. */
@@ -678,4 +802,5 @@ private fun emojiFontDescRes(choice: EmojiFontChoice): Int = when (choice) {
 private fun emojiTabModeDescRes(mode: EmojiTabMode): Int = when (mode) {
     EmojiTabMode.RECENTS -> R.string.langemoji_emoji_recent_desc
     EmojiTabMode.MOST_USED -> R.string.langemoji_emoji_most_used_desc
+    EmojiTabMode.OFF -> R.string.langemoji_emoji_tab_off_desc
 }

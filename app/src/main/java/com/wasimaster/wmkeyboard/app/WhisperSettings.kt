@@ -59,6 +59,7 @@ import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.modules.ModuleState
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCatalog
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCpp
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperDownloadManager
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperDownloadManager.DownloadStatus
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperEngine
@@ -198,12 +199,15 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: LiveS
         )
     }
 
-    // A Play install carries the interpreter as an on-demand module. The
-    // models below can be fetched without it, but nothing transcribes until
-    // it is here, so it is the first thing on the screen while it is not.
+    // A Play install carries the LiteRT interpreter as an on-demand module.
+    // The LiteRT graphs below can be fetched without it, but none transcribes
+    // until it is here, so it is the first thing on the screen while it is
+    // not. whisper.cpp is in the app itself, so where it runs the module only
+    // matters once a LiteRT graph is on the device.
     val module by WhisperEngine.moduleState.collectAsState()
     var moduleMetered by remember { mutableStateOf(false) }
-    if (module != ModuleState.Installed) {
+    val needsModule = !WhisperCatalog.cppAvailable || onDisk.any { !it.ggml }
+    if (module != ModuleState.Installed && needsModule) {
         WhisperModuleBanner(
             module = module,
             onDownload = {
@@ -225,6 +229,11 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: LiveS
             )
         }
     }
+
+    // whisper.cpp's own libraries are an on-demand part too on Play, shared
+    // with the ExecuTorch engines, so they are asked for once a GGML model is
+    // on the device.
+    if (onDisk.any { it.ggml }) SpeechModuleBanner(settings)
 
     WhisperRoutingCard(
         languages = enabledLanguages,
@@ -297,11 +306,15 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: LiveS
         val vocabSeen = HashSet<String>()
         wanted.flatMap { model ->
             listOfNotNull(
-                OfflineLink(model.displayName, WhisperCatalog.downloadUrl(model.repo, model.modelFile)),
-                if (vocabSeen.add(model.vocabFile)) {
+                OfflineLink(
+                    model.displayName,
+                    WhisperCatalog.downloadUrl(model.repo, model.modelFile, model.revision),
+                ),
+                // A whisper.cpp model is one file; a LiteRT graph needs its vocab.
+                if (!model.ggml && vocabSeen.add(model.vocabFile)) {
                     OfflineLink(
                         context.getString(R.string.offline_import_whisper_vocab_label, model.vocabFile),
-                        WhisperCatalog.downloadUrl(model.vocabRepo, model.vocabFile),
+                        WhisperCatalog.downloadUrl(model.vocabRepo, model.vocabFile, model.revision),
                     )
                 } else {
                     null
@@ -814,6 +827,7 @@ private fun WhisperLanguageDetail(
         WhisperLanguages.labels(missed).joinToString(", "),
     )
     val translateLine = stringResource(R.string.models_whisper_detail_translate)
+    val cppLine = stringResource(R.string.models_whisper_detail_cpp)
     val fallbackLine = stringResource(R.string.models_whisper_detail_fallback)
     val lines = buildList {
         if (model.langCodes.size > 1) add(coversLine)
@@ -821,6 +835,7 @@ private fun WhisperLanguageDetail(
             if (missed.isEmpty()) add(allYoursLine) else add(missingLine)
         }
         if (model.supportsTranslate) add(translateLine)
+        if (model.ggml) add(cppLine)
         if (isFallback) add(fallbackLine)
     }
     if (lines.isEmpty()) return
@@ -885,6 +900,38 @@ private fun WhisperDownloadProgress(bytes: Long, total: Long) {
             )
         }
     }
+}
+
+/**
+ * The whisper.cpp, ExecuTorch and Whistle libraries' own download (`:feature:speech`),
+ * on a Play install that has not fetched them. Nothing anywhere else, where
+ * the libraries are in the APK. Asks the way the interpreter's banner does.
+ */
+@Composable
+internal fun SpeechModuleBanner(settings: LiveSettings) {
+    val context = LocalContext.current
+    val module by WhisperCpp.moduleState.collectAsState()
+    if (module == ModuleState.Installed) return
+    var metered by remember { mutableStateOf(false) }
+    var blocked by remember { mutableStateOf(false) }
+    WhisperModuleBanner(module) {
+        when (downloadDecisionNow(context, settings.value)) {
+            MeteredDecision.ALLOWED -> WhisperCpp.requestModule()
+            MeteredDecision.ASK -> metered = true
+            MeteredDecision.BLOCKED -> blocked = true
+        }
+    }
+    if (metered) {
+        MeteredDownloadDialog(
+            detail = stringResource(R.string.models_whisper_module_metered_body),
+            onConfirm = {
+                metered = false
+                WhisperCpp.requestModule()
+            },
+            onDismiss = { metered = false },
+        )
+    }
+    if (blocked) MeteredBlockedDialog(onDismiss = { blocked = false })
 }
 
 /**

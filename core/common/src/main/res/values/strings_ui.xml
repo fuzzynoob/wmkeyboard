@@ -33,6 +33,9 @@
     <string name="common_permission_camera_title">Camera access for the camera tool</string>
     <string name="common_permission_camera_body">WM Keyboard opens the camera only while the camera tool is on screen. You can take a photo and put it into the app that you type in. The keyboard writes the photo to its own private storage. The keyboard gives the photo to that app when you insert it. The keyboard uploads no photo, and sends no photo to the developer. The tool is optional.</string>
 
+    <string name="common_permission_location_title">Location access for the location tool</string>
+    <string name="common_permission_location_body">WM Keyboard reads where your phone is only when you tap Locate me in the location tool, or Use my location for the weather and compass tools. It reads one position and then stops. The keyboard does not track you and does not read your location in the background. It keeps the position in memory for a short time, and saves it only if you save a place. To show an address, the keyboard sends the position to the address server that you selected. You can turn the address off. Nothing goes to the developer. On the next screen, Only this time works: the keyboard asks again next time. The tool is optional.</string>
+
     <string name="common_permission_calendar_title">Calendar access for the calendar tool</string>
     <string name="common_permission_calendar_body">WM Keyboard reads your events. The calendar tool lists them, and you can insert one as text. The keyboard reads your calendar only while that tool is open. The keyboard never writes to your calendar. Your events stay on your device. The tool is optional.</string>
 
@@ -40,6 +43,8 @@
     <string name="common_permission_contact_names_body">WM Keyboard reads the names in your contacts. The names then complete as you type, and autocorrect does not change them. The keyboard keeps the names in memory while it runs, and writes them to no file. The names never leave your device. The setting is optional. It stays off until you turn it on.</string>
 
     <string name="common_permission_contact_emails_title">Contacts access for email suggestions</string>
+    <string name="common_permission_contact_phones_title">Contacts access for call and message chips</string>
+    <string name="common_permission_contact_phones_body">WM Keyboard reads the names and phone numbers in your contacts. When you type the name of a contact, the keyboard offers to call or text that person. A tap opens your phone app or your messages app with the number filled in. The keyboard does not make the call or send the message. The keyboard keeps the names and numbers in memory while it runs, and writes them to no file. They never leave your device. The setting is optional. It stays off until you turn it on.</string>
     <string name="common_permission_contact_emails_body">WM Keyboard reads the email addresses in your contacts. When you type the start of an address, the keyboard offers the full address. The keyboard keeps the addresses in memory while it runs, and writes them to no file. The addresses never leave your device. The setting is optional. It stays off until you turn it on.</string>
 
     <!-- Android has no screenshots-only permission, so this asks for the whole
@@ -68,6 +73,14 @@
     <!-- The install permission, on builds that update themselves from GitHub. -->
     <string name="common_special_access_install_updates_title">Permission to install updates</string>
     <string name="common_special_access_install_updates_body">To install a new version, Android must let this app install apps. The app uses that permission for one thing: a new version of itself that you downloaded from the project releases page and pressed Install on. Before it asks, the app compares the file against the checksum in the release and against the key this install is signed with. Android shows its own confirmation for the first update. The app never installs another app, and it never installs anything you did not press Install on.</string>
+
+    <!-- "Display over other apps", for the floating keyboard button (issue #374). -->
+    <string name="common_special_access_overlay_title">Display over other apps, for the keyboard button</string>
+    <string name="common_special_access_overlay_body">With this permission the keyboard can draw one small round button over other apps while the keyboard is closed. Tap the button and the keyboard opens, even on a screen with no text field, so you can send keys and shortcuts to that app. The button is the only thing the keyboard draws with this permission. It cannot see or read what is on screen, and it collects no data. Android\'s settings screen describes everything this permission allows. The keyboard uses it for this button and nothing else. The button is optional and stays off until you turn it on.</string>
+    <string name="common_special_access_exact_alarms_title">Exact alarms for the clock tool</string>
+    <string name="common_special_access_exact_alarms_body">With this permission, an alarm or a timer you set in the clock tool rings at the exact minute. Without it, the alarm still rings, but Android can delay it by some minutes while the phone sleeps. The keyboard uses it only for the alarms and timers you set. It reads nothing and collects no data. You can turn it off again at any time.</string>
+    <string name="common_special_access_full_screen_title">Ring screen for the clock tool</string>
+    <string name="common_special_access_full_screen_body">With this permission, a ringing alarm or timer shows its full screen, with Snooze and Dismiss, on top of the lock screen. Without it, the alarm still rings, and shows as a notification instead. The keyboard uses it only while one of your alarms or timers rings.</string>
 
     <string name="common_special_access_accessibility_title">Accessibility service for keyboard gestures</string>
     <string name="common_special_access_accessibility_body">This service keeps the keyboard gestures available while a screen reader runs. The gestures are the spacebar cursor slide, the backspace word swipe, glide typing and handwriting. Only an accessibility service can arrange this. The service subscribes to no accessibility events. It cannot read window content. It marks nothing but the keyboard\'s own key grid. It collects no data. Android\'s accessibility screen warns about the full power of this category. This service declares none of that power.</string>

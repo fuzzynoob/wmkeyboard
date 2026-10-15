@@ -5,6 +5,7 @@ import android.os.Build
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
@@ -21,6 +22,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -37,6 +39,7 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -47,6 +50,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Info
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Star
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -63,6 +67,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.input.pointer.pointerInput
@@ -70,6 +75,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.foundation.layout.offset
 import androidx.compose.ui.text.TextLayoutResult
@@ -85,6 +91,7 @@ import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import com.wasimaster.wmkeyboard.core.net.InternetGate
 import com.wasimaster.wmkeyboard.core.net.NetLogInterceptor
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
+import com.wasimaster.wmkeyboard.core.theme.FrostSurface
 import kotlin.math.roundToInt
 import kotlinx.coroutines.delay
 import coil3.ImageLoader
@@ -102,6 +109,7 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.tools.GifItem
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.GifSources
+import com.wasimaster.wmkeyboard.core.tools.MediaCategories
 import com.wasimaster.wmkeyboard.core.tools.MediaCategory
 import com.wasimaster.wmkeyboard.core.tools.SearchBackend
 import com.wasimaster.wmkeyboard.core.tools.ToolApiKeys
@@ -154,7 +162,9 @@ internal fun showMediaCategories(
     /** The height the panel's body is given, when the keys of its layout take some of the key area (#538). */
     available: Dp? = null,
 ): Boolean {
-    if (state.mediaCategories.isEmpty()) return false
+    // A provider with no categories still has the panel's own lists to offer
+    // (#597): without them the favourites had no way in at all.
+    if (state.mediaCategories.isEmpty() && gifCollectionChips(state, state.panel == PanelMode.STICKER).isEmpty()) return false
     if (state.mediaSearchActive || localGrid || !acceptsRichMedia) return false
     if (state.mediaQuery.isNotBlank() && state.mediaCategory == null) return false
     return fullBleed || (available ?: keyRowsHeight(state)) >= MediaCategoryMinPanelHeight
@@ -500,6 +510,8 @@ internal fun RowScope.MediaHeaderSearchBar(
     placeholder: String,
     onQueryTap: () -> Unit,
     attribution: String? = null,
+    // A provider's "Powered by" mark at the end of the box, while it answers.
+    logo: GifSource? = null,
     // Prompt shown once the field is typed into. Null falls back to the search
     // wording; tools that aren't searching (e.g. translate) pass their own.
     // A default argument cannot hold a resource, hence the null.
@@ -507,6 +519,10 @@ internal fun RowScope.MediaHeaderSearchBar(
     focused: Boolean = false,
     // Shown while there is a query: starts a new search. Null hides it.
     onClear: (() -> Unit)? = null,
+    // The buffer the bar draws. The media query by default; a panel with a
+    // search box of its own (the Notes panel, #560) passes its own pair.
+    query: String = state.mediaQuery,
+    active: Boolean = state.mediaSearchActive,
 ) {
     val kb = LocalKbTheme.current
     val activeHint = activePlaceholder ?: stringResource(R.string.ime_media_search_active_hint)
@@ -516,6 +532,7 @@ internal fun RowScope.MediaHeaderSearchBar(
             .weight(1f)
             .padding(start = 6.dp, end = 4.dp)
             .clip(shape)
+            .frostGlass(kb, shape, FrostSurface.CHIPS)
             .background(kb.chip)
             .chipBorder(kb, shape)
             .focusRing(focused, shape)
@@ -531,9 +548,9 @@ internal fun RowScope.MediaHeaderSearchBar(
         )
         Spacer(Modifier.width(8.dp))
         SearchQueryText(
-            query = state.mediaQuery,
-            placeholder = if (state.mediaSearchActive) activeHint else placeholder,
-            active = state.mediaSearchActive,
+            query = query,
+            placeholder = if (active) activeHint else placeholder,
+            active = active,
             textColor = kb.suggestionText,
             placeholderColor = kb.secondaryText,
             fontSize = 13.sp,
@@ -547,16 +564,19 @@ internal fun RowScope.MediaHeaderSearchBar(
                 modifier = Modifier.padding(start = 6.dp),
             )
         }
-        if (onClear != null && state.mediaQuery.isNotEmpty()) {
-            Icon(
-                Icons.Outlined.Close,
-                contentDescription = stringResource(R.string.ime_clipboard_search_clear_desc),
-                modifier = Modifier
-                    .padding(start = 6.dp)
-                    .size(16.dp)
-                    .clickable { onClear() },
-                tint = kb.toolbarIcon,
-            )
+        if (logo != null) ProviderLogo(logo, height = 8.dp, modifier = Modifier.padding(start = 6.dp))
+        if (onClear != null && query.isNotEmpty()) {
+            IconHint(stringResource(R.string.ime_clipboard_search_clear_desc)) {
+                Icon(
+                    Icons.Outlined.Close,
+                    contentDescription = stringResource(R.string.ime_clipboard_search_clear_desc),
+                    modifier = Modifier
+                        .padding(start = 6.dp)
+                        .size(16.dp)
+                        .clickable { onClear() },
+                    tint = kb.toolbarIcon,
+                )
+            }
         }
     }
 }
@@ -572,6 +592,8 @@ private fun MediaSearchBar(
     placeholder: String,
     onQueryTap: () -> Unit,
     attribution: String? = null,
+    // A provider's "Powered by" mark beside the box, while it answers.
+    logo: GifSource? = null,
     focused: Boolean = false,
     // Drawn after the box and its credit: the switch to the emoji and the
     // other media panel, when it sits up here (issue #366).
@@ -589,6 +611,7 @@ private fun MediaSearchBar(
             modifier = Modifier
                 .weight(1f)
                 .clip(shape)
+                .frostGlass(kb, shape, FrostSurface.CHIPS)
                 .background(kb.chip)
                 .chipBorder(kb, shape)
                 .focusRing(focused, shape)
@@ -625,6 +648,7 @@ private fun MediaSearchBar(
                 modifier = Modifier.padding(start = 8.dp),
             )
         }
+        if (logo != null) ProviderLogo(logo, height = 9.dp, modifier = Modifier.padding(start = 8.dp))
         if (trailing != null) {
             Spacer(Modifier.width(8.dp))
             trailing()
@@ -661,6 +685,7 @@ private fun PanelNotice(
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier
                     .clip(kb.chipShape())
+                    .frostGlass(kb, kb.chipShape(), FrostSurface.CHIPS)
                     .background(kb.chipActive)
                     .chipBorder(kb, kb.chipShape())
                     .clickable { onAction() }
@@ -704,6 +729,7 @@ private fun MediaUnsupportedNotice(stickers: Boolean) {
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
             .clip(kb.cardShape())
+            .frostGlass(kb, kb.cardShape(), FrostSurface.CARDS)
             .background(kb.chip)
             .chipBorder(kb, kb.cardShape())
             .padding(horizontal = 10.dp, vertical = 6.dp),
@@ -747,30 +773,99 @@ private fun PanelSpinner() {
 // several providers configured, either a chip per source or one
 // evenly-mixed grid, per the tool's settings.
 
-/** The hint in the search box: GIFs and stickers each have their own wording. */
+/**
+ * The hint in the search box. A grid from KLIPY or GIPHY names it: "Search
+ * KLIPY" is a condition of KLIPY's production key, and GIPHY's own search
+ * boxes read "Search GIPHY". Otherwise GIFs and stickers each have their own
+ * wording.
+ */
 @Composable
-private fun gifSearchHint(stickers: Boolean): String = stringResource(
-    if (stickers) R.string.ime_sticker_search_hint else R.string.ime_gif_search_hint,
-)
+private fun gifSearchHint(state: KeyboardUiState, stickers: Boolean): String {
+    val brand = gifBrand(state, stickers)
+    if (brand != null) {
+        return stringResource(R.string.ime_media_search_provider, stringResource(GifSources.displayNameRes(brand)))
+    }
+    return stringResource(if (stickers) R.string.ime_sticker_search_hint else R.string.ime_gif_search_hint)
+}
 
-/** "from Klipy · GIPHY" — whichever providers this grid is actually pulling from. */
+/**
+ * "from Wikimedia Commons": the providers this grid is pulling from that have
+ * no mark of their own. KLIPY and GIPHY get theirs from [ProviderLogo].
+ */
 @Composable
 private fun gifAttribution(state: KeyboardUiState, stickers: Boolean = false): String? {
-    val sources = gifSourcesFor(state, stickers)
-    val tabs = state.settings.gif.sourceMode == GifSourceMode.TABS
-    val targets = GifSources.targets(sources, state.mediaSource, tabs)
     // Nothing to credit for packs on the device.
-    if (targets.isEmpty() || targets.all { it.onDevice }) return null
+    val credited = gifTargets(state, stickers).filter { !it.onDevice && it !in BRANDED_SOURCES }
+    if (credited.isEmpty()) return null
     val names = StringBuilder()
-    for (target in targets) {
+    for (source in credited) {
         if (names.isNotEmpty()) names.append(" · ")
-        names.append(stringResource(GifSources.displayNameRes(target)))
+        names.append(stringResource(GifSources.displayNameRes(source)))
     }
     return stringResource(R.string.ime_media_attribution, names.toString())
 }
 
+/**
+ * KLIPY or GIPHY, when the grid pulls from one: the search bar then carries
+ * its "Powered by" mark. GIPHY is never mixed with anything
+ * ([GifSource.ownGrid]), so a grid has at most one of the two.
+ */
+private fun gifBrand(state: KeyboardUiState, stickers: Boolean): GifSource? =
+    gifTargets(state, stickers).firstOrNull { it in BRANDED_SOURCES }
+
+private fun gifTargets(state: KeyboardUiState, stickers: Boolean): List<GifSource> = GifSources.targets(
+    gifSourcesFor(state, stickers),
+    state.mediaSource,
+    state.settings.gif.sourceMode == GifSourceMode.TABS,
+)
+
 private fun gifSourcesFor(state: KeyboardUiState, stickers: Boolean): List<GifSource> =
     if (stickers) ToolApiKeys.stickerSources(state.settings) else ToolApiKeys.gifSources(state.settings)
+
+/** The providers whose terms ask for their own "Powered by" mark rather than a line of text. */
+private val BRANDED_SOURCES = setOf(GifSource.KLIPY, GifSource.GIPHY)
+
+/**
+ * The provider's "Powered by" mark at the end of the search box, from the kit
+ * each one hands to API partners. Both make it a condition of a production key.
+ *
+ * KLIPY's is one colour, so it takes the panel's secondary text, as KLIPY
+ * ships it in grey, black and white for exactly that. GIPHY's carries its
+ * coloured logo and cannot be tinted: white lettering on a dark panel, and on
+ * a light one the black plate GIPHY's kit gives for light backgrounds.
+ */
+@Composable
+private fun ProviderLogo(source: GifSource, height: Dp, modifier: Modifier = Modifier) {
+    val kb = LocalKbTheme.current
+    if (source == GifSource.KLIPY) {
+        Icon(
+            painterResource(R.drawable.ime_powered_by_klipy),
+            contentDescription = stringResource(R.string.ime_media_powered_by_klipy),
+            modifier = modifier
+                .height(height)
+                .aspectRatio(KLIPY_LOGO_ASPECT),
+            tint = kb.secondaryText,
+        )
+        return
+    }
+    // Light text means a dark panel.
+    val darkPanel = kb.suggestionText.luminance() > 0.5f
+    val art = if (darkPanel) R.drawable.ime_powered_by_giphy_on_dark else R.drawable.ime_powered_by_giphy_on_light
+    Image(
+        painterResource(art),
+        contentDescription = stringResource(R.string.ime_media_powered_by_giphy),
+        // The plate has its own margin round the lettering, so it stands a little taller.
+        modifier = modifier
+            .height(if (darkPanel) height else height * GIPHY_PLATE_SCALE)
+            .aspectRatio(if (darkPanel) GIPHY_LOGO_ASPECT else GIPHY_PLATE_ASPECT),
+    )
+}
+
+/** Width over height of each "Powered by" artwork, so it sizes from a height alone. */
+private const val KLIPY_LOGO_ASPECT = 2335.63f / 396.67f
+private const val GIPHY_LOGO_ASPECT = 578f / 77f
+private const val GIPHY_PLATE_ASPECT = 641f / 136f
+private const val GIPHY_PLATE_SCALE = 1.5f
 
 /**
  * "via Brave" or "via Tavily" in the web and image search bars, for whichever
@@ -794,9 +889,10 @@ internal fun RowScope.GifHeaderSearchBar(
 ) {
     MediaHeaderSearchBar(
         state = state,
-        placeholder = gifSearchHint(stickers),
+        placeholder = gifSearchHint(state, stickers),
         onQueryTap = onQueryTap,
         attribution = gifAttribution(state, stickers),
+        logo = gifBrand(state, stickers),
     )
 }
 
@@ -815,6 +911,7 @@ internal fun RowScope.GifHeaderSearchBar(
  * @param onLongPress a result was long-pressed.
  * @param onPackFilter the sticker-pack filter changed, or was cleared.
  * @param onSaveToPack a result should be saved into a local pack.
+ * @param onFavouriteToggle a GIF should go into the favourites, or come out (#597).
  * @param onCopy a result should be copied to the clipboard.
  * @param onReport a result should be reported.
  * @param onDismissAction the open long-press action sheet should close.
@@ -839,6 +936,7 @@ internal fun GifPanel(
     onLongPress: (GifItem) -> Unit = {},
     onPackFilter: (String?) -> Unit = {},
     onSaveToPack: (GifItem, String?) -> Unit = { _, _ -> },
+    onFavouriteToggle: (GifItem) -> Unit = {},
     onCopy: (GifItem) -> Unit = {},
     onReport: (GifItem) -> Unit = {},
     onDismissAction: () -> Unit = {},
@@ -880,6 +978,28 @@ internal fun GifPanel(
     BoxWithConstraints(modifier = sizing) {
         // In a layout cell the keys around it have taken some of the key area.
         val available = if (inGrid) maxHeight else null
+        val categoryRow = showMediaCategories(state, localGrid, fullBleed, state.acceptsRichMedia, available)
+        // The favourites live on the category row, which a short panel, or a
+        // field that takes no images, does not draw. A star in the search bar
+        // is then their way in, and costs no height (#597).
+        val favouritesStar = !stickers && !categoryRow && !state.mediaSearchActive &&
+            (state.gifFavouriteIds.isNotEmpty() || state.mediaCategory == MediaCategories.FAVOURITES)
+        val trailing: (@Composable () -> Unit)? = if (favouritesStar) {
+            {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    FavouritesStar(
+                        on = state.mediaCategory == MediaCategories.FAVOURITES,
+                        onClick = { onCategorySelect(MediaCategories.FAVOURITES) },
+                    )
+                    if (switcher != null) {
+                        Spacer(Modifier.width(8.dp))
+                        switcher()
+                    }
+                }
+            }
+        } else {
+            switcher
+        }
         Column(modifier = Modifier.fillMaxSize()) {
             PanelFocusTarget(
                 panel = state.panel,
@@ -892,11 +1012,12 @@ internal fun GifPanel(
                 if (!fullBleed) {
                     MediaSearchBar(
                         state = state,
-                        placeholder = gifSearchHint(stickers),
+                        placeholder = gifSearchHint(state, stickers),
                         onQueryTap = onQueryTap,
                         attribution = gifAttribution(state, stickers),
+                        logo = gifBrand(state, stickers),
                         focused = state.focusedIndex(FocusRegion.SEARCH) == 0,
-                        trailing = switcher,
+                        trailing = trailing,
                     )
                 }
                 if (chips.isNotEmpty() && !state.mediaSearchActive) {
@@ -930,11 +1051,12 @@ internal fun GifPanel(
                         onAdd = if (chips.isEmpty()) onAdd else null,
                     )
                 }
-                if (showMediaCategories(state, localGrid, fullBleed, state.acceptsRichMedia, available)) {
+                if (categoryRow) {
                     // Trending first, so there is always a way back out of a
                     // category — and somewhere for the focus ring to sit when no
-                    // category is on.
-                    val entries = listOf(
+                    // category is on. The GIF panel's own lists lead it (#597):
+                    // favourites once there are any, recent when turned on.
+                    val entries = gifCollectionChips(state, stickers) + listOf(
                         MediaCategory(term = "", labelRes = R.string.ime_media_category_trending_label),
                     ) + state.mediaCategories
                     PanelFocusTarget(
@@ -989,6 +1111,7 @@ internal fun GifPanel(
                     is MediaUi.Ready -> {
                         if (ui.items.isEmpty()) {
                             LocalStickerEmptyNotice(
+                                category = state.mediaCategory,
                                 localGrid = localGrid,
                                 state = state,
                                 query = ui.query,
@@ -1006,6 +1129,7 @@ internal fun GifPanel(
                                     items = ui.items,
                                     downloadingId = state.mediaDownloadingId,
                                     progress = state.mediaDownloadProgress,
+                                    queue = state.mediaQueue,
                                     onSelect = onSelect,
                                     onLongPress = onLongPress,
                                     panel = state.panel,
@@ -1036,7 +1160,9 @@ internal fun GifPanel(
                 item = action,
                 stickers = stickers,
                 packs = state.stickerPacks,
+                favourite = action.id in state.gifFavouriteIds,
                 onSaveToPack = onSaveToPack,
+                onFavouriteToggle = onFavouriteToggle,
                 onCopy = onCopy,
                 onReport = onReport,
                 onOpenRoute = onOpenRoute,
@@ -1046,9 +1172,52 @@ internal fun GifPanel(
     }
 }
 
-/** The empty grid: local packs have their own way of being empty. */
+/**
+ * The chips for the GIF panel's own lists (#597), ahead of Trending.
+ * Favourites waits for the first one, so a user who never stars a GIF never
+ * sees an empty chip; it stays while it is the one selected, so taking the
+ * last one out does not pull the chip out from under the finger.
+ */
+internal fun gifCollectionChips(state: KeyboardUiState, stickers: Boolean): List<MediaCategory> {
+    if (stickers) return emptyList()
+    val chips = ArrayList<MediaCategory>(2)
+    if (state.gifFavouriteIds.isNotEmpty() || state.mediaCategory == MediaCategories.FAVOURITES) {
+        chips += MediaCategory(term = MediaCategories.FAVOURITES, labelRes = R.string.ime_gif_favourites_label)
+    }
+    if (state.settings.gif.recentGifs) {
+        chips += MediaCategory(term = MediaCategories.RECENT, labelRes = R.string.ime_gif_recent_label)
+    }
+    return chips
+}
+
+/** The search bar's way into the GIF favourites, for when the category row is not drawn; lit while they show. */
+@Composable
+private fun FavouritesStar(on: Boolean, onClick: () -> Unit) {
+    val kb = LocalKbTheme.current
+    val shape = kb.chipShape()
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(shape)
+            .frostGlass(kb, shape, FrostSurface.CHIPS)
+            .background(if (on) kb.chipActive else kb.chip)
+            .chipBorder(kb, shape)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            Icons.Outlined.Star,
+            contentDescription = stringResource(R.string.ime_gif_favourites_label),
+            modifier = Modifier.size(20.dp),
+            tint = if (on) kb.chipActiveText else kb.toolbarIcon,
+        )
+    }
+}
+
+/** The empty grid: local packs have their own way of being empty, and so do favourites and recent GIFs. */
 @Composable
 private fun LocalStickerEmptyNotice(
+    category: String?,
     localGrid: Boolean,
     state: KeyboardUiState,
     query: String,
@@ -1056,6 +1225,10 @@ private fun LocalStickerEmptyNotice(
     onOpenRoute: (String) -> Unit,
 ) {
     when {
+        !stickers && category == MediaCategories.FAVOURITES ->
+            PanelNotice(stringResource(R.string.ime_gif_favourites_empty))
+        !stickers && category == MediaCategories.RECENT ->
+            PanelNotice(stringResource(R.string.ime_gif_recent_empty))
         !localGrid -> PanelNotice(
             when {
                 query.isBlank() -> stringResource(R.string.ime_media_trending_empty)
@@ -1132,6 +1305,7 @@ private fun GifSourceChips(
                 modifier = Modifier
                     .weight(1f)
                     .clip(shape)
+                    .frostGlass(kb, shape, FrostSurface.CHIPS)
                     .background(if (active) kb.chipActive else kb.chip)
                     .chipBorder(kb, shape)
                     .focusRing(index == focused, shape)
@@ -1151,6 +1325,7 @@ private fun StickerAddChip(onAdd: () -> Unit, verticalPadding: Dp) {
     Box(
         modifier = Modifier
             .clip(shape)
+            .frostGlass(kb, shape, FrostSurface.CHIPS)
             .background(kb.chip)
             .chipBorder(kb, shape)
             .clickable { onAdd() }
@@ -1202,6 +1377,7 @@ private fun GifCategoryChips(
                 maxLines = 1,
                 modifier = Modifier
                     .clip(shape)
+                    .frostGlass(kb, shape, FrostSurface.CHIPS)
                     .background(if (active) kb.chipActive else kb.chip)
                     .chipBorder(kb, shape)
                     .focusRing(index == focused, shape)
@@ -1256,6 +1432,7 @@ private fun StickerPackChips(
                 maxLines = 1,
                 modifier = Modifier
                     .clip(shape)
+                    .frostGlass(kb, shape, FrostSurface.CHIPS)
                     .background(if (active) kb.chipActive else kb.chip)
                     .chipBorder(kb, shape)
                     .clickable { onSelect(id) }
@@ -1281,7 +1458,10 @@ private fun MediaActionSheet(
     item: GifItem,
     stickers: Boolean,
     packs: List<com.wasimaster.wmkeyboard.core.stickers.StickerPack>,
+    /** The GIF is one of the favourites already, so the row takes it out. */
+    favourite: Boolean,
     onSaveToPack: (GifItem, String?) -> Unit,
+    onFavouriteToggle: (GifItem) -> Unit,
     onCopy: (GifItem) -> Unit,
     onReport: (GifItem) -> Unit,
     onOpenRoute: (String) -> Unit,
@@ -1326,6 +1506,21 @@ private fun MediaActionSheet(
                         .padding(horizontal = 18.dp, vertical = 10.dp),
                 )
             }
+            // Who made it, where the provider says: GIPHY's API terms ask for
+            // its uploader's credit wherever there is one, and its own apps
+            // put it on this same long-press view.
+            if (own == null && item.creator.isNotBlank()) {
+                Text(
+                    stringResource(R.string.ime_media_creator, item.creator),
+                    color = kb.secondaryText,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(start = 18.dp, end = 18.dp, bottom = 8.dp),
+                )
+            }
             val local = item.source == GifSource.LOCAL
             if (stickers) {
                 if (local) {
@@ -1343,6 +1538,13 @@ private fun MediaActionSheet(
                         MediaActionRow(label) { onSaveToPack(item, pack.id) }
                     }
                 }
+            } else {
+                // The GIF panel's counterpart of saving to a pack (#597).
+                MediaActionRow(
+                    stringResource(
+                        if (favourite) R.string.ime_gif_favourite_remove_action else R.string.ime_gif_favourite_add_action,
+                    ),
+                ) { onFavouriteToggle(item) }
             }
             MediaActionRow(stringResource(CommonR.string.common_copy)) { onCopy(item) }
             // Reporting goes to the provider; an imported pack has none.
@@ -1471,6 +1673,8 @@ private fun GifGrid(
     items: List<GifItem>,
     downloadingId: String?,
     progress: Float?,
+    /** Ids waiting to send after the one downloading, in order. */
+    queue: List<String> = emptyList(),
     onSelect: (GifItem) -> Unit,
     onLongPress: ((GifItem) -> Unit)? = null,
     panel: PanelMode = PanelMode.GIF,
@@ -1522,6 +1726,7 @@ private fun GifGrid(
                         loader = loader,
                         downloadingId = downloadingId,
                         progress = progress,
+                        queuePosition = queue.indexOf(item.id) + 1,
                         focused = rowStarts[rowIndex] + indexInRow == focused,
                         onSelect = onSelect,
                         onLongPress = onLongPress,
@@ -1547,6 +1752,8 @@ private fun GifCell(
     loader: ImageLoader,
     downloadingId: String?,
     progress: Float?,
+    /** Place in the send queue, 1 for next; 0 when it isn't waiting. */
+    queuePosition: Int,
     focused: Boolean,
     onSelect: (GifItem) -> Unit,
     onLongPress: ((GifItem) -> Unit)?,
@@ -1555,10 +1762,12 @@ private fun GifCell(
     Box(
         modifier = modifier
             .clip(RoundedCornerShape(8.dp))
+            .frostGlass(LocalKbTheme.current, RoundedCornerShape(8.dp), FrostSurface.CHIPS)
             .background(LocalKbTheme.current.chip)
             .focusRing(focused, RoundedCornerShape(8.dp))
+            // Stays tappable while another sends: a tap then queues this one
+            // behind it, and a second tap takes it back out.
             .combinedClickable(
-                enabled = downloadingId == null,
                 onClick = { onSelect(item) },
                 onLongClick = onLongPress?.let { { it(item) } },
             ),
@@ -1573,6 +1782,40 @@ private fun GifCell(
             contentScale = ContentScale.Fit,
         )
         if (downloadingId == item.id) MediaDownloadOverlay(progress)
+        if (queuePosition > 0) MediaQueueBadge(queuePosition)
+    }
+}
+
+/**
+ * A waiting cell's place in the send queue: the preview dimmed a little, and
+ * its number in the corner, so a row of taps reads as the order they go out.
+ */
+@Composable
+private fun BoxScope.MediaQueueBadge(position: Int) {
+    val theme = LocalKbTheme.current
+    Box(
+        modifier = Modifier
+            .matchParentSize()
+            .background(Color.Black.copy(alpha = 0.25f)),
+    )
+    Box(
+        modifier = Modifier
+            .align(Alignment.TopEnd)
+            .padding(4.dp)
+            .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
+            .background(theme.chipActive, CircleShape)
+            .padding(horizontal = 5.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = position.toString(),
+            color = theme.chipActiveText,
+            fontSize = 12.sp,
+            // The inherited 24 sp line box would sit the digit low in a 20 dp dot.
+            lineHeight = 12.sp,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+        )
     }
 }
 
@@ -1713,16 +1956,23 @@ internal fun WebSearchPanel(
                                         )
                                     }
                                 }
-                                IconButton(onClick = { sideAction(result) }) {
-                                    Icon(
-                                        if (openFirst) Icons.Outlined.AddLink else Icons.AutoMirrored.Outlined.OpenInNew,
-                                        contentDescription = stringResource(
-                                            if (openFirst) R.string.ime_web_search_insert_desc
-                                            else R.string.ime_web_search_open_desc,
-                                        ),
-                                        modifier = Modifier.size(18.dp),
-                                        tint = kb.toolbarIcon,
-                                    )
+                                IconHint(
+                                    stringResource(
+                                        if (openFirst) R.string.ime_web_search_insert_desc
+                                        else R.string.ime_web_search_open_desc,
+                                    ),
+                                ) {
+                                    IconButton(onClick = { sideAction(result) }) {
+                                        Icon(
+                                            if (openFirst) Icons.Outlined.AddLink else Icons.AutoMirrored.Outlined.OpenInNew,
+                                            contentDescription = stringResource(
+                                                if (openFirst) R.string.ime_web_search_insert_desc
+                                                else R.string.ime_web_search_open_desc,
+                                            ),
+                                            modifier = Modifier.size(18.dp),
+                                            tint = kb.toolbarIcon,
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -1748,6 +1998,7 @@ private fun WebSearchAnswer(answer: String, onInsert: () -> Unit) {
             .fillMaxWidth()
             .padding(horizontal = 8.dp, vertical = 4.dp)
             .clip(shape)
+            .frostGlass(kb, shape, FrostSurface.CHIPS)
             .background(kb.chip)
             .clickable { expanded = !expanded }
             .padding(horizontal = 12.dp, vertical = 8.dp),
@@ -1887,6 +2138,7 @@ private fun ImageGrid(
                 modifier = Modifier
                     .height(86.dp)
                     .clip(RoundedCornerShape(8.dp))
+                    .frostGlass(LocalKbTheme.current, RoundedCornerShape(8.dp), FrostSurface.CHIPS)
                     .background(LocalKbTheme.current.chip)
                     .focusRing(index == focused, RoundedCornerShape(8.dp))
                     .pointerInput(result.imageUrl, downloadingId == null) {

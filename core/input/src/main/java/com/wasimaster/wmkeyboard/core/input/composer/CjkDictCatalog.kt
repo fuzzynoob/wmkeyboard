@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.input.composer
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
+import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.input.R
 import java.io.File
 
@@ -33,6 +34,28 @@ data class CjkDictPack(
     val sha256: String,
     /** On-disk file name for the downloaded pack. */
     val fileName: String,
+    /**
+     * Other languages whose detail screen also lists the pack. Still one pack,
+     * downloaded once: the row on either screen shows the same file.
+     */
+    val alsoLangIds: Set<String> = emptySet(),
+    /**
+     * Names earlier versions of this pack were published and stored under.
+     *
+     * A published pack is never rebuilt in place: every installed app version
+     * checks it against the checksum it shipped with, so new bytes under the
+     * old name break the download for all of them. A rebuild goes out under a
+     * new [path] and [fileName] instead, and the old name lands here so a copy
+     * already on the device keeps converting until the new one replaces it.
+     */
+    val legacyFileNames: List<String> = emptyList(),
+    /**
+     * The pack this one improves and is fetched with: wherever that one is
+     * offered — switching a layout on, a language's download-all — this one
+     * comes too, without a prompt of its own. Null for a pack that stands
+     * alone.
+     */
+    val alongside: String? = null,
 ) {
     /** Where the pack is fetched from: the data repository, wherever [ServiceRepo.DATA] points. */
     val url: String get() = ServiceEndpoints.repo(ServiceRepo.DATA).rawUrl(path)
@@ -56,10 +79,27 @@ object CjkDictCatalog {
             langId = "zh",
             displayNameRes = R.string.core_input_cjk_pack_pinyin_title,
             descriptionRes = R.string.core_input_cjk_pack_pinyin_subtitle,
-            path = "cjk/pinyin.tsv",
-            sizeBytes = 2_489_699L,
-            sha256 = "8baab4c758499272e36dba4bda4253317a4f93bb88bcf386ea86196c50d73715",
-            fileName = "pinyin.tsv",
+            // v2 is the rescore from the zh_cn corpus (#633). pinyin.tsv stays
+            // published, unchanged, for the versions that pinned it.
+            path = "cjk/pinyin_v2.tsv",
+            sizeBytes = 2_586_937L,
+            sha256 = "0c572b5f5699378beb0eab5ec81cf79bb277e0f100d3c944d8969b7445b1a0c9",
+            fileName = "pinyin_v2.tsv",
+            legacyFileNames = listOf("pinyin.tsv"),
+        ),
+        // Not a reading table: which words follow which (#580), so `wbxh`
+        // reads 我不喜欢 rather than 亡八喜欢. Pinyin converts without it, one
+        // word's frequency at a time; it comes with the pinyin pack.
+        CjkDictPack(
+            id = "pinyin_ngrams",
+            langId = "zh",
+            displayNameRes = R.string.core_input_cjk_pack_pinyin_ngrams_title,
+            descriptionRes = R.string.core_input_cjk_pack_pinyin_ngrams_subtitle,
+            path = "cjk/pinyin_ngrams.tsv",
+            sizeBytes = 11_036_820L,
+            sha256 = "30c0c614ac0576379407b0e519615653a4be5939590a795dae7074ce960e30bf",
+            fileName = "pinyin_ngrams.tsv",
+            alongside = "pinyin",
         ),
         CjkDictPack(
             id = "ja_kana",
@@ -91,6 +131,22 @@ object CjkDictCatalog {
             sha256 = "77a5a4c054019e3a3ea875e86a37cb08b71ce29392b6680208bb0c5749feb25d",
             fileName = "cangjie.tsv",
         ),
+        // Not a reading table: the OpenCC phrases that let Traditional output
+        // pick 頭髮 over 頭發 (#609). Optional — without it the bundled character
+        // table still converts, one character at a time. See [HanVariant].
+        // Cantonese lists it too: Jyutping candidates go through the same
+        // conversion when Traditional output is on.
+        CjkDictPack(
+            id = "s2t_phrases",
+            langId = "zh",
+            displayNameRes = R.string.core_input_cjk_pack_s2t_phrases_title,
+            descriptionRes = R.string.core_input_cjk_pack_s2t_phrases_subtitle,
+            path = "cjk/s2t_phrases.txt",
+            sizeBytes = 1_021_797L,
+            sha256 = "a8c1ff12191edfc8dc435d23736e2bf097357650ea195f51767d397c5b70908c",
+            fileName = "s2t_phrases.txt",
+            alsoLangIds = setOf("yue"),
+        ),
         CjkDictPack(
             id = "jyutping",
             langId = "yue",
@@ -109,11 +165,42 @@ object CjkDictCatalog {
 
     fun byId(id: String): CjkDictPack? = packs.firstOrNull { it.id == id }
 
-    /** The pack published as [name] (`pinyin.tsv`), by the file name in the data repo. */
+    /** [pack] and every available pack fetched [CjkDictPack.alongside] it. */
+    fun withCompanions(pack: CjkDictPack): List<CjkDictPack> =
+        listOf(pack) + packs.filter { it.alongside == pack.id && it.available }
+
+    /** The pack published as [name] (`pinyin_v2.tsv`), by the file name in the data repo. */
     fun byFileName(name: String): CjkDictPack? =
         packs.firstOrNull { it.available && it.path.substringAfterLast('/') == name }
 
-    fun forLang(langId: String): List<CjkDictPack> = packs.filter { it.langId == langId }
+    /**
+     * True for a name an older version of a pack was published under. Offline
+     * language packs carry those too, for app versions that still pin them, and
+     * this one passes over them: their bytes would fail its checksum.
+     */
+    fun isLegacyFileName(name: String): Boolean = packs.any { name in it.legacyFileNames }
+
+    fun forLang(langId: String): List<CjkDictPack> =
+        packs.filter { it.langId == langId || langId in it.alsoLangIds }
+
+    /**
+     * The pack a layout typing through [type] cannot convert without, or null
+     * for a composer that needs none. Spelled to match [CjkDictionaries]'
+     * `missing*`, which answers the same question once the tables are loaded;
+     * this one is for Settings, which has no tables, deciding what to offer
+     * when such a layout is switched on.
+     */
+    fun forComposer(type: ComposerType): CjkDictPack? {
+        val id = when (type) {
+            ComposerType.PINYIN, ComposerType.T9_PINYIN, ComposerType.ZHUYIN -> "pinyin"
+            ComposerType.ROMAJI -> "ja_kana"
+            ComposerType.STROKE -> "stroke"
+            ComposerType.CANGJIE, ComposerType.CANGJIE_QUICK -> "cangjie"
+            ComposerType.JYUTPING -> "jyutping"
+            else -> return null
+        }
+        return byId(id)
+    }
 }
 
 /**
@@ -140,9 +227,26 @@ object CjkDictStore {
         packDir(filesDir, pack).deleteRecursively()
     }
 
-    /** The downloaded pack file for [id] if present, else null (no candidates until downloaded). */
-    fun downloadedFileFor(filesDir: File, id: String): File? =
-        CjkDictCatalog.byId(id)?.let { packFile(filesDir, it).takeIf(File::isFile) }
+    /** Removes copies of [pack]'s earlier versions, once the current one is in place. */
+    fun dropLegacy(filesDir: File, pack: CjkDictPack) {
+        pack.legacyFileNames.forEach { File(packDir(filesDir, pack), it).delete() }
+    }
+
+    /**
+     * The pack file for [id] to convert with: the current version if it is on
+     * disk, else a copy of an earlier one, else null (no candidates until
+     * downloaded).
+     *
+     * The earlier copy is what keeps typing working across an update that moves
+     * a pack to a new version. [isDownloaded] still says no, so the pack's row
+     * offers the download, but nobody loses Chinese between updating the app
+     * and fetching the new table.
+     */
+    fun downloadedFileFor(filesDir: File, id: String): File? {
+        val pack = CjkDictCatalog.byId(id) ?: return null
+        packFile(filesDir, pack).takeIf(File::isFile)?.let { return it }
+        return pack.legacyFileNames.map { File(packDir(filesDir, pack), it) }.firstOrNull(File::isFile)
+    }
 
     /**
      * A monotonically-changing token summarising which packs are on disk. The

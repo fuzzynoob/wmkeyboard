@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.input.composer
 
+import com.wasimaster.wmkeyboard.core.input.imported.ImportedInputMethods
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.script
@@ -194,6 +195,28 @@ interface Composer {
     val isConversion: Boolean get() = false
 
     /**
+     * Whether a reading left without a conversion — ended by a punctuation
+     * mark, an arrow key, a caret move or a layout switch rather than by space
+     * or a picked candidate — commits as [typedReading] instead of as its best
+     * candidates (#616). True for Japanese, whose kana reading is already text
+     * the user can mean, the way Mozc and Gboard confirm it; false for the
+     * Chinese composers, whose reading is letters or keys nobody means to send.
+     */
+    val keepsUnconvertedReading: Boolean get() = false
+
+    /**
+     * Whether this conversion composer reads its readings straight off the
+     * Latin letter keys — full pinyin, romaji, Jyutping — so that the keys
+     * spelling a reading could just as well be spelling an English word.
+     *
+     * What lets the candidate strip put English words beside the conversions
+     * when English is one of the language's secondaries (#633). False for
+     * every pad whose keys are not the alphabet: T9's digits, Zhuyin's
+     * bopomofo, Cangjie's radicals and the strokes.
+     */
+    val readsLatinLetters: Boolean get() = false
+
+    /**
      * The [CjkDictCatalog] pack this composer converts with, when that pack is
      * not loaded — else null, which is also the answer for every composer that
      * needs no pack at all.
@@ -265,8 +288,76 @@ interface Composer {
         // Nothing to learn: the default composer has no candidate list to reorder.
     }
 
+    /**
+     * Whether a held conversion candidate offers [adjustChoice] (#580): show it
+     * earlier, show it later, never show it. False for everything that does not
+     * keep a learned history to put the answer in.
+     */
+    val adjustsChoices: Boolean get() = false
+
+    /**
+     * A [CjkDictCatalog] pack that would make this composer's candidates
+     * better but that it converts without — offered once [missingPack] is
+     * null. Null when there is none, or it is already loaded.
+     */
+    val improvingPack: String? get() = null
+
+    /**
+     * Applies the user's [adjustment] to the candidate at [index] of [buffer]'s
+     * list, in the same reading space [learnChoice] learns in.
+     */
+    fun adjustChoice(buffer: String, index: Int, adjustment: CandidateAdjustment) {
+        // Nothing to adjust: no candidate list of its own.
+    }
+
+    /**
+     * The readings the next undecided part of [buffer] could be, best first, for
+     * a keypad whose keys each stand for several letters: a 九宫格 pinyin `9426`
+     * could be xiao, zhan, xi, yi… (issue #635). The keyboard lists them beside
+     * the keys, and a pick goes through [pickReading]. Empty for every composer
+     * whose keys already say which reading they spell.
+     */
+    fun readings(buffer: String): List<String> = emptyList()
+
+    /**
+     * [buffer] with its next undecided part settled as [reading], one of
+     * [readings] — still a buffer, so the candidates re-convert from it and the
+     * list moves on to the part after. Null when [reading] does not fit there.
+     */
+    fun pickReading(buffer: String, reading: String): String? = null
+
+    /**
+     * Words to offer once a conversion is committed and nothing is composing
+     * (联想, "association"): what is likely to follow [context], the text just
+     * before the caret, best first. A pick is written as it stands and asked
+     * about again with itself added to [context]. Empty for every composer
+     * with nothing to predict from.
+     */
+    fun predictions(context: String, limit: Int): List<String> = emptyList()
+
+    /** Records that [picked] was taken from [predictions] for [context]. */
+    fun learnPrediction(context: String, picked: String) {
+        // Nothing to learn: the default composer predicts nothing.
+    }
+
+    /**
+     * What stays composing once a candidate has consumed the head of the
+     * buffer and [rest] is left. Pinyin's stroke filter (`` `hs ``) narrows
+     * the list it was typed for, so it goes with that pick rather than
+     * narrowing whatever is read next. The default keeps [rest] whole.
+     */
+    fun remainderAfterCommit(rest: String): String = rest
+
     /** A transliterator's buffer (roman, or jamo) rendered as script text. */
     fun composeBuffer(buffer: String): String = buffer
+
+    /**
+     * What a transliterator commits when the word ends, where that differs
+     * from what [composeBuffer] shows while it is being typed. An m17n ITRANS
+     * method shows क् for `k` (the next key may add a vowel) and drops that
+     * virama once a space closes the word. The default is [composeBuffer].
+     */
+    fun finishBuffer(buffer: String): String = composeBuffer(buffer)
 
     /**
      * What Enter commits for a conversion reading: the reading itself,
@@ -337,6 +428,7 @@ fun composerFor(script: ScriptDef, type: ComposerType, langId: String? = null): 
     }
     ComposerType.HANGUL -> HangulComposer
     ComposerType.CHEONJIIN -> CheonjiinComposer
+    ComposerType.NARATGEUL -> NaratgeulComposer
     ComposerType.TELEX -> VietnameseTelexComposer
     ComposerType.VNI -> VietnameseVniComposer
     ComposerType.ROMAJI -> JapaneseComposer
@@ -347,12 +439,15 @@ fun composerFor(script: ScriptDef, type: ComposerType, langId: String? = null): 
     ComposerType.CANGJIE -> CangjieComposer
     ComposerType.CANGJIE_QUICK -> CangjieQuickComposer
     ComposerType.JYUTPING -> JyutpingComposer
-    ComposerType.KHIPRO -> if (script.id == ScriptId.BENGALI) KhiproComposer else NoComposer
+    ComposerType.KHIPRO -> if (script.id == ScriptId.BENGALI) KhiproComposer.CLASSIC else NoComposer
+    ComposerType.KHIPRO_DARK -> if (script.id == ScriptId.BENGALI) KhiproComposer.DARK else NoComposer
 }
 
 /**
- * The composer this layout types through: [composerFor] with the layout's own
- * script, composer override and language, so two languages that share a script
- * get their own phonetic rules.
+ * The composer this layout types through: an imported input method's when the
+ * layout is bound to one ([LayoutSpec.inputMethod]), otherwise [composerFor]
+ * with the layout's own script, composer override and language, so two
+ * languages that share a script get their own phonetic rules.
  */
-fun LayoutSpec.resolvedComposer(): Composer = composerFor(script(), composerType(), langId)
+fun LayoutSpec.resolvedComposer(): Composer =
+    inputMethod?.let(ImportedInputMethods::composer) ?: composerFor(script(), composerType(), langId)

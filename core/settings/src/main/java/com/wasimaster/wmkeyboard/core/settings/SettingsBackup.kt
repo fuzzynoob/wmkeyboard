@@ -134,6 +134,7 @@ object SettingsBackup {
         "tavily_api_key",
         "ocr_online_key",
         "giphy_api_key",
+        "telegram_bot_token",
         "ai_anthropic_key",
         "ai_openai_key",
         "ai_gemini_key",
@@ -141,13 +142,22 @@ object SettingsBackup {
         "ai_deepseek_key",
         "ai_brave_key",
         "ai_compatible_key",
+        "ai_mcp_headers",
+        "ai_provider_headers",
         "voice_server_key",
         "voice_server_key_by_lang",
         "hf_token",
         "photo_unsplash_key",
         "photo_pexels_key",
+        // A hash, not the PIN itself, but a four-digit PIN falls to a brute
+        // force of its hash in minutes. Left behind, the lock reads as the
+        // fingerprint on the new phone; see AppLockSettings.secret.
+        APP_LOCK_SECRET,
         AUTO_BACKUP_LOCATIONS,
     )
+
+    /** The app lock's stored PIN, password or pattern hash. */
+    const val APP_LOCK_SECRET = "app_lock_secret"
 
     /**
      * Custom themes are stored as one JSON string preference. The full-config

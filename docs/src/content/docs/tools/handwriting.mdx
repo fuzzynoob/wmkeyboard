@@ -16,13 +16,13 @@ import Shot from '@components/Shot.astro';
 
 Handwriting turns a full-width canvas into a keyboard. Write a letter or a word with a finger or a stylus, and the keyboard recognizes it on-device and drops it into your text. <Flavor edition="full" />: it runs on Google ML Kit's digital ink models, which only ship in the full build.
 
-<PhoneFrame caption="The handwriting panel: a writing canvas with a delete, space, enter, and close key down the right side.">
+<PhoneFrame caption="The handwriting panel: a writing canvas over a row of abc, space, delete and enter keys.">
   {/* shot: tools/handwriting-panel-writing */}
 </PhoneFrame>
 
 ## Opening the panel
 
-Open **Handwriting** from the toolbar (or the toolbox if you haven't pinned it) to swap the keyboard for a full-width writing canvas. A fixed action rail sits on the right with four keys: <KeyCap>Delete</KeyCap>, <KeyCap>Space</KeyCap>, <KeyCap>Enter</KeyCap>, and a keyboard icon that closes the panel and returns you to normal typing.
+Open **Handwriting** from the toolbar (or the toolbox if you haven't pinned it) to swap the keyboard for a full-width writing canvas. Under it is a row of four keys: <KeyCap>abc</KeyCap>, which closes the panel and returns you to normal typing, <KeyCap>Space</KeyCap>, <KeyCap>Delete</KeyCap> and <KeyCap>Enter</KeyCap>. They are ordinary keys, so the space bar's swipes and the delete key's repeat work as they do on the letters. You can move them, or add others, in the [panel's layout](#the-panel-is-a-layout).
 
 Write anywhere on the canvas. Strokes render live as you draw, and dim to partial opacity while recognition is running. A single tap still counts as a stroke (enough to register a period or the dot on an "i"), so short marks aren't lost.
 
@@ -33,7 +33,15 @@ If two or more of your enabled languages have a handwriting model, a small chip 
 Two different controls undo ink, and they don't do the same thing:
 
 - **Undo last stroke**, an icon that appears in the bottom-left corner once you've drawn something, removes only the most recent stroke and re-runs recognition on whatever ink remains.
-- The rail's <KeyCap>Delete</KeyCap> key is different: while ink is still waiting to be recognized, pressing it throws away **all** pending strokes at once rather than deleting already-committed text. It's the natural "no, not that" reaction mid-word. Once the strokes have already turned into text, <KeyCap>Delete</KeyCap> goes back to deleting committed characters normally, and it auto-repeats on a hold like it does on the main keyboard.
+- The panel's <KeyCap>Delete</KeyCap> key is different: while ink is still waiting to be recognized, pressing it throws away all pending strokes at once rather than deleting already-committed text. It's the natural "no, not that" reaction mid-word. Once the strokes have already turned into text, <KeyCap>Delete</KeyCap> goes back to deleting committed characters normally, and it auto-repeats on a hold like it does on the main keyboard.
+
+## The panel is a layout
+
+<SettingsPath path="Tools / Handwriting / Panel layout" />
+
+The handwriting panel is a [panel layout](/languages/custom-layouts/#panel-layouts) like the emoji, clipboard, text editing and trackpad panels. Out of the box it is the writing area over an <KeyCap>abc</KeyCap>, <KeyCap>Space</KeyCap>, <KeyCap>Delete</KeyCap> and <KeyCap>Enter</KeyCap> row. Open the layout editor from **Panel layout** on the tool's page (or from **Panel layouts** in the layouts gallery) to rearrange that row, add keys beside or above the canvas, or give the canvas more or less height. The writing area is a component, and the one the layout cannot lose: a layout without it gets one added back. The language chip, the undo button and the full-screen button stay on the writing area wherever you put it. Each key layout also has a Handwriting tab of its own, so one language can carry a different handwriting panel from the rest.
+
+Before this panel became a layout, its four keys sat in a column down the right side of the canvas. The shipped layout puts them in a bottom row instead, so the canvas gets the full width.
 
 ## Writing over the whole screen
 
@@ -54,9 +62,9 @@ Chinese, Japanese and Korean have a **Handwriting** layout of their own, the way
 
 ## Handwriting without opening the panel
 
-<SettingsPath path="Typing / Gestures / Handwrite with swipes" />
+<SettingsPath path="Typing / Gestures / What a swipe does" />
 
-There's a second way to write by hand that doesn't need the panel at all. Turn on **Glide typing** and a **Handwrite with swipes** choice appears underneath it. Set that choice to "Handwrite". A swipe across the letter keys then draws a stroke on the keyboard itself instead of gliding a word. Recognition and insertion work exactly like the panel, and a plain tap still types its key. The default is "Type words", so this is off until you change it.
+There's a second way to write by hand that doesn't need the panel at all. Turn on **Glide typing** and a **What a swipe does** choice appears underneath it. Set that choice to "Handwrite". A swipe across the letter keys then draws a stroke on the keyboard itself instead of gliding a word. Recognition and insertion work exactly like the panel, and a plain tap still types its key. The default is "Type words", so this is off until you change it.
 
 Picking "Handwrite" swaps one set of options for another:
 
@@ -87,6 +95,8 @@ Downloads can also take longer than their size suggests, because the service can
 
 The list of available models isn't hardcoded in WM Keyboard. It's read straight out of ML Kit's own digital ink library, then filtered down to the languages you have enabled. So enabling a new keyboard language surfaces its handwriting model on its own, with nothing WM-Keyboard-specific to configure. The flip side: the catalog of *which languages have a model at all* only grows when ML Kit itself grows.
 
+A phone that cannot download, or a build with no internet permission, can import a model instead. The **Import from a file** row under the models lists each language's files under **Get the files**: two or three `.zip` files from `dl.google.com`, the same ones ML Kit would fetch. Download them on any device, move them to the phone and pick them under **Import**. See [Importing instead of downloading](/privacy/offline/#importing-instead-of-downloading).
+
 If an enabled language has no ink model, it's called out separately underneath the list: writing in that language falls back to the nearest language that does have one, rather than failing outright. And if none of your enabled languages has a model, the list itself is replaced by a note asking you to add a language on the Languages screen first. A **Languages and layouts** row at the bottom of the section takes you straight there either way.
 
 ## Options
@@ -95,6 +105,7 @@ If an enabled language has no ink model, it's called out separately underneath t
 
 - **Stylus only**: off by default. With it on, only a stylus (S Pen or similar) draws on the canvas, and finger touches are ignored completely. Even with it off, a finger touch is briefly ignored right after a stylus stroke, so a palm resting on the screen while you write doesn't add stray ink.
 - **Automatic space**: on by default. Inserts a space between words you write one after another, but never before punctuation, and never next to Chinese, Japanese, Thai or another script written without spaces.
+- **Panel layout**: opens the layout editor described in [The panel is a layout](#the-panel-is-a-layout).
 - **Recognition pause**: default **700 ms**, adjustable from 300–2000 ms. How long the canvas waits after your last stroke before it sends the word off for recognition. Shorter feels snappier. It can also cut a multi-stroke letter or a Bengali conjunct in half if you pause mid-letter, where a longer wait gives you room to breathe between strokes.
 
 :::note[Bangla, Chinese, Japanese and Korean get a higher floor]
@@ -112,4 +123,4 @@ Whatever the Recognition pause slider is set to, handwriting in these languages 
 
 ## Why full only
 
-Digital ink recognition depends on `com.google.mlkit:digital-ink-recognition`. That library is compiled into the full build and left out of the lite build entirely, rather than hidden behind a toggle. So the Handwriting tool doesn't appear in the toolbar or toolbox on lite, and the "Handwrite with swipes" choice under Gesture typing is full-only too. See [Full vs Lite](/start/editions/) if you're deciding between builds.
+Digital ink recognition depends on `com.google.mlkit:digital-ink-recognition`. That library is compiled into the full build and left out of the lite build entirely, rather than hidden behind a toggle. So the Handwriting tool doesn't appear in the toolbar or toolbox on lite, and the "Handwrite" option of **What a swipe does** is full-only too. See [Full vs Lite](/start/editions/) if you're deciding between builds.

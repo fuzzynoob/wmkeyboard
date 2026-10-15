@@ -9,6 +9,7 @@ import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
@@ -21,6 +22,7 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,12 +53,18 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
+import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.fonts.LayoutFonts
 import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import com.wasimaster.wmkeyboard.core.settings.withRotation
 import com.wasimaster.wmkeyboard.core.settings.rotates
 import com.wasimaster.wmkeyboard.core.settings.RotationState
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
+import com.wasimaster.wmkeyboard.core.settings.AppColorScope
+import com.wasimaster.wmkeyboard.core.theme.AppColorSample
+import com.wasimaster.wmkeyboard.core.theme.colorScheme
+import com.wasimaster.wmkeyboard.core.theme.recoloredBy
+import com.wasimaster.wmkeyboard.ime.AppColors
 import com.wasimaster.wmkeyboard.core.settings.ColorVisionFilter
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ThemeMode
@@ -70,6 +78,20 @@ import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.theme.ColorVision
 import com.wasimaster.wmkeyboard.core.theme.GradientSpec
 import com.wasimaster.wmkeyboard.core.theme.DecalSpec
+import com.wasimaster.wmkeyboard.core.theme.FROST_BACKDROP_BLUR_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_BRIGHTNESS_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_FALLBACK_OPACITY_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_GRAIN_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_RIM_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_SATURATION_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_DISPERSION_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FROST_REFRACTION_RANGE
+import com.wasimaster.wmkeyboard.core.theme.FrostBackdropSource
+import com.wasimaster.wmkeyboard.core.theme.FrostSpec
+import com.wasimaster.wmkeyboard.core.theme.FrostStyle
+import com.wasimaster.wmkeyboard.core.theme.FrostSurface
+import com.wasimaster.wmkeyboard.core.theme.WallpaperBand
+import com.wasimaster.wmkeyboard.core.theme.WINDOW_BLUR_RADIUS_RANGE
 import com.wasimaster.wmkeyboard.core.theme.KeyEffectColorMode
 import com.wasimaster.wmkeyboard.core.theme.KeyEffectKind
 import com.wasimaster.wmkeyboard.core.theme.KeyOverride
@@ -100,7 +122,9 @@ import com.wasimaster.wmkeyboard.core.theme.safeContainerKind
 import androidx.compose.ui.layout.ContentScale
 import coil3.compose.AsyncImage
 import java.io.File
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withContext
 
 /**
  * Fully resolved keyboard theme: every color the keyboard UI draws with,
@@ -268,7 +292,117 @@ data class KbTheme(
      * otherwise see settings.
      */
     val reduceMotion: Boolean,
+    /**
+     * Which of the optional keyboard animations are on, already folded with
+     * [reduceMotion]: every flag reads false while motion is reduced, so a
+     * caller checks one boolean and never both. Carried here for the same
+     * reason [reduceMotion] is.
+     */
+    val motion: KbMotion = KbMotion(),
+    /** Frosted glass, resolved; null is no glass. See [KbFrost]. */
+    val frost: KbFrost? = null,
 )
+
+/**
+ * A theme's frosted glass as the drawing code reads it: the surfaces that are
+ * glass, the window blur it asks for, the bake it samples, and the rim and
+ * grain colours already resolved against the theme. See `FrostSpec` for what
+ * each field means; the ranges are enforced here so no surface has to.
+ */
+@Immutable
+data class KbFrost(
+    val windowBlur: Boolean,
+    val windowBlurRadiusDp: Int,
+    val fallbackOpacity: Float,
+    val surfaces: Set<FrostSurface>,
+    val backdropBlur: Float,
+    val saturation: Float,
+    val brightness: Float,
+    val rim: Float,
+    val rimLight: Color,
+    val rimShadow: Color,
+    val grain: Float,
+    /** What the glass stands on when the app is not blurred behind it. */
+    val backdrop: FrostBackdropSource,
+    val wallpaperBand: WallpaperBand,
+    /** Liquid glass: the backdrop bent at the edge; see `FrostStyle`. */
+    val liquid: Boolean,
+    /** The board shows its image frosted too, not only the panes; see `FrostSpec.blurBoard`. */
+    val blurBoard: Boolean,
+    val refraction: Float,
+    val dispersion: Float,
+) {
+    fun has(surface: FrostSurface): Boolean = surface in surfaces
+
+    /**
+     * Which picture the glass samples right now — the theme's own image, the
+     * wallpaper, or nothing — given whether the theme [hasImage] and whether
+     * the window is [blurLive] behind the board. `AUTO` only reaches for the
+     * wallpaper while no live blur is showing the app, since a backdrop
+     * painted over that blur would hide the very thing the theme asked for.
+     */
+    fun backdropKind(hasImage: Boolean, blurLive: Boolean): BackdropKind? = when (backdrop) {
+        FrostBackdropSource.NONE -> null
+        FrostBackdropSource.IMAGE -> if (hasImage) BackdropKind.IMAGE else null
+        FrostBackdropSource.WALLPAPER -> BackdropKind.WALLPAPER
+        FrostBackdropSource.AUTO -> when {
+            hasImage -> BackdropKind.IMAGE
+            windowBlur && blurLive -> null
+            else -> BackdropKind.WALLPAPER
+        }
+    }
+}
+
+/** The picture a glass theme is sampling; see [KbFrost.backdropKind]. */
+enum class BackdropKind { IMAGE, WALLPAPER }
+
+/**
+ * The optional keyboard animations, each already gated on reduce motion (see
+ * [KbTheme.motion]). [any] is plain "motion allowed at all" for the surfaces
+ * that have no switch of their own and only follow reduce motion.
+ */
+@Immutable
+data class KbMotion(
+    /** Motion allowed at all: the inverse of [KbTheme.reduceMotion]. */
+    val any: Boolean = true,
+    /** Panels grow from their opener and fold back into it. */
+    val panels: Boolean = true,
+    /** Selection overlay and selection bar animate. */
+    val selection: Boolean = true,
+    /** A language switch flips the keys whose label changes. */
+    val languageSwitch: Boolean = false,
+    /** Autopilot's visual overlay eases between sizes. */
+    val autopilot: Boolean = false,
+    /** Grammar fixes and translations animate into place. Opt-in. */
+    val toolResults: Boolean = false,
+) {
+    companion object {
+        /** Everything still. */
+        val None = KbMotion(
+            any = false,
+            panels = false,
+            selection = false,
+            languageSwitch = false,
+            autopilot = false,
+            toolResults = false,
+        )
+
+        /** The flags [settings] asks for, all off under reduce motion. */
+        fun of(settings: KeyboardSettings): KbMotion =
+            if (settings.reduceMotion) {
+                None
+            } else {
+                KbMotion(
+                    any = true,
+                    panels = settings.accessibility.panelMotion,
+                    selection = settings.accessibility.selectionMotion,
+                    languageSwitch = settings.accessibility.languageSwitchMotion,
+                    autopilot = settings.layoutBehavior.autopilotAnimate,
+                    toolResults = settings.accessibility.toolResultMotion,
+                )
+            }
+    }
+}
 
 /**
  * The resolved outline every key draws with.
@@ -453,6 +587,27 @@ val LocalKbTheme = staticCompositionLocalOf<KbTheme> {
  * display face has no emoji glyphs and vice versa.
  */
 val LocalEmojiFontFamily = staticCompositionLocalOf<FontFamily?> { null }
+
+/**
+ * The face a label written in a given script is drawn in, whatever layout is
+ * active. The Material typography carries the *active* layout's face, so a
+ * strip of language names drawn with it changed face on every switch: each
+ * chip re-measured, the strip slid, and a Bengali name sat in a Latin face
+ * until it was the active one. The language switcher draws each name with
+ * this instead, so every chip keeps one face, its own script's, throughout.
+ *
+ * Same order as the key font, minus the active layout's own face (that one
+ * belongs to a single grid): the user's per-script pick, the theme's face for
+ * the script, the script's Noto face; then, for the scripts that ride the
+ * Latin faces, the user's key font and the theme's. Null leaves the system face.
+ */
+/**
+ * The scripts that draw in the user's English font already, so have no script
+ * face to chain it in front of (see [KeyboardFonts.latinFirstFamily]).
+ */
+private val LATIN_FONT_SCRIPTS = setOf(ScriptId.LATIN, ScriptId.CYRILLIC, ScriptId.GREEK, ScriptId.IPA)
+
+internal val LocalScriptLabelFont = staticCompositionLocalOf<(ScriptId) -> FontFamily?> { { null } }
 
 /**
  * Respells an emoji for whatever [LocalEmojiFontFamily] resolves to — see
@@ -661,6 +816,7 @@ internal fun defaultKbTheme(
         animation = ThemeAnimation.NONE,
         animationSpeed = 1f,
         reduceMotion = settings.reduceMotion,
+        motion = KbMotion.of(settings),
     )
 }
 
@@ -829,6 +985,37 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         animation = spec.animation,
         animationSpeed = spec.animationSpeed,
         reduceMotion = settings.reduceMotion,
+        motion = KbMotion.of(settings),
+        frost = spec.frost?.let { resolveFrost(it, spec.dark) },
+    )
+}
+
+/**
+ * [spec] with its ranges enforced and its rim colours chosen: the lit edge is
+ * the theme's own colour or a white — brighter on a light theme, whose panes
+ * are pale and need the edge to stand out — and the shadowed edge a
+ * translucent black on either. Null for a frost field switched off.
+ */
+internal fun resolveFrost(spec: FrostSpec, dark: Boolean): KbFrost? {
+    if (!spec.enabled) return null
+    return KbFrost(
+        windowBlur = spec.windowBlur,
+        windowBlurRadiusDp = spec.windowBlurRadiusDp.coerceIn(WINDOW_BLUR_RADIUS_RANGE),
+        fallbackOpacity = spec.fallbackOpacity.coerceIn(FROST_FALLBACK_OPACITY_RANGE),
+        surfaces = spec.surfaceSet,
+        backdropBlur = spec.backdropBlur.coerceIn(FROST_BACKDROP_BLUR_RANGE),
+        saturation = spec.saturation.coerceIn(FROST_SATURATION_RANGE),
+        brightness = spec.brightness.coerceIn(FROST_BRIGHTNESS_RANGE),
+        rim = spec.rim.coerceIn(FROST_RIM_RANGE),
+        rimLight = spec.rimColor?.let(::colorOf) ?: if (dark) Color(0xB3FFFFFF) else Color(0xE6FFFFFF),
+        rimShadow = if (dark) Color(0x66000000) else Color(0x33000000),
+        grain = spec.grain.coerceIn(FROST_GRAIN_RANGE),
+        backdrop = spec.backdropSource,
+        wallpaperBand = spec.band,
+        liquid = spec.glassStyle == FrostStyle.LIQUID,
+        blurBoard = spec.blurBoard,
+        refraction = spec.refraction.coerceIn(FROST_REFRACTION_RANGE),
+        dispersion = spec.dispersion.coerceIn(FROST_DISPERSION_RANGE),
     )
 }
 
@@ -837,14 +1024,21 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
  * list bits in the panels), mapped from the resolved theme so everything
  * follows the theme's colors. Surfaces are flattened to opaque so text on
  * them stays readable even when the board itself is translucent.
+ *
+ * The containers are the theme's fills laid over that opaque board, not the
+ * fills with their alpha dropped: a glass theme's chip is a pale tint at a
+ * quarter alpha, and at full alpha it became a solid pale blue or white under
+ * the white text meant for the board (every menu, the voice language one
+ * first).
  */
 private fun schemeFor(kb: KbTheme): ColorScheme {
     val base = if (kb.dark) darkColorScheme() else lightColorScheme()
     val opaqueBoard = kb.board.copy(alpha = 1f)
+    fun onBoard(fill: Color) = fill.compositeOver(opaqueBoard)
     return base.copy(
         primary = kb.accent,
         onPrimary = kb.enterKeyText,
-        primaryContainer = kb.pressedKey.copy(alpha = 1f),
+        primaryContainer = onBoard(kb.pressedKey),
         onPrimaryContainer = kb.keyText,
         background = opaqueBoard,
         // suggestionText, not keyText: this is the "text on the board" role
@@ -856,9 +1050,9 @@ private fun schemeFor(kb: KbTheme): ColorScheme {
         onSurface = kb.suggestionText,
         surfaceContainerLowest = opaqueBoard,
         surfaceContainerLow = opaqueBoard,
-        surfaceContainer = kb.chip.copy(alpha = 1f),
-        surfaceContainerHigh = kb.modifierKey.copy(alpha = 1f),
-        surfaceContainerHighest = kb.key.copy(alpha = 1f),
+        surfaceContainer = onBoard(kb.chip),
+        surfaceContainerHigh = onBoard(kb.modifierKey),
+        surfaceContainerHighest = onBoard(kb.key),
         onSurfaceVariant = kb.secondaryText,
         outlineVariant = kb.divider,
     )
@@ -927,6 +1121,7 @@ private fun KbTheme.mapColors(f: (Color) -> Color): KbTheme = copy(
     } else {
         keyOverrides.mapValues { (_, override) -> override.mapColors(f) }
     },
+    frost = frost?.copy(rimLight = f(frost.rimLight), rimShadow = f(frost.rimShadow)),
 )
 
 /** Near-black or near-white, whichever reads on [background]. */
@@ -982,6 +1177,8 @@ internal fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme 
             decals = emptyList(),
             keyEffect = null,
             animation = ThemeAnimation.NONE,
+            // Glass is see-through by definition; the high-contrast board is not.
+            frost = null,
             key = key,
             modifierKey = modifier,
             keyText = maxContrastOn(key),
@@ -1104,6 +1301,13 @@ fun KeyboardThemeProvider(
      * hand (the layout editor's own preview picks its own) pass.
      */
     layoutFontId: String? = null,
+    /**
+     * The colours of the app being typed into ([AppColors]), which the theme
+     * wears when [KeyboardSettings.appColors] says so. Null, the default, is
+     * every caller but the keyboard itself: a preview in the settings app shows
+     * the theme as it is.
+     */
+    appColors: AppColorSample? = null,
     content: @Composable () -> Unit,
 ) {
     val context = LocalContext.current
@@ -1125,16 +1329,32 @@ fun KeyboardThemeProvider(
     // typed. `configuration` is a key so a wallpaper or ui-mode change, which
     // is what moves the dynamic palette underneath us, still re-resolves it.
     val configuration = LocalConfiguration.current
+    // Growing a palette from one colour is a few hundred colour conversions,
+    // so it is remembered on its own: only the app and the app colour settings
+    // move it, not every settings emission the resolve below re-runs for.
+    val appPalette = remember(settings.appColors, appColors) {
+        settings.appColors.paletteFor(appColors)
+    }
     val resolved = remember(
-        settings, systemDark, darkSlot, rotationStates, context, configuration,
+        settings, systemDark, darkSlot, rotationStates, context, configuration, appPalette,
     ) {
         // A theme that follows the wallpaper is moved onto it here, on the way
         // to the screen, the same way the rotating photo is laid over below:
         // the stored theme keeps its own colours, so turning the switch off
         // gives them back. `configuration` in the keys is what re-runs this
         // when the wallpaper changes (issue #357).
+        //
+        // The app's colours take the wallpaper's place the same way, for the
+        // themes the scope covers: the ones that follow the wallpaper already
+        // (and Default, below), or every theme.
         val spec = settings.activeThemeSpec(darkSlot)?.let { stored ->
-            if (stored.followWallpaper) stored.followingWallpaper(deviceWallpaperPalette(context)) else stored
+            when {
+                appPalette != null &&
+                    (stored.followWallpaper || settings.appColors.scope == AppColorScope.ALL) ->
+                    stored.recoloredBy(appPalette)
+                stored.followWallpaper -> stored.followingWallpaper(deviceWallpaperPalette(context))
+                else -> stored
+            }
         }
         if (spec == null) {
             // Under auto-theme the chosen slot decides light vs dark directly;
@@ -1150,6 +1370,9 @@ fun KeyboardThemeProvider(
             val supportsDynamic =
                 settings.dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
             val scheme = when {
+                // Default is the theme that takes its colours from outside by
+                // definition, so it wears the app's in either scope.
+                appPalette != null -> appPalette.roles.colorScheme(dark)
                 supportsDynamic && dark -> dynamicDarkColorScheme(context)
                 supportsDynamic -> dynamicLightColorScheme(context)
                 dark -> darkColorScheme()
@@ -1233,6 +1456,87 @@ fun KeyboardThemeProvider(
             ?: layoutFontId?.let { KeyboardFonts.family(context, it) }
             ?: themeFontId?.let { KeyboardFonts.family(context, it) }
     }
+    // A non-Latin board draws in its script's face, and a FontFamily never
+    // looks for a glyph in another font, so every Latin character on it — an
+    // English suggestion, a copied word in the clipboard chip — lost the user's
+    // English font (#591). Where there is both a Latin pick (the user's, else
+    // the theme's) and a script face, the two are chained per glyph instead,
+    // Latin first. Built off the main thread: a Google face is a provider
+    // round trip. Until it lands, and below Android 10, the script face alone.
+    val latinFirstIds = remember(
+        scriptId,
+        layoutFontId,
+        layoutFontsInstalled,
+        themeFontId,
+        themeScriptFontId,
+        settings.keyFontId,
+        settings.scriptFontIds,
+        settings.customFontName,
+        settings.customScriptFontNames,
+    ) {
+        if (scriptId in LATIN_FONT_SCRIPTS) return@remember null
+        val latinId = settings.keyFontId.takeIf {
+            it != KeyboardFonts.DEFAULT_ID && KeyboardFonts.family(context, it) != null
+        } ?: themeFontId?.takeIf { KeyboardFonts.family(context, it) != null }
+            ?: return@remember null
+        val scriptFontId = KeyboardFonts.scriptFontId(
+            context,
+            scriptId,
+            settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
+            layoutFontId,
+            themeScriptFontId,
+        ) ?: return@remember null
+        (latinId to scriptFontId).takeIf { latinId != scriptFontId }
+    }
+    val chainedFontFamily by produceState<FontFamily?>(null, latinFirstIds) {
+        val (latinId, scriptFontId) = latinFirstIds ?: run {
+            value = null
+            return@produceState
+        }
+        // Already built once this process: no frame in the script face alone.
+        value = KeyboardFonts.cachedLatinFirstFamily(latinId, scriptFontId)
+        if (value != null) return@produceState
+        value = withContext(Dispatchers.IO) {
+            KeyboardFonts.latinFirstFamily(context, latinId, scriptFontId)
+        }
+    }
+    val boardFontFamily = chainedFontFamily ?: keyFontFamily
+    // See [LocalScriptLabelFont]. Resolved per script on first ask, then kept
+    // for as long as the font settings and the theme stay what they are.
+    val themeScriptFonts = remember(settings, darkSlot) {
+        settings.activeThemeSpec(darkSlot)?.scriptFontIds.orEmpty()
+    }
+    val scriptLabelFont = remember(
+        themeFontId,
+        themeScriptFonts,
+        settings.keyFontId,
+        settings.scriptFontIds,
+        settings.customFontName,
+        settings.customScriptFontNames,
+    ) {
+        val latin by lazy {
+            settings.keyFontId.takeIf { it != KeyboardFonts.DEFAULT_ID }
+                ?.let { KeyboardFonts.family(context, it) }
+                ?: themeFontId?.let { KeyboardFonts.family(context, it) }
+        }
+        val resolved = HashMap<ScriptId, FontFamily?>()
+        val resolve: (ScriptId) -> FontFamily? = { script ->
+            if (script in resolved) {
+                resolved[script]
+            } else {
+                (
+                    KeyboardFonts.scriptFamily(
+                        context,
+                        script,
+                        settings.scriptFontIds[script.name] ?: KeyboardFonts.DEFAULT_ID,
+                        null,
+                        themeScriptFonts[script.name],
+                    ) ?: latin
+                ).also { resolved[script] = it }
+            }
+        }
+        resolve
+    }
     val emojiFontFamily = remember(settings.emojiFont, settings.emojiFontInstalled.installedId) {
         KeyboardFonts.emojiFamily(
             context,
@@ -1258,13 +1562,19 @@ fun KeyboardThemeProvider(
         // with this theme's colours over it) — remembered for the same reason
         // the palette above is, since `kb` only moves on a theme change.
         colorScheme = remember(kb) { schemeFor(kb) },
-        typography = remember(keyFontFamily) { typographyWith(keyFontFamily) },
+        typography = remember(boardFontFamily) { typographyWith(boardFontFamily) },
     ) {
         CompositionLocalProvider(
             LocalKbTheme provides kb,
             LocalKeyTextures provides rememberKeyTextures(kb),
+            // The glass backdrop, filled by the board once it knows its image
+            // and size; the surfaces sample it through this one holder.
+            LocalFrostBackdrop provides remember { FrostBackdrop() },
+            // Open glass popups, which soften the board under them.
+            LocalPopupBackdrop provides remember { PopupBackdrop() },
             LocalEmojiFontFamily provides emojiFontFamily,
             LocalEmojiShaper provides emojiShaper,
+            LocalScriptLabelFont provides scriptLabelFont,
             content = content,
         )
     }
@@ -1475,6 +1785,31 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         animation = if (past) b.animation else a.animation,
         animationSpeed = lerpF(a.animationSpeed, b.animationSpeed, t),
         reduceMotion = b.reduceMotion,
+        motion = b.motion,
+        frost = lerpFrost(a.frost, b.frost, t),
+    )
+}
+
+/**
+ * Glass between two themes. The rim, grain and fallback opacity ease; the
+ * bake's inputs (blur, saturation, brightness), the window blur and its
+ * radius, and the surface set snap at the midpoint — each of those would
+ * otherwise ask for a new bake or a new window relayout on every frame of
+ * the fade. A theme with no glass against one with it snaps too: there is
+ * nothing on the other side to blend from.
+ */
+private fun lerpFrost(a: KbFrost?, b: KbFrost?, t: Float): KbFrost? {
+    if (a == null || b == null) return if (t >= 0.5f) b else a
+    val past = t >= 0.5f
+    val snapped = if (past) b else a
+    return snapped.copy(
+        fallbackOpacity = lerpF(a.fallbackOpacity, b.fallbackOpacity, t),
+        rim = lerpF(a.rim, b.rim, t),
+        rimLight = lerp(a.rimLight, b.rimLight, t),
+        rimShadow = lerp(a.rimShadow, b.rimShadow, t),
+        grain = lerpF(a.grain, b.grain, t),
+        refraction = lerpF(a.refraction, b.refraction, t),
+        dispersion = lerpF(a.dispersion, b.dispersion, t),
     )
 }
 
@@ -1573,7 +1908,7 @@ fun BoxScope.BoardBackground(kb: KbTheme) {
             alpha = kb.backgroundImageOpacity,
             modifier = Modifier.matchParentSize(),
         )
-    } else {
+    } else if (!boardShowsFrostedImage(kb, imagePath)) {
         ThemeBackgroundImage(
             path = imagePath,
             blur = kb.backgroundImageBlur,
@@ -1582,26 +1917,87 @@ fun BoxScope.BoardBackground(kb: KbTheme) {
             targetH = targetH,
         )
     }
+    // The glass: what the surfaces sample — the image above, baked blurred,
+    // or the wallpaper's band — and the board's own place for them to sample
+    // it against. Nothing is composed for a theme without glass.
+    val frost = kb.frost
+    val backdrop = LocalFrostBackdrop.current
+    val blurLive = windowFrostLive(kb)
+    val kind = frost?.backdropKind(hasImage = imagePath != null, blurLive = blurLive)
+    if (frost != null) FrostBackdropLoader(kb, imagePath, kind, targetW, targetH)
+    // The wallpaper backdrop is the board's picture, under the tint: what a
+    // theme that wanted the app blurred gets instead where it cannot be, and
+    // what a theme that asked for the wallpaper gets everywhere. A theme image
+    // is drawn the same way, frosted, when the theme asks for the board to be
+    // glass too: then the panes and the board between them are one material,
+    // and the backdrop sliders visibly reach the picture. Until the bake
+    // lands the sharp image above stands in.
+    val frostedBoard = kind == BackdropKind.WALLPAPER ||
+        (kind == BackdropKind.IMAGE && frost?.blurBoard == true)
+    if (frostedBoard) {
+        val picture = backdrop.bitmap
+        if (picture != null) {
+            Image(
+                bitmap = picture,
+                contentDescription = null,
+                modifier = Modifier.matchParentSize(),
+                contentScale = ContentScale.Crop,
+                alpha = if (kind == BackdropKind.IMAGE) kb.backgroundImageOpacity else 1f,
+            )
+        } else if (kind == BackdropKind.IMAGE) {
+            ThemeBackgroundImage(
+                path = imagePath,
+                blur = kb.backgroundImageBlur,
+                opacity = kb.backgroundImageOpacity,
+                targetW = targetW,
+                targetH = targetH,
+            )
+        }
+    }
+    val boardModifier = if (frost != null) {
+        Modifier.matchParentSize().frostBoardBounds(backdrop)
+    } else {
+        Modifier.matchParentSize()
+    }
+    // A theme that asked for the app behind to be blurred, with nothing to
+    // stand on where it cannot be, is drawn at least its fallback opacity:
+    // the keys were designed over a blur, not over a sharp app.
+    val opacityFloor = frost?.takeIf { it.windowBlur && !blurLive && kind == null }?.fallbackOpacity
     val phase = themeAnimationPhase(kb.animation, kb.animationSpeed, kb.reduceMotion)
-    val gradient = kb.boardGradient
+    val gradient = kb.boardGradient?.let { if (opacityFloor == null) it else it.withAlphaFloor(opacityFloor) }
     if (gradient != null) {
         Box(
-            modifier = Modifier
-                .matchParentSize()
-                .background(gradient.brush(kb.animation, phase)),
+            modifier = boardModifier.background(gradient.brush(kb.animation, phase)),
         )
     } else {
-        val board = if (kb.animation == ThemeAnimation.HUE_CYCLE) {
+        val tinted = if (kb.animation == ThemeAnimation.HUE_CYCLE) {
             hueShift(kb.board, phase * 360f)
         } else {
             kb.board
         }
-        Box(
-            modifier = Modifier
-                .matchParentSize()
-                .background(board),
-        )
+        val board = if (opacityFloor == null) tinted else tinted.copy(alpha = max(tinted.alpha, opacityFloor))
+        Box(modifier = boardModifier.background(board))
     }
+}
+
+/**
+ * Whether the board draws its image through the glass bake instead of sharp:
+ * a still image under a glass theme that asks for the board to be frosted.
+ * Decided before the backdrop is known, so the sharp image is never drawn
+ * under the frosted one. The live window blur does not matter here: an image
+ * hides the app either way.
+ */
+private fun boardShowsFrostedImage(kb: KbTheme, imagePath: String?): Boolean {
+    val frost = kb.frost ?: return false
+    if (imagePath == null || !frost.blurBoard) return false
+    if (kb.backgroundAnimated && !kb.reduceMotion) return false
+    return frost.backdrop == com.wasimaster.wmkeyboard.core.theme.FrostBackdropSource.AUTO ||
+        frost.backdrop == com.wasimaster.wmkeyboard.core.theme.FrostBackdropSource.IMAGE
+}
+
+/** Every stop at least [floor] opaque; see the fallback note in [BoardBackground]. */
+private fun GradientSpec.withAlphaFloor(floor: Float): GradientSpec = mapColors { color ->
+    if (color.alpha >= floor) color else color.copy(alpha = floor)
 }
 
 /**

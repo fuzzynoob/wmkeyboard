@@ -145,6 +145,7 @@ import com.wasimaster.wmkeyboard.core.settings.RotationInterval
 import com.wasimaster.wmkeyboard.core.settings.ScreenReaderMode
 import com.wasimaster.wmkeyboard.core.settings.SensitiveClipHandling
 import com.wasimaster.wmkeyboard.core.settings.LanguagePickerStyle
+import com.wasimaster.wmkeyboard.core.settings.SwitcherExtraStop
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
@@ -357,11 +358,16 @@ internal object ChoiceOptionIcons {
         put(LanguagePickerStyle.LIST) { Icons.AutoMirrored.Outlined.ViewList }
         put(LanguagePickerStyle.CAROUSEL) { Icons.Outlined.ViewCarousel }
 
+        put(SwitcherExtraStop.NONE) { Icons.Outlined.Block }
+        put(SwitcherExtraStop.LANGUAGE_SETTINGS) { Icons.Outlined.Settings }
+        put(SwitcherExtraStop.KEYBOARDS) { Icons.Outlined.Keyboard }
+
         put(BackspaceSwipeUnit.WORD) { Icons.AutoMirrored.Outlined.ShortText }
         put(BackspaceSwipeUnit.CHARACTER) { Icons.Outlined.Abc }
 
         put(LetterSwipeAction.TYPE_WORDS) { Icons.Outlined.Gesture }
         put(LetterSwipeAction.HANDWRITE) { Icons.Outlined.Draw }
+        put(LetterSwipeAction.SELECT_KEY) { Icons.Outlined.Abc }
 
         put(HandwritingFullScreenMode.MANUAL) { Icons.Outlined.TouchApp }
         put(HandwritingFullScreenMode.AUTOMATIC) { Icons.Outlined.Draw }
@@ -390,6 +396,7 @@ internal object ChoiceOptionIcons {
 
         put(EmojiTabMode.RECENTS) { Icons.Outlined.History }
         put(EmojiTabMode.MOST_USED) { Icons.Outlined.TrendingUp }
+        put(EmojiTabMode.OFF) { Icons.Outlined.Block }
 
         put(EmojiInsertMode.REPLACE) { Icons.Outlined.FindReplace }
         put(EmojiInsertMode.APPEND) { Icons.AutoMirrored.Outlined.PlaylistAdd }
@@ -560,6 +567,7 @@ internal object ChoiceOptionIcons {
 
         put(HanVariant.HanRegion.GENERIC) { Icons.Outlined.Public }
         put(HanVariant.HanRegion.TAIWAN) { Icons.Outlined.Place }
+        put(HanVariant.HanRegion.TAIWAN_WORDING) { Icons.Outlined.Translate }
         put(HanVariant.HanRegion.HONG_KONG) { Icons.Outlined.LocationCity }
     }
 

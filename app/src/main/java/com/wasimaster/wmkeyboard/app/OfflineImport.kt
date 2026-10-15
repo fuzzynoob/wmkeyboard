@@ -6,14 +6,18 @@ import android.os.StatFs
 import android.provider.OpenableColumns
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.dictionaries.AvroDictionaryDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
+import com.wasimaster.wmkeyboard.core.dictionaries.KhiproGlideDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackDownloadManager
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackEntry
 import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
+import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
+import com.wasimaster.wmkeyboard.core.handwriting.InkPackImports
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
@@ -25,6 +29,8 @@ import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.stickers.CutoutModel
 import com.wasimaster.wmkeyboard.core.tools.offlinegif.OfflineGifPacks
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperDownloadManager
+import com.wasimaster.wmkeyboard.core.voice.whistle.WhistleModelDownloadManager
+import com.wasimaster.wmkeyboard.core.voice.whistle.WhistleModelStore
 import java.io.File
 import java.io.IOException
 import java.util.zip.ZipFile
@@ -94,7 +100,9 @@ internal object OfflineImport {
                     outcomes += failure(name, it)
                     return@forEachIndexed
                 }
-                if (!isZip(staged)) {
+                // A handwriting pack is a zip ML Kit unpacks itself, so it is
+                // installed whole rather than opened here.
+                if (!isZip(staged) || InkPackImports.isPack(context, staged)) {
                     files += staged
                     return@forEachIndexed
                 }
@@ -107,7 +115,12 @@ internal object OfflineImport {
                     staged.delete()
                 }
             }
-            outcomes += installAll(context, files, wordlistSize, choose, onFile)
+            val (ink, rest) = files.partition { InkPackImports.isPack(context, it) }
+            outcomes += installAll(context, rest, wordlistSize, choose, onFile)
+            if (ink.isNotEmpty()) {
+                onFile(ink.joinToString(", ") { it.name })
+                outcomes += installInk(context, ink)
+            }
             return outcomes
         } finally {
             staging.deleteRecursively()
@@ -133,6 +146,9 @@ internal object OfflineImport {
         for (file in files) {
             val name = file.name
             if (IGNORED.any { it.matches(name) }) continue
+            // A language pack carries a CJK table's earlier version too, for
+            // app versions that pin it; this one would fail its checksum.
+            if (CjkDictCatalog.isLegacyFileName(name)) continue
             val wordlist = DictionaryCatalog.byFileName(name)
             val pair = if (wordlist == null) NgramPackCatalog.byFileName(name) else null
             when {
@@ -217,10 +233,32 @@ internal object OfflineImport {
                 }
             }
         }
+        if (name == WhistleModelStore.MODEL_FILE_NAME) {
+            return attempt(name, busy = WhistleModelDownloadManager.isBusy) {
+                if (WhistleModelStore.install(filesDir, file)) {
+                    WhistleModelDownloadManager.refresh(filesDir)
+                    Outcome(name, true, R.string.offline_import_whistle_ready)
+                } else {
+                    Outcome(name, false, R.string.offline_import_mismatch)
+                }
+            }
+        }
         OcrPacks.packOf(name)?.let { pack ->
             return attempt(name) {
                 OcrPacks.install(filesDir, pack, file)
                 Outcome(name, true, R.string.offline_import_ocr_done, listOf(OcrLanguages.nameOf(pack)))
+            }
+        }
+        if (name == AvroDictionaryDownloads.PUBLISHED_NAME) {
+            return attempt(name) {
+                AvroDictionaryDownloads.install(filesDir, file)
+                Outcome(name, true, R.string.offline_import_avro_done)
+            }
+        }
+        if (name == KhiproGlideDownloads.PUBLISHED_NAME) {
+            return attempt(name, busy = KhiproGlideDownloads.isBusy) {
+                KhiproGlideDownloads.install(filesDir, file)
+                Outcome(name, true, R.string.offline_import_khipro_glide_done)
             }
         }
         if (name == CutoutModel.FILE_NAME) {
@@ -248,6 +286,28 @@ internal object OfflineImport {
             }
         }
         return Outcome(name, false, R.string.offline_import_unknown)
+    }
+
+    /**
+     * Handwriting packs (#666): kept until every pack a model needs is here,
+     * then the model installs through ML Kit as its download would.
+     */
+    private suspend fun installInk(context: Context, files: List<File>): List<Outcome> {
+        val results = runCatching { InkPackImports.install(context, files) }.getOrElse { error ->
+            return files.map { failure(it.name, error) }
+        }
+        return results.map { result ->
+            when (result) {
+                is InkPackImports.Result.Installed -> Outcome(
+                    result.fileName, true, R.string.offline_import_handwriting_done,
+                    listOf(result.tags.map(HandwritingModels::displayName).distinct().joinToString(", ")),
+                )
+                is InkPackImports.Result.Waiting ->
+                    Outcome(result.fileName, true, R.string.offline_import_handwriting_waiting)
+                is InkPackImports.Result.Mismatch -> Outcome(result.fileName, false, R.string.offline_import_mismatch)
+                is InkPackImports.Result.Failed -> Outcome(result.fileName, false, R.string.offline_import_failed)
+            }
+        }
     }
 
     private fun installGifPack(context: Context, name: String, zip: File): Outcome = attempt(name) {

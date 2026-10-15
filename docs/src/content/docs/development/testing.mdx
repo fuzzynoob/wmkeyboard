@@ -17,6 +17,8 @@ WM Keyboard's tests span three runners: plain JVM unit tests, Compose and instru
 ./gradlew unitTests
 ```
 
+It needs a Rust toolchain (`cargo` on the PATH or in `~/.cargo/bin`, from [rustup](https://rustup.rs)): the transliteration tests reach the text engines through JNI, so the test tasks of `:core:language` and `:app` first build `native/wm-engine-jni` for the machine they run on. Rust is not needed for an APK, which carries the committed `.so` files.
+
 `unitTests` is a task in the root build, and it exists because a bare flavored task name no longer reaches the whole project. `:app` carries the `languages` flavour dimension and the library modules do not, so `:app`'s suite is `testFullIntlDebugUnitTest` while every `core/*` and `feature/*` module still declares `testFullDebugUnitTest`. Running the bare `testFullDebugUnitTest` therefore runs the libraries and silently skips all of `:app`, which is most of the tests. `unitTests` depends on both spellings. Swap in `testLiteDebugUnitTest` (or `:app:testLiteIntlDebugUnitTest`) to run a suite against the `lite` flavor. See [building from source](/development/building/) for what the flavors change.
 
 Almost all of it lives in one place:
@@ -82,6 +84,15 @@ Robolectric now gives a JVM unit test a simulated `Context` or `View` when it ne
 
 ## Native tests
 
+The text engines are a Rust crate, `native/wm-engine`, and their tests live with them:
+
+```sh
+cd native/wm-engine
+cargo test
+```
+
+Every phonetic engine, Khipro against its four upstream conformance tables, Bijoy ANSI for all three encodings, the grapheme helpers, the romanizers, the key maps and the word-list folds: 290 cases, mirrored from the Kotlin suites the package carried before the port. The JVM side keeps one smoke test, `EngineNativeTest` in `:core:language`, that calls each bridge entry point once to check that the library loads, that strings cross intact and that the enums' ordinals line up. A Khipro failure against a table is a disagreement with upstream: fix the interpreter, never the table.
+
 The offline grammar tool is backed by a Rust crate (`native/harper-jni`, wrapping [Harper](https://github.com/automattic/harper)'s `harper-core`), and it carries its own host-side test suite, independent of Gradle:
 
 ```sh
@@ -97,7 +108,7 @@ It would be easy to assume "core modules don't touch Android," but that isn't qu
 
 Even the modules that look closest to framework-free aren't. `core/icons`, `core/addons` and `core/plugins` (the Lua sandbox) are light on `android.*`/`androidx.*` references, but each has one file (`IconPackStore.kt`, `AddonStore.kt` and `PluginStore.kt`) whose companion object takes an `android.content.Context` to resolve its on-disk storage directory, and a few more that reach for `androidx.annotation.StringRes` or a `Context` to resolve a label. Everything else in those three modules is plain Kotlin, which is why the parsers and the sandbox are JVM-testable while the stores are not.
 
-`core/tools` shows the same split at a different ratio: 22 of its 59 source files import `android.*` or `androidx.*`, mostly for things like the calendar provider, and the 18 classes with unit tests sit on both sides of the line. `DictionaryClient.kt` has no Android imports at all; `WeatherClient.kt` and `CalendarDefaults.kt` pull in `androidx.annotation.StringRes` and the module's own `R` for their user-facing strings, which the JVM suite is happy with because neither touches a `Context`. The [dictionary compiler](/development/dictionaries/) is the clean case: `tools/dictc` is the one genuinely pure-JVM module in the tree (plain `kotlin("jvm")`, no Android plugin). It works because it reuses `core/prediction`'s trie and codec source files directly. Those were already framework-free, so the same `.kt` files compile standalone into the offline tool that builds `.wmdict` files.
+`core/tools` shows the same split at a different ratio: 22 of its 59 source files import `android.*` or `androidx.*`, mostly for things like the calendar provider, and the 18 classes with unit tests sit on both sides of the line. `DictionaryClient.kt` has no Android imports at all; `WeatherClient.kt` and `CalendarDefaults.kt` pull in `androidx.annotation.StringRes` and the module's own `R` for their user-facing strings, which the JVM suite is happy with because neither touches a `Context`. The [dictionary compiler](/development/dictionaries/) is the clean case: `tools/dictc` is the one pure-JVM module in the tree (plain `kotlin("jvm")`, no Android plugin). It works because it reuses `core/prediction`'s trie and codec source files directly. Those were already framework-free, so the same `.kt` files compile standalone into the offline tool that builds `.wmdict` files.
 
 ## Testing on a device
 

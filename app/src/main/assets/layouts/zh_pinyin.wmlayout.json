@@ -6,7 +6,7 @@
     "name": "中文 拼音 (Chinese Pinyin)",
     "langId": "zh",
     "composer": "PINYIN",
-    "version": 2,
+    "version": 4,
     "layers": {
       "letters": {
         "rows": [
@@ -73,10 +73,11 @@
           ],
           [
             {
-              "label": "⇧",
-              "action": {
-                "type": "shift"
-              },
+              "label": "'词",
+              "output": "'",
+              "longPress": [
+                "`"
+              ],
               "width": 1.5
             },
             {
@@ -117,10 +118,18 @@
               "width": 1.5
             },
             {
-              "label": ",",
+              "label": "，",
               "longPress": [
-                "!",
-                "?"
+                "！",
+                "？",
+                "、",
+                "“",
+                "”",
+                "「",
+                "」",
+                "《",
+                "》",
+                ","
               ],
               "role": "Comma"
             },
@@ -138,14 +147,12 @@
               "width": 4
             },
             {
-              "label": ".",
+              "label": "。",
               "longPress": [
                 "…",
-                ",",
-                "?",
-                "!",
-                ":",
-                ";"
+                "：",
+                "；",
+                "."
               ],
               "role": "Period"
             },

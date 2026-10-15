@@ -19,7 +19,9 @@ import com.wasimaster.wmkeyboard.core.tools.AiPhase
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.core.tools.AiThinking
 import com.wasimaster.wmkeyboard.core.tools.AiToolActivity
-import com.wasimaster.wmkeyboard.core.tools.AiToolCall
+import com.wasimaster.wmkeyboard.core.tools.AiToolApproval
+import com.wasimaster.wmkeyboard.core.tools.AiToolApprovalGate
+import com.wasimaster.wmkeyboard.core.tools.AiToolApprover
 import com.wasimaster.wmkeyboard.core.tools.AiToolLoop
 import com.wasimaster.wmkeyboard.core.tools.AiToolProtocol
 import com.wasimaster.wmkeyboard.core.tools.AiToolResult
@@ -28,6 +30,7 @@ import com.wasimaster.wmkeyboard.core.tools.ToolHttp
 import com.wasimaster.wmkeyboard.core.tools.ToolHttpException
 import kotlinx.coroutines.withContext
 import java.io.File
+import java.util.UUID
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -360,7 +363,8 @@ object AiChatController {
             ?: throw java.io.IOException(
                 context.getString(R.string.ime_ai_chat_error_no_model),
             )
-        val tools = AiToolRunner.enabled(settings)
+        val runner = AiToolRunner(context, settings, toolApprover(seq))
+        val tools = runner.tools()
         // A local model has no function calling, so the sentinel protocol has
         // to be part of the session's own system prompt — the session is built
         // once and keeps it, which is why it is woven in here rather than per
@@ -378,7 +382,7 @@ object AiChatController {
             turns = listOf(AiClient.ChatTurn(AiClient.ChatRole.USER, user)),
             tools = tools,
             native = false,
-            executor = AiToolRunner(context, settings)::run,
+            executor = runner::run,
             maxRounds = settings.ai.toolMaxRounds,
             onPhase = { phase -> postPhase(seq, phase) },
             onPartial = { partial ->
@@ -388,7 +392,7 @@ object AiChatController {
                     postPartial(seq, partial)
                 }
             },
-            onToolCall = { call -> postToolStarted(seq, call) },
+            onToolCall = { call -> postToolStarted(seq, runner.activityFor(call)) },
             onToolResult = { result -> postToolResult(seq, result) },
             isActive = { seq == runSeq },
         ) { _, roundTurns, _, roundPartial ->
@@ -462,7 +466,13 @@ object AiChatController {
         // The picker's provider stands in for the settings one, so chatting
         // with a different model never rewrites the keyboard's own selection.
         val chosen = settings.ai.copy(provider = choice.provider)
-        val config = AiClient.config(chosen).copy(netSource = NetSource.AI_CHAT)
+        // One session per conversation, stable across its messages, so a
+        // gateway that keys its prompt cache on a {session} header (#648)
+        // sees one conversation rather than a new one for every reply.
+        val config = AiClient.config(chosen).copy(
+            netSource = NetSource.AI_CHAT,
+            sessionId = UUID.nameUUIDFromBytes("wmkb-chat-$conversationId".toByteArray()).toString(),
+        )
         val turns = store(context).get(conversationId)?.messages.orEmpty()
             .filter { !it.failed }
             .map {
@@ -476,13 +486,14 @@ object AiChatController {
                 )
             }
         var lastPartialAt = 0L
+        val runner = AiToolRunner(context, settings, toolApprover(seq))
         val completion = AiClient.completeWithTools(
             config = config,
             system = AiPrompts.chatPrompt(),
             turns = turns,
             maxTokens = AiClient.effectiveMaxTokens(chosen),
-            tools = AiToolRunner.enabled(settings),
-            executor = AiToolRunner(context, settings)::run,
+            tools = runner.tools(),
+            executor = runner::run,
             maxRounds = settings.ai.toolMaxRounds,
             onPhase = { phase -> postPhase(seq, phase) },
             onPartial = { partial ->
@@ -492,7 +503,7 @@ object AiChatController {
                     postPartial(seq, partial)
                 }
             },
-            onToolCall = { call -> postToolStarted(seq, call) },
+            onToolCall = { call -> postToolStarted(seq, runner.activityFor(call)) },
             onToolResult = { result -> postToolResult(seq, result) },
             isActive = { seq == runSeq },
         )
@@ -509,12 +520,39 @@ object AiChatController {
     }
 
     /** A tool call has begun: the chat says what it is doing until it ends. */
-    private fun postToolStarted(seq: Int, call: AiToolCall) {
+    private fun postToolStarted(seq: Int, started: AiToolActivity) {
         _run.update { run ->
             if (run == null || run.seq != seq || seq != runSeq) run
-            else run.copy(tools = run.tools + AiToolActivity.started(call))
+            else run.copy(tools = run.tools + started)
         }
     }
+
+    /** The running call's line changed: it is asking to be allowed, or is done asking. */
+    private fun postToolShown(seq: Int, shown: AiToolActivity) {
+        _run.update { run ->
+            if (run == null || run.seq != seq || seq != runSeq) run
+            else run.copy(tools = AiToolActivity.replaceRunning(run.tools, shown))
+        }
+    }
+
+    /**
+     * Where a chat's MCP call waits while the chat asks the user to allow it
+     * (#573). One for both chats, the keyboard's and the app's, since they
+     * share this controller and its one run.
+     */
+    private val toolGate = AiToolApprovalGate()
+
+    private fun toolApprover(seq: Int): AiToolApprover = toolGate.approver(
+        isActive = { seq == runSeq },
+        show = { ask -> postToolShown(seq, ask) },
+        shown = { done -> postToolShown(seq, done) },
+    )
+
+    /**
+     * The user's answer to the call asking now. False when none is, which
+     * the keyboard uses to tell its own panel's question from the chat's.
+     */
+    fun answerTool(choice: AiToolApproval): Boolean = toolGate.answer(choice)
 
     private fun postToolResult(seq: Int, result: AiToolResult) {
         _run.update { run ->

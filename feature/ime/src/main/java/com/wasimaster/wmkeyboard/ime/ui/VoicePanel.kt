@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.ime.ui
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -53,6 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
@@ -69,6 +71,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.theme.FrostSurface
 import com.wasimaster.wmkeyboard.ime.CaptureVoiceAction
 import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.FocusRegion
@@ -149,6 +152,12 @@ internal fun VoicePanel(
         voice.status != VoiceStatus.TRANSCRIBING
     val micUsable = !state.secureField && voice.status != VoiceStatus.UNAVAILABLE
     val collapseVisible = !state.secureField
+    // The microphone switch (#581): there whenever there is a microphone to
+    // switch to, or a pick already made that the user may want to undo.
+    val micChipVisible = micUsable && hasPermission && state.voiceMicSwitchVisible()
+    // The engine chip, only with "Change engine from the voice tool" on.
+    val engineChipVisible = micUsable && hasPermission && state.voiceEngineChipVisible()
+    var engineMenuOpen by remember { mutableStateOf(false) }
     fun collapseToBar() = onRailKey(
         VoiceBarAction.SwitchSurface(VoiceBarSettings.MODE_BAR),
     )
@@ -159,6 +168,8 @@ internal fun VoicePanel(
         if (undoVisible) add { feedback(); onUndo() }
         if (languageChipVisible) add { feedback(); languageMenuOpen = true }
         if (collapseVisible) add { feedback(); collapseToBar() }
+        if (micChipVisible) add { feedback(); onRailKey(VoiceBarAction.CycleMic) }
+        if (engineChipVisible) add { feedback(); engineMenuOpen = true }
     }
     PanelFocusTarget(
         panel = PanelMode.VOICE,
@@ -170,6 +181,8 @@ internal fun VoicePanel(
     val undoRingIndex = if (micUsable) 1 else 0
     val languageRingIndex = undoRingIndex + (if (undoVisible) 1 else 0)
     val collapseRingIndex = languageRingIndex + (if (languageChipVisible) 1 else 0)
+    val micRingIndex = collapseRingIndex + (if (collapseVisible) 1 else 0)
+    val engineRingIndex = micRingIndex + (if (micChipVisible) 1 else 0)
 
     // While the mic is open, this whole side of the panel is the stop button,
     // not only the 64dp circle in the middle of it (#283). The stop press is
@@ -222,6 +235,7 @@ internal fun VoicePanel(
                     Box(
                         modifier = Modifier
                             .clip(kb.chipShape())
+                            .frostGlass(kb, kb.chipShape(), FrostSurface.CHIPS)
                             .background(kb.chipActive)
                             .chipBorder(kb, kb.chipShape())
                             .focusRing(focusedAction == 0, kb.chipShape())
@@ -292,6 +306,7 @@ internal fun VoicePanel(
                         modifier = Modifier
                             .padding(4.dp)
                             .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                            .frostGlass(kb, RoundedCornerShape(kb.toolRadiusDp.dp), FrostSurface.CHIPS)
                             .background(kb.chip)
                             .focusRing(
                                 focusedAction == languageRingIndex,
@@ -321,6 +336,60 @@ internal fun VoicePanel(
                         )
                     }
                 }
+            }
+
+            // Which microphone dictation listens through (#581), in FUTO's
+            // place for it: a switch in the bottom right corner, and a toast
+            // over the bottom edge saying "Using Bluetooth mic (X7)" when a
+            // session starts on a microphone the panel has not named yet.
+            if (micChipVisible) {
+                VoiceMicSwitch(
+                    state = state,
+                    onCycle = { onRailKey(VoiceBarAction.CycleMic) },
+                    modifier = Modifier
+                        .align(Alignment.BottomEnd)
+                        .padding(4.dp)
+                        .focusRing(micRingIndex == focusedAction, RoundedCornerShape(kb.toolRadiusDp.dp)),
+                )
+            }
+            // Which engine the language being dictated uses, bottom left,
+            // opposite the microphone switch.
+            if (engineChipVisible) {
+                VoiceEngineChip(
+                    state = state,
+                    focused = focusedAction == engineRingIndex,
+                    onAction = onRailKey,
+                    onOpenSettings = onOpenVoiceSettings,
+                    menuOpen = engineMenuOpen,
+                    onMenuOpen = { engineMenuOpen = it },
+                    modifier = Modifier.align(Alignment.BottomStart),
+                )
+            }
+            val micNotice = rememberVoiceMicNotice(state)
+            val noticeAlpha by animateFloatAsState(
+                targetValue = if (micNotice != null) 0.92f else 0f,
+                animationSpec = if (kb.reduceMotion) snap() else tween(200),
+                label = "voiceMicNotice",
+            )
+            // Kept composed through the fade-out with the last text it showed.
+            var lastNotice by remember { mutableStateOf("") }
+            if (micNotice != null) lastNotice = micNotice
+            if (noticeAlpha > 0f) {
+                Text(
+                    lastNotice,
+                    color = kb.toolbarIcon,
+                    fontSize = 12.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(bottom = 8.dp, start = 48.dp, end = 48.dp)
+                        .graphicsLayer { alpha = noticeAlpha }
+                        .clip(CircleShape)
+                        .frostGlass(kb, CircleShape, FrostSurface.CHIPS)
+                        .background(kb.chip)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                )
             }
 
             // Undo the last dictated utterance (whole, in one tap).
@@ -463,6 +532,8 @@ private fun MicContent(
                 modifier = Modifier
                     .size(64.dp)
                     .clip(CircleShape)
+                    // Glass like the board's own keys, and only where those have faces.
+                    .then(if (kb.keysHaveFaces) Modifier.frostGlass(kb, CircleShape, FrostSurface.MODIFIER_KEYS) else Modifier)
                     .background(if (listening) kb.toolCircleActive else kb.modifierKey)
                     .focusRing(micFocused, CircleShape)
                     .pointerInput(Unit) {
@@ -520,9 +591,12 @@ private fun MicContent(
             // to press when done.
             listening && voice.clipBased && voice.secondsLeft > 0 ->
                 pluralStringResource(R.plurals.ime_voice_status_stops_in, voice.secondsLeft, voice.secondsLeft)
-            listening && voice.clipBased -> stringResource(R.string.ime_voice_status_listening_hint)
+            // An offline engine that hears as it goes (#289) shows its words instead.
+            listening && voice.clipBased && voice.partial.isEmpty() ->
+                stringResource(R.string.ime_voice_status_listening_hint)
             listening -> voice.partial.ifEmpty { listeningLabel }
-            transcribing -> stringResource(voice.transcribingLabelRes())
+            // whisper.cpp's words as they decode (#440); the others say "Transcribing".
+            transcribing -> voice.partial.ifEmpty { stringResource(voice.transcribingLabelRes()) }
             finishing -> "…"
             voice.status == VoiceStatus.ERROR ->
                 voice.errorMessage ?: stringResource(R.string.ime_voice_status_error)
@@ -530,7 +604,7 @@ private fun MicContent(
         }
         Text(
             statusText,
-            color = if (listening && voice.partial.isNotEmpty()) kb.toolbarIcon else kb.secondaryText,
+            color = if ((listening || transcribing) && voice.partial.isNotEmpty()) kb.toolbarIcon else kb.secondaryText,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
             maxLines = 2,
@@ -576,6 +650,7 @@ private fun MicContent(
                     modifier = Modifier
                         .padding(top = 8.dp)
                         .clip(toggleShape)
+                        .frostGlass(kb, toggleShape, FrostSurface.CHIPS)
                         .background(if (translate) kb.chipActive else kb.chip)
                         .chipBorder(kb, toggleShape)
                         .clickable { onToggleTranslate() }
@@ -614,6 +689,7 @@ private fun MicContent(
                 modifier = Modifier
                     .padding(top = 8.dp)
                     .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                    .frostGlass(kb, RoundedCornerShape(kb.toolRadiusDp.dp), FrostSurface.CHIPS)
                     .background(kb.chip)
                     .clickable { onDownloadModel() }
                     .padding(horizontal = 12.dp, vertical = 6.dp),
@@ -740,6 +816,7 @@ private fun VoiceChipAction(text: String, icon: ImageVector, onClick: () -> Unit
         verticalAlignment = Alignment.CenterVertically,
         modifier = Modifier
             .clip(shape)
+            .frostGlass(kb, shape, FrostSurface.CHIPS)
             .background(kb.chip)
             .chipBorder(kb, shape)
             .clickable {
@@ -790,6 +867,10 @@ internal fun VoiceStripBar(
     onCollapse: () -> Unit,
     onClose: () -> Unit,
     modifier: Modifier = Modifier,
+    /** The microphone switch (#581). */
+    onCycleMic: () -> Unit = {},
+    /** The language chip's choice (#603), the panel's [VoiceBarAction.PickLanguages]. */
+    onPickLanguages: (List<String>) -> Unit = {},
 ) {
     val kb = LocalKbTheme.current
     val voice = state.voice
@@ -838,6 +919,7 @@ internal fun VoiceStripBar(
                 modifier = Modifier
                     .size(30.dp)
                     .clip(CircleShape)
+                    .frostGlass(kb, CircleShape, FrostSurface.CHIPS)
                     .background(if (listening) kb.toolCircleActive else kb.chip)
                     .clickable(enabled = !busy) { onToggle() },
                 contentAlignment = Alignment.Center,
@@ -864,6 +946,9 @@ internal fun VoiceStripBar(
         }
         // Read outside the when: ifEmpty takes a plain lambda, not a composable one.
         val listeningLabel = stringResource(R.string.ime_voice_status_listening)
+        // No room for the panel's toast on one line: the line itself says
+        // which microphone is in use (#581), until the first words arrive.
+        val micNotice = rememberVoiceMicNotice(state)
         val statusText = when {
             state.secureField -> stringResource(R.string.ime_voice_strip_secure_field)
             voice.status == VoiceStatus.NEED_PERMISSION ->
@@ -874,11 +959,13 @@ internal fun VoiceStripBar(
                 stringResource(R.string.ime_voice_strip_mic_blocked)
             voice.whisperNeedsModel -> stringResource(R.string.ime_voice_strip_no_model)
             voice.serverNeedsSetup -> stringResource(R.string.ime_voice_strip_no_server)
+            micNotice != null && voice.partial.isEmpty() && voice.status != VoiceStatus.ERROR -> micNotice
             listening && voice.clipBased && voice.secondsLeft > 0 ->
                 pluralStringResource(R.plurals.ime_voice_status_stops_in, voice.secondsLeft, voice.secondsLeft)
-            listening && voice.clipBased -> stringResource(R.string.ime_voice_strip_listening_hint)
-            listening -> voice.partial.ifEmpty { listeningLabel }
-            transcribing -> stringResource(voice.transcribingLabelRes())
+            listening && voice.clipBased && voice.partial.isEmpty() ->
+                stringResource(R.string.ime_voice_strip_listening_hint)
+            listening -> voiceLineTail(voice.partial).ifEmpty { listeningLabel }
+            transcribing -> voiceLineTail(voice.partial).ifEmpty { stringResource(voice.transcribingLabelRes()) }
             finishing -> "…"
             voice.status == VoiceStatus.ERROR ->
                 voice.errorMessage ?: stringResource(R.string.ime_voice_status_error)
@@ -886,7 +973,7 @@ internal fun VoiceStripBar(
         }
         Text(
             statusText,
-            color = if (listening && voice.partial.isNotEmpty()) kb.toolbarIcon else kb.secondaryText,
+            color = if ((listening || transcribing) && voice.partial.isNotEmpty()) kb.toolbarIcon else kb.secondaryText,
             fontSize = 13.sp,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -921,49 +1008,108 @@ internal fun VoiceStripBar(
                     .padding(horizontal = 12.dp, vertical = 6.dp),
             )
         }
+        // The panel's language chip (#603), opt-in: same rule for when there
+        // is a choice to make, same menu.
+        val chosenLanguages = state.settings.whisper.languages
+        val enabledLanguageIds = state.settings.enabledLanguages.map { it.id }
+        if (state.settings.voiceBar.stripLanguageChip &&
+            (enabledLanguageIds.size > 1 || chosenLanguages.isNotEmpty())
+        ) {
+            var languageMenuOpen by remember { mutableStateOf(false) }
+            val pickDescription = stringResource(R.string.ime_voice_language_menu_title)
+            Box {
+                Text(
+                    text = voiceLanguagesLabel(state.settings.whisper.dictationLanguages(state.language.id)),
+                    color = if (chosenLanguages.isEmpty()) kb.secondaryText else kb.toolbarIcon,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    maxLines = 1,
+                    modifier = Modifier
+                        .padding(horizontal = 2.dp)
+                        .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                        .frostGlass(kb, RoundedCornerShape(kb.toolRadiusDp.dp), FrostSurface.CHIPS)
+                        .background(kb.chip)
+                        .clickable(onClickLabel = pickDescription) {
+                            feedback()
+                            languageMenuOpen = true
+                        }
+                        .padding(horizontal = 10.dp, vertical = 6.dp),
+                )
+                if (languageMenuOpen) {
+                    StripMenuScrim(onDismiss = { languageMenuOpen = false })
+                    VoiceLanguageMenu(
+                        chosen = chosenLanguages,
+                        enabled = enabledLanguageIds,
+                        onDismiss = { languageMenuOpen = false },
+                        onPick = { ids ->
+                            languageMenuOpen = false
+                            onPickLanguages(ids)
+                        },
+                        onMore = {
+                            languageMenuOpen = false
+                            feedback()
+                            onOpenVoiceSettings()
+                        },
+                    )
+                }
+            }
+        }
         if (voice.canUndo && !listening && !finishing) {
-            Icon(
-                Icons.AutoMirrored.Outlined.Undo,
-                contentDescription = stringResource(R.string.ime_voice_strip_undo_desc),
-                tint = kb.toolbarIcon,
-                modifier = Modifier
-                    .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
-                    .clickable {
-                        feedback()
-                        onUndo()
-                    }
-                    .padding(6.dp)
-                    .size(20.dp),
+            IconHint(stringResource(R.string.ime_voice_strip_undo_desc)) {
+                Icon(
+                    Icons.AutoMirrored.Outlined.Undo,
+                    contentDescription = stringResource(R.string.ime_voice_strip_undo_desc),
+                    tint = kb.toolbarIcon,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                        .clickable {
+                            feedback()
+                            onUndo()
+                        }
+                        .padding(6.dp)
+                        .size(20.dp),
+                )
+            }
+        }
+        if (state.voiceMicSwitchVisible()) {
+            VoiceMicSwitch(
+                state = state,
+                onCycle = onCycleMic,
+                size = 32.dp,
             )
         }
         // Collapse to the bar: same session, small pill instead of the strip;
         // persists as the voice tool's new default.
         if (!state.secureField) {
+            IconHint(stringResource(R.string.ime_voice_collapse_desc)) {
+                Icon(
+                    Icons.Outlined.KeyboardDoubleArrowDown,
+                    contentDescription = stringResource(R.string.ime_voice_collapse_desc),
+                    tint = kb.toolbarIcon,
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                        .clickable {
+                            feedback()
+                            onCollapse()
+                        }
+                        .padding(6.dp)
+                        .size(20.dp),
+                )
+            }
+        }
+        IconHint(stringResource(R.string.ime_voice_strip_close_desc)) {
             Icon(
-                Icons.Outlined.KeyboardDoubleArrowDown,
-                contentDescription = stringResource(R.string.ime_voice_collapse_desc),
+                Icons.Outlined.Close,
+                contentDescription = stringResource(R.string.ime_voice_strip_close_desc),
                 tint = kb.toolbarIcon,
                 modifier = Modifier
+                    .padding(end = 4.dp)
                     .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
-                    .clickable {
-                        feedback()
-                        onCollapse()
-                    }
+                    .clickable { onClose() }
                     .padding(6.dp)
                     .size(20.dp),
             )
         }
-        Icon(
-            Icons.Outlined.Close,
-            contentDescription = stringResource(R.string.ime_voice_strip_close_desc),
-            tint = kb.toolbarIcon,
-            modifier = Modifier
-                .padding(end = 4.dp)
-                .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
-                .clickable { onClose() }
-                .padding(6.dp)
-                .size(20.dp),
-        )
     }
 }
 
@@ -1016,6 +1162,7 @@ internal fun VoiceMicChip(
             modifier = Modifier
                 .size(28.dp)
                 .clip(CircleShape)
+                .frostGlass(kb, CircleShape, FrostSurface.CHIPS)
                 .background(if (listening) kb.toolCircleActive else kb.chip)
                 .clickable(enabled = !busy) { onToggle() },
             contentAlignment = Alignment.Center,
@@ -1081,6 +1228,7 @@ internal fun FieldVoiceMic(voice: VoiceUi, mine: Boolean, onToggle: () -> Unit) 
             modifier = Modifier
                 .size(28.dp)
                 .clip(CircleShape)
+                .frostGlass(kb, CircleShape, FrostSurface.CHIPS)
                 .background(if (listening) kb.toolCircleActive else kb.chip)
                 // The service buzzes for this press itself.
                 .clickable(enabled = !busy) { onToggle() },
@@ -1131,9 +1279,11 @@ internal fun RowScope.FieldVoiceStatus(voice: VoiceUi, onAction: (CaptureVoiceAc
         voice.serverNeedsSetup -> stringResource(R.string.ime_voice_strip_no_server)
         listening && voice.clipBased && voice.secondsLeft > 0 ->
             pluralStringResource(R.plurals.ime_voice_status_stops_in, voice.secondsLeft, voice.secondsLeft)
-        listening && voice.clipBased -> stringResource(R.string.ime_voice_strip_listening_hint)
-        listening -> voice.partial.ifEmpty { listeningLabel }
-        voice.status == VoiceStatus.TRANSCRIBING -> stringResource(voice.transcribingLabelRes())
+        listening && voice.clipBased && voice.partial.isEmpty() ->
+            stringResource(R.string.ime_voice_strip_listening_hint)
+        listening -> voiceLineTail(voice.partial).ifEmpty { listeningLabel }
+        voice.status == VoiceStatus.TRANSCRIBING ->
+            voiceLineTail(voice.partial).ifEmpty { stringResource(voice.transcribingLabelRes()) }
         voice.status == VoiceStatus.FINISHING -> voice.partial.ifEmpty { "…" }
         voice.status == VoiceStatus.ERROR -> voice.errorMessage ?: stringResource(R.string.ime_voice_status_error)
         else -> ""
@@ -1176,16 +1326,18 @@ internal fun RowScope.FieldVoiceStatus(voice: VoiceUi, onAction: (CaptureVoiceAc
                 .padding(horizontal = 12.dp, vertical = 6.dp),
         )
     }
-    Icon(
-        Icons.Outlined.Close,
-        contentDescription = stringResource(R.string.ime_voice_strip_close_desc),
-        tint = kb.toolbarIcon,
-        modifier = Modifier
-            .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
-            .clickable { onAction(CaptureVoiceAction.CLOSE) }
-            .padding(6.dp)
-            .size(20.dp),
-    )
+    IconHint(stringResource(R.string.ime_voice_strip_close_desc)) {
+        Icon(
+            Icons.Outlined.Close,
+            contentDescription = stringResource(R.string.ime_voice_strip_close_desc),
+            tint = kb.toolbarIcon,
+            modifier = Modifier
+                .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
+                .clickable { onAction(CaptureVoiceAction.CLOSE) }
+                .padding(6.dp)
+                .size(20.dp),
+        )
+    }
 }
 
 @Composable
@@ -1227,6 +1379,8 @@ private fun VoiceRailKey(
             .fillMaxWidth()
             .padding(2.dp)
             .clip(shape)
+            // Glass like the board's own keys, and only where those have faces.
+            .then(if (kb.keysHaveFaces) Modifier.frostGlass(kb, shape, FrostSurface.MODIFIER_KEYS) else Modifier)
             .background(kb.keyFace(kb.modifierKey), shape)
             .panelKeyBorder(kb, shape)
             .pointerInput(repeatable) {
@@ -1270,4 +1424,17 @@ private fun VoiceRailKey(
             )
         }
     }
+}
+
+/**
+ * The end of [text], for a status line one line tall: a transcription that
+ * decodes as it goes (#440) grows at its end, so that is the part to keep in
+ * view, with an ellipsis for what scrolled off the front.
+ */
+internal fun voiceLineTail(text: String, max: Int = 48): String {
+    if (text.length <= max) return text
+    val tail = text.takeLast(max)
+    // Start on a word where one starts close by, rather than mid-word.
+    val space = tail.indexOf(' ')
+    return "…" + if (space in 0 until max / 3) tail.substring(space + 1) else tail
 }

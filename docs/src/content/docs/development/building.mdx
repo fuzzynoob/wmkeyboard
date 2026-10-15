@@ -16,7 +16,7 @@ WM Keyboard is an ordinary Gradle/AGP Android project. There's no bootstrap scri
 
 1. **Install a JDK.** JDK 17 or newer is enough to launch the `gradlew` script. Gradle then runs on a JDK 21 toolchain, which it downloads from [Foojay](https://foojay.io/) on your first build, per `gradle/gradle-daemon-jvm.properties`. You do not have to install JDK 21 yourself.
 
-2. **Install the Android SDK** with `compileSdk` **36.1** available. AGP asks for it as `release(36) { minorApiLevel = 1 }`, so platform 36 on its own is not enough. Android Studio's SDK Manager handles this, or use `sdkmanager` on the command line. `minSdk` is 24 (Android 7.0). `targetSdk` is 36.
+2. **Install the Android SDK** with `compileSdk` 36.1 available. AGP asks for it as `release(36) { minorApiLevel = 1 }`, so platform 36 on its own is not enough. Android Studio's SDK Manager handles this, or use `sdkmanager` on the command line. `minSdk` is 24 (Android 7.0). `targetSdk` is 36.
 
 3. **Clone the repo and build.**
 
@@ -49,7 +49,7 @@ Both flavors exist on every module so the project builds uniformly across varian
 
 ## The languages dimension
 
-`:app` carries a second flavour dimension that the library modules do not. `intl` packages the app's own text in 48 languages besides English; `en` packages English alone. So `:app`'s variants are `fullIntlDebug`, `fullEnDebug`, `liteIntlDebug` and `liteEnDebug`, while every `core/*` and `feature/*` module is still just `fullDebug` and `liteDebug`.
+`:app` carries a second flavour dimension that the library modules do not. `intl` packages the app's own text in 48 languages besides English; `en` packages English alone. So `:app`'s variants are `fullIntlDebug`, `fullEnDebug`, `liteIntlDebug` and `liteEnDebug`, while every `core/*` and `feature/*` module is still `fullDebug` and `liteDebug`.
 
 Nothing about the Kotlin differs between `intl` and `en`. The whole of it is one line in `app/build.gradle.kts` that sets `localeFilters` on the `en` variants, which tells AGP to keep the unqualified `res/values` and drop every `res/values-xx` beside it, the dependencies' translations included. That is worth about 41 MB, because `resources.arsc` is stored uncompressed and a single APK carries every language it offers.
 
@@ -75,11 +75,38 @@ Nothing else changes. Typing, prediction, autocorrect, gesture typing, learning,
 
 In the code, every request passes through `NetLog` (or, for the OkHttp clients, the `InternetGate` interceptor) before its socket opens, and both refuse with an `IOException` when the permission is missing. That matters because Android does not fail politely without it: a host name lookup throws `SecurityException`, which the offline paths are not written to catch. `NetworkCallSitesTest` fails the build if an OkHttp client is added without the gate.
 
+## A build with no location permission
+
+The released APKs declare precise and approximate location for the [Location tool](/tools/location/) and the **Use my location** buttons. A build without them takes one property, the same way:
+
+```bash
+./gradlew assembleFullEnDebug -Pwmkb.noLocation=true
+```
+
+`wmkb.noLocation=true` in `local.properties` or `WMKB_NO_LOCATION=true` in the environment does the same. The property adds `app/src/nolocation/AndroidManifest.xml`, which removes both permissions from the merged manifest. The app checks what the installed package asked for at run time (`LocationAccess.declared`), so the Location tool keeps its saved places and hides **Locate me**, the weather and compass tools go back to a searched or typed place, and the permissions screen drops the row. It combines with `wmkb.noInternet`.
+
+## Rebuilding the text engines
+
+Both editions ship the text engines' native library, and nothing types Bengali, Hindi, Urdu or the Indic languages without it.
+
+The phonetic engines (Avro, Khipro, Hindi, Urdu, Arabic, Persian, Assamese and the eight Indic languages), the Bijoy ANSI converter, the Bengali grapheme helpers and the romanizers are one Rust crate, `native/wm-engine`, shared with WMK Desktop. `native/wm-engine-jni` wraps it in a JNI `cdylib`, and the Kotlin objects in `core/language`'s transliteration package (`AvroPhonetic`, `Khipro`, `BijoyAnsi` and the rest) are facades over it through `EngineNative`. The prebuilt `.so` files are committed under `core/language/src/main/jniLibs/<abi>/`, so a normal build never touches Rust or the NDK. Rebuild them after any change under `native/wm-engine`, `native/wm-engine-jni` or `app/src/main/assets/avro` (the Avro grammar files are compiled into the crate):
+
+```sh
+# One-time setup, as for the grammar engine below
+rustup target add aarch64-linux-android armv7-linux-androideabi x86_64-linux-android
+cargo install cargo-ndk
+
+# All three ABIs, into core/language/src/main/jniLibs/
+ANDROID_NDK=/opt/homebrew/share/android-ndk native/wm-engine-jni/build.sh
+```
+
+The JVM unit tests load a host build of the same library instead, which the Gradle test tasks of `:core:language` and `:app` make first through `native/wm-engine-jni/build-host.sh` (plain `cargo build --release`). That is the one place the Gradle build needs Rust: `cargo` on the PATH, or in `~/.cargo/bin`. The engines' own tests run with `cargo test` in `native/wm-engine`; see [testing](/development/testing/).
+
 ## Rebuilding the native grammar engine
 
-<Flavor edition="full" />: the grammar checker's native library only ships in full builds.
+Both editions ship the grammar checker's native library.
 
-The grammar tool's linter is a Rust `cdylib` (`native/harper-jni/`) that wraps [Harper](https://github.com/automattic/harper)'s `harper-core` behind a small JNI surface. `core/intelligence/src/main/java/com/wasimaster/wmkeyboard/core/grammar/HarperNative.kt` is the Kotlin entry point. The prebuilt `.so` files are committed under `core/intelligence/src/full/jniLibs/<abi>/`, so **a normal `assembleFullDebug` never touches Rust or the NDK.** Rebuild the library only if you edit `native/harper-jni/src/lib.rs` or bump the `harper-core` version:
+The grammar tool's linter is a Rust `cdylib` (`native/harper-jni/`) that wraps [Harper](https://github.com/automattic/harper)'s `harper-core` behind a small JNI surface. `core/intelligence/src/main/java/com/wasimaster/wmkeyboard/core/grammar/HarperNative.kt` is the Kotlin entry point. The prebuilt `.so` files are committed under `core/intelligence/src/main/jniLibs/<abi>/`, so a normal build never touches Rust or the NDK. Rebuild the library only if you edit `native/harper-jni/src/lib.rs` or bump the `harper-core` version:
 
 ```sh
 # One-time setup
@@ -90,7 +117,7 @@ brew install --cask android-ndk   # or any NDK; set ANDROID_NDK_HOME
 # Build all three ABIs, from native/harper-jni/
 ANDROID_NDK_HOME=/opt/homebrew/share/android-ndk \
 cargo ndk -t arm64-v8a -t armeabi-v7a -t x86_64 --platform 24 \
-  -o ../../core/intelligence/src/full/jniLibs build --release
+  -o ../../core/intelligence/src/main/jniLibs build --release
 ```
 
 The same command is in `native/harper-jni/README.md`, along with the JNI contract the Kotlin side depends on.
@@ -99,9 +126,9 @@ The same command is in `native/harper-jni/README.md`, along with the JNI contrac
 
 ## Rebuilding the text scanner's Tesseract library
 
-<Flavor edition="full" />: like the grammar engine, it only ships in full builds.
+<Flavor edition="full" />: unlike the grammar engine, it only ships in full builds.
 
-The text scanner reads most non-Latin scripts with [Tesseract](https://github.com/tesseract-ocr/tesseract), compiled with Leptonica into one small library, `libwmtess.so`, from `native/tesseract-jni/`. `core/intelligence/src/full/java/com/wasimaster/wmkeyboard/core/ocr/TesseractOcr.kt` is the Kotlin entry point, and the prebuilt `.so` files sit beside Harper's under `core/intelligence/src/full/jniLibs/<abi>/`, so a normal build needs no NDK here either. Rebuild them only after you edit `native/tesseract-jni/`:
+The text scanner reads most non-Latin scripts with [Tesseract](https://github.com/tesseract-ocr/tesseract), compiled with Leptonica into one small library, `libwmtess.so`, from `native/tesseract-jni/`. `core/intelligence/src/full/java/com/wasimaster/wmkeyboard/core/ocr/TesseractOcr.kt` is the Kotlin entry point, and the prebuilt `.so` files sit under `core/intelligence/src/full/jniLibs/<abi>/`, so a normal build needs no NDK here either. Rebuild them only after you edit `native/tesseract-jni/`:
 
 ```sh
 # Needs NDK r29, CMake 3.22+ and Ninja
@@ -154,7 +181,7 @@ It reports what could be removed, what is declared `api` but only used internall
 
 ## Details & edge cases
 
-- **No `local.properties` is required to build.** API keys for the network tools (GIF/sticker search, web search, translation, and the Unsplash/Pexels photo backgrounds) are read from `local.properties`, falling back to environment variables, falling back to an empty string. The Dropbox and OneDrive backup destinations read their OAuth client ids the same way. A missing key never fails the build. The affected tool just shows a "needs API key" panel at runtime, and a backup destination with no client id is left out of the list instead.
+- **No `local.properties` is required to build.** API keys for the network tools (GIF/sticker search, web search, translation, and the Unsplash/Pexels photo backgrounds) are read from `local.properties`, falling back to environment variables, falling back to an empty string. The Dropbox and OneDrive backup destinations read their OAuth client ids the same way. A missing key never fails the build. The affected tool shows a "needs API key" panel at runtime, and a backup destination with no client id is left out of the list instead.
 - **A missing release keystore doesn't fail a release build, but it doesn't sign it either.** If `RELEASE_STORE_FILE` isn't set or the file doesn't exist, `assembleFullRelease` drops the signing config and emits an *unsigned* release APK. There's no debug-key fallback, and that's deliberate: a debug-signed "release" looks shippable and isn't, because Play rejects the debug key and nothing installed from such a build could ever be updated by the real one.
 - **Module build files can't declare their own repositories.** `settings.gradle.kts` sets `repositoriesMode = FAIL_ON_PROJECT_REPOS`, so only the `google()`/`mavenCentral()` repositories declared centrally are allowed. Adding a `repositories { }` block inside any module's `build.gradle.kts` hard-fails the build rather than silently working.
 - **Dictionaries compile automatically.** Every build variant wires in a `compileBundledDictionaries` task that runs the `:tools:dictc` compiler over `dictionaries-src/*.txt` and produces the `.wmdict` assets bundled into the APK. There's no separate manual compilation step. See [the dictionary pipeline](/development/dictionaries/) for the format and how to add or edit a wordlist.

@@ -1,9 +1,12 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCapitals
+import com.wasimaster.wmkeyboard.core.gesture.DuetBeam
+import com.wasimaster.wmkeyboard.core.gesture.DuetWorkspace
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
 import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
 import com.wasimaster.wmkeyboard.core.gesture.GlideShapeSource
+import com.wasimaster.wmkeyboard.core.gesture.GlideToken
 import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
 import com.wasimaster.wmkeyboard.core.gesture.GlideWorkspace
@@ -208,8 +211,9 @@ class SuggestionEngine(
 
     /**
      * Dictionaries for the user's secondary languages, consulted alongside the
-     * primary so a bilingual typist gets both without switching. These are the
-     * freq-1 imported lists, weighted below every primary source; a word valid
+     * primary so a bilingual typist gets both without switching. Imported
+     * freq-1 lists or downloaded ones with real counts, weighted below the
+     * primary (see [SourceScales]); a word valid
      * in one is never autocorrected away. Each is tagged with its language id so
      * its share of the strip adapts to how much the user actually types it (see
      * [mixConfidence] / [recordUsage]).
@@ -794,15 +798,93 @@ class SuggestionEngine(
      * secondary language: the base [SECONDARY_ENGLISH_DIVISOR] scaled by how
      * much the user actually mixes English in. At the neutral (untrained)
      * confidence this is exactly `1 / SECONDARY_ENGLISH_DIVISOR`, matching the
-     * old fixed behaviour.
+     * old fixed behaviour. A downloaded English list is first brought down to
+     * the bundled one's scale (see [SourceScales]).
      */
     private fun englishSecondaryFactor(): Double =
-        mixConfidence.confidenceFor(EN) / SECONDARY_ENGLISH_DIVISOR * fieldFactorFor(EN)
+        sourceScales().english * mixConfidence.confidenceFor(EN) * fieldFactorFor(EN)
 
     /** Adaptive weight for a secondary language's imported list. */
-    private fun secondaryWeight(langId: String): Int =
-        (SECONDARY_WORD_WEIGHT * mixConfidence.confidenceFor(langId) * fieldFactorFor(langId))
-            .toInt()
+    private fun secondaryWeightOf(langId: String): Double =
+        (sourceScales().secondary[langId] ?: SECONDARY_WORD_WEIGHT.toDouble()) *
+            mixConfidence.confidenceFor(langId) * fieldFactorFor(langId)
+
+    /**
+     * The multiplier each word list is read at, before the mix adapts it.
+     *
+     * Every weight and threshold in this engine was tuned against the bundled
+     * English list, whose commonest word is [REFERENCE_TOP_FREQUENCY]: user
+     * words at ×500, contacts at ×3000, the lone-candidate autocorrect floor,
+     * a flat imported list lifted ×100 to mid-dictionary. A downloaded list is
+     * on another scale entirely. It carries corpus counts with its commonest
+     * word in the tens of millions, so read as is it outweighed everything
+     * else, and an unopposed correction cleared [SOLO_RUNNER_UP_SCORE] by ten
+     * nats whatever it reached: a Greek list corrected every word it did not
+     * know (#403). As a secondary language it put Italian `visita` over the
+     * English `visit` typed in full (#653).
+     *
+     * So any list whose commonest word, at its usual weight, lands above the
+     * reference is scaled down to land on it, which moves every word of it by
+     * the same amount in log space and keeps its own ranking intact. A list
+     * already on the reference scale, or a flat one, keeps exactly its old
+     * weight. Secondaries are put at [SECONDARY_SCALE_SHARE] of the primary's
+     * commonest word, English as a secondary at the same share of the
+     * reference, which is what the bundled list there always had.
+     */
+    private class SourceScales(
+        val active: Double,
+        val custom: Double,
+        val english: Double,
+        val secondary: Map<String, Double>,
+    )
+
+    private fun sourceScales(): SourceScales {
+        val gen = generation.get()
+        sourceScalesCache?.let { (cachedGen, scales) -> if (cachedGen == gen) return scales }
+        val activeTop = topFrequency(activeDictionary)
+        val customTop = topFrequency(customDictionary)
+        val active = scaledWeight(activeTop, 1.0, REFERENCE_TOP_FREQUENCY)
+        val custom = scaledWeight(customTop, CUSTOM_WORD_WEIGHT.toDouble(), REFERENCE_TOP_FREQUENCY)
+        val primaryTop = maxOf(activeTop * active, customTop * custom)
+            .takeIf { it > 0.0 } ?: REFERENCE_TOP_FREQUENCY
+        val english = if (englishAsSecondary && !englishSources) {
+            scaledWeight(
+                topFrequency(dictionary),
+                1.0 / SECONDARY_ENGLISH_DIVISOR,
+                REFERENCE_TOP_FREQUENCY / SECONDARY_ENGLISH_DIVISOR,
+            )
+        } else {
+            1.0 / SECONDARY_ENGLISH_DIVISOR
+        }
+        val secondary = HashMap<String, Double>(secondaryDictionaries.size * 2)
+        for (t in secondaryDictionaries) {
+            secondary[t.langId] = scaledWeight(
+                topFrequency(t.source),
+                SECONDARY_WORD_WEIGHT.toDouble(),
+                primaryTop * SECONDARY_SCALE_SHARE,
+            )
+        }
+        return SourceScales(active, custom, english, secondary)
+            .also { sourceScalesCache = gen to it }
+    }
+
+    @Volatile
+    private var sourceScalesCache: Pair<Long, SourceScales>? = null
+
+    /**
+     * [weight], lowered just enough that a list whose commonest word is [top]
+     * tops out at [target]. Never raised: a flat list stays where its weight
+     * puts it. The small tolerance keeps the bundled list, whose stored top
+     * is rounded by the file format, at exactly its old weight.
+     */
+    private fun scaledWeight(top: Int, weight: Double, target: Double): Double {
+        val effective = top * weight
+        return if (top <= 0 || effective <= target * SCALE_TOLERANCE) weight else target / top
+    }
+
+    /** The highest frequency anywhere in [source]: its walkers' root bound. */
+    private fun topFrequency(source: WordSource): Int =
+        source.walkers().maxOfOrNull { it.maxSubtree(it.root) } ?: 0
 
     /**
      * The languages taking part in the current mix: the primary, bundled
@@ -976,6 +1058,14 @@ class SuggestionEngine(
     private var deepGlideBeam = GlideBeam(glideTuning.copy(vocabularyRank = 0))
 
     /**
+     * The two-thumb decoder (issue #638), on the same stroke weights as
+     * [glideBeam] so a setting that moves a radius moves both.
+     */
+    @Volatile
+    private var duetBeam = DuetBeam(glideTuning)
+    private val duetWorkspace = ThreadLocal.withInitial { DuetWorkspace() }
+
+    /**
      * Point both decoders at [next], rebuilding them only when something
      * actually moved.
      *
@@ -990,6 +1080,7 @@ class SuggestionEngine(
         glideTuning = next
         glideBeam = GlideBeam(next)
         deepGlideBeam = GlideBeam(next.copy(vocabularyRank = 0))
+        duetBeam = DuetBeam(next)
     }
 
     /**
@@ -1167,13 +1258,78 @@ class SuggestionEngine(
             // that pipeline needs its own design, not this one bolted on.
             lookAhead = if (romanization.isEmpty) lookAhead else 0,
         )
+        return finishGlide(
+            decoded, romanization, limit, previousWord, previousWord2, previousWord3, recentWords,
+        )
+    }
+
+    /**
+     * Decodes a word built from several gestures — taps and swipes from both
+     * thumbs, overlapping in time (issue #638), or typed letters a swipe
+     * finished (#595) — against the same sources and through the same
+     * blacklist, rank shifts, context rerank and casing as [glide].
+     *
+     * The caller routes: a lone swipe belongs to [glide], which reads its
+     * pauses and loops too, and taps alone are typing. See
+     * [DuetBeam.needsDuet].
+     *
+     * [partial] asks instead for the spellings the gestures *begin*, for a word
+     * still being built that finishes no word yet (#640). Those are not words,
+     * so they skip the blacklist, the rerank and the casing; best first.
+     */
+    @Suppress("LongParameterList")
+    fun glideTokens(
+        tokens: List<GlideToken>,
+        keys: GlideKeyMap,
+        keyWidth: Float,
+        limit: Int = 4,
+        previousWord: String? = null,
+        previousWord2: String? = null,
+        previousWord3: String? = null,
+        recentWords: List<String> = emptyList(),
+        partial: Boolean = false,
+    ): List<GlideBeam.Candidate> {
+        val romanization = glideRomanization
+        val sources = if (romanization.isEmpty) {
+            walkSources() + glideTriggerSources() + glideContractionSources()
+        } else {
+            romanization.walkSources()
+        }
+        if (sources.isEmpty()) return emptyList()
+        val decoded = duetBeam.decode(
+            tokens = tokens,
+            keys = keys,
+            keyWidth = keyWidth,
+            sources = sources,
+            ws = duetWorkspace.get(),
+            limit = maxOf(limit, GLIDE_RERANK_POOL),
+            partial = partial,
+        )
+        if (partial) return decoded.take(limit)
+        return finishGlide(
+            decoded, romanization, limit, previousWord, previousWord2, previousWord3, recentWords,
+        )
+    }
+
+    /** What [glide] and [glideTokens] do with a decoder's raw readings. */
+    @Suppress("LongParameterList")
+    private fun finishGlide(
+        decoded: List<GlideBeam.Candidate>,
+        romanization: RomanizedIndex,
+        limit: Int,
+        previousWord: String?,
+        previousWord2: String?,
+        previousWord3: String?,
+        recentWords: List<String>,
+    ): List<GlideBeam.Candidate> {
         // On a phonetic layout the stroke spelled a romanization; the words it
         // stands for are what the rest of this — the blacklist, the reranker,
         // the caller — should ever see.
         val words = if (romanization.isEmpty) decoded else romanization.resolve(decoded)
-        val kept = shiftGlideScores(words.filterNot { suppressed(it.word) })
-        if (kept.isEmpty()) return kept
-        return rerankGlide(kept, previousWord, previousWord2, previousWord3, recentWords)
+        val filtered = words.filterNot { suppressed(it.word) }
+        if (filtered.isEmpty()) return filtered
+        val reranked = rerankGlide(filtered, previousWord, previousWord2, previousWord3, recentWords)
+        return shiftGlideScores(reranked)
             // One word per spelling, whatever source it came from (#172). The
             // decoder keys its results on each trie's own spelling, and the
             // platform dictionary stores "boston" where a word list may store
@@ -1475,8 +1631,9 @@ class SuggestionEngine(
         // weights bit-identical to the pre-detection engine.
         val primaryShift = ln(fieldFactorFor(primaryLanguageId))
         if (onlyLang == null || onlyLang == primaryLanguageId) {
-            add(activeDictionary, primaryShift)
-            add(customDictionary, LOG_CUSTOM_WORD_WEIGHT + primaryShift)
+            val scales = sourceScales()
+            add(activeDictionary, ln(scales.active) + primaryShift)
+            add(customDictionary, ln(scales.custom) + primaryShift)
         }
         if (englishAsSecondary && !englishSources && (onlyLang == null || onlyLang == EN)) {
             val factor = englishSecondaryFactor()
@@ -1484,8 +1641,7 @@ class SuggestionEngine(
         }
         for (t in secondaryDictionaries) {
             if (onlyLang != null && t.langId != onlyLang) continue
-            val weight = SECONDARY_WORD_WEIGHT * mixConfidence.confidenceFor(t.langId) *
-                fieldFactorFor(t.langId)
+            val weight = secondaryWeightOf(t.langId)
             if (weight > 0) add(t.source, ln(weight))
         }
         return sources
@@ -1552,14 +1708,23 @@ class SuggestionEngine(
 
     /** Best frequency for a word across the primary, secondary and platform lists. */
     private fun dictionaryFrequencyOf(word: String): Int = maxOf(
-        activeDictionary.frequencyOf(word),
-        weighted(customDictionary.frequencyOf(word), CUSTOM_WORD_WEIGHT),
+        scaled(activeDictionary.frequencyOf(word), sourceScales().active),
+        scaled(customDictionary.frequencyOf(word), sourceScales().custom),
         weighted(systemDictionary.frequencyOf(word), USER_WORD_WEIGHT),
         secondaryEnglishFrequencyOf(word),
         secondaryDictionaries.maxOfOrNull {
-            weighted(it.source.frequencyOf(word), secondaryWeight(it.langId))
+            scaled(it.source.frequencyOf(word), secondaryWeightOf(it.langId))
         } ?: 0,
     )
+
+    /**
+     * Frequency × a fractional weight, clamped to the Int range. A listed word
+     * never scales down to 0, which callers read as "not in any list".
+     */
+    private fun scaled(frequency: Int, weight: Double): Int = when {
+        frequency <= 0 || weight <= 0.0 -> 0
+        else -> (frequency * weight).coerceIn(1.0, Int.MAX_VALUE.toDouble()).toInt()
+    }
 
     /**
      * Frequency × weight, widened to Long and clamped to the Int range.
@@ -1736,6 +1901,23 @@ class SuggestionEngine(
         /** Imported secondary-language lists rank below the primary custom list. */
         private const val SECONDARY_WORD_WEIGHT = 40
 
+        /**
+         * Where a secondary list with real frequencies tops out, as a share of
+         * the primary's commonest word (see [SourceScales]). Half, like
+         * English as a secondary at [SECONDARY_ENGLISH_DIVISOR].
+         */
+        private const val SECONDARY_SCALE_SHARE = 0.5
+
+        /**
+         * The commonest word's frequency in the bundled English list: the
+         * scale every weight here was tuned on, and the one a downloaded list
+         * is brought onto (see [SourceScales]).
+         */
+        private const val REFERENCE_TOP_FREQUENCY = 10_000.0
+
+        /** Slack above a target before a list counts as on another scale. */
+        private const val SCALE_TOLERANCE = 1.01
+
         /** English-as-secondary participates at a fraction of its real frequency. */
         private const val SECONDARY_ENGLISH_DIVISOR = 2
         /** Per-occurrence weight of a contact-name word (counts are tiny). */
@@ -1842,7 +2024,6 @@ class SuggestionEngine(
 
         /** Log-space forms of the source weights, fed to the fuzzy walk. */
         private val LOG_USER_WORD_WEIGHT = ln(USER_WORD_WEIGHT.toDouble())
-        private val LOG_CUSTOM_WORD_WEIGHT = ln(CUSTOM_WORD_WEIGHT.toDouble())
 
         /**
          * Synthetic runner-up score when a correction has no competition at
@@ -2457,10 +2638,11 @@ class SuggestionEngine(
                 }
             }
         }
-        fold(1.0, activeDictionary.walkers())
+        val scales = sourceScales()
+        fold(scales.active, activeDictionary.walkers())
         fold(USER_WORD_WEIGHT.toDouble(), userLexicon.walkers())
         fold(USER_WORD_WEIGHT.toDouble(), systemDictionary.walkers())
-        fold(CUSTOM_WORD_WEIGHT.toDouble(), customDictionary.walkers())
+        fold(scales.custom, customDictionary.walkers())
         val max = tally.values.maxOrNull() ?: return emptyMap()
         if (max <= 0.0) return emptyMap()
         return tally.mapValues { (it.value / max).toFloat() }
@@ -3022,6 +3204,20 @@ class SuggestionEngine(
         }
 
     /**
+     * The keys of a word on a layout that spells its words outright (Khipro),
+     * written as typed, for a strip chip of their own (#594): an English word
+     * no list knows (a name, a brand, slang) can still go in as typed. Null
+     * when the keys are not letters alone, or when English is not mixed in on
+     * this layout ([phoneticAutoEnglish], with English among the language's
+     * secondaries), which keeps the strip as it was for everyone else.
+     */
+    fun completionLiteral(roman: String): String? {
+        if (!phoneticMixing || !phoneticAutoEnglish) return null
+        if (roman.isEmpty() || !roman.all { it in 'a'..'z' || it in 'A'..'Z' }) return null
+        return latinForm(roman)
+    }
+
+    /**
      * The English a space should commit for [roman] on a layout whose keys
      * spell the word outright (Khipro, #487), or null when it should commit
      * [composed], the layout's own reading.
@@ -3046,6 +3242,32 @@ class SuggestionEngine(
         val native = index.frequencyOf(composed) > 0 || index.frequencyOf(WordKey.surface(composed)) > 0 ||
             userLexicon.contains(WordKey.of(composed))
         return if (native) null else latinForm(roman)
+    }
+
+    /**
+     * English words that begin with [roman], for a conversion layout's
+     * candidate strip (#633): pinyin and romaji are typed on the same letters
+     * as English, so with English among the language's secondaries the strip
+     * can offer `hello` beside what the reading converts to.
+     *
+     * Completions only, from the English list alone. The letters are a reading
+     * first, so a correction of them into English would be a guess about a
+     * word nobody was spelling. Best first, the word itself ahead of longer
+     * ones; empty unless English is mixed in on this language.
+     */
+    fun englishCompletions(roman: String, limit: Int): List<String> {
+        if (!phoneticMixing || limit <= 0) return emptyList()
+        if (roman.length < 2 || !roman.all { it in 'a'..'z' || it in 'A'..'Z' }) return emptyList()
+        val lower = roman.lowercase()
+        val found = beam.search(dictionarySources(EN), lower, proximity, limit, beamWorkspace.get(), maxEdits = 0)
+            .asSequence()
+            .filter { it.edits == 0 && !suppressed(it.word) }
+            .map { it.word }
+            .toMutableList()
+        // The word as typed is the likeliest reading of an English word, and
+        // the walk ranks it by frequency like any other.
+        if (found.remove(lower)) found.add(0, lower)
+        return found.take(limit).map { displayForm(it) }
     }
 
     /**
@@ -3510,11 +3732,25 @@ class SuggestionEngine(
      * backspace still takes it back, and the undo is remembered against the
      * pair like any other. A spelling the user has pinned or keeps their own
      * way in the personal dictionary is theirs.
+     *
+     * Theirs both ways (#620). A capital the user wrote into a dialog — a
+     * spelling pinned in the personal dictionary, or a row in Android's — is
+     * asked for as surely as a list's, so it commits the same way, provided
+     * no list writes the word in small letters: adding the name "Will" must
+     * not capitalize every "will". A list that agrees ("I") is no objection.
+     * Adding "I" by hand used to pin it, and a pinned word was skipped, so the
+     * one fix offered for a lower-case "i" was the thing that kept it there.
      */
     private fun dictionaryCapital(lower: String): CorrectionDecision? {
-        val spelling = listSpelling(lower) ?: return null
-        if (userLexicon.isCasePinned(lower)) return null
-        if (userLexicon.displayOf(lower)?.let { it != spelling } == true) return null
+        val listed = listSpelling(lower)
+        val own = userLexicon.displayOf(lower)
+        fun asked(spelling: String?): String? =
+            spelling?.takeIf { it == listed || !inDictionaries(lower, includePlatform = false) }
+        val spelling = when {
+            userLexicon.isCasePinned(lower) -> asked(own)
+            own != null -> own.takeIf { it == listed }
+            else -> listed ?: asked(systemWordCases[lower])
+        }?.takeIf { it != lower } ?: return null
         if (suppressed(lower)) return null
         if (correctionStats.penalty(lower, spelling) != CorrectionStats.Penalty.NONE) return null
         return CorrectionDecision(apply = spelling, certainty = 1.0)
@@ -4418,7 +4654,7 @@ class SuggestionEngine(
      * every candidate would capitalize ordinary words that happen to be
      * somebody's name or an app's ("Will", "Photos", "Files").
      */
-    private fun displayForm(word: String): String {
+    fun displayOf(word: String): String {
         if (word.isEmpty()) return word
         val key = word.lowercase()
         if (key != word) return word
@@ -4429,6 +4665,8 @@ class SuggestionEngine(
         return userLexicon.displayOf(key) ?: systemWordCases[key]
             ?: listSpelling(key)?.takeUnless { userLexicon.isCasePinned(key) } ?: word
     }
+
+    private fun displayForm(word: String): String = displayOf(word)
 
     /**
      * Applies the typed word's capitalization pattern to a suggestion. Letters

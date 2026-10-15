@@ -27,13 +27,13 @@ class CjkDictPackE2ETest {
     @Test
     fun testCatalogMetadata() {
         val packs = CjkDictCatalog.packs
-        assertEquals(5, packs.size)
+        assertEquals(7, packs.size)
 
         val pinyin = CjkDictCatalog.byId("pinyin")
         assertNotNull(pinyin)
         assertEquals("zh", pinyin!!.langId)
         assertTrue(pinyin.available)
-        assertEquals("pinyin.tsv", pinyin.fileName)
+        assertEquals("pinyin_v2.tsv", pinyin.fileName)
 
         val jaKana = CjkDictCatalog.byId("ja_kana")
         assertNotNull(jaKana)
@@ -59,8 +59,8 @@ class CjkDictPackE2ETest {
         val packFile = CjkDictStore.packFile(filesDir, pinyinPack)
         val partFile = CjkDictStore.partFile(filesDir, pinyinPack)
 
-        assertEquals(File(packDir, "pinyin.tsv").absolutePath, packFile.absolutePath)
-        assertEquals(File(packDir, "pinyin.tsv.part").absolutePath, partFile.absolutePath)
+        assertEquals(File(packDir, "pinyin_v2.tsv").absolutePath, packFile.absolutePath)
+        assertEquals(File(packDir, "pinyin_v2.tsv.part").absolutePath, partFile.absolutePath)
 
         // Clean any existing test pack for clean state check
         CjkDictStore.delete(filesDir, pinyinPack)

@@ -23,6 +23,8 @@
     <string name="fonts_default_system_label">System default</string>
     <!-- The row that keeps the Noto font the app selects for the script. -->
     <string name="fonts_default_noto_label">Automatic (Noto)</string>
+    <!-- The default font of a script that is not a Noto face. The app downloads it when the keyboard first needs it. -->
+    <string name="fonts_default_named_label">Automatic (<xliff:g id="font" example="Klingon pIqaD HaSta">%1$s</xliff:g>)</string>
     <!-- Name of a font file the user imported that has no name of its own. -->
     <string name="fonts_imported_label">Imported font</string>
 
@@ -95,6 +97,8 @@
     <string name="fonts_tool_redo_desc">One press sends the redo shortcut of the editor</string>
     <string name="fonts_tool_moon_phase_desc">The current phase, the illumination and the next full moon and new moon</string>
     <string name="fonts_tool_weather_desc">Current conditions for a saved location</string>
+    <string name="fonts_tool_clock_desc">World clocks, alarms, timers, a stopwatch, a meeting planner and date maths, and any time typed in the form you pick</string>
+    <string name="fonts_tool_location_desc">Put your position or a saved place into the text as a map link, an address or coordinates</string>
     <string name="fonts_tool_calendar_desc">Month view with your events and two calendars of your choice</string>
     <string name="fonts_tool_incognito_desc">One press pauses learning and clipboard capture</string>
     <string name="fonts_tool_power_saving_desc">Turn off features that use battery power, on demand or when the battery is low</string>
@@ -110,8 +114,8 @@
     <string name="fonts_tool_camera_desc">Take a photo and send it from the keyboard</string>
     <string name="fonts_tool_dictionary_desc">English definitions, pronunciation and synonyms</string>
     <string name="fonts_tool_translate_desc">Translate what you type into any language, as you write</string>
-    <!-- Klipy and GIPHY are the names of the services that supply the GIFs. -->
-    <string name="fonts_tool_gif_desc">Search for GIFs (Klipy, GIPHY) and send them from the keyboard</string>
+    <!-- KLIPY and GIPHY are the names of the services that supply the GIFs. -->
+    <string name="fonts_tool_gif_desc">Search for GIFs (KLIPY, GIPHY) and send them from the keyboard</string>
     <string name="fonts_tool_sticker_desc">Search for stickers. They are transparent and ready for a chat</string>
     <!-- Brave is the name of the search service. -->
     <string name="fonts_tool_web_search_desc">Search the web with Brave and insert the link of a result</string>
@@ -136,6 +140,8 @@
     <string name="fonts_tool_plugins_desc">Run the plugins you install. They are small tools that run in a sandbox</string>
     <string name="fonts_tool_app_launcher_desc">Open an app, or a screen inside an app, from the keyboard</string>
     <string name="fonts_tool_ai_desc">Rewrite, summarize, translate and more. Use your own API key or a local server</string>
+    <!-- Drafts answers to a message somebody else sent (#234). -->
+    <string name="fonts_tool_ai_reply_desc">Draft a reply to what somebody sent you. Paste their message, pick a screenshot of the chat, and choose a tone</string>
     <string name="fonts_tool_modes_desc">Change between setups for each app: the emoji row, the pinned tools and the symbol sets</string>
     <string name="fonts_tool_cursor_left_desc">Move the cursor one character to the left</string>
     <string name="fonts_tool_cursor_right_desc">Move the cursor one character to the right</string>
@@ -157,6 +163,8 @@
     <string name="fonts_tool_hide_keyboard_desc">Hide the keyboard with one press</string>
 
     <string name="fonts_tool_vocabulary_desc">Word cards, nudges and flashcards from downloadable vocabulary packs</string>
+    <string name="fonts_tool_notes_desc">Write and keep notes in the keyboard, with tags, checklists, pins and a trash</string>
+    <string name="fonts_tool_find_replace_desc">Search the text you are writing and replace matches, with match case, whole word and regular expressions</string>
     <string name="fonts_tool_learn_from_text_desc">List the words in what you have written that the keyboard does not know yet, and add them to your personal dictionary</string>
 
 </resources>

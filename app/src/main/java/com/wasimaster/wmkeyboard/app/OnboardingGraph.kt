@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.settings.EverythingTools
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.MinimalTools
 import com.wasimaster.wmkeyboard.core.settings.OnboardingSettings
@@ -51,6 +52,9 @@ internal val ToolSetupTools = setOf(
  * the rest of the wizard in Bengali. [askAppLanguage] is decided by the phone's
  * region (see [shouldAskAppLanguage]), so it never shows where English is the
  * first language, and never on a build that has only English to offer.
+ *
+ * [restored] is a run where the welcome page's restore brought a backup in:
+ * the welcome page is all that is left.
  */
 internal fun onboardingPages(
     persona: OnboardingSettings,
@@ -59,7 +63,11 @@ internal fun onboardingPages(
     replay: Boolean,
     imeReady: Boolean,
     askAppLanguage: Boolean = false,
+    restored: Boolean = false,
 ): List<OnboardingPage> = OnboardingPage.entries.filter { page ->
+    // A restored backup answered every question already: only the step no
+    // backup can carry, turning the keyboard on, is left.
+    if (restored) return@filter page == OnboardingPage.WELCOME
     when (page) {
         OnboardingPage.APP_LANGUAGE -> askAppLanguage
         OnboardingPage.WELCOME -> !(replay && imeReady)
@@ -263,7 +271,7 @@ internal fun toolsAfterFinish(
     playServices: Boolean,
     isSupported: (ToolbarTool) -> Boolean,
 ): Set<ToolbarTool>? {
-    if (settings.enabledTools.toSet() != ToolbarTool.entries.toSet()) return null
+    if (settings.enabledTools.toSet() != EverythingTools.toSet()) return null
     val persona = settings.onboarding.takeIf { it.personaDepth != PersonaDepth.UNSET }
         ?: settings.onboarding.copy(personaDepth = PersonaDepth.BALANCED)
     return starterTools(persona, playServices, isSupported)

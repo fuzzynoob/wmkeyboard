@@ -4,9 +4,12 @@ import android.graphics.BitmapFactory
 import android.os.SystemClock
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VisibilityThreshold
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -28,6 +31,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -39,7 +43,9 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Keyboa
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.KeyboardReturn
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeOff
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeUp
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AttachFile
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Computer
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentPaste
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowDown
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowUp
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Laptop
@@ -50,6 +56,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Settings
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Shuffle
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Smartphone
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tablet
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.TextFields
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tv
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -66,6 +73,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -80,6 +88,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -98,6 +107,7 @@ import com.wasimaster.wmkeyboard.core.kdeconnect.KdeTransfer
 import com.wasimaster.wmkeyboard.core.kdeconnect.KdeTransferState
 import com.wasimaster.wmkeyboard.core.media.MediaSnapshot
 import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
+import com.wasimaster.wmkeyboard.core.theme.FrostSurface
 import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KdeAction
 import com.wasimaster.wmkeyboard.ime.KdeModKey
@@ -134,28 +144,83 @@ internal fun KdeConnectPanel(state: KeyboardUiState, capture: CaptureCallbacks) 
     val settings = state.settings.kdeConnect
     val onKde = capture.onKde
 
+    val stage = when {
+        state.deviceLocked -> KdeStage(KdeStep.LOCKED)
+        !settings.enabled -> KdeStage(KdeStep.OFF)
+        !InternetPermission.granted -> KdeStage(KdeStep.NO_INTERNET)
+        else -> {
+            val device = hub.device(state.kde.deviceId)?.takeIf { it.paired && it.reachable }
+                ?: hub.connected.firstOrNull()
+            val pairing = hub.devices.firstOrNull {
+                it.pairState == KdePairState.REQUESTED || it.pairState == KdePairState.REQUESTED_BY_PEER
+            }
+            when {
+                pairing != null -> KdeStage(KdeStep.PAIRING, pairing = pairing)
+                device == null || state.kde.showDevices -> KdeStage(KdeStep.DEVICES, device = device)
+                else -> KdeStage(KdeStep.CONNECTED, device = device)
+            }
+        }
+    }
+    // Read through a State so a step on its way out compares against the
+    // step now showing, whichever version of this lambda it was given.
+    val currentStep = rememberUpdatedState(stage.step)
+
     CompactLines { Column(Modifier.fillMaxSize().padding(horizontal = 8.dp, vertical = 4.dp)) {
-        when {
-            state.deviceLocked -> CenterNotice(kb, Icons.Outlined.Phonelink, stringResource(R.string.ime_kde_locked), "")
-            !settings.enabled -> Intro(kb) { onKde(KdeAction.TurnOn) }
-            !InternetPermission.granted -> CenterNotice(
-                kb, Icons.Outlined.Phonelink, stringResource(CommonR.string.common_error_no_internet_permission), "",
-            )
-            else -> {
-                val device = hub.device(state.kde.deviceId)?.takeIf { it.paired && it.reachable }
-                    ?: hub.connected.firstOrNull()
-                val pairing = hub.devices.firstOrNull {
-                    it.pairState == KdePairState.REQUESTED || it.pairState == KdePairState.REQUESTED_BY_PEER
-                }
-                when {
-                    pairing != null -> PairingCard(kb, pairing)
-                    device == null || state.kde.showDevices -> DeviceList(kb, state, hub, device != null, onKde)
-                    else -> Connected(kb, state, device, capture)
+        // A step of the ladder cross-fades into the next (found → pairing →
+        // connected). Keyed on the step alone: the hub's steady stream of
+        // updates — a battery, a player's position — re-renders the step in
+        // place. The step fading out takes no taps, so an Accept already
+        // accepted is not sent twice.
+        MotionCrossfade(
+            target = stage,
+            animate = kb.motion.any,
+            modifier = Modifier.fillMaxSize(),
+            contentKey = { it.step },
+            label = "kdeStep",
+        ) { shown ->
+            Box(Modifier.fillMaxSize().blockTouches(shown.step != currentStep.value)) {
+                when (shown.step) {
+                    KdeStep.LOCKED -> CenterNotice(kb, Icons.Outlined.Phonelink, stringResource(R.string.ime_kde_locked), "")
+                    KdeStep.OFF -> Intro(kb) { onKde(KdeAction.TurnOn) }
+                    KdeStep.NO_INTERNET -> CenterNotice(
+                        kb, Icons.Outlined.Phonelink, stringResource(CommonR.string.common_error_no_internet_permission), "",
+                    )
+                    KdeStep.PAIRING -> shown.pairing?.let { PairingCard(kb, it) }
+                    KdeStep.DEVICES -> DeviceList(kb, state, hub, shown.device != null, onKde)
+                    KdeStep.CONNECTED -> shown.device?.let { Connected(kb, state, it, capture) }
                 }
             }
         }
     } }
 }
+
+/** The rungs of the panel's ladder. */
+private enum class KdeStep { LOCKED, OFF, NO_INTERNET, PAIRING, DEVICES, CONNECTED }
+
+/** One rung and the device it is about, carried so a rung fading out still has its own. */
+private data class KdeStage(
+    val step: KdeStep,
+    val device: KdeDevice? = null,
+    val pairing: KdeDevice? = null,
+)
+
+/**
+ * A device-list row's arrival, departure and move: a computer turning up on
+ * the network fades in, one that pairs slides from Nearby up to Paired.
+ */
+private fun LazyItemScope.rowMotion(animate: Boolean): Modifier =
+    if (!animate) {
+        Modifier
+    } else {
+        Modifier.animateItem(
+            fadeInSpec = tween(ROW_FADE_IN_MS),
+            placementSpec = spring(
+                stiffness = Spring.StiffnessMediumLow,
+                visibilityThreshold = IntOffset.VisibilityThreshold,
+            ),
+            fadeOutSpec = tween(ROW_FADE_OUT_MS),
+        )
+    }
 
 /**
  * Material's bodyLarge, which every `Text` in the keyboard inherits, sets a
@@ -207,6 +272,7 @@ private fun DeviceChip(kb: KbTheme, state: KeyboardUiState, device: KdeDevice?, 
     Row(
         modifier = Modifier
             .clip(kb.chipShape())
+            .frostGlass(kb, kb.chipShape(), FrostSurface.CHIPS)
             .background(if (state.kde.showDevices) kb.chipActive else kb.chip)
             .chipBorder(kb, kb.chipShape())
             .clickable { onKde(KdeAction.ShowDevices(!state.kde.showDevices)) }
@@ -292,31 +358,38 @@ private fun DeviceList(kb: KbTheme, state: KeyboardUiState, hub: KdeState, canGo
             Spacer(Modifier.width(6.dp))
             ToolPanelChip(stringResource(R.string.ime_kde_add_by_address)) { onKde(KdeAction.HostEntry(true)) }
         }
+        val motion = kb.motion.any
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             val paired = hub.paired
             val nearby = hub.nearby
             if (paired.isNotEmpty()) {
-                item(key = "h-paired") { SectionLabel(kb, stringResource(R.string.ime_kde_section_paired)) }
+                item(key = "h-paired") { SectionLabel(kb, stringResource(R.string.ime_kde_section_paired), rowMotion(motion)) }
                 items(paired, key = { "p-" + it.id }) { device ->
                     DeviceRow(
                         kb, device,
                         status = stringResource(if (device.reachable) R.string.ime_kde_status_connected else R.string.ime_kde_status_unreachable),
                         onClick = if (device.reachable) ({ onKde(KdeAction.SelectDevice(device.id)) }) else null,
+                        modifier = rowMotion(motion),
                     ) {
                         ToolPanelChip(stringResource(R.string.ime_kde_unpair)) { engine?.unpair(device.id) }
                     }
                 }
             }
             if (nearby.isNotEmpty()) {
-                item(key = "h-nearby") { SectionLabel(kb, stringResource(R.string.ime_kde_section_nearby)) }
+                item(key = "h-nearby") { SectionLabel(kb, stringResource(R.string.ime_kde_section_nearby), rowMotion(motion)) }
                 items(nearby, key = { "n-" + it.id }) { device ->
-                    DeviceRow(kb, device, status = device.pairFailure?.let { stringResource(failureText(it)) }.orEmpty(), onClick = null) {
+                    DeviceRow(
+                        kb, device,
+                        status = device.pairFailure?.let { stringResource(failureText(it)) }.orEmpty(),
+                        onClick = null,
+                        modifier = rowMotion(motion),
+                    ) {
                         ToolPanelChip(stringResource(R.string.ime_kde_pair), selected = true) { engine?.requestPair(device.id) }
                     }
                 }
             }
             item(key = "help") {
-                Column(Modifier.padding(top = 6.dp, start = 4.dp, end = 4.dp)) {
+                Column(rowMotion(motion).padding(top = 6.dp, start = 4.dp, end = 4.dp)) {
                     if (!hub.listening && hub.running) {
                         Text(stringResource(R.string.ime_kde_not_listening), color = kb.secondaryText, fontSize = 11.sp)
                         Spacer(Modifier.height(4.dp))
@@ -335,9 +408,16 @@ private fun DeviceList(kb: KbTheme, state: KeyboardUiState, hub: KdeState, canGo
 }
 
 @Composable
-private fun DeviceRow(kb: KbTheme, device: KdeDevice, status: String, onClick: (() -> Unit)?, trailing: @Composable () -> Unit) {
+private fun DeviceRow(
+    kb: KbTheme,
+    device: KdeDevice,
+    status: String,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+    trailing: @Composable () -> Unit,
+) {
     Row(
-        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(kb.keyRadiusDp.dp)).background(kb.chip.copy(alpha = kb.chip.alpha * 0.6f))
+        modifier = modifier.fillMaxWidth().clip(RoundedCornerShape(kb.keyRadiusDp.dp)).background(kb.chip.copy(alpha = kb.chip.alpha * 0.6f))
             .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(horizontal = 10.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -437,7 +517,14 @@ private fun Connected(kb: KbTheme, state: KeyboardUiState, device: KdeDevice, ca
             }
         }
         Notice(kb, state)
-        Box(Modifier.fillMaxWidth().weight(1f)) {
+        // The touchpads inside take every move they see, so a swipe only
+        // changes the tab off them.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .weight(1f)
+                .swipeTabs(tabs.indexOf(tab), tabs.size, enabled = !typing) { onKde(KdeAction.SetTab(tabs[it])) },
+        ) {
             when (tab) {
                 KdeTab.INPUT -> InputTab(kb, state, device, engine, capture)
                 KdeTab.MEDIA -> MediaTab(kb, device, engine)
@@ -708,6 +795,33 @@ private fun KdePlayer.toSnapshot(deviceName: String, art: android.graphics.Bitma
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SendTab(kb: KbTheme, device: KdeDevice, engine: KdeConnectEngine, onKde: (KdeAction) -> Unit) {
+    if (device.transfers.isEmpty()) {
+        // Nothing to list yet: the three ways to send take the room the list would.
+        Column(
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Row(Modifier.widthIn(max = SEND_TILES_MAX_WIDTH).fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SendTile(kb, Icons.Outlined.ContentPaste, stringResource(R.string.ime_kde_send_clipboard), enabled = device.canClipboard, accent = true) {
+                    onKde(KdeAction.SendClipboard)
+                }
+                SendTile(kb, Icons.Outlined.TextFields, stringResource(R.string.ime_kde_send_field), enabled = device.canShare) {
+                    onKde(KdeAction.SendFieldText)
+                }
+                SendTile(kb, Icons.Outlined.AttachFile, stringResource(R.string.ime_kde_send_files), enabled = device.canShare) {
+                    onKde(KdeAction.PickFiles)
+                }
+            }
+            Spacer(Modifier.height(8.dp))
+            Text(
+                stringResource(if (device.canShare) R.string.ime_kde_send_empty else R.string.ime_kde_send_unsupported),
+                color = kb.secondaryText, fontSize = 12.sp, textAlign = TextAlign.Center,
+                modifier = Modifier.padding(horizontal = 16.dp),
+            )
+        }
+        return
+    }
     Column(Modifier.fillMaxSize()) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             ToolPanelChip(stringResource(R.string.ime_kde_send_clipboard), selected = true, enabled = device.canClipboard) { onKde(KdeAction.SendClipboard) }
@@ -718,13 +832,27 @@ private fun SendTab(kb: KbTheme, device: KdeDevice, engine: KdeConnectEngine, on
             }
         }
         Spacer(Modifier.height(4.dp))
-        if (device.transfers.isEmpty()) {
-            Text(stringResource(if (device.canShare) R.string.ime_kde_send_empty else R.string.ime_kde_send_unsupported), color = kb.secondaryText, fontSize = 12.sp, modifier = Modifier.padding(4.dp))
-        } else {
-            LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                items(device.transfers.asReversed(), key = { it.id }) { transfer -> TransferRow(kb, transfer, engine, onKde) }
-            }
+        LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            items(device.transfers.asReversed(), key = { it.id }) { transfer -> TransferRow(kb, transfer, engine, onKde) }
         }
+    }
+}
+
+/** One of the Send tab's empty-state buttons: an icon over its label, a third of the row. */
+@Composable
+private fun RowScope.SendTile(kb: KbTheme, icon: ImageVector, label: String, enabled: Boolean, accent: Boolean = false, onClick: () -> Unit) {
+    val fill = if (accent) kb.accent else kb.chip
+    val tint = if (accent) maxContrastOn(kb.accent) else kb.chipText
+    Column(
+        Modifier.weight(1f).height(SEND_TILE_HEIGHT).alpha(if (enabled) 1f else BUTTON_DISABLED_ALPHA)
+            .clip(RoundedCornerShape(kb.keyRadiusDp.dp)).background(fill)
+            .clickable(enabled = enabled, onClick = onClick).padding(horizontal = 6.dp, vertical = 8.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(icon, null, tint = tint, modifier = Modifier.size(26.dp))
+        Spacer(Modifier.height(6.dp))
+        Text(label, color = tint, fontSize = 13.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -988,8 +1116,8 @@ private fun SmallToggle(kb: KbTheme, icon: ImageVector, description: String, on:
 }
 
 @Composable
-private fun SectionLabel(kb: KbTheme, text: String) {
-    Text(text.uppercase(), color = kb.secondaryText, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp, top = 2.dp))
+private fun SectionLabel(kb: KbTheme, text: String, modifier: Modifier = Modifier) {
+    Text(text.uppercase(), color = kb.secondaryText, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, modifier = modifier.padding(start = 4.dp, top = 2.dp))
 }
 
 @Composable
@@ -1049,10 +1177,16 @@ private fun failureText(failure: KdePairFailure): Int = when (failure) {
 private val ConnectedGreen = Color(0xFF43A047)
 private val FailedRed = Color(0xFFE53935)
 private const val NOTICE_MS = 3_500L
+private const val ROW_FADE_IN_MS = 180
+private const val ROW_FADE_OUT_MS = 140
 private const val BUTTON_DISABLED_ALPHA = 0.4f
 
 /** Esc, Tab, the arrows and the "Type on PC" button beside them: one row height. */
 private val QUICK_KEY_HEIGHT = 34.dp
+
+/** The Send tab's empty-state buttons; capped so a tablet's width does not stretch them into bars. */
+private val SEND_TILE_HEIGHT = 84.dp
+private val SEND_TILES_MAX_WIDTH = 480.dp
 private const val ECHO_CHARS = 120
 private const val OUTPUT_LINES_SHOWN = 200
 private const val FINGERPRINT_SHOWN = 47

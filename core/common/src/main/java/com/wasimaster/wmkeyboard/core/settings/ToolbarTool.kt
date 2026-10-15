@@ -95,6 +95,28 @@ enum class ToolbarTool {
     // A shortcut to the settings app's Statistics screen: the level, the
     // achievements and the tap heatmap, one tap from the keys (issue #390).
     STATISTICS,
+    // Find and replace over the field (#627): the panel the selection bar's
+    // Replace chip opens, reachable with nothing selected first.
+    FIND_REPLACE,
+    // A notebook inside the keyboard (#560): notes with Markdown, tags,
+    // checklists, pin, archive and trash, kept in the app's files and shared
+    // with the settings app's Notes screen. Reads filesDir, so not available
+    // before the first unlock.
+    NOTES,
+    // Drafting an answer to somebody else's message (#234). Apart from the AI
+    // tool because it works the other way round: that one rewrites what the
+    // user has written, this one reads what they cannot select — a clip, a
+    // screenshot, a pasted message — and offers replies to pick from.
+    AI_REPLY,
+    // Where the user is, or a place they saved, put into the field as a map
+    // link, an address, coordinates or a Plus code (#350). The only tool that
+    // reads the position, and only on a tap; saved places need no permission.
+    LOCATION,
+    // World clocks, alarms, timers, a stopwatch, a meeting planner, date maths
+    // and a history. Its data is in device-protected storage so alarms ring
+    // before the first unlock, but the panel itself waits for the unlock like
+    // the other tools that keep files.
+    CLOCK,
 }
 
 /** The cursor tools, in the order they read on the toolbar. */
@@ -167,6 +189,9 @@ fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.SELECTION_ACTIONS,
     // A switch over a setting too.
     ToolbarTool.PHONETIC_ENGLISH,
+    // Reads and edits only the field. Its search history is credential-
+    // protected and simply reads empty before the first unlock.
+    ToolbarTool.FIND_REPLACE,
     ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.PASSWORD_GEN, ToolbarTool.QR_GEN,
     ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     // Copy and cut only touch the field the user is already typing in. Paste is
@@ -220,6 +245,22 @@ fun isSupportedTool(tool: ToolbarTool): Boolean = when {
 
 
 /**
+ * Tools no preset turns on, not even "Everything" or the all-on default a
+ * fresh install starts from: the user switches them on by hand or not at all.
+ * Learn from text reads a whole pasted document into the dictionary, which is
+ * a thing to go looking for, not a tile to trip over.
+ */
+val OptInOnlyTools: Set<ToolbarTool> = setOf(ToolbarTool.LEARN_FROM_TEXT)
+
+/**
+ * The "Everything" preset, and the enabled-tools default before setup swaps
+ * it for a persona's set: every tool except [OptInOnlyTools]. Onboarding
+ * compares the stored set against this one to tell an untouched default from
+ * a user's own choice.
+ */
+val EverythingTools: List<ToolbarTool> = ToolbarTool.entries.filterNot { it in OptInOnlyTools }
+
+/**
  * The onboarding starting selection for the "keep it simple" persona: what a
  * keyboard is expected to have plus the two that sell this one, and nothing
  * else until it is asked for.
@@ -253,10 +294,10 @@ val RecommendedTools: Set<ToolbarTool> = MinimalTools + setOf(
  * their converters and their calendar already on.
  */
 val PowerTools: Set<ToolbarTool> = RecommendedTools + setOf(
-    ToolbarTool.WIKIPEDIA, ToolbarTool.VOCABULARY, ToolbarTool.POWER_SAVING, ToolbarTool.MODES,
+    ToolbarTool.WIKIPEDIA, ToolbarTool.VOCABULARY, ToolbarTool.NOTES, ToolbarTool.POWER_SAVING, ToolbarTool.MODES,
     ToolbarTool.NUMPAD,
     ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY,
-    ToolbarTool.PASSWORD_GEN, ToolbarTool.CALENDAR, ToolbarTool.WEATHER,
+    ToolbarTool.PASSWORD_GEN, ToolbarTool.CALENDAR, ToolbarTool.CLOCK, ToolbarTool.WEATHER, ToolbarTool.LOCATION,
     ToolbarTool.MEDIA_CONTROL, ToolbarTool.KDE_CONNECT, ToolbarTool.APP_LAUNCHER, ToolbarTool.HIDE_KEYBOARD,
 )
 
@@ -277,8 +318,8 @@ val ToolTopUps: Set<ToolbarTool> = setOf(ToolbarTool.WIKIPEDIA, ToolbarTool.POWE
  * and the sensors.
  */
 private val RestOfToolOrder: List<ToolbarTool> = listOf(
-    ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH,
-    ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.TYPING_TEST, ToolbarTool.STATISTICS, ToolbarTool.PLUGINS,
+    ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH, ToolbarTool.AI_REPLY,
+    ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.FIND_REPLACE, ToolbarTool.TYPING_TEST, ToolbarTool.STATISTICS, ToolbarTool.PLUGINS,
     ToolbarTool.CUSTOM_LAYOUT,
     ToolbarTool.FLOATING, ToolbarTool.PERSISTENT, ToolbarTool.RESIZE, ToolbarTool.INCOGNITO,
     ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH, ToolbarTool.SOUND_HAPTICS,

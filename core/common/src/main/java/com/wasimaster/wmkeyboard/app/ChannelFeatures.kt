@@ -25,4 +25,22 @@ object ChannelFeatures {
      * it, Gestures mode is Explore by another name, so the mode goes too.
      */
     val GESTURE_PASSTHROUGH: Boolean = !BuildConfig.ENABLE_PLAY_STORE
+
+    /**
+     * The clock tool's ring service, a foreground service of type
+     * systemExempted that plays an alarm while it rings. Play keeps that type
+     * for apps whose core job is an alarm clock, and a keyboard is not one.
+     * Without it an alarm rings through the insistent alarm notification
+     * channel instead: the system's alarm sound, no per-alarm sound or
+     * fade-in, and the ring screen still comes up as a full-screen intent.
+     */
+    val CLOCK_RING_SERVICE: Boolean = !BuildConfig.ENABLE_PLAY_STORE
+
+    /**
+     * The clock's ring screen over the lock screen, behind
+     * USE_FULL_SCREEN_INTENT. Play keeps that permission for alarm-clock and
+     * calling apps. Without it a ringing alarm is a heads-up notification
+     * whose tap opens the ring screen.
+     */
+    val CLOCK_FULL_SCREEN: Boolean = !BuildConfig.ENABLE_PLAY_STORE
 }

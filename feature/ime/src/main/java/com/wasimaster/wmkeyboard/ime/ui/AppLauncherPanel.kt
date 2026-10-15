@@ -1,5 +1,11 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.VisibilityThreshold
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -53,6 +59,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
@@ -60,15 +67,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.settings.LauncherIconShape
+import com.wasimaster.wmkeyboard.core.theme.FrostSurface
 import com.wasimaster.wmkeyboard.ime.AppCatalog
 import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
@@ -345,6 +355,15 @@ private fun LauncherGridBody(
             }
         }
         else -> Column(Modifier.fillMaxSize()) {
+            val motion = kb.motion.any
+            // One clock for the grid's entrance, started in the composition
+            // that first shows the grid so no cell draws a frame at full
+            // strength first. Each cell reads it in its layer, offset by its
+            // place in the stagger, so the entrance recomposes nothing.
+            val entrance = remember { Animatable(if (motion) 0f else 1f) }
+            LaunchedEffect(Unit) {
+                entrance.animateTo(1f, tween(GRID_ENTRANCE_MS, easing = LinearEasing))
+            }
             if (shownCombos.isNotEmpty()) {
                 Text(
                     stringResource(R.string.ime_launcher_combos_label),
@@ -416,8 +435,28 @@ private fun LauncherGridBody(
                     .fillMaxSize()
                     .padding(horizontal = 6.dp),
             ) {
-                itemsIndexed(sorted, key = { _, app -> app.packageName }) { _, app ->
+                itemsIndexed(sorted, key = { _, app -> app.packageName }) { index, app ->
                     AppCell(
+                        // A search reflows the grid: the cells that stay glide
+                        // to their new places, the rest fade.
+                        modifier = if (motion) {
+                            Modifier
+                                .animateItem(
+                                    fadeInSpec = tween(CELL_FADE_IN_MS),
+                                    placementSpec = spring(
+                                        stiffness = Spring.StiffnessMediumLow,
+                                        visibilityThreshold = IntOffset.VisibilityThreshold,
+                                    ),
+                                    fadeOutSpec = tween(CELL_FADE_OUT_MS),
+                                )
+                                .graphicsLayer {
+                                    val t = cellEntrance(entrance.value, index)
+                                    alpha = t
+                                    translationY = (1f - t) * CELL_RISE_DP.dp.toPx()
+                                }
+                        } else {
+                            Modifier
+                        },
                         app = app,
                         showLabel = launcher.showLabels,
                         pinned = app.packageName in launcher.pinned,
@@ -436,6 +475,25 @@ private fun LauncherGridBody(
         }
     }
 }
+
+/**
+ * How far one cell is through the grid's entrance, 0 to 1, from the shared
+ * clock's [progress]. Cells start [CELL_STAGGER_MS] apart, the spread capped
+ * at [GRID_STAGGER_CAP_MS] so a long list does not keep the last cell waiting.
+ */
+private fun cellEntrance(progress: Float, index: Int): Float {
+    val elapsed = progress * GRID_ENTRANCE_MS
+    val delay = minOf(index * CELL_STAGGER_MS, GRID_STAGGER_CAP_MS)
+    return ((elapsed - delay) / CELL_ENTER_MS).coerceIn(0f, 1f)
+}
+
+private const val CELL_STAGGER_MS = 15
+private const val GRID_STAGGER_CAP_MS = 150
+private const val CELL_ENTER_MS = 150f
+private const val GRID_ENTRANCE_MS = GRID_STAGGER_CAP_MS + 150
+private const val CELL_RISE_DP = 8
+private const val CELL_FADE_IN_MS = 150
+private const val CELL_FADE_OUT_MS = 120
 
 private val RoundedIconShape = RoundedCornerShape(percent = 24)
 
@@ -494,11 +552,12 @@ private fun AppCell(
     iconFor: suspend (LauncherApp) -> ImageBitmap?,
     onTap: () -> Unit,
     onLongPress: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val kb = LocalKbTheme.current
     val feedback = LocalKeyPressFeedback.current
     Column(
-        modifier = Modifier
+        modifier = modifier
             .alpha(if (hidden) 0.45f else 1f)
             .clip(RoundedCornerShape(10.dp))
             .combinedClickable(
@@ -609,6 +668,7 @@ private fun PairingBanner(firstLabel: String, onCancel: () -> Unit) {
             .fillMaxWidth()
             .padding(horizontal = 10.dp, vertical = 4.dp)
             .clip(RoundedCornerShape(10.dp))
+            .frostGlass(kb, RoundedCornerShape(10.dp), FrostSurface.CHIPS)
             .background(kb.chip)
             .padding(start = 12.dp, end = 4.dp, top = 2.dp, bottom = 2.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -952,43 +1012,59 @@ private fun LauncherDetail(
                 )
             }
             val pinned = app.packageName in launcher.pinned
-            Icon(
-                Icons.Outlined.PushPin,
-                contentDescription = stringResource(
+            IconHint(
+                stringResource(
                     if (pinned) R.string.ime_launcher_unpin_action
                     else R.string.ime_launcher_pin_action,
                 ),
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .clickable { onPinToggle(app.packageName) }
-                    .padding(8.dp),
-                tint = if (pinned) kb.toolCircleActiveIcon else kb.toolbarIcon,
-            )
+            ) {
+                Icon(
+                    Icons.Outlined.PushPin,
+                    contentDescription = stringResource(
+                        if (pinned) R.string.ime_launcher_unpin_action
+                        else R.string.ime_launcher_pin_action,
+                    ),
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .clickable { onPinToggle(app.packageName) }
+                        .padding(8.dp),
+                    tint = if (pinned) kb.toolCircleActiveIcon else kb.toolbarIcon,
+                )
+            }
             val hidden = app.packageName in launcher.hidden
-            Icon(
-                if (hidden) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
-                contentDescription = stringResource(
+            IconHint(
+                stringResource(
                     if (hidden) R.string.ime_launcher_unhide_action
                     else R.string.ime_launcher_hide_action,
                 ),
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .clickable { onHideToggle(app.packageName) }
-                    .padding(8.dp),
-                tint = kb.toolbarIcon,
-            )
-            Icon(
-                Icons.Outlined.Info,
-                contentDescription = stringResource(R.string.ime_launcher_app_info_action),
-                modifier = Modifier
-                    .size(34.dp)
-                    .clip(CircleShape)
-                    .clickable { onAppInfo(app.packageName) }
-                    .padding(8.dp),
-                tint = kb.toolbarIcon,
-            )
+            ) {
+                Icon(
+                    if (hidden) Icons.Outlined.Visibility else Icons.Outlined.VisibilityOff,
+                    contentDescription = stringResource(
+                        if (hidden) R.string.ime_launcher_unhide_action
+                        else R.string.ime_launcher_hide_action,
+                    ),
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .clickable { onHideToggle(app.packageName) }
+                        .padding(8.dp),
+                    tint = kb.toolbarIcon,
+                )
+            }
+            IconHint(stringResource(R.string.ime_launcher_app_info_action)) {
+                Icon(
+                    Icons.Outlined.Info,
+                    contentDescription = stringResource(R.string.ime_launcher_app_info_action),
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .clickable { onAppInfo(app.packageName) }
+                        .padding(8.dp),
+                    tint = kb.toolbarIcon,
+                )
+            }
         }
         if (!launcher.activityDrilldown) return@Column
         Text(

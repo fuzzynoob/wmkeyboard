@@ -290,6 +290,7 @@ private val ServiceGroup.titleRes: Int
         ServiceGroup.DICTIONARY -> R.string.servers_section_dictionary
         ServiceGroup.VOCABULARY -> R.string.servers_section_vocabulary
         ServiceGroup.WEATHER -> R.string.servers_section_weather
+        ServiceGroup.MAPS -> R.string.servers_section_maps
         ServiceGroup.CURRENCY -> R.string.servers_section_currency
         ServiceGroup.AI -> R.string.servers_section_ai
         ServiceGroup.UPDATES -> R.string.servers_section_updates
@@ -305,6 +306,7 @@ internal val ServiceEndpoint.labelRes: Int
         ServiceEndpoint.KLIPY -> R.string.servers_klipy
         ServiceEndpoint.GIPHY -> R.string.servers_giphy
         ServiceEndpoint.SIGNAL_STICKER_CDN -> R.string.servers_signal_sticker_cdn
+        ServiceEndpoint.TELEGRAM_BOT_API -> R.string.servers_telegram_bot_api
         ServiceEndpoint.UNSPLASH -> R.string.servers_unsplash
         ServiceEndpoint.PEXELS -> R.string.servers_pexels
         ServiceEndpoint.WIKIPEDIA -> R.string.servers_wikipedia
@@ -314,6 +316,7 @@ internal val ServiceEndpoint.labelRes: Int
         ServiceEndpoint.WIKTIONARY -> R.string.servers_wiktionary
         ServiceEndpoint.OPEN_METEO -> R.string.servers_open_meteo
         ServiceEndpoint.OPEN_METEO_GEOCODING -> R.string.servers_open_meteo_geocoding
+        ServiceEndpoint.NOMINATIM -> R.string.servers_nominatim
         ServiceEndpoint.CURRENCY_API -> R.string.servers_currency_api
         ServiceEndpoint.CURRENCY_API_MIRROR -> R.string.servers_currency_api_mirror
         ServiceEndpoint.FRANKFURTER -> R.string.servers_frankfurter

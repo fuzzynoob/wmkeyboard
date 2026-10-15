@@ -59,11 +59,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.usableTools
+import com.wasimaster.wmkeyboard.core.theme.FrostSurface
 import com.wasimaster.wmkeyboard.core.vocab.FieldVisibility
 import com.wasimaster.wmkeyboard.core.vocab.ReviewGrade
 import com.wasimaster.wmkeyboard.core.vocab.VocabCardField
 import com.wasimaster.wmkeyboard.core.vocab.VocabCardFields
 import com.wasimaster.wmkeyboard.core.vocab.VocabLanguages
+import com.wasimaster.wmkeyboard.core.vocab.VocabMeaning
 import com.wasimaster.wmkeyboard.core.vocab.VocabScheduler
 import com.wasimaster.wmkeyboard.core.vocab.VocabSense
 import com.wasimaster.wmkeyboard.core.vocab.VocabWord
@@ -172,7 +174,14 @@ internal fun VocabPanel(
     callbacks: VocabCallbacks,
     onOpenRoute: (String) -> Unit,
 ) {
-    Box(modifier = Modifier.fillMaxSize()) {
+    val tabs = VocabTab.entries
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .swipeTabs(state.vocab.tab.ordinal, tabs.size, enabled = !state.mediaSearchActive) {
+                callbacks.onTab(tabs[it])
+            },
+    ) {
         if (state.mediaSearchActive) return@Box
         val vocab = state.vocab
         if (!vocab.available) {
@@ -308,13 +317,15 @@ private fun VocabCard(
                         )
                     }
                 }
-                IconButton(onClick = { callbacks.onSpeak(word) }, modifier = Modifier.size(34.dp)) {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.VolumeUp,
-                        contentDescription = stringResource(R.string.ime_vocab_speak_desc),
-                        modifier = Modifier.size(20.dp),
-                        tint = kb.accent,
-                    )
+                IconHint(stringResource(R.string.ime_vocab_speak_desc)) {
+                    IconButton(onClick = { callbacks.onSpeak(word) }, modifier = Modifier.size(34.dp)) {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.VolumeUp,
+                            contentDescription = stringResource(R.string.ime_vocab_speak_desc),
+                            modifier = Modifier.size(20.dp),
+                            tint = kb.accent,
+                        )
+                    }
                 }
                 if (card.learnt) {
                     Icon(
@@ -652,6 +663,7 @@ private fun VocabChip(
         modifier = Modifier
             .focusRing(focused, shape)
             .clip(shape)
+            .frostGlass(kb, shape, FrostSurface.CHIPS)
             .background(if (filled) kb.chipActive else kb.chip)
             .chipBorder(kb, shape)
             .combinedClickable(
@@ -814,6 +826,7 @@ private fun VocabReview(state: KeyboardUiState, callbacks: VocabCallbacks) {
                     cameraDistance = 12f * density
                 }
                 .clip(kb.cardShape())
+                .frostGlass(kb, kb.cardShape(), FrostSurface.CARDS)
                 .background(kb.chip)
                 .chipBorder(kb, kb.cardShape())
                 .clickable { callbacks.onFlip() }
@@ -848,6 +861,18 @@ private fun VocabReview(state: KeyboardUiState, callbacks: VocabCallbacks) {
                         maxLines = 4,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    // The meaning in the user's language under the English,
+                    // when the card shows translations in the keyboard (#651).
+                    val enabledIds = state.settings.enabledLanguages.map { it.id }
+                    val meaning = remember(current, settings.translationLangList, settings.cardFields, enabledIds) {
+                        val shown = VocabCardFields.resolve(settings.cardFields)[VocabCardField.TRANSLATIONS] == FieldVisibility.KEYBOARD
+                        if (!shown) {
+                            null
+                        } else {
+                            VocabLanguages.primaryMeaning(current, VocabLanguages.wantedCodes(settings.translationLangList, enabledIds), enabledIds)
+                        }
+                    }
+                    if (meaning != null) VocabMeaningText(meaning, TextAlign.Center)
                     current.senses.firstOrNull()?.example?.let {
                         Text(
                             "“$it”",
@@ -877,6 +902,29 @@ private fun VocabReview(state: KeyboardUiState, callbacks: VocabCallbacks) {
             }
         }
     }
+}
+
+/**
+ * A word's meaning in the user's language on one line, the language named
+ * small in front: the flashcard back here and the Dictionary panel (#651).
+ */
+@Composable
+internal fun VocabMeaningText(meaning: VocabMeaning, textAlign: TextAlign? = null, modifier: Modifier = Modifier) {
+    val kb = LocalKbTheme.current
+    Text(
+        buildAnnotatedString {
+            withStyle(SpanStyle(color = kb.toolbarIcon, fontSize = 11.sp)) { append(VocabLanguages.displayName(meaning.code) + "  ") }
+            append(meaning.text)
+            meaning.trail?.let { withStyle(SpanStyle(color = kb.toolbarIcon, fontSize = 11.sp)) { append("  ·  $it") } }
+        },
+        color = kb.modifierKeyText,
+        fontSize = 13.sp,
+        lineHeight = 17.sp,
+        textAlign = textAlign,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = modifier.padding(top = 2.dp),
+    )
 }
 
 private fun ReviewGrade.labelRes(): Int = when (this) {
@@ -938,13 +986,15 @@ internal fun VocabDailyChip(
                 modifier = Modifier.widthIn(max = 200.dp),
             )
         }
-        IconButton(onClick = { feedback(); onDismiss() }, modifier = Modifier.size(28.dp)) {
-            Icon(
-                Icons.Outlined.Close,
-                contentDescription = stringResource(R.string.ime_smart_vocab_daily_dismiss_desc),
-                tint = tint.copy(alpha = 0.7f),
-                modifier = Modifier.size(14.dp),
-            )
+        IconHint(stringResource(R.string.ime_smart_vocab_daily_dismiss_desc)) {
+            IconButton(onClick = { feedback(); onDismiss() }, modifier = Modifier.size(28.dp)) {
+                Icon(
+                    Icons.Outlined.Close,
+                    contentDescription = stringResource(R.string.ime_smart_vocab_daily_dismiss_desc),
+                    tint = tint.copy(alpha = 0.7f),
+                    modifier = Modifier.size(14.dp),
+                )
+            }
         }
     }
 }

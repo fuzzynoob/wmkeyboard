@@ -4,6 +4,8 @@ import android.text.InputType
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.decodeFromJsonElement
+import kotlinx.serialization.json.jsonArray
 
 /**
  * The rows stacked around the keys, in top-to-bottom order, with [KEYBOARD]
@@ -292,9 +294,24 @@ object KeyboardModeCodec {
         // See [LayoutCodec.decodeList] — blank is normal, not an error worth
         // an exception on every settings emission.
         if (json.isBlank()) return emptyList()
-        return runCatching { modeJson.decodeFromString<List<KeyboardMode>>(json) }
-            .getOrDefault(emptyList())
-            .map(::migrateMode)
+        // One mode at a time. Decoding the list whole meant a single mode the
+        // build could not read (a downgrade, a hand-edited backup) dropped
+        // every mode, and the next edit wrote that empty list back for good.
+        val elements = runCatching { modeJson.parseToJsonElement(json).jsonArray }
+            .getOrNull() ?: return DefaultKeyboardModes
+        val modes = elements.mapNotNull { element ->
+            runCatching { modeJson.decodeFromJsonElement<KeyboardMode>(element) }.getOrNull()
+        }
+        // Something was stored and none of it survived: the shipped modes
+        // beat an empty screen the user never asked for.
+        if (modes.isEmpty() && elements.isNotEmpty()) return DefaultKeyboardModes
+        return modes.map(::migrateMode)
+    }
+
+    /** Built-in modes missing from [modes], in their shipped order. */
+    fun missingDefaults(modes: List<KeyboardMode>): List<KeyboardMode> {
+        val have = modes.map { it.id }.toSet()
+        return DefaultKeyboardModes.filter { it.id !in have }
     }
 
     /** App list the browser mode used to ship with (now field-bound only). */
@@ -654,6 +671,29 @@ fun KeyboardSettings.withoutModes(): KeyboardSettings =
             enabledTools = enabledTools - ToolbarTool.MODES,
         )
     }
+
+/**
+ * The modes that draw [row] differently from the global setting while they are
+ * active, in list order — what the settings app warns about next to the row's
+ * own switch. Switching the symbol row off globally does nothing in a field the
+ * Email mode takes over, since the mode turns it back on; without the warning
+ * that reads as a switch that does not work.
+ *
+ * Only the rows a mode can override are answered: the emoji row and the symbol
+ * row. Every other row returns empty. A mode that sets the row to the value the
+ * global setting already has is no override worth naming, and modes the
+ * keyboard is not using ([withoutModes]) never activate, so neither is listed.
+ */
+fun KeyboardSettings.modesOverridingRow(row: BarRow): List<KeyboardMode> {
+    val modes = withoutModes().keyboardModes
+    return when (row) {
+        BarRow.EMOJI -> modes.filter { it.emojiBarMode != null && it.emojiBarMode != emojiBarMode }
+        BarRow.SYMBOL -> modes.filter {
+            it.symbolRowEnabled != null && it.symbolRowEnabled != symbolRowEnabled
+        }
+        else -> emptyList()
+    }
+}
 
 /**
  * Picks the active mode: a manual pick from the Modes tool wins, then the

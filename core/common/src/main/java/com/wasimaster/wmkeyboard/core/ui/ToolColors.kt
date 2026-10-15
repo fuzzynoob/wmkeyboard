@@ -37,6 +37,8 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.DICTIONARY -> Color(0xFF26A69A)
     ToolbarTool.VOCABULARY -> Color(0xFF8E24AA)
     ToolbarTool.LEARN_FROM_TEXT -> Color(0xFF00897B)
+    // The AI family's violet, since it is the AI tool's sibling (#234).
+    ToolbarTool.AI_REPLY -> Color(0xFF7C4DFF)
     ToolbarTool.HANDWRITING -> Color(0xFF7E57C2)
     ToolbarTool.NUMPAD -> Color(0xFF42A5F5)
     ToolbarTool.SYMBOLS -> Color(0xFF7E57C2)
@@ -72,6 +74,9 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.TYPING_TEST -> Color(0xFFFF7043)
     // Trophy gold: the screen it opens is levels and achievements.
     ToolbarTool.STATISTICS -> Color(0xFFFFA000)
+    ToolbarTool.FIND_REPLACE -> Color(0xFF5C6BC0)
+    // Sticky-note yellow.
+    ToolbarTool.NOTES -> Color(0xFFFBC02D)
     ToolbarTool.MEDIA_CONTROL -> Color(0xFFAB47BC)
     // KDE's own blue.
     ToolbarTool.KDE_CONNECT -> Color(0xFF1D99F3)
@@ -99,6 +104,10 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.LEVEL -> Color(0xFF26C6DA)
     ToolbarTool.CALENDAR -> Color(0xFFE57373)
     ToolbarTool.WEATHER -> Color(0xFFFFA726)
+    // A map pin's red, a shade off the compass's so the two read apart.
+    ToolbarTool.LOCATION -> Color(0xFFE53935)
+    // An evening indigo: a clock face at night, and apart from the calendar's red.
+    ToolbarTool.CLOCK -> Color(0xFF5C6BC0)
     ToolbarTool.MOON_PHASE -> Color(0xFF7986CB)
 
     // Cursor keys — one neutral so they read as a set

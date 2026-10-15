@@ -43,7 +43,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -198,14 +197,14 @@ private val Whisper = DiscoverFeature(
 )
 
 /**
- * A switch rather than a tour stop, and shown to everyone (issue #41).
+ * A switch rather than a tour stop, and shown on every depth path (issue #41).
  *
  * Modes are the one feature here that changes the keyboard *without being
  * asked* — walk into another app and the emoji row and pinned tools are
  * different. That reads as the keyboard having lost the settings you just
- * chose unless you already know the feature exists, so setup says what it is
- * and offers the switch, rather than filing it under "power users only" where
- * the people it surprises never see it.
+ * chose, so the feature ships off and this card is where it is offered:
+ * every persona sees it, never trimmed by a cap, rather than it being filed
+ * under "power users only" where most people would never learn it exists.
  */
 private val Modes = DiscoverFeature(
     id = "modes",
@@ -261,9 +260,9 @@ internal fun discoverFeatures(
     whisperAvailable: Boolean,
     isToolSupported: (ToolbarTool) -> Boolean,
 ): List<DiscoverFeature> {
-    // Modes sits second, right behind the chips: it is the one card here that
-    // exists to warn as much as to sell, so every persona gets it and it is
-    // never the one a cap trims off.
+    // Modes sits second, right behind the chips: the feature ships off and
+    // this card is its opt-in, so every persona gets it and it is never the
+    // one a cap trims off.
     val base = mutableListOf(
         Chips, Modes, Hotwords, Toolbox, Photos, Clipboard, Snippets, Otp, Fancy, Ai,
     )
@@ -304,7 +303,7 @@ internal fun DiscoverPage(repository: SettingsRepository, settings: LiveSettings
     val features = remember(persona) {
         discoverFeatures(
             persona = persona,
-            whisperAvailable = BuildConfig.ENABLE_WHISPER,
+            whisperAvailable = com.wasimaster.wmkeyboard.core.settings.isWhisperEnabled(),
             isToolSupported = ::isSupportedTool,
         )
     }

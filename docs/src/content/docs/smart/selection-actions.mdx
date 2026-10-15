@@ -11,9 +11,9 @@ import Shot from '@components/Shot.astro';
 
 Selecting a phone number in a chat and then dialling it usually means copying it, leaving the app, opening the dialler and pasting. The keyboard already knows what you selected, so it can offer the things that shape of text is for, and a good deal more: the everyday edits, a find and replace, line tools, case and chat formatting, conversions, and a way to hand the text to your contacts, maps or calendar.
 
-Select `01712345678` and the bar reads **Select all, Call, Message, WhatsApp, Contact, Copy, Cut, Paste, Delete, Share, Format, Find, Replace**. Select a sentence and it reads **Select all, Copy, Cut, Paste, Delete, Share, Format, Find, Replace, Grammar, AI, Bangla, Fancy** and so on, with the actions that only make sense for what you selected (Sort on several lines, Colour on `#336699`, Zones on `5pm`) appearing when they do.
+Select `01712345678` and the bar reads **Select all, Call, Message, WhatsApp, Contact, Copy, Cut, Paste, Delete, Share, Format, Find, Replace**. Select a sentence and it reads **Select all, Copy, Cut, Paste, Delete, Share, Save as note, Format, Find, Replace, Grammar, AI, Bangla, Fancy** and so on, with the actions that only make sense for what you selected (Sort on several lines, Colour on `#336699`, Zones on `5pm`) appearing when they do.
 
-This is **off by default**. It adds a bar that appears out of a gesture you already make for other reasons, so you have to ask for it.
+This is off by default. It adds a bar that appears out of a gesture you already make for other reasons, so you have to ask for it.
 
 <PhoneFrame caption="A selected phone number, and the bar the keyboard offers for it.">
   <Shot id="smart/selection-actions-phone" alt="A selected phone number, and the bar the keyboard offers for it." />
@@ -29,7 +29,7 @@ To switch it on and off without opening settings, add the **Selection actions** 
 
 ## What the keyboard reads
 
-The keyboard reads your selection **as a whole**. That is the rule behind every result on this page, and it is deliberate:
+The keyboard reads your selection as a whole. That is the rule behind every result on this page, and it is deliberate:
 
 - `01712345678` is a phone number.
 - `call me on 01712345678 tomorrow` is plain text. You selected the sentence, not the number in it.
@@ -40,7 +40,7 @@ Pulling a fragment out of a longer span is a different job, and the [clipboard](
 
 Phone numbers use the same formats as the clipboard, under [Phone formats](/reference/settings/phone-formats/). With a format saved, a number has to match it, which is what keeps an invoice total or a row of figures from offering to dial itself. With no format saved, the plain shape rules apply.
 
-On top of that reading, a few actions look at what the text *holds*: whether it has several lines, Bengali or Latin letters, digits in another script, a colour code, a date or time, a place. Those checks are cheap, and the dearer ones (dates, places) only run while an action that needs them is switched on.
+On top of that reading, a few actions look at what the text holds: whether it has several lines, Bengali or Latin letters, digits in another script, a colour code, a date or time, a place. Those checks are cheap, and the dearer ones (dates, places) only run while an action that needs them is switched on.
 
 ## The bar
 
@@ -53,6 +53,7 @@ Two things sit outside the order. **Undo** is always first while there is someth
 | Undo | Anything, after the bar changed it | On |
 | Select all | Anything not already the whole field | On |
 | Copy, Cut, Delete, Share | Anything | On |
+| Save as note | Anything, once the phone has been unlocked; never a password field | On |
 | Paste | Anything, while the clipboard holds text | On |
 | Format | A number, link or address the rewrite would change; any text | On |
 | Find | Anything, when the field could hold another copy | On |
@@ -93,13 +94,13 @@ The memory ends with the selection. Move it onto other text, clear it, or leave 
 
 ## Editing
 
-**Select all** selects the whole field. A long press usually selects only one word, so this is the fast way to act on everything you wrote. **Copy**, **Cut** and **Paste** are the editor's own; Paste replaces the selection and only appears while the clipboard holds text. **Delete** removes the selection. **Share** opens the system chooser with the selected text.
+**Select all** selects the whole field. A long press usually selects only one word, so this is the fast way to act on everything you wrote. **Copy**, **Cut** and **Paste** are the editor's own; Paste replaces the selection and only appears while the clipboard holds text. **Delete** removes the selection. **Share** opens the system chooser with the selected text. **Save as note** keeps the selection in the [Notes tool](/tools/notes/) as a new note, or adds it to the note you edited last when <SettingsPath path="Tools / Notes / Save as note from a selection" /> says so; a toast says which. It appears only while the Notes tool is enabled.
 
 ## Find and replace
 
-**Find** jumps to the next place the selected text appears, wrapping round to the top, and keeps it selected so the bar stays and a second tap walks on.
+**Find** jumps to the next place the selected text appears, wrapping round to the top, and keeps it selected so the bar stays and a second tap walks on. The match is brought into view, even in an editor that would leave it under the keyboard or off the screen.
 
-**Replace** opens a panel above the keys with two fields: what to find, already holding the selection, and what to replace it with. Tap a field and type into it; the keys go to the panel, not to the app. The current match is selected in the field itself, where you can see it, and the panel says which one of how many. Enter in the find field goes to the next match; Enter in the replace field replaces the current one.
+**Replace** opens the [Find & replace](/tools/find-replace/) panel above the keys, the same one its toolbar tool opens, with two fields: what to find, already holding the selection, and what to replace it with. Tap a field and type into it; the keys go to the panel, not to the app. The current match is selected in the field itself, where you can see it, and the panel says which one of how many. Enter in the find field goes to the next match; Enter in the replace field replaces the current one.
 
 <PhoneFrame caption="The Find and replace panel: two fields, the toggles, the buttons and the count.">
   <Shot id="smart/selection-actions-replace" alt="The Find and replace panel: two fields, the toggles, the buttons and the count." />
@@ -203,7 +204,7 @@ None of these send anything anywhere themselves: each hands the text to an app y
 | AI buttons | Screen | None |
 | Time zones | Screen | UTC and your own |
 
-**Show on every selection** keeps the bar up on a selection too long to read. The keyboard does not read a selection past about 4,000 characters, so by default such a selection takes the whole bar away — Copy and Paste included, even though neither of those ever needed the text read, because the app does that work itself. Turn this on and the bar stays, carrying Select all, Copy, Cut, Paste and Delete, whichever of them you have switched on. Everything else still waits for a shorter selection, since every other action begins by reading the text.
+**Show on every selection** keeps the bar up on a selection too long to read. The keyboard does not read a selection past about 4,000 characters, so by default such a selection takes the whole bar away, Copy and Paste included, even though neither of those ever needed the text read, because the app does that work itself. Turn this on and the bar stays, carrying Select all, Copy, Cut, Paste and Delete, whichever of them you have switched on. Everything else still waits for a shorter selection, since every other action begins by reading the text.
 
 **Read what is selected** is the entity half of the feature. Turn it off and every selection is read as plain text: you keep the edits, the case options and the conversions, and lose Call, Email, Open, QR and Contact. It is worth turning off if you find the guesses wrong more often than right, since the generic half is the half that always applies.
 
@@ -211,7 +212,7 @@ None of these send anything anywhere themselves: each hands the text to an app y
 
 ## Details and edge cases
 
-- **The bar never appears over a password field.** Putting a password in front of a Share chooser is exactly the mistake this feature should not make.
+- **The bar never appears over a password field.** Putting a password in front of a Share chooser is the mistake this feature should not make.
 - **An action is only offered when it can work.** WhatsApp is hidden when WhatsApp is not installed. Search, Translate, QR, Grammar and AI are hidden when their tools are switched off, which includes the tools that [power saving](/typing/power-saving/) and the lock screen have already taken away, and AI is hidden until a provider is set up. Hiding a tool from the toolbox is not switching it off: turn off **Show in toolbox** on the tool's own page to keep, say, the AI chip here while the AI tool stays out of the toolbox grid.
 - **Nothing is stored and nothing is sent by the keyboard.** Every action either edits the field you are already in, or hands the text to an app you picked. Grammar and the Bengali conversions run on the device. The one exception is DeepL Write, which you set up yourself: it sends the selection to DeepL.
 - **Before your first unlock**, only the actions that touch the current field survive: the edits, the rewrites and Find. Paste needs a clipboard that is still locked, Speak needs a speech engine, and everything under Open in would have to start another app.

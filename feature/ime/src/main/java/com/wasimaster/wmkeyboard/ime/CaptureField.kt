@@ -75,6 +75,19 @@ data class CaretText(
     /** [start] to [end] selected, the caret at [end]. */
     fun selected(start: Int, end: Int): CaretText = CaretText(text, clamp(end), clamp(start))
 
+    /**
+     * The selected span run through [recase], with the new span selected; null
+     * when there is no selection or nothing about it changes.
+     */
+    fun recased(recase: (String) -> String): CaretText? {
+        if (!hasSelection) return null
+        val next = recase(selectedText)
+        if (next == selectedText) return null
+        val start = selectionStart
+        val updated = text.substring(0, start) + next + text.substring(selectionEnd)
+        return CaretText(updated, start + next.length, start)
+    }
+
     /** The whole buffer selected. */
     fun selectedAll(): CaretText = CaretText(text, text.length, 0)
 
@@ -306,6 +319,12 @@ enum class CaptureTarget(
     /** The AI panel's chat composer (#280): free text, newlines and all. */
     AI_CHAT(takesWords = true),
 
+    /**
+     * The reply panel's own message box (#234): what the other person said,
+     * typed or pasted in. Free text — a message runs to more than one line.
+     */
+    AI_REPLY(takesWords = true),
+
     /** The KDE Connect panel's "add by address" box: an IP address or a host name. */
     KDE_HOST(takesWords = false),
 
@@ -332,8 +351,35 @@ enum class CaptureTarget(
     CLIPBOARD_SEARCH(takesWords = true),
     /** The clipboard panel's clip editor: free text, newlines and all. */
     CLIP_EDIT(takesWords = true),
+
+    /** The clipboard's Combine (#612): what goes between the clips. Punctuation, not words. */
+    CLIP_JOINER(takesWords = false),
+
+    /** Combine's text in front of the joined clips. */
+    CLIP_BASE(takesWords = false),
+
+    /** Combine's pattern for the part of each clip to keep. */
+    CLIP_APPEND(takesWords = false),
     /** The snippets panel's search pill (#471). */
     SNIPPET_SEARCH(takesWords = true),
+
+    /** The Notes panel's search pill (#560). */
+    NOTE_SEARCH(takesWords = true),
+
+    /** A note's title: one line, and Enter moves on to the body. */
+    NOTE_TITLE(takesWords = true),
+
+    /** A note's body: free text, newlines and all, like [CLIP_EDIT]. */
+    NOTE_BODY(takesWords = true),
+
+    /** A new tag being typed in the note editor's tag row; Enter adds it. */
+    NOTE_TAG(takesWords = true),
+
+    /** The Clock panel's city search: filters as it is typed, Enter adds the best match. */
+    CLOCK_SEARCH(takesWords = true),
+
+    /** A label in the Clock panel: an alarm's, a timer's, a countdown's, a city's own name. */
+    CLOCK_LABEL(takesWords = true),
     ;
 
     /**
@@ -357,7 +403,8 @@ enum class CaptureTarget(
      */
     val isSearch: Boolean
         get() = this == EMOJI_SEARCH || this == MEDIA_SEARCH || this == DICTIONARY_SEARCH ||
-            this == CLIPBOARD_SEARCH || this == FIND_QUERY || this == SNIPPET_SEARCH
+            this == CLIPBOARD_SEARCH || this == FIND_QUERY || this == SNIPPET_SEARCH ||
+            this == NOTE_SEARCH || this == NOTE_TAG || this == CLOCK_SEARCH
 }
 
 /**

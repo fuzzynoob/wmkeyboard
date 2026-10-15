@@ -313,9 +313,12 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
          * drawn it as, but never more than this nearer than the ideal: a word
          * they have swiped before gets the benefit of how they draw it, not a
          * free pass over words they have not. Zero switches learned shapes
-         * off.
+         * off. Measured 2026-10-13 (`GlideShapeLearningTest`): .10 to .50
+         * all read the same, so the cap does not bind on the corpus and stays
+         * at the conservative end.
          */
         val learnedShapeGain: Double = 0.15,
+        val shapeSeeding: Boolean = false,
         /**
          * How much the whole stroke's *shape* counts, once its size and position
          * are taken out of it.
@@ -576,7 +579,34 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         val ranked = results.values.sortedWith(
             compareByDescending<Candidate> { it.score }.thenBy { it.word }
         )
-        val read = rescoreShape(ranked, keys, ws, shapes).take(limit)
+        var read = rescoreShape(ranked, keys, ws, shapes).take(limit)
+
+        // Inject or promote learned words whose saved shape matches the drawn stroke,
+        // even if trie pruning or anchor mismatch filtered or demoted them in results.
+        if (shapes != null && tuning.shapeSeeding && tuning.learnedShapeGain > 0.0) {
+            quantise(ws.pathX, ws.pathY, ws.drawnShape8)
+            val nearWords = shapes.wordsNear(ws.drawnShape8, radius = 0.35f, limit = limit)
+            if (nearWords.isNotEmpty()) {
+                val maxRescoredScore = read.maxOfOrNull { it.score } ?: 0.0
+                val updatedRead = read.map { candidate ->
+                    if (candidate.word in nearWords) {
+                        Candidate(candidate.word, maxOf(candidate.score, maxRescoredScore), candidate.shapeCost, candidate.tier, candidate.ahead)
+                    } else {
+                        candidate
+                    }
+                }.toMutableList()
+
+                val readWords = read.mapTo(HashSet()) { it.word }
+                for (word in nearWords) {
+                    if (word !in readWords) {
+                        updatedRead.add(Candidate(word, maxRescoredScore, 0.0, FuzzyBeamSearch.Tier.DICTIONARY))
+                    }
+                }
+                read = updatedRead.sortedWith(
+                    compareByDescending<Candidate> { it.score }.thenBy { it.word }
+                ).take(limit)
+            }
+        }
         if (ahead.isNullOrEmpty()) return read
         // A word the stroke spelled out is never also offered as a guess at
         // where it was going: one source can read it while another's prefix
@@ -610,9 +640,8 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
     fun sampleShape(path: List<GesturePoint>, keyWidth: Float, ws: GlideWorkspace): ByteArray? {
         if (path.size < MIN_SAMPLES || keyWidth <= 0f) return null
         if (!resample(path, keyWidth, ws)) return null
-        normalise(ws.pathX, ws.pathY, ws.drawnShapeX, ws.drawnShapeY)
         val out = ByteArray(2 * GlideWorkspace.SAMPLE_POINTS)
-        quantise(ws.drawnShapeX, ws.drawnShapeY, out)
+        quantise(ws.pathX, ws.pathY, out)
         return out
     }
 
@@ -1711,7 +1740,6 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         if (weight <= 0.0 || ranked.isEmpty()) return ranked
         normalise(ws.pathX, ws.pathY, ws.drawnShapeX, ws.drawnShapeY)
         val learned = shapes?.takeIf { tuning.learnedShapeGain > 0.0 }
-        if (learned != null) quantise(ws.drawnShapeX, ws.drawnShapeY, ws.drawnShape8)
 
         val rescored = ArrayList<Candidate>(ranked.size)
         for (candidate in ranked) {
@@ -1796,6 +1824,11 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
      * [ideal] shortened by how this user draws [word], when [shapes] know: the
      * nearer of the ideal path and the word's learned shapes, but never more
      * than [Tuning.learnedShapeGain] nearer than the ideal.
+     *
+     * The store keeps shapes in key widths, so where a stroke starts counts
+     * for merging and seeding; here each is centred and scaled to unit spread
+     * first, exactly as the drawn stroke and the ideal path are, so the
+     * distance is in the shape channel's units and comparable with [ideal].
      */
     private fun learnedDistance(
         word: String,
@@ -1804,12 +1837,28 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         ws: GlideWorkspace,
     ): Double {
         shapes ?: return ideal
-        val own = shapes.minDistance(word, ws.drawnShape8)
-        if (own < 0f) return ideal
-        return maxOf(minOf(ideal, own.toDouble()), ideal - tuning.learnedShapeGain)
+        val stored = shapes.shapesOf(word)
+        if (stored.isEmpty()) return ideal
+        val n = GlideWorkspace.SAMPLE_POINTS
+        var own = Double.MAX_VALUE
+        for (shape in stored) {
+            for (j in 0 until n) {
+                ws.learnedShapeX[j] = shape[2 * j] / GlideShapeStore.QUANT
+                ws.learnedShapeY[j] = shape[2 * j + 1] / GlideShapeStore.QUANT
+            }
+            normalise(ws.learnedShapeX, ws.learnedShapeY, ws.learnedShapeX, ws.learnedShapeY)
+            var sum = 0.0
+            for (j in 0 until n) {
+                val dx = ws.drawnShapeX[j] - ws.learnedShapeX[j]
+                val dy = ws.drawnShapeY[j] - ws.learnedShapeY[j]
+                sum += sqrt(dx * dx + dy * dy).toDouble()
+            }
+            own = minOf(own, sum / n)
+        }
+        return maxOf(minOf(ideal, own), ideal - tuning.learnedShapeGain)
     }
 
-    /** A normalised path as the shape store keeps one: [GlideShapeStore.QUANT] to the unit, clamped to a byte. */
+    /** A key-width path as the shape store keeps one: [GlideShapeStore.QUANT] to the key width, clamped to a byte. */
     private fun quantise(xs: FloatArray, ys: FloatArray, out: ByteArray) {
         for (j in 0 until GlideWorkspace.SAMPLE_POINTS) {
             out[2 * j] = (xs[j] * GlideShapeStore.QUANT).toInt().coerceIn(-SHAPE_BYTE_LIMIT, SHAPE_BYTE_LIMIT).toByte()

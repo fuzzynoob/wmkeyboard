@@ -110,6 +110,8 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.REDO -> ImeR.string.ime_tool_redo
     ToolbarTool.MOON_PHASE -> R.string.fonts_tool_moon_phase_title
     ToolbarTool.WEATHER -> ImeR.string.ime_tool_weather
+    ToolbarTool.LOCATION -> ImeR.string.ime_tool_location
+    ToolbarTool.CLOCK -> ImeR.string.ime_tool_clock
     ToolbarTool.CALENDAR -> ImeR.string.ime_tool_calendar
     ToolbarTool.INCOGNITO -> ImeR.string.ime_tool_incognito
     ToolbarTool.POWER_SAVING -> ImeR.string.ime_tool_power_saving
@@ -145,9 +147,12 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.MEDIA_CONTROL -> R.string.fonts_tool_media_control_title
     ToolbarTool.KDE_CONNECT -> ImeR.string.ime_tool_kde_connect
     ToolbarTool.STATISTICS -> ImeR.string.ime_tool_statistics
+    ToolbarTool.FIND_REPLACE -> ImeR.string.ime_tool_find_replace
+    ToolbarTool.NOTES -> ImeR.string.ime_tool_notes
     ToolbarTool.PLUGINS -> ImeR.string.ime_tool_plugins
     ToolbarTool.APP_LAUNCHER -> R.string.fonts_tool_app_launcher_title
     ToolbarTool.AI -> R.string.fonts_tool_ai_title
+    ToolbarTool.AI_REPLY -> ImeR.string.ime_tool_ai_reply
     ToolbarTool.MODES -> R.string.fonts_tool_modes_title
     ToolbarTool.FANCY -> ImeR.string.ime_tool_fancy
     ToolbarTool.CUSTOM_LAYOUT -> ImeR.string.ime_tool_custom_layout
@@ -191,6 +196,8 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.REDO -> R.string.fonts_tool_redo_desc
     ToolbarTool.MOON_PHASE -> R.string.fonts_tool_moon_phase_desc
     ToolbarTool.WEATHER -> R.string.fonts_tool_weather_desc
+    ToolbarTool.LOCATION -> R.string.fonts_tool_location_desc
+    ToolbarTool.CLOCK -> R.string.fonts_tool_clock_desc
     ToolbarTool.CALENDAR -> R.string.fonts_tool_calendar_desc
     ToolbarTool.INCOGNITO -> R.string.fonts_tool_incognito_desc
     ToolbarTool.POWER_SAVING -> R.string.fonts_tool_power_saving_desc
@@ -226,9 +233,12 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.MEDIA_CONTROL -> R.string.fonts_tool_media_control_desc
     ToolbarTool.KDE_CONNECT -> R.string.fonts_tool_kde_connect_desc
     ToolbarTool.STATISTICS -> R.string.fonts_tool_statistics_desc
+    ToolbarTool.FIND_REPLACE -> R.string.fonts_tool_find_replace_desc
+    ToolbarTool.NOTES -> R.string.fonts_tool_notes_desc
     ToolbarTool.PLUGINS -> R.string.fonts_tool_plugins_desc
     ToolbarTool.APP_LAUNCHER -> R.string.fonts_tool_app_launcher_desc
     ToolbarTool.AI -> R.string.fonts_tool_ai_desc
+    ToolbarTool.AI_REPLY -> R.string.fonts_tool_ai_reply_desc
     ToolbarTool.MODES -> R.string.fonts_tool_modes_desc
     ToolbarTool.FANCY -> R.string.fonts_tool_fancy_desc
     ToolbarTool.CUSTOM_LAYOUT -> R.string.fonts_tool_custom_layout_desc
@@ -482,6 +492,7 @@ private fun ToolRow(
             ToolBlocker.NEEDS_SEARCH_KEY -> stringResource(R.string.tools_needs_key_subtitle)
             ToolBlocker.NEEDS_SEARCH_INSTANCE -> stringResource(R.string.tools_needs_instance_subtitle)
             ToolBlocker.NEEDS_SECONDARY_LAYOUT -> stringResource(R.string.tools_needs_layout_subtitle)
+            ToolBlocker.VOICE_OFF -> stringResource(R.string.tools_voice_off_subtitle)
         },
         leading = {
             SlotIcon(
@@ -532,10 +543,10 @@ private fun ToolRow(
 internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
     add(
         R.string.tools_group_panels_title to listOf(
-            ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
+            ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.NOTES,
             ToolbarTool.TEXT_EDIT, ToolbarTool.TRACKPAD, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
             ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.DICTIONARY, ToolbarTool.VOCABULARY,
-            ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.GRAMMAR, ToolbarTool.APP_LAUNCHER, ToolbarTool.MEDIA_CONTROL,
+            ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.FIND_REPLACE, ToolbarTool.GRAMMAR, ToolbarTool.APP_LAUNCHER, ToolbarTool.MEDIA_CONTROL,
             ToolbarTool.KDE_CONNECT,
         ),
     )
@@ -548,7 +559,7 @@ internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
         R.string.tools_group_online_title to listOf(
             ToolbarTool.TRANSLATE, ToolbarTool.GIF, ToolbarTool.STICKER,
             ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH,
-            ToolbarTool.WIKIPEDIA, ToolbarTool.CURRENCY, ToolbarTool.AI,
+            ToolbarTool.WIKIPEDIA, ToolbarTool.CURRENCY, ToolbarTool.AI, ToolbarTool.AI_REPLY,
         ),
     )
     add(
@@ -576,7 +587,7 @@ internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
     add(
         R.string.tools_group_utilities_title to listOf(
             ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL,
-            ToolbarTool.CALENDAR, ToolbarTool.WEATHER, ToolbarTool.MOON_PHASE, ToolbarTool.PLUGINS,
+            ToolbarTool.CALENDAR, ToolbarTool.CLOCK, ToolbarTool.WEATHER, ToolbarTool.LOCATION, ToolbarTool.MOON_PHASE, ToolbarTool.PLUGINS,
         ),
     )
     val grouped = flatMapTo(HashSet()) { it.second }

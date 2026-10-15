@@ -269,8 +269,17 @@ private fun WikiArticle(
         }
     }
     val context = LocalContext.current
+    val select: (WikiTab) -> Unit = { wikiTab ->
+        tab = wikiTab
+        when (wikiTab) {
+            WikiTab.LINKS -> if (wiki.links == null) onLoadLinks()
+            WikiTab.FULL -> if (wiki.fullText == null) onLoadFull()
+            WikiTab.SUMMARY -> {}
+        }
+    }
+    val tabs = WikiTab.entries
 
-    Column(Modifier.fillMaxSize()) {
+    Column(Modifier.fillMaxSize().swipeTabs(tab.ordinal, tabs.size) { select(tabs[it]) }) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -278,13 +287,15 @@ private fun WikiArticle(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             if (wiki.canGoBack) {
-                IconButton(onClick = onBack, modifier = Modifier.size(30.dp)) {
-                    Icon(
-                        Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = stringResource(R.string.ime_wiki_back_desc),
-                        tint = kb.toolbarIcon,
-                        modifier = Modifier.size(18.dp),
-                    )
+                IconHint(stringResource(R.string.ime_wiki_back_desc)) {
+                    IconButton(onClick = onBack, modifier = Modifier.size(30.dp)) {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = stringResource(R.string.ime_wiki_back_desc),
+                            tint = kb.toolbarIcon,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
             }
             Text(
@@ -297,34 +308,42 @@ private fun WikiArticle(
                 modifier = Modifier.weight(1f),
             )
             // Read it bigger, here or in the browser (#348).
-            IconButton(onClick = onExpand, modifier = Modifier.size(30.dp)) {
-                Icon(
-                    if (expanded) Icons.Outlined.CloseFullscreen else Icons.Outlined.OpenInFull,
-                    contentDescription = stringResource(
-                        if (expanded) R.string.ime_wiki_shrink_desc else R.string.ime_wiki_expand_desc,
-                    ),
-                    tint = kb.toolbarIcon,
-                    modifier = Modifier.size(18.dp),
-                )
-            }
-            if (wiki.summary.url.isNotBlank()) {
-                IconButton(
-                    onClick = {
-                        runCatching {
-                            context.startActivity(
-                                Intent(Intent.ACTION_VIEW, Uri.parse(wiki.summary.url))
-                                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
-                            )
-                        }
-                    },
-                    modifier = Modifier.size(30.dp),
-                ) {
+            IconHint(
+                stringResource(
+                    if (expanded) R.string.ime_wiki_shrink_desc else R.string.ime_wiki_expand_desc,
+                ),
+            ) {
+                IconButton(onClick = onExpand, modifier = Modifier.size(30.dp)) {
                     Icon(
-                        Icons.AutoMirrored.Outlined.OpenInNew,
-                        contentDescription = stringResource(R.string.ime_wiki_open_browser_desc),
+                        if (expanded) Icons.Outlined.CloseFullscreen else Icons.Outlined.OpenInFull,
+                        contentDescription = stringResource(
+                            if (expanded) R.string.ime_wiki_shrink_desc else R.string.ime_wiki_expand_desc,
+                        ),
                         tint = kb.toolbarIcon,
                         modifier = Modifier.size(18.dp),
                     )
+                }
+            }
+            if (wiki.summary.url.isNotBlank()) {
+                IconHint(stringResource(R.string.ime_wiki_open_browser_desc)) {
+                    IconButton(
+                        onClick = {
+                            runCatching {
+                                context.startActivity(
+                                    Intent(Intent.ACTION_VIEW, Uri.parse(wiki.summary.url))
+                                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                                )
+                            }
+                        },
+                        modifier = Modifier.size(30.dp),
+                    ) {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.OpenInNew,
+                            contentDescription = stringResource(R.string.ime_wiki_open_browser_desc),
+                            tint = kb.toolbarIcon,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
             }
         }
@@ -340,14 +359,7 @@ private fun WikiArticle(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             for (wikiTab in WikiTab.entries) {
-                ToolPanelChip(stringResource(wikiTab.labelRes), selected = tab == wikiTab) {
-                    tab = wikiTab
-                    when (wikiTab) {
-                        WikiTab.LINKS -> if (wiki.links == null) onLoadLinks()
-                        WikiTab.FULL -> if (wiki.fullText == null) onLoadFull()
-                        WikiTab.SUMMARY -> {}
-                    }
-                }
+                ToolPanelChip(stringResource(wikiTab.labelRes), selected = tab == wikiTab) { select(wikiTab) }
             }
             Spacer(Modifier.width(8.dp))
             AskAiChip(askLabel) { AskAiContext.wikipedia(wiki.summary, wiki.fullText) }

@@ -49,6 +49,8 @@ import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
@@ -73,6 +75,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.R
@@ -94,6 +97,7 @@ import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.layoutAfterFancy
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
+import com.wasimaster.wmkeyboard.core.settings.KeyboardModeCodec
 import com.wasimaster.wmkeyboard.core.settings.DefaultKeyboardModes
 import com.wasimaster.wmkeyboard.core.settings.ManualModeDuration
 import com.wasimaster.wmkeyboard.core.settings.SymbolRowHeightRange
@@ -105,6 +109,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.isUsableTool
 import com.wasimaster.wmkeyboard.core.settings.isOwnRow
+import com.wasimaster.wmkeyboard.core.settings.modesOverridingRow
 import com.wasimaster.wmkeyboard.core.settings.stripHidden
 import com.wasimaster.wmkeyboard.core.settings.ModeField
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
@@ -446,6 +451,7 @@ internal fun RowsSettings(
     onNavigate: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val symbolRowOverridden = settings.watch { it.modesOverridingRow(BarRow.SYMBOL).isNotEmpty() }
     // Every entry moves, the keys included (issue #83): a row dragged above
     // the Keyboard entry sits over the keys, one dragged below it sits under.
     SettingsGroup(
@@ -476,9 +482,18 @@ internal fun RowsSettings(
                 modifier = Modifier.padding(horizontal = 16.dp),
                 rowHeight = BarOrderRowHeight,
             ) { row ->
+                val status = settings.watch { barRowStatus(row, it) }?.let { stringResource(it) }
+                // The global switch is not the whole story when a mode draws the
+                // row its own way; say so, and the Emoji / Symbol row page names them.
+                val overrides = settings.watch { it.modesOverridingRow(row).size }
+                val modeNote = if (overrides > 0) {
+                    pluralStringResource(R.plurals.rows_bar_mode_overrides, overrides, overrides)
+                } else {
+                    null
+                }
                 BarRowCard(
                     title = rowNames[row].orEmpty(),
-                    status = settings.watch { barRowStatus(row, it) }?.let { stringResource(it) },
+                    status = listOfNotNull(modeNote, status).joinToString(" · ").ifEmpty { null },
                     row = row,
                     shown = settings.watch { barRowShown(row, it) },
                     modifier = Modifier.weight(1f),
@@ -521,7 +536,63 @@ internal fun RowsSettings(
                 onChange = { scope.launch { repository.setSymbolRowEnabled(it) } },
             ) { onNavigate("rows/symbol") }
         }
+        item(visible = symbolRowOverridden) {
+            ModeRowOverrides(BarRow.SYMBOL, settings, onNavigate)
+        }
     }
+}
+
+/**
+ * The keyboard modes that draw [row] their own way, under the row's global
+ * setting: one chip per mode with the value it sets, each opening that mode's
+ * editor. A global switch a mode quietly overrides reads as a switch that does
+ * not work — the symbol row switched off still turns up in every email box,
+ * because the Email mode turns it on — so the row says which modes, and the
+ * chip is the way to change them. Draws nothing when no mode overrides it.
+ */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun ModeRowOverrides(row: BarRow, settings: LiveSettings, onNavigate: (String) -> Unit) {
+    val modes = settings.watch { it.modesOverridingRow(row) }
+    if (modes.isEmpty()) return
+    Column(
+        Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+    ) {
+        Text(
+            stringResource(R.string.rows_mode_overrides_caption),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            for (mode in modes) {
+                val value = stringResource(modeRowValueLabel(row, mode))
+                AssistChip(
+                    onClick = { onNavigate(modeEditRoute(mode.id)) },
+                    label = { Text(stringResource(R.string.rows_mode_override_chip, mode.name, value)) },
+                    leadingIcon = {
+                        Icon(
+                            ModeIcons.icon(mode.icon),
+                            contentDescription = null,
+                            modifier = Modifier.size(AssistChipDefaults.IconSize),
+                        )
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** What [mode] sets [row] to, in the words the row's own setting uses. */
+@StringRes
+private fun modeRowValueLabel(row: BarRow, mode: KeyboardMode): Int = when (row) {
+    BarRow.EMOJI -> when (mode.emojiBarMode) {
+        EmojiBarMode.BUTTON -> R.string.langemoji_emoji_bar_button_label
+        EmojiBarMode.ALWAYS -> R.string.langemoji_emoji_bar_always_label
+        else -> CommonR.string.common_off
+    }
+    else -> if (mode.symbolRowEnabled == true) CommonR.string.common_on else CommonR.string.common_off
 }
 
 /**
@@ -540,6 +611,7 @@ internal fun SymbolRowSettings(
     val symbolRowOn = settings.watch { it.symbolRowEnabled }
     val stacked = settings.watch { it.rows.symbolRowLines > 1 }
     val customSets = settings.watch { it.customSymbolSets }
+    val symbolRowOverridden = settings.watch { it.modesOverridingRow(BarRow.SYMBOL).isNotEmpty() }
     SettingsGroup {
         item {
             ToggleSetting(
@@ -550,6 +622,9 @@ internal fun SymbolRowSettings(
                 switchKey = landingKey("switch"),
                 default = SettingsDefaults.symbolRowEnabled,
             ) { scope.launch { repository.setSymbolRowEnabled(it) } }
+        }
+        item(visible = symbolRowOverridden) {
+            ModeRowOverrides(BarRow.SYMBOL, settings, onNavigate)
         }
         if (symbolRowOn) {
             item {
@@ -1330,6 +1405,12 @@ internal fun ModesSettings(
     // What decides which rows the groups hold; each row reads its own value.
     val modesOn = settings.watch { it.modesEnabled }
     val modeIds = settings.watch { s -> s.keyboardModes.map { it.id } }
+    // Deleted built-ins had no way back short of clearing the app's data,
+    // and a list that empties itself (an unreadable store) left the screen
+    // with nothing to tap at all.
+    val missing = settings.watch { s ->
+        KeyboardModeCodec.missingDefaults(s.keyboardModes).map { it.name }
+    }
     val deleteModeDesc = stringResource(R.string.modes_delete_action)
     // A mode is a screenful of bindings and overrides that took real effort to
     // set up, and the delete button sits on the row you tap to open it. Both
@@ -1433,6 +1514,20 @@ internal fun ModesSettings(
                     },
                     flightTo = modeEditRoute(mode.id),
                     onClick = { onNavigate(modeEditRoute(mode.id)) },
+                )
+            }
+        }
+        if (missing.isNotEmpty()) {
+            item {
+                WmRow(
+                    title = stringResource(R.string.modes_restore_defaults_title),
+                    subtitle = pluralStringResource(
+                        R.plurals.modes_restore_defaults_subtitle,
+                        missing.size,
+                        missing.joinToString(", "),
+                    ),
+                    leading = { Icon(Icons.Outlined.Refresh, contentDescription = null) },
+                    onClick = { scope.launch { repository.restoreMissingDefaultModes() } },
                 )
             }
         }

@@ -38,6 +38,9 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.core.tools.AiActionSpec
+import com.wasimaster.wmkeyboard.core.tools.AiActionSurface
+import com.wasimaster.wmkeyboard.core.tools.BuiltInAiReplyTones
+import com.wasimaster.wmkeyboard.core.tools.ReplyStyle
 import com.wasimaster.wmkeyboard.core.tools.AiInputMode
 import com.wasimaster.wmkeyboard.core.tools.AiInsertMode
 import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
@@ -78,6 +81,9 @@ internal fun AiToolSettings(
     val searchReady = settings.watch { hasSearchKey(it) }
     val toolSearch = settings.watch { it.ai.toolWebSearch }
     val toolFetch = settings.watch { it.ai.toolWebFetch }
+    // MCP servers (#573): a turned-on server's tools take rounds like the
+    // built-in two, so the rounds slider shows for them too.
+    val mcpOn = settings.watch { s -> s.ai.mcpServers.any { it.enabled } }
     // What the chosen provider needs, and where the text goes, both ride on
     // the heading's "?" rather than as paragraphs between the controls.
     val setupNote = when (aiProvider) {
@@ -322,6 +328,8 @@ internal fun AiToolSettings(
         }
         AiProvider.ON_DEVICE -> LocalLlmModelManager(repository, settings)
     }
+    // Every provider reached over HTTP can take extra headers (#648).
+    if (aiProvider != AiProvider.ON_DEVICE) AiProviderHeadersGroup(repository, settings, aiProvider)
     ServerFieldsGroup(
         repository,
         settings,
@@ -432,7 +440,19 @@ internal fun AiToolSettings(
                 default = SettingsDefaults.ai.toolWebFetch,
             ) { scope.launch { repository.setAiToolWebFetch(it) } }
         }
-        item(visible = toolFetch || (toolSearch && searchReady)) {
+        item {
+            // The count is of the servers that are on, which is what decides
+            // whether the model is offered anything from them at all.
+            val enabledServers = settings.watch { s -> s.ai.mcpServers.count { it.enabled } }
+            NavRow(
+                title = R.string.toolai_ai_mcp_title,
+                subtitle = stringResource(R.string.toolai_ai_mcp_subtitle),
+                value = numberFormat.format(enabledServers),
+                route = "ai_mcp",
+                onClick = { onNavigate("ai_mcp") },
+            )
+        }
+        item(visible = toolFetch || (toolSearch && searchReady) || mcpOn) {
             SliderSetting(
                 R.string.toolai_ai_tool_rounds_title,
                 subtitle = stringResource(R.string.toolai_ai_tool_rounds_subtitle),
@@ -568,20 +588,25 @@ internal fun AiActionsSettings(
     repository: SettingsRepository,
     settings: LiveSettings,
     onNavigate: (String) -> Unit,
+    // The AI tool's actions, or the AI reply tool's tones (#234): the same
+    // list, editor and storage, each showing only its own surface.
+    surface: AiActionSurface = AiActionSurface.TRANSFORM,
 ) {
     val scope = rememberCoroutineScope()
+    val other = if (surface == AiActionSurface.REPLY) AiActionSurface.TRANSFORM else AiActionSurface.REPLY
     // Which rows the group holds, and in what order; each row reads whether
     // its own action is hidden.
-    val ordered = settings.watch { orderedAiActions(it.ai.customActions, it.ai.actionOrder) }
+    val ordered = settings.watch { orderedAiActions(it.ai.customActions, it.ai.actionOrder, surface) }
 
     // ReorderSetting takes a plain (T) -> String, which cannot resolve a string
     // resource, so the shipped names are looked up here first.
     val names = ordered.associate { it.id to aiActionName(it) }
 
     var reordering by rememberSaveable { mutableStateOf(false) }
+    val replies = surface == AiActionSurface.REPLY
     SettingsGroup(
-        stringResource(R.string.toolai_ai_actions_title),
-        info = stringResource(R.string.toolai_ai_actions_caption),
+        stringResource(if (replies) R.string.toolai_reply_tones_title else R.string.toolai_ai_actions_title),
+        info = stringResource(if (replies) R.string.toolai_reply_tones_caption else R.string.toolai_ai_actions_caption),
         action = if (ordered.size > 1) {
             {
             IconButton(onClick = { reordering = !reordering }) {
@@ -597,7 +622,14 @@ internal fun AiActionsSettings(
             ReorderableColumn(
                 ordered,
                 label = { names[it.id].orEmpty() },
-                onReorder = { next -> scope.launch { repository.setAiActionOrder(next.map { it.id }) } },
+                // One stored order holds both surfaces: the other surface's ids
+                // ride along, or reordering tones would forget the actions'
+                // order and the other way round.
+                onReorder = { next ->
+                    val ai = settings.value.ai
+                    val kept = orderedAiActions(ai.customActions, ai.actionOrder, other).map { it.id }
+                    scope.launch { repository.setAiActionOrder(next.map { it.id } + kept) }
+                },
                 modifier = Modifier.padding(horizontal = 16.dp),
             )
         }
@@ -620,7 +652,7 @@ internal fun AiActionsSettings(
                             onCheckedChange = { checked ->
                                 val ai = settings.value.ai
                                 val hidden = ai.hiddenActions.toSet()
-                                val visibleCount = orderedAiActions(ai.customActions, ai.actionOrder)
+                                val visibleCount = orderedAiActions(ai.customActions, ai.actionOrder, surface)
                                     .count { it.id !in hidden }
                                 // The panel needs at least one button, or it is
                                 // an empty box with no way back to a full one.
@@ -646,14 +678,15 @@ internal fun AiActionsSettings(
             }
         }
     }
-    RegisterAddFab(stringResource(R.string.toolai_ai_action_new_title)) {
-        onNavigate("ai_action_edit/" + BuiltInAiActions.CUSTOM_PREFIX + System.currentTimeMillis())
+    RegisterAddFab(stringResource(if (replies) R.string.toolai_reply_tone_new else R.string.toolai_ai_action_new_title)) {
+        val prefix = if (replies) BuiltInAiReplyTones.CUSTOM_PREFIX else BuiltInAiActions.CUSTOM_PREFIX
+        onNavigate("ai_action_edit/" + prefix + System.currentTimeMillis())
     }
 }
 /** A shipped action's translated name, or the name the user gave it. */
 @Composable
 internal fun aiActionName(spec: AiActionSpec): String =
-    BuiltInAiActions.labelRes(spec)?.let { stringResource(it) } ?: spec.name
+    (BuiltInAiActions.labelRes(spec) ?: BuiltInAiReplyTones.labelRes(spec))?.let { stringResource(it) } ?: spec.name
 /** The one-line recap under an action's name on the list screen. */
 @Composable
 private fun aiActionSummary(spec: AiActionSpec): String = when {
@@ -678,8 +711,13 @@ internal fun AiActionEditor(
 ) {
     val scope = rememberCoroutineScope()
     val override = settings.watch { s -> s.ai.customActions.firstOrNull { it.id == actionId } }
-    val builtIn = BuiltInAiActions.byId(actionId)
+    val builtIn = BuiltInAiActions.byId(actionId) ?: BuiltInAiReplyTones.byId(actionId)
     val existing = override ?: builtIn
+    // A tone for the reply tool (#234) or an action for the AI tool: what is
+    // stored says, else the shipped entry, else the id a new tone was given.
+    val surface = existing?.surface
+        ?: if (actionId.startsWith(BuiltInAiReplyTones.CUSTOM_PREFIX)) AiActionSurface.REPLY else AiActionSurface.TRANSFORM
+    val tone = surface == AiActionSurface.REPLY
     val defaultName = stringResource(R.string.toolai_ai_action_default_name)
 
     var name by remember(actionId) { mutableStateOf(existing?.name.orEmpty()) }
@@ -709,6 +747,7 @@ internal fun AiActionEditor(
         askEachRun = askEachRun,
         prefillPrompt = prefillPrompt,
         worksWithoutText = worksWithoutText,
+        surface = surface,
     )
 
     // The prompt is stored either as the whole task, or as the text the
@@ -784,28 +823,30 @@ internal fun AiActionEditor(
                 prefillPrompt,
             ) { prefillPrompt = it }
         }
-        item {
+        if (!tone) item {
             ToggleSetting(
                 R.string.toolai_ai_action_empty_field_title,
                 stringResource(R.string.toolai_ai_action_empty_field_subtitle),
                 worksWithoutText,
             ) { worksWithoutText = it }
         }
-        item {
+        if (!tone) item {
             ToggleSetting(
                 R.string.toolai_ai_action_before_cursor_title,
                 stringResource(R.string.toolai_ai_action_before_cursor_subtitle),
                 beforeCursor,
             ) { beforeCursor = it }
         }
-        item {
+        if (!tone) item {
             ToggleSetting(
                 R.string.toolai_ai_action_append_title,
                 stringResource(R.string.toolai_ai_action_append_subtitle),
                 append,
             ) { append = it }
         }
-        if (!askEachRun) {
+        // A tone is always framed by the reply prompt: its guard is what keeps
+        // a stranger's message from steering the model, so it has no raw mode.
+        if (!askEachRun && !tone) {
             item {
                 ToggleSetting(
                     R.string.toolai_ai_action_raw_title,
@@ -834,12 +875,12 @@ internal fun AiActionEditor(
             item {
                 val translateTo = settings.watch { it.ai.translateTo }
                 Text(
-                    if (askEachRun) {
-                        AiPrompts.customPrompt(
+                    when {
+                        tone -> AiPrompts.replyPrompt(draft(), ReplyStyle(), instruction = task)
+                        askEachRun -> AiPrompts.customPrompt(
                             AiPrompts.resolvedTask(draft(), translateTo),
                         )
-                    } else {
-                        AiPrompts.systemPrompt(draft(), translateTo)
+                        else -> AiPrompts.systemPrompt(draft(), translateTo)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,

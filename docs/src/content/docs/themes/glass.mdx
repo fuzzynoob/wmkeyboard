@@ -1,0 +1,85 @@
+---
+title: "Frosted glass"
+description: "See-through keys, bars and popups over a blurred backdrop: how glass themes work, what they need from the phone, and every knob in the editor."
+sidebar:
+  order: 2.5
+---
+
+import SettingsPath from '@components/SettingsPath.astro';
+
+A glass theme makes the keyboard's surfaces see-through, blurs what is behind them, and dresses each one with a rim of light and a little grain so a translucent key reads as a pane of frosted glass rather than as a colour you can see through. It is a per-theme setting: every custom theme carries its own **Glass** section in the [theme editor](/themes/editor/#glass), and the built-in **Frost** family shows the ways it can be used.
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Glass" />
+
+## What is behind the glass
+
+Glass blurs whatever is behind it, and a theme has three things it can put there.
+
+**The app behind the keyboard.** With **Blur behind the keyboard** on, the keyboard asks Android to blur whatever app is under its window, and the board's own colour becomes a tint over that blur. This is the system's own window blur, the one the notification shade uses, so it costs the keyboard nothing per frame. It needs Android 12 or later, and it only runs while the phone allows window blur at all. The keyboard never turns it off because of the phone's battery saver; Android does that itself, switching window blur off for every app while battery saver is on, as do the developer option *Allow window-level blurs* and some manufacturers on their cheaper models. The keyboard watches that state live and switches over the moment it changes.
+
+Whenever the blur cannot run, the board stands on your wallpaper instead (see below), or, with nothing behind the glass, is drawn at least as opaque as the theme's **Board opacity without blur** slider says (92% by default). The keys of a glass theme were designed to sit on a blur, and over a sharp app at 40% they would be unreadable; the fallback keeps them readable and the theme still looks like itself. The floating keyboard never blurs behind itself either, because its window spans the whole screen and the blur would cover the whole app, so it uses the fallback too. WM Keyboard's own [power saving](/typing/power-saving/) switches the blur off too, through its **Glass blur** switch, and only while that switch is on.
+
+**The theme's background image.** A theme with a [background image](/themes/backgrounds/) keeps that image sharp on the board, and the glass surfaces show it *blurred* where they cover it. The keyboard bakes one blurred, re-saturated copy of the image when the theme is applied, and every glass surface draws the slice of that copy that lies under it, then its own translucent colour on top. Nothing is blurred while you type: a key's face is one image draw with the right offset. This works on every Android version. The bake follows three sliders: **Backdrop blur**, **Backdrop saturation** and **Backdrop brightness**. **Blur the background too**, on by default, draws the board's own picture through the same bake, so the board between the keys is frosted like the keys and the three sliders visibly reach the picture. Turn it off to keep the board as sharp as its own **Image blur** leaves it, with only the panes frosted.
+
+**Your wallpaper.** With no image of its own, a glass theme stands on a band of your wallpaper: the bottom of it by default, where the keyboard sits, or the middle or the top under **Part of the wallpaper**. The band is drawn as the board's own picture, under the board colour, and baked for the keys the same way an image is. That is what a window-blur theme falls back to where the app cannot be blurred (an older Android, battery saver, the floating keyboard, the editor's preview), so instead of going opaque the board shows your wallpaper blurred, which is close to what the blurred app would have looked like. The built-in **Frost wallpaper** look asks for the wallpaper outright and never blurs the app, so its backdrop is steady whatever you are typing into.
+
+Whether that band is the wallpaper's real picture depends on the phone. Android 13 and later keep the wallpaper's pixels private from every app, so there the keyboard paints soft fields of light in the wallpaper's own three colours instead, which the system does publish; under the glass's blur the two read much the same. On Android 12 and below the picture itself can be read once the theme editor's **Use your real wallpaper** row has been allowed storage access; until then the colour fields stand in there too. A phone with no wallpaper colours at all (Android 8.0) gets the fields in the theme's own colours.
+
+**Behind the glass** in the editor picks between these: **Auto** (the image if the theme has one, otherwise the wallpaper whenever the app is not being blurred), **Image**, **Wallpaper** (always, even where the app could be blurred instead) and **Nothing**.
+
+A board with nothing behind its glass is its own see-through colour, with the rim and the grain. Over a gradient that already looks right, since blurring a smooth gradient changes nothing. An animated background image (a GIF or animated WebP) that is playing cannot be baked either; its glass surfaces are tint-only until the animation is stopped or reduce motion stills it.
+
+## Which surfaces are glass
+
+**Glass surfaces** is a row of chips, one per part of the keyboard: Letter keys, Modifier keys, Enter key, Space bar, Bars (the suggestion strip and every row stacked with it), Tool buttons, Chips, Cards, Popups (the press-and-hold alternates and the key-preview bubble) and Menus (the language picker and the clipboard, emoji and symbol menus). A fresh glass theme has every surface on except the Enter key, whose solid accent is what makes it easy to find. Inside the tool panels the same split holds: every chip there (the GIF, sticker and theme tabs, filter and action chips, search fields) is a Chip, every card (snippets, clipboard items, notices like "this field does not accept GIFs") is a Card, and a panel's own keys (the calculator, the number pad, the handwriting and voice rails) follow the Letter keys and Modifier keys chips.
+
+Popups and menus sample the same backdrop as the keys wherever there is one, a theme image or the wallpaper band. Where there isn't, because the glass is the live blur of the app, Android offers no way to blur only what lies under a popup's own window, so on Android 12 and later the keyboard softens *itself* while a glass popup or menu is open, and the popup reads as glass over softened keys. Nothing outside the keyboard is touched. On older phones, or with reduce motion on, those popups are drawn at the fallback opacity instead, like the board.
+
+## Rim and grain
+
+Every glass surface gets a one-pixel **Rim**: a hairline of light along its top-left edge fading into a hairline of shadow along its bottom-right, the way light catches a pane. The slider is its strength; at zero there is none. **Rim color** is the colour of the lit edge, Automatic being a soft white on a dark theme and a brighter white on a light one, where the panes are pale and need the edge more. The shadowed edge is always a translucent black.
+
+**Grain** lays a faint, fixed noise over each surface. A few percent is enough; it is what stops a large pane of glass from looking like flat plastic. The grain is the same tile on every surface and every launch, so a theme never twinkles.
+
+## Liquid glass
+
+Every pane, popups and menus included, shows the backdrop under the board's own colour or gradient, laid out as the board lays it out, so a gradient runs on unbroken across the keys and the toolbar. Popups and menus find their place on the board through the screen, so the press-and-hold alternates, the key bubble and the spacebar's language bar are panes of the same glass as the keys, with the letter keys' fill.
+
+**Kind of glass** has two settings. **Frosted** is everything above: the blurred slice under the surface's colour. **Liquid** is the look Apple calls liquid glass, and it changes what happens at the edge of every pane. Each pane is flat glass in the middle with a bevel about 12 dp wide at its rim, the same on every key so the space bar and a letter look like one material. Almost all of the bending happens in the last few pixels of that bevel: what lies just inside the edge is folded back into a thin, squeezed mirror ring, while the middle shows the backdrop straight through. Red, green and blue bend by slightly different amounts there, so the ring is fringed with colour like the edge of a prism. The light is a hairline on the edges facing the upper left and an equal one on the edges facing the lower right, where the inside of the glass reflects it, fading out along the sides, with a short glow inward on the lit side; there is no dark edge. Pressing a key bends its rim harder and swells the middle a little. Full-width bars stay frosted, since a lens bent a wedge into their ends. **Refraction** sets how far the edge bends the backdrop, **Color split** how far the colours part, and **Rim** how bright the hairlines are. The Liquid preset also drops the blur to almost nothing, turns the grain off and brightens the rim, since a lens is clear.
+
+A lens needs two things. It needs a picture to bend, so it works over a background image or the wallpaper band and not over the blurred app, whose pixels belong to the system and cannot be read; a window-blur theme set to Liquid is a lens on a phone that cannot blur and frosted on one that can, unless **Behind the glass** says Wallpaper. And it needs Android 13 or later, where a pane can run a small pixel program; older phones draw a liquid theme as very clear frosted glass, with the same two hairlines of light and no dark edge. The program runs on the graphics chip for the keys' pixels only, and it is recorded once per key, not re-run on every keystroke.
+
+The optics follow the open-source [Liquid-Glass-Android](https://github.com/QWEA0/Liquid-Glass-Android) lens, whose rim profile and light were measured off iOS 26. What is not here: Apple's panes also merge and stretch into each other as they move, and their highlight follows the phone's tilt. Neither is part of a theme yet.
+
+## Presets and dressing a theme
+
+The **Presets** row sets the glass sliders in one tap and makes the theme's fills see-through where they are not already:
+
+| Preset | What it does |
+|---|---|
+| Frosted | Milky glass: a soft blur, colours lifted a little, a quiet rim. The default. |
+| Clear | Nearly transparent panes with a bright rim, the way polished glass catches light. |
+| Mica | Heavy blur and muted colour, like a wall of frosted acrylic. |
+| Smoked | The backdrop dimmed, a low rim, a touch more grain. |
+| Liquid | Thick clear lenses: the backdrop bent and colour-split at the edge, a bright rim, no grain. Android 13 and later draw the lens. |
+
+A preset lowers the opacity of the letter-key, modifier-key, chip, tool and popup colours to what it needs, but only where a fill is still more opaque than that: a colour you have already made more see-through is left alone. It also gives the letter keys a [key gradient](/themes/editor/#gradients) sheen if the theme has none, so each pane catches the light across its top. Whether the app behind is blurred is left as you set it. Afterwards nothing remembers which preset was picked, and every slider still moves.
+
+## The Frost family
+
+Three built-in looks on one card, all glass:
+
+- **Frost** is styled after FrostKeys' frosted glass: it blurs the app behind the keyboard and lays only a thin tint over it, about a third, in your wallpaper's colours, with the letters as faint panes in the same hues, the action keys (shift, delete, ?123 and Enter) a solid accent blue, and no rim or grain. **Accent-tinted board**, in the Glass section of a copy of Frost, turns the board's accent off: the board keeps a darker, quieter tint in the wallpaper's hue while the keys stay as they are. That thin tint is the look, and its cost is that labels get faint over a white app, as they do in FrostKeys. On a phone that cannot blur, the board stands on your wallpaper band under the same thin tint instead.
+- **Frost wallpaper** stands on your wallpaper outright and never blurs the app, so its backdrop is steady whatever you type into, and it is the look every phone and the gallery can show in full.
+- **Frost light** is the same glass as Frost for a light phone.
+- **Frost liquid** sets the glass to Liquid: a board barely tinted over the blurred app, clear panes with a bright rim and no grain, the action keys a quieter pane than the letters and Enter a pale grey. Over a live blur its keys draw as very clear frosted glass; where the app cannot be blurred, the board turns nearly opaque. Like Frost, its thin board gets faint over a white app.
+
+## Details and edge cases
+
+- **Contrast.** Glass is see-through by design, so what is behind it changes how readable the labels are. The Frost looks are checked against a white app and a black app, blurred and not; a theme of your own is yours to judge in the editor's preview, which has no app behind it and so shows the theme the way a phone that cannot blur draws it, on your wallpaper band.
+- **The wallpaper band refreshes** when the wallpaper changes, when the theme is applied, and when the keyboard's size changes. It is one small picture in the same cache as the theme's background image.
+- **High contrast** (under Accessibility) drops the glass with the rest of the decoration: the board goes solid and the keys with it.
+- **Theme crossfade.** Switching themes eases the rim, the grain and the fallback opacity. The blur itself, its radius and the surface set switch over at the midpoint, since each would otherwise ask for a new bake or a new window layout on every frame of the fade.
+- **The key-preview band.** The keyboard normally keeps an empty strip of window above the top row, where a top-row key's bubble pops up over the app. A window blur covers all of the window, that strip included, and it sits over the field you are typing in, so while the app behind is blurred the strip is not kept and a top-row bubble stays on the board's top edge instead.
+- **The bars' held band.** The keyboard normally keeps a strip of empty window above the keys while a bar row such as the tools row is folded away, so toggling it never resizes the window. With the window blurred that strip would be a band of blurred app above the keys, so a glass theme gives the band up and takes the one resize instead.
+- **Export.** A theme's glass settings travel in its `.wmtheme.json` file, the wallpaper choice included; the wallpaper itself is the other phone's own. An app version from before glass existed imports the same file as a plain translucent theme and loses nothing else.

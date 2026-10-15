@@ -65,6 +65,13 @@ internal class RowRevealHeadroom {
     val reservedPx: Int
         get() = rows.sumOf { it.reservedPx }
 
+    /**
+     * Everything the service keeps out of the app's insets: [reservedPx], plus
+     * the part of a hold that a row has marked as window ([RowReveal.windowPx]).
+     */
+    val windowPx: Int
+        get() = rows.sumOf { it.reservedPx + it.windowPx }
+
     fun track(row: RowReveal) {
         rows += row
     }
@@ -109,6 +116,15 @@ internal class RowReveal {
      * reserving row sits in is the same height open, closed and mid-move.
      */
     var reservedPx by mutableIntStateOf(0)
+
+    /**
+     * How much of the hold the app is laid out under rather than around: not
+     * added to the frame (the shortfall already is), only kept out of the app's
+     * insets. A panel's height bar sets it for the length of a drag so the app
+     * stays where it was instead of jumping up by the whole hold (issue #643);
+     * see `ClipPanelResize`.
+     */
+    var windowPx by mutableIntStateOf(0)
 }
 
 /**
@@ -161,6 +177,10 @@ internal fun ColumnScope.RevealingBarRow(
         AnimatedVisibility(visible = visible, enter = enter, exit = exit) { content() }
         return
     }
+    // A band held open is window, and a glass theme's window is blurred: the
+    // band would show as a strip of blurred app above the keys for as long as
+    // the row is out. The one resize it saves is the cheaper loss there.
+    val reservePx = if (windowFrostLive(LocalKbTheme.current)) 0 else reserveWhenOutPx
     val reveal = remember { RowReveal() }
     // Tracked for as long as the row is in the stack. A row cut mid-move (a
     // full-bleed panel, the placement switched) takes its shortfall with it.
@@ -197,9 +217,9 @@ internal fun ColumnScope.RevealingBarRow(
         // a row opened for the first time in a session would otherwise drop
         // the band, then grow back into it, which is the resize this is here
         // to avoid.
-        if (out && reserveWhenOutPx > 0) reveal.fullPx = reserveWhenOutPx
+        if (out && reservePx > 0) reveal.fullPx = reservePx
         reveal.shortfallPx = if (out) 0 else (reveal.fullPx - shown).coerceAtLeast(0)
-        reveal.reservedPx = if (out) reserveWhenOutPx else 0
+        reveal.reservedPx = if (out) reservePx else 0
         layout(placeable?.width ?: constraints.minWidth, shown) { placeable?.place(0, 0) }
     }
 }

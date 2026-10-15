@@ -21,6 +21,7 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonObject
+import java.util.UUID
 
 /**
  * One-shot chat completion against the AI tool's configured provider —
@@ -40,7 +41,40 @@ object AiClient {
         val baseUrl: String,
         /** What the network activity log files this request under: the panel or the chat. */
         val netSource: NetSource = NetSource.AI,
+        /** The user's extra headers for this provider (#648), sent after ours so they win. */
+        val headers: List<McpHeader> = emptyList(),
+        /**
+         * What a `{session}` in a header value becomes. A fresh id per config,
+         * so one panel run, tool rounds included, is one session; the chat
+         * passes an id of its conversation instead.
+         */
+        val sessionId: String = UUID.randomUUID().toString(),
     )
+
+    /** The placeholder a header value can use for [Config.sessionId]. */
+    const val SESSION_PLACEHOLDER = "{session}"
+
+    /** An RFC 7230 token: anything else as a header name makes the request throw. */
+    private val HEADER_NAME = Regex("^[!#$%&'*+.^_`|~0-9A-Za-z-]+$")
+
+    /**
+     * The headers one request sends: the provider's own [base], then the
+     * user's [Config.headers] on top. A user header replaces a built-in one of
+     * the same name in any case, which is how a custom User-Agent or an
+     * `Authorization` for a gateway in front of the provider gets through.
+     * A name that is not a valid token, or a value with a line break, is
+     * dropped rather than allowed to fail the whole request.
+     */
+    internal fun requestHeaders(config: Config, base: Map<String, String>): Map<String, String> {
+        val extra = config.headers.mapNotNull { header ->
+            val name = header.name.trim()
+            val value = header.value.trim().replace(SESSION_PLACEHOLDER, config.sessionId)
+            if (!HEADER_NAME.matches(name) || '\r' in value || '\n' in value) null else name to value
+        }
+        if (extra.isEmpty()) return base
+        val overridden = extra.map { it.first.lowercase() }.toSet()
+        return base.filterKeys { it.lowercase() !in overridden } + extra
+    }
 
     /**
      * One prior message of a multi-turn chat, oldest first.
@@ -55,6 +89,13 @@ object AiClient {
         val text: String,
         val toolCalls: List<AiToolCall> = emptyList(),
         val toolResult: AiToolResult? = null,
+        /**
+         * Pictures sent with this turn (#234): a screenshot of the conversation
+         * a reply is being drafted to. Only a user turn ever carries one, and
+         * only for a provider [supportsImages] allows — the reply tool reads
+         * the picture with OCR instead of sending it where it cannot go.
+         */
+        val images: List<AiImage> = emptyList(),
     ) {
         /**
          * Part of a tool exchange rather than something a person wrote. These
@@ -71,6 +112,41 @@ object AiClient {
      * of those in the body builders.
      */
     enum class ChatRole { USER, ASSISTANT, TOOL }
+
+    /**
+     * One picture on its way to a model, already encoded.
+     *
+     * Base64 rather than a file, because every provider wants the bytes inline
+     * (Anthropic a `source`, OpenAI a `data:` URL, Gemini `inline_data`, Ollama
+     * a bare string) and none of them will fetch a local path. The caller is
+     * responsible for the size: a full-resolution phone screenshot is several
+     * megabytes of base64 and models reject it.
+     */
+    data class AiImage(val mimeType: String, val base64: String) {
+        /** The `data:` URL form, which is what the OpenAI shape asks for. */
+        val dataUrl: String get() = "data:" + mimeType + ";base64," + base64
+    }
+
+    /**
+     * Whether a provider's request shape has anywhere to put a picture.
+     *
+     * Per provider, not per model: the keyboard cannot know whether the model
+     * name somebody typed into the settings is one with eyes. A provider that
+     * accepts the field will refuse the request itself if its model cannot read
+     * it, and that error is a better answer than silently dropping the picture.
+     *
+     * Brave answers from the web and takes a query, not a conversation with
+     * attachments. The on-device engine is a text runtime here: litert-lm has a
+     * vision backend, but [com.wasimaster.wmkeyboard.core.localllm.LocalLlmEngine]
+     * does not expose it, so a picture would be dropped on the floor.
+     */
+    fun supportsImages(provider: AiProvider): Boolean = when (provider) {
+        AiProvider.ANTHROPIC, AiProvider.OPENAI, AiProvider.GEMINI,
+        AiProvider.XAI, AiProvider.OLLAMA, AiProvider.LM_STUDIO,
+        AiProvider.OPENAI_COMPATIBLE,
+        -> true
+        else -> false
+    }
 
     /**
      * One finished response.
@@ -133,7 +209,10 @@ object AiClient {
         else -> error("${config.provider} does not use the OpenAI request shape")
     }
 
-    fun config(settings: AiSettings): Config = when (settings.provider) {
+    fun config(settings: AiSettings): Config =
+        baseConfig(settings).copy(headers = settings.providerHeaders[settings.provider.name].orEmpty())
+
+    private fun baseConfig(settings: AiSettings): Config = when (settings.provider) {
         AiProvider.ANTHROPIC -> Config(
             AiProvider.ANTHROPIC, settings.anthropicKey,
             settings.anthropicModel.ifBlank { DefaultModels.ANTHROPIC }, "",
@@ -798,7 +877,25 @@ object AiClient {
             if (turn.toolCalls.isEmpty()) {
                 add(buildJsonObject {
                     put("role", if (turn.role == ChatRole.USER) "user" else "assistant")
-                    put("content", turn.text)
+                    if (turn.images.isEmpty()) {
+                        put("content", turn.text)
+                    } else {
+                        // Pictures first: Anthropic's own guidance is that a
+                        // question about an image reads better after it.
+                        put("content", buildJsonArray {
+                            for (image in turn.images) {
+                                add(buildJsonObject {
+                                    put("type", "image")
+                                    putJsonObject("source") {
+                                        put("type", "base64")
+                                        put("media_type", image.mimeType)
+                                        put("data", image.base64)
+                                    }
+                                })
+                            }
+                            add(buildJsonObject { put("type", "text"); put("text", turn.text) })
+                        })
+                    }
                 })
                 continue
             }
@@ -836,9 +933,12 @@ object AiClient {
             source = config.netSource,
             url = ServiceEndpoints.base(ServiceEndpoint.ANTHROPIC) + "/v1/messages",
             body = body,
-            headers = mapOf(
-                "x-api-key" to config.apiKey,
-                "anthropic-version" to "2023-06-01",
+            headers = requestHeaders(
+                config,
+                mapOf(
+                    "x-api-key" to config.apiKey,
+                    "anthropic-version" to "2023-06-01",
+                ),
             ),
             timeoutMs = 120_000,
             onPhase = onPhase,
@@ -946,6 +1046,18 @@ object AiClient {
                     }
                 })
             }
+            turn.images.isNotEmpty() -> {
+                put("role", if (turn.role == ChatRole.USER) "user" else "assistant")
+                put("content", buildJsonArray {
+                    add(buildJsonObject { put("type", "text"); put("text", turn.text) })
+                    for (image in turn.images) {
+                        add(buildJsonObject {
+                            put("type", "image_url")
+                            putJsonObject("image_url") { put("url", image.dataUrl) }
+                        })
+                    }
+                })
+            }
             else -> {
                 put("role", if (turn.role == ChatRole.USER) "user" else "assistant")
                 put("content", turn.text)
@@ -974,7 +1086,7 @@ object AiClient {
             source = config.netSource,
             url = url,
             body = body,
-            headers = headers,
+            headers = requestHeaders(config, headers),
             timeoutMs = 120_000,
             onPhase = onPhase,
             onPartial = onPartial,
@@ -1032,7 +1144,12 @@ object AiClient {
                             add(buildJsonObject {
                                 put("name", tool.name)
                                 put("description", tool.description)
-                                put("parameters", tool.parameters)
+                                // The full JSON Schema field, not `parameters`:
+                                // that one takes only an OpenAPI subset and
+                                // refuses `$schema`, `additionalProperties` and
+                                // the rest of what an MCP server's tool
+                                // schemas use (#573).
+                                put("parametersJsonSchema", tool.parameters)
                             })
                         }
                     })
@@ -1087,7 +1204,17 @@ object AiClient {
             else -> {
                 // Gemini's name for the assistant role is "model".
                 put("role", if (turn.role == ChatRole.USER) "user" else "model")
-                put("parts", buildJsonArray { add(buildJsonObject { put("text", turn.text) }) })
+                put("parts", buildJsonArray {
+                    for (image in turn.images) {
+                        add(buildJsonObject {
+                            putJsonObject("inline_data") {
+                                put("mime_type", image.mimeType)
+                                put("data", image.base64)
+                            }
+                        })
+                    }
+                    add(buildJsonObject { put("text", turn.text) })
+                })
             }
         }
     }
@@ -1108,7 +1235,7 @@ object AiClient {
             url = ServiceEndpoints.base(ServiceEndpoint.GEMINI) + "/v1beta/models/" +
                 "${config.model}:streamGenerateContent?alt=sse",
             body = body,
-            headers = mapOf("x-goog-api-key" to config.apiKey),
+            headers = requestHeaders(config, mapOf("x-goog-api-key" to config.apiKey)),
             timeoutMs = 120_000,
             onPhase = onPhase,
             onPartial = onPartial,
@@ -1215,6 +1342,11 @@ object AiClient {
         else -> buildJsonObject {
             put("role", if (turn.role == ChatRole.USER) "user" else "assistant")
             put("content", turn.text)
+            // Ollama takes bare base64 in an "images" array on the message
+            // itself, with no media type and no data: prefix.
+            if (turn.images.isNotEmpty()) {
+                put("images", buildJsonArray { for (image in turn.images) add(JsonPrimitive(image.base64)) })
+            }
         }
     }
 
@@ -1233,7 +1365,7 @@ object AiClient {
             source = config.netSource,
             url = "${config.baseUrl.trimEnd('/')}/api/chat",
             body = body,
-            headers = emptyMap(),
+            headers = requestHeaders(config, emptyMap()),
             timeoutMs = 120_000,
             onPhase = onPhase,
             onPartial = onPartial,
@@ -1296,7 +1428,7 @@ object AiClient {
             source = config.netSource,
             url = ServiceEndpoints.base(ServiceEndpoint.BRAVE_SEARCH) + "/res/v1/chat/completions",
             body = braveBody(system, turns, maxTokens),
-            headers = mapOf("X-Subscription-Token" to config.apiKey),
+            headers = requestHeaders(config, mapOf("X-Subscription-Token" to config.apiKey)),
             timeoutMs = 120_000,
             onPhase = onPhase,
             onPartial = onPartial,

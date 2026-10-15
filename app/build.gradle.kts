@@ -10,6 +10,10 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
     id("wmkeyboard.compose-metrics")
+    // Offline handwriting model imports (#666): rewrites three calls inside
+    // ML Kit's digital-ink downloader. Inert on Play, where the library is in
+    // :feature:handwriting, which applies it too.
+    id("wmkeyboard.ink-offline-imports")
     alias(libs.plugins.kotlin.serialization)
     alias(libs.plugins.detekt)
     alias(libs.plugins.licensee)
@@ -137,6 +141,11 @@ val channelSourceDirs = listOfNotNull(playServicesSourceDir, updaterSourceDir, g
 // fails the way it does offline.
 val noInternet = flag("wmkb.noInternet", "WMKB_NO_INTERNET")
 
+// A build that cannot ask for location at all (#350): `-Pwmkb.noLocation=true`.
+// The Location tool keeps its saved places and hides Locate me; the weather and
+// compass tools fall back to a typed or searched place, as before.
+val noLocation = flag("wmkb.noLocation", "WMKB_NO_LOCATION")
+
 // Manifest entries that belong to exactly one channel. REQUEST_INSTALL_PACKAGES
 // and the install-result receiver must not exist in a Play or F-Droid APK, and
 // the Play Store package query is pointless anywhere but Play.
@@ -144,6 +153,7 @@ val channelManifests = listOfNotNull(
     "src/play/AndroidManifest.xml".takeIf { playStoreChannel },
     "src/github/AndroidManifest.xml".takeIf { githubChannel },
     "src/nointernet/AndroidManifest.xml".takeIf { noInternet },
+    "src/nolocation/AndroidManifest.xml".takeIf { noLocation },
 )
 
 // Every interface language the repo has a translation for, as BCP-47 tags
@@ -270,7 +280,9 @@ android {
             dimension = "capabilities"
             buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "false")
             buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "false")
-            buildConfigField("Boolean", "ENABLE_GRAMMAR", "false")
+            // Harper is open source and needs no Play services, so lite has it
+            // too; only the ML Kit and LiteRT features stay full-only.
+            buildConfigField("Boolean", "ENABLE_GRAMMAR", "true")
             buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "false")
             buildConfigField("Boolean", "ENABLE_WHISPER", "false")
         }
@@ -411,6 +423,14 @@ android {
         // recogniser (~6.5 MB per ABI) behind the handwriting tool.
         dynamicFeatures += ":feature:litert"
         dynamicFeatures += ":feature:handwriting"
+        // The whisper.cpp, ExecuTorch and Whistle libraries behind the
+        // offline voice engines other than LiteRT Whisper, Harper's behind
+        // the grammar tool and the spell checker, and Tesseract's behind the
+        // scanner's offline reader. Library files only: their Kotlin stays
+        // in the base.
+        dynamicFeatures += ":feature:speech"
+        dynamicFeatures += ":feature:grammar"
+        dynamicFeatures += ":feature:ocr"
     }
 
     // See the splitApks flag at the top of this file. Splits shape APK
@@ -431,7 +451,7 @@ android {
         jniLibs {
             // Uncompressed and page-aligned in the APK, which is both what the
             // 16 KB page-size requirement wants and what lets the loader mmap
-            // the library straight out of the APK.
+            // the library straight out of the APK, in every channel.
             useLegacyPackaging = false
             // No keepDebugSymbols override: AGP strips as usual. Every .so we
             // package — ours and the prebuilt ML Kit/LiteRT ones — already
@@ -511,8 +531,9 @@ android {
         // paths were removed from the DSL.
     }
 
-    // The Harper native libraries live in :core:intelligence under src/full/jniLibs,
-    // so lite builds exclude them by construction — no source-set surgery needed here.
+    // The Harper native libraries live in :core:intelligence under src/main/jniLibs,
+    // so every edition carries them; F-Droid builds them from source. Play
+    // builds package them in the on-demand :feature:grammar split instead.
 }
 
 // Compiles dictionaries-src/*.txt into assets/dictionaries/*.wmdict via the
@@ -792,6 +813,75 @@ val generateLayoutIndex =
     tasks.register<GenerateLayoutIndexTask>("generateLayoutIndex") {
         layoutsDir.set(layout.projectDirectory.dir("src/main/assets/layouts"))
     }
+
+// Rewrites the merged assets with every bundled layout's JSON compacted. The
+// files under src/main/assets/layouts are indented for people and for diffs:
+// 44 MB across ~1,700 layouts, 14.5 MB without the whitespace, which in the
+// APK is ~0.8 MB less to download and ~30 MB less on the phone. Only
+// whitespace outside strings goes, so every value is the byte-identical
+// text the parser would have read anyway. A transform of the merged ASSETS
+// artifact rather than a generated directory beside the sources, because
+// the sources would still be merged in and collide with it.
+abstract class MinifyLayoutAssetsTask : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val input: DirectoryProperty
+
+    @get:OutputDirectory
+    abstract val output: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        val from = input.get().asFile
+        val to = output.get().asFile
+        to.deleteRecursively()
+        from.walkTopDown().filter { it.isFile }.forEach { file ->
+            val rel = file.relativeTo(from).invariantSeparatorsPath
+            val dest = to.resolve(rel)
+            dest.parentFile.mkdirs()
+            if (rel.startsWith("layouts/") && rel.endsWith(".wmlayout.json")) {
+                dest.writeText(compact(file.readText()))
+            } else {
+                file.copyTo(dest)
+            }
+        }
+    }
+
+    /** [json] without the whitespace between tokens. Strings, escapes included, are kept as written. */
+    private fun compact(json: String): String {
+        val out = StringBuilder(json.length / 2)
+        var inString = false
+        var escaped = false
+        for (c in json) {
+            if (inString) {
+                out.append(c)
+                when {
+                    escaped -> escaped = false
+                    c == '\\' -> escaped = true
+                    c == '"' -> inString = false
+                }
+            } else when (c) {
+                ' ', '\n', '\r', '\t' -> Unit
+                '"' -> {
+                    inString = true
+                    out.append(c)
+                }
+                else -> out.append(c)
+            }
+        }
+        return out.toString()
+    }
+}
+
+androidComponents {
+    onVariants { variant ->
+        val name = variant.name.replaceFirstChar { it.uppercase() }
+        val minify = tasks.register<MinifyLayoutAssetsTask>("minifyLayoutAssets$name")
+        variant.artifacts.use(minify)
+            .wiredWithDirectories(MinifyLayoutAssetsTask::input, MinifyLayoutAssetsTask::output)
+            .toTransform(com.android.build.api.artifact.SingleArtifact.ASSETS)
+    }
+}
 
 // Only the `fast` build: release-mode d8 like the shipped APK, but no R8, so
 // the dex still carries the source's names. See [CheckDexMethodsTask].
@@ -1169,7 +1259,8 @@ dependencies {
     if (playStoreChannel) {
         implementation(libs.play.app.update)
         // SplitInstall + SplitCompat for the on-demand :feature:llm,
-        // :feature:translate, :feature:litert and :feature:handwriting modules.
+        // :feature:translate, :feature:litert, :feature:handwriting,
+        // :feature:speech, :feature:grammar and :feature:ocr modules.
         implementation(libs.play.feature.delivery)
         // ML Kit's own half of running from an on-demand module. It has to be
         // in the base: it is what lets the ML Kit context that started with
@@ -1216,6 +1307,11 @@ dependencies {
     // it adds a manifest entry, so it must never reach a release build.
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 }
+
+// The transliteration tests call the Rust text engines through JNI, so the
+// library has to exist for this machine before the suite starts. The task is
+// :core:language's, where the facades live; see the comment on it there.
+tasks.withType<Test>().configureEach { dependsOn(":core:language:buildHostEngine") }
 
 // `-Pwmkb.skipBenchmarks` drops the wall-clock benchmarks from the run. They
 // assert against millisecond budgets measured on a quiet machine, so on a

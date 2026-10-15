@@ -9,7 +9,7 @@ import starlightImageZoom from 'starlight-image-zoom';
 import starlightLinksValidator from 'starlight-links-validator';
 import starlightThemeBlack from 'starlight-theme-black';
 
-import { SECTIONS, SITE_DESCRIPTION, SITE_TITLE, SITE_URL } from './src/site.mjs';
+import { SECTIONS, SITE_DESCRIPTION, SITE_TITLE, SITE_URL, SOCIALS } from './src/site.mjs';
 import { crawlWeight, isNoindex } from './src/lib/robots.mjs';
 import { lastModifiedForDoc, lastModifiedForPage } from './src/lib/last-modified.mjs';
 
@@ -104,6 +104,7 @@ export default defineConfig({
 			favicon: '/favicon.png',
 			social: [
 				{ icon: 'github', label: 'GitHub', href: 'https://github.com/wasi-master/wmkeyboard' },
+				...SOCIALS.map(({ icon, label, href }) => ({ icon, label, href })),
 			],
 			editLink: {
 				// TODO: point at the real repo/branch once the docs land.
@@ -130,12 +131,17 @@ export default defineConfig({
 			// One group per SECTIONS entry (src/site.mjs), which is also what the
 			// SEO layer reads to name a page's section. The labels used to live
 			// here as well, so renaming a group renamed it in the sidebar only.
-			sidebar: SECTIONS.map(({ label, directory, badge, collapsed }) => ({
-				label,
-				...(badge ? { badge } : {}),
-				...(collapsed ? { collapsed: true } : {}),
-				items: [{ autogenerate: { directory, ...(collapsed ? { collapsed: true } : {}) } }],
-			}))
+			sidebar: [
+				...SECTIONS.map(({ label, directory, badge, collapsed }) => ({
+					label,
+					...(badge ? { badge } : {}),
+					...(collapsed ? { collapsed: true } : {}),
+					items: [{ autogenerate: { directory, ...(collapsed ? { collapsed: true } : {}) } }],
+				})),
+				// A page for people writing about the app rather than using it, so it
+				// sits under the sections instead of inside one of them.
+				{ label: 'Media kit', link: '/media-kit/' },
+			],
 		}),
 		sitemap({
 			// Anything a crawler is told not to index has no business being

@@ -61,6 +61,23 @@ android {
     lint { lintConfig = rootProject.file("config/lint/lint.xml") }
 }
 
+// Play builds leave src/main/jniLibs (whisper.cpp and ExecuTorch) and
+// src/full/jniLibs (Whistle) out of this module, so out of the base APK:
+// the on-demand :feature:speech split packages the same directories
+// instead. The files stay here because the native build scripts and
+// F-Droid's recipe write and scan exactly these paths.
+//
+// Through the new DSL's extension type, not the `android` accessor's
+// `sourceSets`: under AGP 9 that one is typed as the old API's
+// AndroidLibrarySourceSet, and the container's objects fail the cast at
+// configuration time.
+if (playStoreChannel) {
+    extensions.getByType<com.android.build.api.dsl.LibraryExtension>().sourceSets.apply {
+        getByName("main").jniLibs.setSrcDirs(emptyList<String>())
+        getByName("full").jniLibs.setSrcDirs(emptyList<String>())
+    }
+}
+
 androidComponents {
     onVariants { variant ->
         // Static-source-dir mechanism rather than a flavour folder for the
@@ -93,6 +110,7 @@ dependencies {
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
     implementation(libs.androidx.compose.material.icons)
+    testImplementation(libs.junit)
     if (!playStoreChannel) {
         "fullImplementation"(libs.litert)
     }

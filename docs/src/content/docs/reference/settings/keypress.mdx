@@ -66,7 +66,7 @@ Two of the per-event rows are odd ones out. **Click on key repeat** has nothing 
 | A pack per layout *(Sound pack only, with 2+ layouts enabled and a pack installed)* | List of layouts | Any installed pack, or "Same as the pack above" | Every layout follows the selected pack |
 | Sound volume | Slider | 5%–100% | 50% |
 
-Seven chips, not six. Click and Standard come from the device's own system sound pack; Pop, Thock and Chime are synthesized in-app and sound identical on every device. The last two both name something you've installed rather than a fixed waveform, so each reveals its own list when you pick it — and each also selects the first thing in that list as you tap the chip, so the keyboard changes sound straight away rather than clicking until you make a second choice. With nothing installed yet, the chip still selects: the list it reveals is where you install one.
+Seven chips, not six. Click and Standard come from the device's own system sound pack; Pop, Thock and Chime are synthesized in-app and sound identical on every device. The last two both name something you've installed rather than a fixed waveform, so each reveals its own list when you pick it. Each also selects the first thing in that list as you tap the chip, so the keyboard changes sound straight away rather than clicking until you make a second choice. With nothing installed yet, the chip still selects: the list it reveals is where you install one.
 
 Choosing **Custom** reveals your installed sound library and an **Import a sound file (.mp3)** button, and the label undersells it, since it also accepts `.ogg` and `.wav` files. The library holds up to 30 sounds between imports and installed sound addons.
 
@@ -76,7 +76,7 @@ Below that, with two or more layouts enabled, **A pack per layout** lists your l
 
 Installing a [Sound addon](/addons/overview/) highlights this **Sound style** row and offers to switch to it right after install, the same "Use it now?" flow other addon types use (see [Installing addons](/addons/installing/)).
 
-A theme can carry a key sound of its own, and where it does, it wins over everything on this row — that's the theme being the theme, the same way it wins on colours. It only wins with a sound it can actually make, though: a theme naming a sound or pack this device doesn't have falls back to whatever is picked here. See [Font and sound](/themes/editor/#font-and-sound).
+A theme can carry a key sound of its own, and where it does, it wins over everything on this row, the same way it wins on colours. It only wins with a sound it can make, though: a theme naming a sound or pack this device doesn't have falls back to whatever is picked here. See [Font and sound](/themes/editor/#font-and-sound).
 
 ### Key popup
 
@@ -124,10 +124,13 @@ A theme can carry a key sound of its own, and where it does, it wins over everyt
 | Word delete distance | Slider, 32–120 dp | 72 dp | Swipe deletes = Words |
 | Character delete distance | Slider, 8–48 dp | 20 dp | Swipe deletes = Characters |
 | Swipe on forward delete | Toggle | On | always |
+| Backspace as a key press on web pages | Toggle | On | always |
 
 A leftward drag on <KeyCap>⌫</KeyCap> deletes more than the one character a press does, and **Swipe deletes** sets what one step of it takes off. **Word delete distance** is how far you drag before the first word goes, with later words coming off faster on a fixed curve, so that one number tunes the whole gesture; **Character delete distance** is the flat cost of one character, with no curve. **Show what you will delete** makes the swipe select the text and delete it when you lift your finger, so a swipe that went too far can be dragged back.
 
 **Swipe on forward delete** gives <KeyCap>⌦</KeyCap> the same drag pointed the other way: rightward, over the text after the cursor. It has its own on/off switch and then borrows every other row above, so the two delete keys cannot end up tuned differently. No built-in layout carries a <KeyCap>⌦</KeyCap> key; add one in the [layout editor](/languages/custom-layouts/). Full writeup: [Gestures](/typing/gestures/#deleting-more-than-a-character-with-backspace). This group moved here from the [Typing](/reference/settings/typing/) screen: what a key does under a swipe is a key-press matter.
+
+**Backspace as a key press on web pages** sends <KeyCap>⌫</KeyCap> to a text box on a web page, in a browser or inside an app, the way a physical keyboard sends it instead of deleting the text directly. Code editors on a page, such as Violentmonkey's script editor, only delete when they see that key press and put back text deleted any other way. The browser then decides how much one press removes. A language set to delete whole conjuncts keeps the direct delete. Turn it off if backspace misbehaves on a site.
 
 ### Alternate keys
 
@@ -141,6 +144,7 @@ This group is about the press-and-hold popup, not the preview bubble above it. T
 | Alternate key spacing | Slider | 0–32 dp | 10 dp |
 | Alternate key columns | Stepper | Auto, then 3–11 | Auto |
 | Closest to the key first | Toggle | On / Off | Off |
+| Centre on the key | Toggle | On / Off | On |
 | Order of the alternates | Drag list | Layout's own / Accents / Capital | Layout's own, accents, capital |
 | Choose without lifting | Toggle | On / Off | On |
 
@@ -156,6 +160,10 @@ This one is the keyboard-wide default. A single key can carry a count of its own
 
 **Closest to the key first** decides which end of a multi-row popup the first alternate goes to. Off, the popup fills like lines of text: first alternate top left, and on a tall popup that's the corner furthest from your thumb. On, it fills from the key outward, so the first alternate sits on the row nearest your finger and the overflow climbs away. That's the AOSP behaviour, and it's the shorter reach on keys with long lists. On a one-row popup the two look identical.
 
+**Centre on the key** is on by default. Each row then puts its first alternate in the middle and the rest on both sides of it, nearest first: `1 2 3 4 5 6` lays out as `5 3 1 2 4 6`, with `1` over the key. So a slide left is as useful as a slide right. On a fixed column count, a short row centres on the same column as the full rows, so the column above the key always starts a row. A key near the edge of the screen has no room on one side, so its popup falls back to reading order running away from that edge. Off, every popup runs in reading order, all to one side of the first alternate. **Classic press-and-hold popup** under Accessibility turns centring off too.
+
+With **Choose without lifting** on, a slide steers the highlight from where your finger started, across and up alike. The first alternate is lit a row above your finger when the popup opens, and it stays that far above as you move, so sliding up one row's height reaches the next row without your thumb having to climb onto it and cover it.
+
 **Choose without lifting** is the popup's press-and-hold behaviour, and it's on out of the box. The first alternate is highlighted the moment the popup opens, sliding your finger moves the highlight, and letting go types whatever is highlighted. So a hold and a straight release gives you the first alternate, the way every stock keyboard works. Slide well clear of the popup before you let go and nothing is typed. Turn it off and the popup goes back to waiting: it stays open after you lift, and you tap the one you want. That's two steps, but each one is easier to aim, which is worth having if your hands aren't steady.
 
 ### Timing
@@ -168,6 +176,8 @@ This one is the keyboard-wide default. A single key can carry a count of its own
 | Time before a key repeats | Slider | 150–800 ms | 300 ms |
 | Delete repeat interval | Slider | 20–200 ms | 50 ms |
 | Holding delete clears words | Toggle | On / Off | Off |
+| Words stop at punctuation | Toggle (shown while a delete takes words) | On / Off | On |
+| Words stop at capitals | Toggle (shown while a delete takes words) | On / Off | Off |
 | Word delete interval | Slider | 60–500 ms (shown while the toggle above is on) | 140 ms |
 | Space repeat interval | Slider | 20–200 ms | 100 ms |
 | Repeating key interval | Slider | 20–200 ms | 50 ms |
@@ -177,9 +187,11 @@ This one is the keyboard-wide default. A single key can carry a count of its own
 
 The repeat interval is two sliders, because delete and space are held for opposite reasons. **Delete repeat interval** sets how fast a held <KeyCap>⌫</KeyCap> clears text, and faster is usually better. **Space repeat interval** does the same for a held <KeyCap>Space</KeyCap>. A runaway row of spaces has to be undone afterwards, so that one is worth setting slower, and it ships slower: delete at 50 ms, space at 100 ms.
 
-**Holding delete clears words** changes what the repeat takes: one whole word per tick instead of one letter, on <KeyCap>⌫</KeyCap> and <KeyCap>⌦</KeyCap> alike, each clearing the way its own key points. A single press is untouched and still deletes one character. Word clearing runs on **Word delete interval** rather than the letter one, and ships slower on purpose: at 50 ms a word a held key empties a paragraph before you can lift your finger. The words come off the way a delete swipe takes them, so the whitespace beside the cursor goes with the word beyond it. Both settings are off and hidden respectively out of the box; the swipe gestures are separate, under [Delete keys](#delete-keys) above.
+**Holding delete clears words** changes what the repeat takes: one whole word per tick instead of one letter, on <KeyCap>⌫</KeyCap> and <KeyCap>⌦</KeyCap> alike, each clearing the way its own key points. A single press is untouched and still deletes one character. Word clearing runs on **Word delete interval** rather than the letter one, and ships slower on purpose: at 50 ms a word a held key empties a paragraph before you can lift your finger. The words come off the way a delete swipe takes them, so the whitespace beside the cursor goes with the word beyond it. Both settings are off and hidden respectively out of the box; the swipe gestures are separate, under [Delete keys](#delete-keys) above. Once a held delete key has started to repeat, it stays a hold: a thumb that rolls sideways on the key no longer turns it into a swipe, which used to stop the delete with your finger still down.
 
-**Repeating key interval** is the third of those speeds, and it belongs to the keys you set to repeat yourself — a row of arrow keys is the usual one. It ships at delete's 50 ms, because an arrow key and a backspace are held for the same reason: keep going until the cursor is where you want it. Delete and space keep their own numbers, so changing this one leaves them alone.
+**Words stop at punctuation** and **Words stop at capitals** say what one word is, for the held delete key and for a backspace swipe set to words. With punctuation on, as it ships, `wmkeyboard.pages.dev` goes as `dev`, `.`, `pages` and so on; off, all of it goes in one step, up to the last space. With capitals on, `GrapheneOS` goes as `OS` and then `Graphene`. The word cursor tools have their own setting for this, under [Where a word ends](/tools/text-editing/#where-a-word-ends).
+
+**Repeating key interval** is the third of those speeds, and it belongs to the keys you set to repeat yourself, and a row of arrow keys is the usual one. It ships at delete's 50 ms, because an arrow key and a backspace are held for the same reason: keep going until the cursor is where you want it. Delete and space keep their own numbers, so changing this one leaves them alone.
 
 **Caps lock double press** is the window for two <KeyCap>Shift</KeyCap> taps to lock caps. It only matters on the way into caps lock. A single tap while Shift or Caps Lock is already on always turns it off, whatever the timing.
 
@@ -198,7 +210,7 @@ The repeat interval is two sliders, because delete and space are held for opposi
 | Currency keys | Free-text field, space-separated | Any characters | ৳ € £ ¥ ₹ ₿ |
 | Ctrl shortcuts as raw key events | Toggle | On / Off | Off |
 | Hold shortcuts | Filter chips, any number | Select all, Copy, Cut, Paste, Undo, Redo | All six on |
-| Action first *(shown once at least one hold shortcut is on)* | Toggle | On / Off | Off |
+| Action position *(shown once at least one hold shortcut is on)* | Stepper | First, After 1 to 7 characters, Last | Last |
 | Slide from 🌐 for shortcuts | Toggle | On / Off | Off |
 | Shortcut keys *(shown once a hold shortcut or the 🌐 slide is on)* | Nav row → dialog | one letter per action | a c v x z y |
 
@@ -210,7 +222,7 @@ The repeat interval is two sliders, because delete and space are held for opposi
 
 **All accents on press and hold** adds the complete accent set to every Latin letter's popup, on top of whatever the layout already lists. Letters only.
 
-**Your language's letters first** is on out of the box. Most letter keys open their popup with a number or symbol (7 on <KeyCap>u</KeyCap>, @ on <KeyCap>a</KeyCap>), and this moves the letters of the language you're typing in front of it. On German, a hold on <KeyCap>u</KeyCap> types ü, <KeyCap>o</KeyCap> gives ö, <KeyCap>a</KeyCap> gives ä and <KeyCap>s</KeyCap> gives ß, and those are the corner hints too. The number stays in the popup, right behind them. Which letters count comes from each language's standard alphabet, so an accent your language doesn't use stays where it was, and English, which has no accented letters, doesn't change at all. It follows the active language, and works with **All accents on press and hold** too. Turn it off to get the number first again.
+**Your language's letters first** is on out of the box. Most letter keys open their popup with a number or symbol (7 on <KeyCap>u</KeyCap>, @ on <KeyCap>a</KeyCap>), and this moves the letters of the language you're typing in front of it. On German, a hold on <KeyCap>u</KeyCap> types ü, <KeyCap>o</KeyCap> gives ö, <KeyCap>a</KeyCap> gives ä and <KeyCap>s</KeyCap> gives ß, and those are the corner hints too. The number stays in the popup, right behind them. Which letters count comes from each language's standard alphabet, so an accent your language doesn't use stays where it was, and English, which has no accented letters, doesn't change at all. It follows the active language, and works with **All accents on press and hold** too. A key whose popup you wrote yourself in the layout editor, or any key of a layout you made or imported, keeps the order you wrote: put the number first there and it stays first. Turn it off to get the number first again everywhere.
 
 **Shifted letter on press and hold** adds the character each key types under Shift to the end of its popup. In Latin scripts that's the capital. In scripts without capitals, like Arabic, Persian or Devanagari, it's the second letter or mark printed on the key, so you can skip Shift for it. Layouts that keep their shifted keys on a page of their own, which is most [Keyman layouts](/languages/keyman/), get them from that page. A key that already lists it keeps the one the layout wrote. It also pairs with the [drag off ?123 or ABC](/typing/gestures/#dragging-from-123-or-abc), where the Shift key is on the layer your finger has left.
 
@@ -224,17 +236,17 @@ The repeat interval is two sliders, because delete and space are held for opposi
 
 **Hold shortcuts** is one row of six chips, all on by default: Select all, Copy, Cut, Paste, Undo and Redo. Each one goes into that letter's press-and-hold popup, after the accents the key already has, so holding C still offers `çć` and copy sits at the end of the row. Copy and cut both fall back to select-all when nothing is selected, so one hold copies or cuts the whole field. Turn a chip off and only its own entry goes.
 
-**Action first** sits next to Hold shortcuts and starts off. Off, holding a shortcut letter still opens on its first accent, the same as a letter with no shortcuts. Copy or cut still sits at the end of that popup. Turn it on and the shortcut moves to the front instead, so a plain hold on <KeyCap>C</KeyCap> runs Copy right away. Keep your finger down and slide on to reach `çć` instead of releasing. It needs **Choose without lifting**, under Alternate keys, turned on, since a popup that just sits open has nothing to run on release.
+**Action position** sits next to Hold shortcuts and says where the shortcut goes in its key's popup. It starts at **Last**: holding a shortcut letter still opens on its first accent, the same as a letter with no shortcuts, and Copy or Cut sits at the end. **After 1 character** (up to 7) moves the shortcut in among the accents. A plain hold on <KeyCap>C</KeyCap> still types `ç`, the accent the corner hint shows, and Copy is the next entry, a short slide away instead of past every accent. **First** moves it to the front, so a plain hold on <KeyCap>C</KeyCap> runs Copy right away; keep your finger down and slide on to reach `çć` instead of releasing. A place past all of a key's accents puts the shortcut last on that key. A key whose layout places its own actions (**Where the actions go** in the [key edit sheet](/reference/settings/keymaps/#the-key-edit-sheet)) keeps that place. Anything but Last needs **Choose without lifting**, under Alternate keys, turned on, since a popup that just sits open has nothing to run on release. If you had the old **Action first** switch on, it carries over as First.
 
 **Slide from 🌐 for shortcuts** is off by default. On, pressing 🌐 and sliding onto one of the six shortcut keys runs that key's action when you lift, whether or not its hold shortcut is on. See [Switching languages](/languages/switching/#sliding-from--onto-a-shortcut).
 
-**Shortcut keys** is one row for all six bindings rather than six rows, and it appears whenever at least one of them, or the 🌐 slide, is on. The shipped `a c v x z y` is a QWERTY answer, so a layout without those letters (Bangla, Russian) needs the whole set moved onto keys it actually draws. The row's subtitle lists the keys currently bound. Tap it to open a dialog with one field per switched-on action, saved in one go.
+**Shortcut keys** is one row for all six bindings rather than six rows, and it appears whenever at least one of them, or the 🌐 slide, is on. The shipped `a c v x z y` is a QWERTY answer, so a layout without those letters (Bangla, Russian) needs the whole set moved onto keys it draws. The row's subtitle lists the keys currently bound. Tap it to open a dialog with one field per switched-on action, saved in one go.
 
 ## Details & edge cases
 
 - **The five per-event toggles fold away rather than grey out.** With Key press haptics off, Vibrate on space, Vibrate on delete swipe, Vibrate on key repeat, Follow the system touch feedback setting and Mute haptics in Do Not Disturb all leave the screen. Click on key repeat follows Key sound instead, not Key press haptics, so it disappears only when Key sound is off.
 - **Press and hold delay lives here only.** The Timing slider runs 100–800 ms and the stored value takes the whole range. Accessibility → Touch shows the current value and links back to this screen.
-- **A few rows on this screen aren't reachable from in-app settings search.** Haptic style, Click on key repeat, Follow the system touch feedback setting, Sound style, Key release sound, Time before a key repeats and Shortcut keys are all real, rendered rows here. They're just missing from the search index. Everything else is indexed, Key sound, Sound volume, Maximum popup duration, Popup shape, Popup corner radius and Press and hold ?123 among them.
+- **A few rows on this screen aren't reachable from in-app settings search.** Haptic style, Click on key repeat, Follow the system touch feedback setting, Sound style, Key release sound, Time before a key repeats and Shortcut keys are all real, rendered rows here. They're missing from the search index. Everything else is indexed, Key sound, Sound volume, Maximum popup duration, Popup shape, Popup corner radius and Press and hold ?123 among them.
 - **Most rows here grow a restore button once you move them, but four never do.** Change a toggle, a slider or the Shortcut keys row and a small restore control appears beside it, putting just that setting back. The two chip rows (Haptic style, Sound style), the Popup shape picker and the Currency keys field are hand-built controls with no restore of their own. Clearing Currency keys back to blank is how you get its built-in set again. See [Putting one setting back](/reference/settings/#putting-one-setting-back).
 - **The "Sound & haptics" toolbar tool isn't a separate settings surface.** Its page carries the Key sound switch, plus a nav row into the Haptics and sound page, so a change on either surface writes to the same settings. See [Sound & vibration](/typing/feedback/#a-toolbar-shortcut).
 - **Currency keys shows the built-in default even though the stored value is empty.** The field only starts writing your own list once you edit it. Clear it back to blank and you get the same default again, not an empty popup.

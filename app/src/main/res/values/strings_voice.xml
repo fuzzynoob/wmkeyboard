@@ -5,17 +5,32 @@
   Voice typing tool page; the tool page now holds one row that opens this, the
   same shape the Emoji tool has.
 -->
-<resources>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
 
+    <!-- The switch at the top of the screen. Off hides every other row on it. -->
+    <string name="voice_enabled_title">Use voice typing</string>
+    <string name="voice_enabled_subtitle">Off removes the microphone from the whole keyboard</string>
+    <string name="voice_enabled_info">When this is off, the keyboard never opens the microphone. The Voice tool goes from the toolbar, the toolbox and the shortcuts, the boxes of the keyboard itself lose their microphone button, and the collapsed bar does not show. The recognition engines and the Whisper models are not loaded, so voice typing uses no memory. Your voice settings stay as they are for when you turn it on again.</string>
     <string name="voice_engine_group">Engine</string>
     <string name="voice_engine_title">Recognition engine</string>
     <string name="voice_engine_subtitle">How the keyboard turns speech into text</string>
-    <string name="voice_engine_info">The system recognizer is fast and shows the words while you speak, but it depends on the operating system and its languages. Offline Whisper runs fully on your device across many languages and sends no audio anywhere. It transcribes each phrase after you stop speaking. A transcription server does the same work on a computer you choose, so your phone spends less battery. The recording of each phrase goes to that server and nowhere else.</string>
+    <string name="voice_engine_info">The system recognizer is fast and shows the words while you speak, but it depends on the operating system and its languages. Offline Whisper runs fully on your device across many languages and sends no audio anywhere. It transcribes each phrase after you stop speaking. Offline Whistle works the same way with one small, fast model for seven languages: English, German, French, Spanish, Italian, Dutch and Polish. Offline Asr4All is English only, and writes the words while you speak, on your device. Offline Parakeet transcribes 25 European languages and works out which one you speak. Offline Moonshine is a small, quick model for English. A transcription server does the same work on a computer you choose, so your phone spends less battery. The recording of each phrase goes to that server and nowhere else.</string>
     <string name="voice_engine_system">System recognizer</string>
     <string name="voice_engine_whisper">Offline Whisper</string>
     <!-- One line under each option in the recognition engine picker. -->
     <string name="voice_engine_system_desc">Fast, and it shows the words while you speak. It depends on your device and its languages</string>
     <string name="voice_engine_whisper_desc">Runs on your device and sends no audio anywhere. Each phrase arrives after you stop</string>
+    <!-- Whistle is the model's name and is not translated. -->
+    <string name="voice_engine_whistle">Offline Whistle</string>
+    <string name="voice_engine_whistle_desc">One fast 17 MB model on your device for English, German, French, Spanish, Italian, Dutch and Polish. Other languages use the system recognizer</string>
+    <!-- Asr4All is the model's name and is not translated. -->
+    <string name="voice_engine_asr4all">Offline Asr4All</string>
+    <string name="voice_engine_asr4all_desc">English only, on your device. It writes the words while you speak, with punctuation and capitals. Other languages use the system recognizer</string>
+    <!-- Parakeet and Moonshine are model names and are not translated. -->
+    <string name="voice_engine_parakeet">Offline Parakeet</string>
+    <string name="voice_engine_parakeet_desc">25 European languages on your device, told apart by the model. A large model for recent phones. Each phrase arrives after you stop</string>
+    <string name="voice_engine_moonshine">Offline Moonshine</string>
+    <string name="voice_engine_moonshine_desc">A small, quick English model on your device. Each phrase arrives after you stop. Other languages use the system recognizer</string>
     <string name="voice_engine_server">Transcription server</string>
     <string name="voice_engine_server_desc">Sends each phrase to a server you run, which saves battery. Each phrase arrives after you stop</string>
     <string name="voice_dictation_group">Dictation</string>
@@ -31,7 +46,7 @@
     <string name="voice_ui_bar_desc">A small pill that you can drag anywhere. The keyboard stays hidden</string>
     <string name="voice_typing_title">Voice typing mode</string>
     <string name="voice_typing_subtitle">How voice typing and the keys share the field</string>
-    <string name="voice_typing_info">One block at a time is the usual way. The words appear in the field while you speak, and the first key press stops the microphone.\n\nType while you speak keeps the microphone open. Each phrase goes into the field when you stop for breath, so the keys, the layouts and the suggestion strip stay live all through the session. Use it with the compact bar over the keys. This mode always keeps listening.\n\nPlain text works the same way, but it adds no punctuation and no spaces. You control all of them from the keyboard. Use it for code, for terminals and for any field where you want only the words you said.</string>
+    <string name="voice_typing_info">One block at a time is the usual way. The words appear in the field while you speak, and the first key press stops the microphone.\n\nType while you speak keeps the microphone open. Each phrase goes into the field when you stop for breath, so the keys, the layouts and the suggestion strip stay live all through the session. Use it with the compact bar over the keys. This mode always keeps listening.\n\nPlain text works the same way, but it adds no punctuation and no spaces. You control all of them from the keyboard. Use it for code, for terminals and for any field where you want only the words you said.\n\nThe two type-while-you-speak modes need the keys on screen, so they are offered only when the voice typing view is the compact bar over the keys. Plain text also needs the system recognizer: the offline models and a transcription server add their own punctuation.</string>
     <string name="voice_typing_block">One block at a time</string>
     <string name="voice_typing_interactive">Type while you speak</string>
     <string name="voice_typing_plain">Type while you speak, plain text</string>
@@ -43,7 +58,7 @@
     <string name="voice_continuous_subtitle">Start the next sentence automatically after each one goes into the field</string>
     <string name="voice_silence_stop_title">Stop after a pause</string>
     <string name="voice_silence_stop_subtitle">End a Whisper or server clip by itself when you stop talking</string>
-    <string name="voice_silence_stop_info">Offline Whisper and the transcription server record a whole clip, so the microphone stays open until you press it or the 30 second clip fills. Set a pause here and the clip ends by itself once you have said something and then gone quiet for that long. With Keep listening off, that also ends dictation, so you never have to reach for the microphone. The system recognizer stops after a pause of its own and ignores this. Off by default.</string>
+    <string name="voice_silence_stop_info">Offline Whisper and the transcription server record a whole clip, so the microphone stays open until you press it or the clip fills: 30 seconds, or two minutes for a whisper.cpp model. Set a pause here and the clip ends by itself once you have said something and then gone quiet for that long. With Keep listening off, that also ends dictation, so you never have to reach for the microphone. The system recognizer stops after a pause of its own and ignores this. Off by default.</string>
     <!-- Slider readout when the pause is set to zero. -->
     <string name="voice_silence_stop_off">Off</string>
     <!-- Slider readout: a pause length in seconds, e.g. "1.5 s". -->
@@ -77,7 +92,7 @@
     <string name="voice_bias_group">Words to listen for</string>
     <string name="voice_bias_personal_title">Listen for my words</string>
     <string name="voice_bias_personal_subtitle">Names and other words from your dictionary, so they are spelled your way</string>
-    <string name="voice_bias_personal_info">Each time you dictate, the keyboard sends a list of your own words with it: the words you added by hand, the words in Android\'s personal dictionary, and the words the keyboard learned from your typing that are not in any word list, such as names. The system engine also gets permission to use what it knows about your phone, such as your contacts. The list goes to the engine that listens to your voice, and nowhere else. The system engine uses it on Android 13 and later, if the engine supports it. A transcription server gets it as part of its prompt. Offline Whisper cannot use a list, so this setting does not show for it.</string>
+    <string name="voice_bias_personal_info">Each time you dictate, the keyboard sends a list of your own words with it: the words you added by hand, the words in Android\'s personal dictionary, and the words the keyboard learned from your typing that are not in any word list, such as names. The system engine also gets permission to use what it knows about your phone, such as your contacts. The list goes to the engine that listens to your voice, and nowhere else. The system engine uses it on Android 13 and later, if the engine supports it. A transcription server gets it as part of its prompt, Offline Whistle as words to favour, and the whisper.cpp models of Offline Whisper as their prompt. The older LiteRT models of Offline Whisper cannot use a list.</string>
     <string name="voice_bias_words_label">More words to listen for</string>
     <string name="voice_bias_words_hint">Optional. Separate them with commas. These go first, before the words from your dictionary</string>
     <!-- A model or a whole other server for one language (#389). -->
@@ -103,8 +118,33 @@
     <string name="voice_system_info">Recognition uses the speech recognizer of your device. On Android 12 and later it runs on your device when the language model is installed. If it is not, the audio goes to the recognizer service while you speak. Press and hold the microphone to speak in walkie-talkie style. It stops when you let go.</string>
 
     <!-- The line between a tap and a walkie-talkie hold. -->
+    <string name="voice_strip_language_title">Language button on the compact bar</string>
+    <string name="voice_strip_language_subtitle">Pick the voice typing language without leaving the bar</string>
+    <string name="voice_strip_language_info">Adds a small button with the language code, such as EN, to the compact bar over the keys. Tap it to choose which language voice typing listens for: the keyboard\'s language, one language whatever the keyboard is set to, or all your keyboard languages at once. It is the same choice as the button on the full voice panel.\n\nThis setting is off by default, because the bar has room for one line. The button shows only when you have more than one keyboard language, or a language already chosen.</string>
     <string name="voice_pause_media_title">Pause media during voice typing</string>
     <string name="voice_pause_media_subtitle">Pause music and video while the microphone listens</string>
+    <string name="voice_mic_title">Microphone</string>
+    <string name="voice_mic_subtitle">Prefer a Bluetooth, wired or USB microphone when one is connected</string>
+    <string name="voice_mic_info">Which microphone voice typing listens through. Automatic uses the one Android picks, which is a plugged-in headset before the phone. Pick a kind to prefer it whenever one is connected. When it is not connected, voice typing uses the automatic choice.\n\nOffline Whisper and the transcription server can use every kind. The system recognizer records the audio itself, so for it only Bluetooth has an effect.\n\nThe microphone button on the voice panel and both voice bars shows the microphone in use. Tap it to switch to the next one that is connected.</string>
+    <string name="voice_mic_auto">Automatic</string>
+    <string name="voice_mic_phone">Phone microphone</string>
+    <string name="voice_mic_wired">Wired headset</string>
+    <string name="voice_mic_usb">USB microphone</string>
+    <string name="voice_mic_bluetooth">Bluetooth headset</string>
+    <string name="voice_mic_switch_title">Microphone switch</string>
+    <string name="voice_mic_switch_subtitle">Pick the microphone, and switch it from the voice panel</string>
+    <string name="voice_mic_switch_info">On, you can choose a microphone below, and a button on the voice panel and both voice bars shows the microphone in use and switches to the next one that is connected.\n\nOff, voice typing always listens through the microphone Android picks. The keyboard does not move the audio to a headset, and the button is gone.</string>
+    <string name="voice_system_on_device_title">Prefer on-device recognition</string>
+    <string name="voice_system_on_device_subtitle">Use the speech model on your phone when it has one for the language</string>
+    <string name="voice_system_on_device_info">On Android 12 and later the system recognizer can run on your phone when the language model is installed. If the model on the phone hears nothing at all, the keyboard switches that language to the recognizer service until the keyboard restarts.\n\nTurn this off to always use the recognizer service. That service can send the audio over the internet while you speak.</string>
+    <string name="voice_engine_languages_title">Engine for each language</string>
+    <string name="voice_engine_languages_subtitle">Pick an engine and a model for each of your languages</string>
+    <string name="voice_engine_languages_info">Each language can use its own engine. For example, English can use the system recognizer and Bangla an Offline Whisper model. A language set to the default uses the recognition engine above.\n\nOnly the models on your phone are listed. Download more on the page of each engine.</string>
+    <string name="voice_engine_languages_default">Default (%1$s)</string>
+    <string name="voice_engine_languages_dialog_title">Engine for %1$s</string>
+    <string name="voice_engine_picker_title">Change engine from the voice tool</string>
+    <string name="voice_engine_picker_subtitle">A chip on the voice panel picks the engine and model for the language you dictate in</string>
+    <string name="voice_engine_picker_info">Shows a chip in the bottom left corner of the voice panel. It names the engine that the language you dictate in uses. Tap it to pick another engine or model for that language. Only the models on your phone are listed. The pick is the same as the one under Engine for each language.</string>
     <string name="voice_pause_media_info">When voice typing starts, the keyboard asks other apps to pause their sound. Music, podcasts and video stop while the microphone listens. They continue a moment after voice typing stops. An app that ignores the request continues to play.</string>
     <!-- #499: each dictated phrase is cleaned up by the model of the AI tool. -->
     <string name="voice_ai_tidy_title">Tidy dictation with AI</string>
@@ -124,4 +164,34 @@
     <string name="voice_languages_keyboard_group">Your keyboard languages</string>
     <string name="voice_languages_other_group">Other languages</string>
     <string name="voice_languages_dialog_body">Following the keyboard, dictation listens for the language of the layout you are typing on. Tick one language to keep dictation in it whatever the layout. Tick several to speak any of them. The system recognizer tells them apart on Android 14 and later, where the recognizer supports it. Offline Whisper and the transcription server work out the language themselves, so give Whisper a model that covers all of them. Elsewhere the first language is the one heard: the keyboard\'s language when it is ticked.</string>
+
+    <!-- ================================================================== -->
+    <!-- The Offline Whistle model (#548). Whistle and Cactus are names.     -->
+    <!-- ================================================================== -->
+    <string name="voice_whistle_group">Whistle model</string>
+    <string name="voice_whistle_model_title">Cactus Whistle</string>
+    <string name="voice_whistle_model_info">Whistle is a speech recognition model by Cactus Compute that runs on this phone. It covers English, German, French, Spanish, Italian, Dutch and Polish, and it is small and quick enough that a phrase is usually typed a moment after you stop. While a layout in another language is in use, dictation uses the system recognizer instead. The model comes from Hugging Face once, and after that no audio leaves the phone.</string>
+    <!-- %1$s is the download size, for example "16.9 MB". -->
+    <string name="voice_whistle_model_missing">Not downloaded · %1$s</string>
+    <string name="voice_whistle_model_ready">Ready. No audio leaves your phone</string>
+
+    <!-- ================================================================== -->
+    <!-- The Offline Asr4All models (#289). Asr4All is a name.              -->
+    <!-- ================================================================== -->
+    <string name="voice_asr4all_group">Asr4All models</string>
+    <string name="voice_asr4all_model_info">Asr4All is an English speech recognition model that runs on this phone and listens as you speak: the words appear while you talk, and a second pass adds punctuation and capitals. Of the sizes you download, the largest is used. Small is quickest, Large the most accurate. While a layout in another language is in use, dictation uses the system recognizer instead. The models come from Hugging Face once, under their own licence, which allows dictation; after that no audio leaves the phone.</string>
+
+    <!-- ================================================================== -->
+    <!-- The Offline Parakeet and Moonshine models. Names are not translated. -->
+    <!-- ================================================================== -->
+    <string name="voice_parakeet_group">Parakeet model</string>
+    <string name="voice_parakeet_model_info">Parakeet TDT is a speech recognition model by NVIDIA that runs on this phone. It transcribes 25 European languages, among them English, German, French, Spanish, Italian, Portuguese, Polish, Dutch, Ukrainian and Russian, and it works out which one you speak. It is a large model, so it suits a recent phone with plenty of memory. A phrase is transcribed once you stop, and can run to 50 seconds. While a layout in another language is in use, dictation uses the system recognizer instead. The model comes from Hugging Face once, and after that no audio leaves the phone.</string>
+    <string name="voice_moonshine_group">Moonshine model</string>
+    <string name="voice_moonshine_model_info">Moonshine Tiny is a small English speech recognition model that runs on this phone. It is made for short phrases on small devices: it reads only as much audio as you said, so a short phrase is quick. A phrase is transcribed once you stop, and can run to 30 seconds. While a layout in another language is in use, dictation uses the system recognizer instead. The model comes from Hugging Face once, and after that no audio leaves the phone.</string>
+
+    <!-- Lines under each downloadable model of the Asr4All, Parakeet and Moonshine engines. -->
+    <!-- %1$s is the download size, for example "38.6 MB". -->
+    <string name="voice_et_model_missing">Not downloaded · <xliff:g id="size" example="38.6 MB">%1$s</xliff:g></string>
+    <string name="voice_et_model_in_use">In use. No audio leaves your phone</string>
+    <string name="voice_et_model_kept">Downloaded. A larger one is in use</string>
 </resources>

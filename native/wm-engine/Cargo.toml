@@ -1,0 +1,20 @@
+[package]
+name = "wm-engine"
+version = "0.1.0"
+edition = "2021"
+publish = false
+license = "MIT"
+description = "WM Keyboard's text engines: one implementation for the Android app (through JNI) and for WMK Desktop"
+
+[lib]
+name = "wm_engine"
+
+# The crate is the engine only; platform bridges (JNI for Android, the desktop
+# daemon) are separate crates that depend on it. serde_json reads ibus-avro's
+# grammar files, which are compiled in from the app's assets.
+[dependencies]
+serde_json = "1"
+
+[profile.release]
+lto = true
+codegen-units = 1

@@ -9,6 +9,7 @@ import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyAlternate
 import com.wasimaster.wmkeyboard.core.layout.KeyLabelScaleRange
+import com.wasimaster.wmkeyboard.core.layout.InputMethodBinding
 import com.wasimaster.wmkeyboard.core.layout.KeymanBinding
 import com.wasimaster.wmkeyboard.core.layout.LayerSpec
 import com.wasimaster.wmkeyboard.core.layout.LayoutAppearance
@@ -262,6 +263,10 @@ object LayoutJsonSchema {
         take("LayoutAppearance", layoutJson.encodeToJsonElement(LayoutAppearance.serializer(), LayoutAppearance()))
         take("KeymanBinding", layoutJson.encodeToJsonElement(KeymanBinding.serializer(), KeymanBinding(keyboardId = "")))
         take(
+            "InputMethodBinding",
+            layoutJson.encodeToJsonElement(InputMethodBinding.serializer(), InputMethodBinding(id = "")),
+        )
+        take(
             "PanelLayoutSpec",
             layoutJson.encodeToJsonElement(PanelLayoutSpec.serializer(), PanelLayoutSpec(PanelKind.EMOJI, LayerSpec(emptyList()))),
         )
@@ -333,6 +338,11 @@ object LayoutJsonHints {
             "Key.icon" to PropertyHint(domain = JsonValueDomain.ICON),
             "Key.iconHint" to PropertyHint(domain = JsonValueDomain.ICON),
             "Key.actionAlternatesFirst" to PropertyHint(hidden = true),
+            // No ceiling: an index past the characters means "after them", which
+            // is a reading rather than an error.
+            "Key.actionAlternatesAt" to PropertyHint(
+                examples = listOf(JsonValueExample("0"), JsonValueExample("1"), JsonValueExample("2")),
+            ),
             "KeyAlternate.icon" to PropertyHint(domain = JsonValueDomain.ICON),
             "PanelLayoutSpec.version" to PropertyHint(
                 hidden = true,

@@ -66,6 +66,28 @@ class ConfigBackupTest {
     }
 
     @Test
+    fun `clock is the last section and encodes after notes`() {
+        // Sections encode in declaration order and older builds read bundles
+        // positionally, so a new section may only ever be appended.
+        assertEquals(ConfigBackup.Section.CLOCK, ConfigBackup.Section.entries.last())
+        val payload = buildJsonObject { put("a", JsonPrimitive(1)) }
+        val text = ConfigBackup.encode(
+            1,
+            "x",
+            linkedMapOf(
+                ConfigBackup.Section.CLOCK to payload,
+                ConfigBackup.Section.NOTES to payload,
+                ConfigBackup.Section.SWIPE to payload,
+            ),
+        )
+        assertTrue(text.indexOf("\"swipe\"") < text.indexOf("\"notes\""))
+        assertTrue(text.indexOf("\"notes\"") < text.indexOf("\"clock\""))
+        val parsed = requireNotNull(ConfigBackup.decode(text))
+        assertTrue(parsed.has(ConfigBackup.Section.NOTES))
+        assertTrue(parsed.has(ConfigBackup.Section.CLOCK))
+    }
+
+    @Test
     fun `something else entirely is not a bundle`() {
         assertNull(ConfigBackup.decode("not json at all"))
         assertNull(ConfigBackup.decode("{}"))

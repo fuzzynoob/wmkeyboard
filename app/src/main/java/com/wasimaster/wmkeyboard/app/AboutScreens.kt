@@ -1,6 +1,38 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.content.Intent
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
+import android.os.Build
+import androidx.annotation.DrawableRes
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
+import androidx.compose.material3.ripple
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import android.widget.Toast
 import androidx.annotation.StringRes
 import androidx.compose.foundation.horizontalScroll
@@ -13,6 +45,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import kotlinx.coroutines.launch
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -28,6 +62,8 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.voice.executorch.EtNative
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCatalog
 import com.wasimaster.wmkeyboard.app.updates.AllLanguagesRow
 import com.wasimaster.wmkeyboard.app.updates.KeepEnglishOnlyRow
 import com.wasimaster.wmkeyboard.app.updates.UpdateSettings
@@ -35,6 +71,10 @@ import com.wasimaster.wmkeyboard.app.updates.languageSwitchCanBeDropped
 import com.wasimaster.wmkeyboard.core.settings.OnboardingSettings
 import com.wasimaster.wmkeyboard.core.settings.PersonaDepth
 import com.wasimaster.wmkeyboard.core.settings.PersonaLanguages
+import com.wasimaster.wmkeyboard.core.settings.SettingLinkMode
+import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
+import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.isTelevision
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.support.Support
 import kotlinx.coroutines.Dispatchers
@@ -186,6 +226,15 @@ private val bundledAttributions: List<Attribution> = buildList {
     )
     add(
         Attribution(
+            "Lottie for Android",
+            R.string.about_bundled_lottie_used,
+            "Copyright Airbnb, Inc.",
+            "Apache-2.0", "apache-2.0.txt",
+            "https://github.com/airbnb/lottie-android",
+        ),
+    )
+    add(
+        Attribution(
             "ZXing",
             R.string.about_bundled_zxing_used,
             "Copyright ZXing authors",
@@ -293,15 +342,6 @@ private val bundledAttributions: List<Attribution> = buildList {
         )
         add(
             Attribution(
-                "OpenAI Whisper",
-                R.string.about_bundled_whisper_used,
-                "Copyright (c) 2022 OpenAI",
-                "MIT", "mit-whisper.txt",
-                "https://github.com/openai/whisper",
-            ),
-        )
-        add(
-            Attribution(
                 "whisper_android",
                 R.string.about_bundled_whisper_android_used,
                 "Copyright (c) 2023 Vilas Ninawe",
@@ -309,10 +349,88 @@ private val bundledAttributions: List<Attribution> = buildList {
                 "https://github.com/vilassn/whisper_android",
             ),
         )
+        // The other offline engine (#548), in the same builds.
+        add(
+            Attribution(
+                "Cactus Needle and Whistle",
+                R.string.about_bundled_whistle_used,
+                "Copyright Cactus Compute, Inc.",
+                "Apache-2.0", "apache-2.0.txt",
+                "https://huggingface.co/Cactus-Compute/whistle",
+            ),
+        )
+    }
+    // OpenAI's weights reach both runtimes: LiteRT's graphs in full builds,
+    // whisper.cpp's models in every edition that has its library (#440).
+    if (BuildConfig.ENABLE_WHISPER || WhisperCatalog.cppAvailable) {
+        add(
+            Attribution(
+                "OpenAI Whisper",
+                R.string.about_bundled_whisper_used,
+                "Copyright (c) 2022 OpenAI",
+                "MIT", "mit-whisper.txt",
+                "https://github.com/openai/whisper",
+            ),
+        )
+    }
+    if (WhisperCatalog.cppAvailable) {
+        // The runtime of Offline Whisper's ggml models (#440), and the
+        // quantized models it downloads, wherever its library is.
+        add(
+            Attribution(
+                "whisper.cpp and ggml",
+                R.string.about_bundled_whisper_cpp_used,
+                "Copyright (c) 2023-2026 The ggml authors",
+                "MIT", "mit-whisper-cpp.txt",
+                "https://github.com/ggml-org/whisper.cpp",
+            ),
+        )
+    }
+    if (EtNative.shipped) {
+        // Offline Asr4All (#289): the runtime built into the app, and the
+        // models it downloads, which carry their own restricted-use licence.
+        add(
+            Attribution(
+                "ExecuTorch",
+                R.string.about_bundled_executorch_used,
+                "Copyright (c) Meta Platforms, Inc. and affiliates",
+                "BSD-3-Clause", "bsd-executorch.txt",
+                "https://github.com/pytorch/executorch",
+            ),
+        )
+        add(
+            Attribution(
+                "Asr4All Model",
+                R.string.about_bundled_asr4all_used,
+                "Asr4All Model weights",
+                "Model Weights License (Restricted Use) 1.0", "asr4all-weights.txt",
+                "https://huggingface.co/futo-org/asr4all-s",
+            ),
+        )
+        // Offline Parakeet and Offline Moonshine, on the same runtime; their
+        // weights download on request.
+        add(
+            Attribution(
+                "NVIDIA Parakeet TDT 0.6B v3",
+                R.string.about_bundled_parakeet_used,
+                "Copyright NVIDIA Corporation",
+                "CC-BY-4.0", "cc-by-4.0-parakeet.txt",
+                "https://huggingface.co/nvidia/parakeet-tdt-0.6b-v3",
+            ),
+        )
+        add(
+            Attribution(
+                "Moonshine",
+                R.string.about_bundled_moonshine_used,
+                "Copyright (c) 2024 Useful Sensors",
+                "MIT", "mit-moonshine.txt",
+                "https://github.com/moonshine-ai/moonshine",
+            ),
+        )
     }
     add(
         Attribution(
-            "Unicode CLDR & emoji data",
+            "Unicode CLDR, emoji & Han data",
             R.string.about_bundled_unicode_used,
             "Copyright Unicode, Inc.",
             "Unicode License v3", "unicode-3.0.txt",
@@ -339,6 +457,17 @@ private val bundledAttributions: List<Attribution> = buildList {
             "Copyright the individual keyboard authors, listed in the licence",
             "MIT", "mit-keyman.txt",
             "https://github.com/keymanapp/keyboards",
+        ),
+    )
+    // The keysym names in XkbKeysyms.kt, generated from xorgproto's
+    // keysymdef.h, whose notice asks to travel with copies.
+    add(
+        Attribution(
+            "X11 keysym table",
+            R.string.about_bundled_keysyms_used,
+            "Copyright 1987, 1994, 1998 The Open Group; 1987 Digital Equipment Corporation",
+            "X11", "x11-keysymdef.txt",
+            "https://gitlab.freedesktop.org/xorg/proto/xorgproto",
         ),
     )
     // The layouts added for parity with FUTO Keyboard and FlorisBoard were
@@ -707,6 +836,7 @@ private fun AppLanguageSetting() {
 @Composable
 internal fun AboutSettings(
     settings: LiveSettings,
+    repository: SettingsRepository,
     persona: OnboardingSettings,
     onOpenLicenses: () -> Unit,
     onOpenLicenseText: (String) -> Unit,
@@ -718,6 +848,7 @@ internal fun AboutSettings(
 ) {
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val flavor = BuildConfig.FLAVOR_capabilities.replaceFirstChar { it.uppercase() }
     val channel = when {
         BuildConfig.ENABLE_PLAY_STORE -> " · Play Store"
@@ -765,6 +896,10 @@ internal fun AboutSettings(
     // settings (see LauncherName), and nothing else changes it while this
     // screen is open, so one read per visit is the truth.
     var shortName by remember { mutableStateOf(LauncherName.isShort(context)) }
+    var launcherShown by remember { mutableStateOf(LauncherName.isShown(context)) }
+    // A TV home screen lists only the television alias, which this never
+    // touches, so the switch would do nothing there.
+    val television = remember(context) { context.isTelevision() }
     // Read out here because the group's builder below is not composable.
     val canDropLanguageSwitch = !AppLanguage.canChoose && languageSwitchCanBeDropped()
 
@@ -829,6 +964,19 @@ internal fun AboutSettings(
                 onChange = {
                     shortName = it
                     LauncherName.setShort(context, it)
+                },
+            )
+        }
+        item(visible = !television) {
+            ToggleSetting(
+                R.string.about_launcher_shown_title,
+                stringResource(R.string.about_launcher_shown_subtitle),
+                checked = launcherShown,
+                info = stringResource(R.string.about_launcher_shown_info),
+                default = LauncherName.DEFAULT_SHOWN,
+                onChange = {
+                    launcherShown = it
+                    LauncherName.setShown(context, it)
                 },
             )
         }
@@ -926,6 +1074,14 @@ internal fun AboutSettings(
         }
     }
 
+    SettingsGroup(
+        stringResource(R.string.about_community_title),
+        info = stringResource(R.string.about_community_body),
+    ) {
+        item { TelegramRow { uriHandler.openUri(Support.TELEGRAM_URL) } }
+        item { SocialStrip() }
+    }
+
     SettingsGroup(stringResource(R.string.about_documentation_title)) {
         item {
             NavRow(
@@ -942,6 +1098,23 @@ internal fun AboutSettings(
             ) {
                 uriHandler.openUri(PRIVACY_POLICY_URL)
             }
+        }
+        item {
+            // A web link to one setting, from the setting itself (#646). The
+            // rows read the mode through LocalSettingLinks, so this row and
+            // its own heading change the moment it is picked.
+            ChoiceSetting(
+                R.string.about_setting_links_title,
+                subtitle = stringResource(R.string.about_setting_links_subtitle),
+                info = stringResource(R.string.about_setting_links_info),
+                options = listOf(
+                    SettingLinkMode.OFF to stringResource(CommonR.string.common_off),
+                    SettingLinkMode.HOLD to stringResource(R.string.about_setting_links_hold),
+                    SettingLinkMode.BUTTON to stringResource(R.string.about_setting_links_button),
+                ),
+                selected = settings.watch { it.appUi.settingLinks },
+                default = SettingsDefaults.appUi.settingLinks,
+            ) { scope.launch { repository.setSettingLinks(it) } }
         }
     }
 
@@ -1049,3 +1222,167 @@ internal fun LicenseTextScreen(assetName: String) {
         )
     }
 }
+
+/**
+ * One of the project's accounts, drawn as a brand tile in [SocialStrip].
+ * [name] and [handle] are proper nouns and stay in English.
+ */
+private data class SocialLink(
+    val name: String,
+    val handle: String,
+    val url: String,
+    @DrawableRes val glyph: Int,
+    /** The brand's own colour. Null for the black-and-white marks, which follow the theme. */
+    val brand: Color?,
+)
+
+private val socialLinks = listOf(
+    SocialLink("X", "@wmkeyboard", Support.X_URL, R.drawable.ic_brand_x, null),
+    SocialLink("Reddit", "r/wmkeyboard", Support.REDDIT_URL, R.drawable.ic_brand_reddit, Color(0xFFFF4500)),
+    SocialLink("Instagram", "@wmkeyboardapp", Support.INSTAGRAM_URL, R.drawable.ic_brand_instagram, Color(0xFFE4405F)),
+    SocialLink("TikTok", "@wmkeyboard", Support.TIKTOK_URL, R.drawable.ic_brand_tiktok, null),
+)
+
+private val TelegramBlue = Color(0xFF26A5E4)
+
+/**
+ * The Telegram group, as the community group's lead row: a solid Telegram tile
+ * where the house rows have a tinted one, so it reads as somewhere to go rather
+ * than a setting, and a Join pill that says what the tap does. The pill is
+ * drawn, not a second button: the whole row is the target, which keeps one
+ * touch target per row the way every other row works.
+ */
+@Composable
+private fun TelegramRow(onClick: () -> Unit) {
+    val title = stringResource(R.string.about_telegram_title)
+    WmRow(
+        title = title,
+        subtitle = stringResource(R.string.about_telegram_subtitle),
+        highlightKey = R.string.about_telegram_title,
+        leading = { BrandTile(R.drawable.ic_brand_telegram, TelegramBlue, size = WmIconTileSize) },
+        trailing = {
+            Surface(
+                shape = CircleShape,
+                color = TelegramBlue,
+                contentColor = Color.White,
+            ) {
+                Text(
+                    stringResource(R.string.about_telegram_join),
+                    style = MaterialTheme.typography.labelLarge,
+                    maxLines = 1,
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                )
+            }
+        },
+        onClick = onClick,
+    )
+}
+
+/**
+ * "Follow WM Keyboard" and a tile per account, shared across the row's width so
+ * four marks sit evenly on any phone. A tap opens the account (the platform's
+ * app takes the link when it is installed); a long press copies the link
+ * instead, for sharing it somewhere the app is not.
+ */
+@Composable
+private fun SocialStrip() {
+    val title = stringResource(R.string.about_follow_title)
+    HighlightableRow(title, R.string.about_follow_title) {
+        Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 14.dp, bottom = 12.dp)) {
+            Text(title, style = MaterialTheme.typography.bodyLarge)
+            Spacer(Modifier.height(2.dp))
+            Text(
+                stringResource(R.string.about_follow_subtitle),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(Modifier.height(12.dp))
+            Row(Modifier.fillMaxWidth()) {
+                socialLinks.forEach { link ->
+                    SocialTile(link, Modifier.weight(1f))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun SocialTile(link: SocialLink, modifier: Modifier = Modifier) {
+    val uriHandler = LocalUriHandler.current
+    val context = LocalContext.current
+    val haptics = LocalHapticFeedback.current
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val still = LocalReduceMotion.current
+    val scale by animateFloatAsState(
+        targetValue = if (pressed && !still) 0.9f else 1f,
+        animationSpec = spring(dampingRatio = Spring.DampingRatioMediumBouncy, stiffness = Spring.StiffnessMedium),
+        label = "socialTile",
+    )
+    val description = stringResource(R.string.about_social_cd, link.name, link.handle)
+    val copied = stringResource(R.string.about_link_copied)
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = modifier
+            .clip(RoundedCornerShape(16.dp))
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = ripple(),
+                onLongClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
+                    manager?.setPrimaryClip(ClipData.newPlainText(link.name, link.url))
+                    // Android 13+ confirms a copy itself; a toast on top would say it twice.
+                    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                        Toast.makeText(context, copied, Toast.LENGTH_SHORT).show()
+                    }
+                },
+                onClick = { uriHandler.openUri(link.url) },
+            )
+            .semantics(mergeDescendants = true) { contentDescription = description }
+            .padding(vertical = 8.dp),
+    ) {
+        BrandTile(
+            link.glyph,
+            link.brand ?: MaterialTheme.colorScheme.onSurface,
+            glyphColor = if (link.brand == null) MaterialTheme.colorScheme.surface else Color.White,
+            size = 52.dp,
+            modifier = Modifier.graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            },
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            link.name,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+/** A brand mark on a solid circle of its own colour. */
+@Composable
+private fun BrandTile(
+    @DrawableRes glyph: Int,
+    color: Color,
+    modifier: Modifier = Modifier,
+    glyphColor: Color = Color.White,
+    size: Dp,
+) {
+    Box(
+        modifier = modifier.size(size).clip(CircleShape).background(color),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            painterResource(glyph),
+            contentDescription = null,
+            tint = glyphColor,
+            modifier = Modifier.size(size * 0.5f),
+        )
+    }
+}
+

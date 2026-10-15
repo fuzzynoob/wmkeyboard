@@ -66,6 +66,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.FlexLanguagePack
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictPack
+import com.wasimaster.wmkeyboard.core.input.composer.CjkDictStore
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyin
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinProfile
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
@@ -73,6 +74,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.PinyinFuzzy
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
+import com.wasimaster.wmkeyboard.core.layout.InputMethodKind
 import com.wasimaster.wmkeyboard.core.layout.KeymanBinding
 import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.language
@@ -91,7 +93,6 @@ import com.wasimaster.wmkeyboard.core.script.LanguageSuggestions
 import com.wasimaster.wmkeyboard.core.script.NumeralSystem
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
-import com.wasimaster.wmkeyboard.core.script.isRomanized
 import com.wasimaster.wmkeyboard.core.script.SuggestedLanguage
 import com.wasimaster.wmkeyboard.core.script.SuggestionReason
 import com.wasimaster.wmkeyboard.core.script.resolveNumeralDigits
@@ -448,28 +449,48 @@ private fun conjunctSample(script: ScriptId): String? = when (script) {
     ScriptId.SOGDIAN, ScriptId.SORA_SOMPENG, ScriptId.SOYOMBO, ScriptId.SUNDANESE, ScriptId.SYLOTI_NAGRI, ScriptId.TAGALOG,
     ScriptId.TAGBANWA, ScriptId.TAI_THAM, ScriptId.TAI_VIET, ScriptId.TAKRI, ScriptId.TIRHUTA, ScriptId.TODHRI, ScriptId.TOTO,
     ScriptId.UGARITIC, ScriptId.VITHKUQI, ScriptId.YEZIDI, ScriptId.YI, ScriptId.ZANABAZAR_SQUARE, ScriptId.MUSIC, ScriptId.BRAILLE,
+    ScriptId.PIQAD,
     -> null
 }
 
 /**
- * What a language can download: its word list, its emoji keywords and its
- * n-gram pack, with a rough size for all three together. Any of them may be
- * missing — most languages have a word list, only 125 have keywords, and two
- * so far have an n-gram pack.
+ * What a language can download: its word list, its emoji keywords, its
+ * n-gram pack and the conversion packs its layouts type through, with a rough
+ * size for all of it together. Any of them may be missing — most languages
+ * have a word list, only 125 have keywords, two so far have an n-gram pack,
+ * and only Chinese, Cantonese and Japanese convert.
+ *
+ * [cjkPacks] is the one a language cannot do without: a word list makes typing
+ * better, but Pinyin with no pack never offers a single character.
  */
 internal data class LanguageData(
     val wordlist: DictionaryEntry?,
     val emojiDict: EmojiDictEntry?,
     val ngram: NgramPackEntry?,
     val bytes: Long,
+    val cjkPacks: List<CjkDictPack> = emptyList(),
 ) {
-    val isEmpty: Boolean get() = wordlist == null && emojiDict == null && ngram == null
+    val isEmpty: Boolean get() = wordlist == null && emojiDict == null && ngram == null && cjkPacks.isEmpty()
 
     /** Roughly what fetching all of it costs, with the word list at [size]. */
     fun approxBytes(size: DictionaryCatalog.DictionarySize): Long =
         (wordlist?.let { entryBytes(it, size) } ?: 0L) +
-            (emojiDict?.approxGzBytes ?: 0L) + (ngram?.approxGzBytes ?: 0L)
+            (emojiDict?.approxGzBytes ?: 0L) + (ngram?.approxGzBytes ?: 0L) +
+            cjkPacks.sumOf { it.sizeBytes }
 }
+
+/**
+ * The conversion packs [langId]'s own layouts need, one per table however many
+ * layouts share it (Pinyin, T9 and Zhuyin all read the pinyin pack), with what
+ * comes along with each (the pinyin word pairs). The Traditional phrase pack is
+ * an improvement nobody asked for yet, and stays a row on the language's page.
+ */
+internal fun requiredCjkPacks(langId: String): List<CjkDictPack> =
+    LanguageRegistry.byId(langId).layoutIds
+        .mapNotNull { id -> CjkDictCatalog.forComposer(resolveLayout(emptyList(), id).composerType()) }
+        .filter { it.available }
+        .flatMap { CjkDictCatalog.withCompanions(it) }
+        .distinctBy { it.id }
 
 /**
  * Roughly what [entry] transfers at [size]. The catalogue sizes the whole
@@ -484,7 +505,13 @@ internal fun languageData(langId: String): LanguageData {
     val wordlist = DictionaryCatalog.preferred(langId)
     val emojiDict = EmojiDictCatalog.forLanguage(langId)
     val ngram = NgramPackCatalog.forLanguage(langId)
-    val data = LanguageData(wordlist = wordlist, emojiDict = emojiDict, ngram = ngram, bytes = 0L)
+    val data = LanguageData(
+        wordlist = wordlist,
+        emojiDict = emojiDict,
+        ngram = ngram,
+        bytes = 0L,
+        cjkPacks = requiredCjkPacks(langId),
+    )
     return data.copy(bytes = data.approxBytes(AUTO_DOWNLOAD_SIZE))
 }
 
@@ -539,6 +566,15 @@ internal fun startLanguageDataDownload(
     // The n-gram pack has no per-language progress to follow — the manager
     // publishes completions and nothing else — so it downloads unannounced.
     data.ngram?.let { NgramPackDownloadManager.start(filesDir, it.languageId) }
+    // Only the packs not already here: one on disk would otherwise come up in
+    // the shade as a download that finished before it started.
+    val packs = data.cjkPacks.filterNot { CjkDictStore.isDownloaded(filesDir, it) }
+    if (packs.isNotEmpty()) {
+        CjkDictDownloadManager.startAll(filesDir, packs)
+        for (pack in packs) {
+            notify?.invoke(pack.id, context.getString(pack.displayNameRes), DownloadProgressFlows.cjkDict(context, pack.id))
+        }
+    }
 }
 
 /**
@@ -866,6 +902,7 @@ internal fun rememberLayoutToggle(
     val context = LocalContext.current
     val enableGate = rememberLayoutEnableGate(settings)
     val promptForRules = rememberKeymanRulesPrompt(onRulesInstalled)
+    val promptForPack = rememberCjkPackPrompt()
     return { layoutId, enable ->
         // At least one layout must stay enabled somewhere. Said out loud here,
         // where the old switch just sprang back.
@@ -873,7 +910,9 @@ internal fun rememberLayoutToggle(
             Toast.makeText(context, R.string.languages_layout_keep_one, Toast.LENGTH_SHORT).show()
             false
         } else {
-            setLayoutEnabled(layoutId, enable, settings.value, repository, scope, enableGate, promptForRules)
+            setLayoutEnabled(
+                layoutId, enable, settings.value, repository, scope, enableGate, promptForRules, promptForPack,
+            )
             true
         }
     }
@@ -882,7 +921,8 @@ internal fun rememberLayoutToggle(
 /**
  * Switches [layoutId] on or off: through the validation gate on the way on,
  * never on the way off, and with the Keyman rules prompt at the moment a
- * converted layout is switched on.
+ * converted layout is switched on, or the conversion pack prompt at the moment
+ * a layout that converts is.
  */
 private fun setLayoutEnabled(
     layoutId: String,
@@ -892,6 +932,7 @@ private fun setLayoutEnabled(
     scope: CoroutineScope,
     enableGate: (String, () -> Unit) -> Unit,
     promptForRules: (KeymanBinding, String) -> Unit,
+    promptForPack: (CjkDictPack, String) -> Unit,
 ) {
     fun write() {
         scope.launch {
@@ -907,6 +948,7 @@ private fun setLayoutEnabled(
         if (enable) {
             val spec = resolveLayout(settings.customLayouts, layoutId)
             spec.keyman?.let { promptForRules(it, spec.name) }
+            CjkDictCatalog.forComposer(spec.composerType())?.let { promptForPack(it, spec.name) }
         }
     }
     if (enable) enableGate(layoutId) { write() } else write()
@@ -976,20 +1018,19 @@ internal fun LanguageDetailScreen(
     // too. Same gate as the custom list; switching off is never gated.
     LayoutsGroup(lang, settings, repository, scope, onNavigate)
 
-    // A romanized language is mostly wanted for its words, on the keyboard
-    // of the language it shares letters with (#473). Hidden, it stays on and
-    // keeps lending them, and the switcher has one stop fewer.
-    if (lang.isRomanized) {
-        SettingsGroup(stringResource(R.string.languages_picker_hidden_group)) {
-            item {
-                ToggleSetting(
-                    R.string.languages_picker_hidden_title,
-                    stringResource(R.string.languages_picker_hidden_subtitle),
-                    settings.watch { langId in it.layoutBehavior.pickerHiddenLanguages },
-                    info = stringResource(R.string.languages_picker_hidden_info, lang.englishName),
-                    default = false,
-                ) { scope.launch { repository.setLanguageHiddenFromPicker(langId, it) } }
-            }
+    // A language can be wanted only for its words, on the keyboard of
+    // another one: Banglish on English (#473), English on Swedish (#618).
+    // Hidden, it stays on and keeps lending them, and the switcher has one
+    // stop fewer.
+    SettingsGroup(stringResource(R.string.languages_picker_hidden_group)) {
+        item {
+            ToggleSetting(
+                R.string.languages_picker_hidden_title,
+                stringResource(R.string.languages_picker_hidden_subtitle),
+                settings.watch { langId in it.layoutBehavior.pickerHiddenLanguages },
+                info = stringResource(R.string.languages_picker_hidden_info, lang.englishName),
+                default = false,
+            ) { scope.launch { repository.setLanguageHiddenFromPicker(langId, it) } }
         }
     }
 
@@ -1130,7 +1171,16 @@ internal fun LanguageDetailScreen(
         }
     }
     val phonetic = ComposerType.TRANSLITERATE in composers
-    val transliterating = phonetic || ComposerType.KHIPRO in composers
+    // An imported m17n method (ITRANS, InScript, Tamil99) is a roman grid too,
+    // and the hints are how it says what its keys write. Only the hints: the
+    // key map and strip below are Avro's.
+    val rulesMethod = settings.watch { s ->
+        s.enabledLayoutIds.any { id ->
+            resolveLayout(s.customLayouts, id).let { it.langId == langId && it.inputMethod?.kind == InputMethodKind.RULES }
+        }
+    }
+    val transliterating = phonetic || rulesMethod ||
+        ComposerType.KHIPRO in composers || ComposerType.KHIPRO_DARK in composers
     if (transliterating) {
         SettingsGroup(stringResource(R.string.languages_translit_hints_title)) {
             item {
@@ -1610,8 +1660,11 @@ private fun CjkDictPackManager(
         }
 
         // Traditional output suits both Chinese (Taiwan) and Cantonese (Hong Kong),
-        // so unlike the pinyin options below it is not gated to zh.
-        item {
+        // so unlike the pinyin options below it is not gated to zh alone. Japanese
+        // candidates never pass through the conversion, and the value is shared
+        // with Chinese, so the row stays off its screen (#607).
+        val hanLang = langId == "zh" || langId == "yue"
+        item(visible = hanLang) {
             ToggleSetting(
                 R.string.languages_cjk_traditional_title,
                 stringResource(R.string.languages_cjk_traditional_subtitle),
@@ -1621,10 +1674,11 @@ private fun CjkDictPackManager(
             ) { on -> scope.launch { repository.setCjkTraditionalOutput(on) } }
         }
 
-        // Traditional characters are only half of writing Traditional: Taipei
-        // says 計程車 where the mainland says 出租車, and no character map
-        // reaches that. Only worth showing once the toggle above is on.
-        item(visible = traditional) {
+        // Taiwan and Hong Kong each prefer some character forms of their own
+        // (為, 説). Taiwan wording also swaps vocabulary (出租車 → 計程車), so
+        // it is a separate choice and never the plain Taiwan one (#641). Only
+        // worth showing once the toggle above is on.
+        item(visible = hanLang && traditional) {
             ChoiceSetting(
                 R.string.languages_cjk_region_title,
                 info = stringResource(R.string.languages_cjk_region_info),
@@ -1705,6 +1759,28 @@ private fun CjkDictPackManager(
                     info = stringResource(R.string.languages_cjk_jianpin_info),
                     default = SettingsDefaults.cjk.pinyinJianpin,
                 ) { on -> scope.launch { repository.setPinyinJianpin(on) } }
+            }
+            // 联想: once a conversion lands, the strip offers what usually
+            // comes next, from the word pairs and from the user's own habits.
+            item {
+                ToggleSetting(
+                    R.string.languages_cjk_prediction_title,
+                    stringResource(R.string.languages_cjk_prediction_subtitle),
+                    settings.watch { it.cjk.pinyinPrediction },
+                    info = stringResource(R.string.languages_cjk_prediction_info),
+                    default = SettingsDefaults.cjk.pinyinPrediction,
+                ) { on -> scope.launch { repository.setPinyinPrediction(on) } }
+            }
+            // rq / sj / xq for the date, time and weekday, v + a number for
+            // Chinese numerals, the way Sogou and fcitx take them.
+            item {
+                ToggleSetting(
+                    R.string.languages_cjk_shortcuts_title,
+                    stringResource(R.string.languages_cjk_shortcuts_subtitle),
+                    settings.watch { it.cjk.pinyinShortcuts },
+                    info = stringResource(R.string.languages_cjk_shortcuts_info),
+                    default = SettingsDefaults.cjk.pinyinShortcuts,
+                ) { on -> scope.launch { repository.setPinyinShortcuts(on) } }
             }
             item {
                 ToggleSetting(
@@ -1964,11 +2040,13 @@ private fun translitHintDescRes(mode: TransliterationHintMode): Int = when (mode
 private fun cjkRegionDescRes(region: HanVariant.HanRegion): Int = when (region) {
     HanVariant.HanRegion.GENERIC -> R.string.languages_cjk_region_generic_subtitle
     HanVariant.HanRegion.TAIWAN -> R.string.languages_cjk_region_taiwan_subtitle
+    HanVariant.HanRegion.TAIWAN_WORDING -> R.string.languages_cjk_region_taiwan_wording_subtitle
     HanVariant.HanRegion.HONG_KONG -> R.string.languages_cjk_region_hong_kong_subtitle
 }
 
 private fun cjkRegionLabelRes(region: HanVariant.HanRegion): Int = when (region) {
     HanVariant.HanRegion.GENERIC -> R.string.languages_cjk_region_generic_title
     HanVariant.HanRegion.TAIWAN -> R.string.languages_cjk_region_taiwan_title
+    HanVariant.HanRegion.TAIWAN_WORDING -> R.string.languages_cjk_region_taiwan_wording_title
     HanVariant.HanRegion.HONG_KONG -> R.string.languages_cjk_region_hong_kong_title
 }

@@ -53,6 +53,9 @@ internal object SettingsRoutes {
         // or a row they pressed, where the link importer's confirm or the
         // pack list stands in front of it.
         "signal_pack/{packId}/{packKey}" to "opens on a pack the user picked or pasted; see AddonDeepLink",
+        // Same shape: asks Telegram, with the user's bot token, for the set as
+        // it opens.
+        "telegram_pack/{setName}" to "opens on a set the user picked or pasted; see AddonDeepLink",
         // Asks GitHub for the Rboard list as it opens. A request to a third
         // party belongs behind a button the user pressed on the Themes screen,
         // not behind a link another app can fire.
@@ -97,6 +100,7 @@ internal object SettingsRoutes {
         "launchercombos",
         "kdeconnect/devices",
         "phoneformats",
+        "cliprules",
         "hwshortcuts",
         "appearance",
         "appearance/toolbar",
@@ -118,12 +122,18 @@ internal object SettingsRoutes {
         "sticker_packs",
         "signal_stickers",
         "whatsapp_stickers",
+        "telegram_stickers",
         "vocab/packs",
         "vocab/lists",
         "vocab/list/{packId}",
         "vocab/review",
         "vocab/browse",
         "vocab/word/{packId}/{word}",
+        "clock",
+        "notes",
+        "notes/edit/{noteId}",
+        "notes/tags",
+        "notes/trash",
         "plugins",
         "plugin/{pluginId}",
         "plugin_ide",
@@ -169,10 +179,13 @@ internal object SettingsRoutes {
         "rows",
         "rows/symbol",
         "ai_actions",
+        "ai_reply_tones",
         "ai_history",
         "ai_chat",
         "ai_chat/{conversationId}",
         "ai_action_edit/{actionId}",
+        "ai_mcp",
+        "ai_mcp_edit/{serverId}",
         "symbol_set_edit/{setId}",
         "modes",
         "mode_edit/{modeId}",

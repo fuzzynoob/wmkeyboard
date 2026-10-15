@@ -80,6 +80,7 @@ import com.wasimaster.wmkeyboard.core.layout.Key
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.settings.dictationLanguages
 import com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings
+import com.wasimaster.wmkeyboard.core.theme.FrostSurface
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.VoiceBarAction
@@ -447,6 +448,9 @@ private fun HorizontalBarContent(
                 onOpenVoiceSettings = onOpenVoiceSettings,
                 modifier = Modifier.weight(1f),
             )
+            if (hasPermission && state.voiceMicSwitchVisible()) {
+                VoiceMicSwitch(state, onCycle = { onAction(VoiceBarAction.CycleMic) }, size = VoiceBarButton)
+            }
             val voice = state.voice
             val idle = voice.status != VoiceStatus.LISTENING &&
                 voice.status != VoiceStatus.FINISHING &&
@@ -601,6 +605,11 @@ private fun VerticalBarContent(
             )
             VoiceBarDeleteButton(onAction)
             VoiceBarExitButton(state, onAction, onRestoreKeyboard)
+            // No status line on the upright bar, so the switch is the only
+            // word on which microphone is in use (#581): its icon.
+            if (hasPermission && state.voiceMicSwitchVisible()) {
+                VoiceMicSwitch(state, onCycle = { onAction(VoiceBarAction.CycleMic) }, size = VoiceBarButton)
+            }
             VoiceBarIconButton(
                 icon = Icons.Outlined.Menu,
                 description = stringResource(R.string.ime_voice_bar_menu_desc),
@@ -668,14 +677,18 @@ private fun VoiceBarStatus(
 
     // Which *kind* of line is up. Fading keyed on this rather than the text
     // keeps a growing partial from strobing the line on every word.
+    // The strip's rule (#581): the line says which microphone is in use
+    // until the first words arrive.
+    val micNotice = rememberVoiceMicNotice(state)
     val statusKind = when {
         voice.status == VoiceStatus.NEED_PERMISSION || !hasPermission -> 1
         voice.status == VoiceStatus.UNAVAILABLE -> 2
         voice.status == VoiceStatus.MIC_BLOCKED -> 10
         voice.whisperNeedsModel -> 3
         voice.serverNeedsSetup -> 11
+        micNotice != null && voice.partial.isEmpty() && voice.status != VoiceStatus.ERROR -> 13
         listening && voice.clipBased && voice.secondsLeft > 0 -> 12
-        listening && voice.clipBased -> 4
+        listening && voice.clipBased && voice.partial.isEmpty() -> 4
         listening -> 5
         transcribing -> 6
         voice.status == VoiceStatus.FINISHING -> 7
@@ -700,9 +713,10 @@ private fun VoiceBarStatus(
         3 -> stringResource(R.string.ime_voice_strip_no_model)
         11 -> stringResource(R.string.ime_voice_strip_no_server)
         12 -> pluralStringResource(R.plurals.ime_voice_status_stops_in, voice.secondsLeft, voice.secondsLeft)
+        13 -> micNotice.orEmpty()
         4 -> stringResource(R.string.ime_voice_strip_listening_hint)
-        5 -> voice.partial.ifEmpty { speakNow }
-        6 -> stringResource(voice.transcribingLabelRes())
+        5 -> voiceLineTail(voice.partial).ifEmpty { speakNow }
+        6 -> voiceLineTail(voice.partial).ifEmpty { stringResource(voice.transcribingLabelRes()) }
         7 -> "…"
         8 -> voice.errorMessage ?: stringResource(R.string.ime_voice_status_error)
         else -> stringResource(R.string.ime_voice_bar_paused)
@@ -713,7 +727,7 @@ private fun VoiceBarStatus(
     ) {
         Text(
             statusText,
-            color = if (listening && voice.partial.isNotEmpty()) {
+            color = if ((listening || transcribing) && voice.partial.isNotEmpty()) {
                 kb.toolbarIcon
             } else {
                 kb.secondaryText
@@ -803,6 +817,7 @@ private fun VoiceBarMic(
             modifier = Modifier
                 .size(38.dp)
                 .clip(CircleShape)
+                .frostGlass(kb, CircleShape, FrostSurface.CHIPS)
                 .background(if (listening) kb.toolCircleActive else kb.chip)
                 .clickable(enabled = !busy) {
                     if (hasPermission) onToggle() else onRequestPermission()
@@ -898,6 +913,7 @@ private fun VoiceBarLanguageChip(
             maxLines = 1,
             modifier = Modifier
                 .clip(kb.chipShape())
+                .frostGlass(kb, kb.chipShape(), FrostSurface.CHIPS)
                 .background(kb.chip)
                 .chipBorder(kb, kb.chipShape())
                 .clickable(onClickLabel = stringResource(R.string.ime_voice_language_menu_title)) {
@@ -936,21 +952,23 @@ private fun VoiceBarIconButton(
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
-    Box(
-        modifier = Modifier
-            .size(VoiceBarButton)
-            .clip(kb.toolShape())
-            .clickable(enabled = enabled, onClick = onClick),
-        contentAlignment = Alignment.Center,
-    ) {
-        Icon(
-            icon,
-            contentDescription = description,
+    IconHint(description) {
+        Box(
             modifier = Modifier
-                .size(20.dp)
-                .graphicsLayer { alpha = if (enabled) 1f else 0.4f },
-            tint = kb.toolbarIcon,
-        )
+                .size(VoiceBarButton)
+                .clip(kb.toolShape())
+                .clickable(enabled = enabled, onClick = onClick),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                icon,
+                contentDescription = description,
+                modifier = Modifier
+                    .size(20.dp)
+                    .graphicsLayer { alpha = if (enabled) 1f else 0.4f },
+                tint = kb.toolbarIcon,
+            )
+        }
     }
 }
 

@@ -32,8 +32,9 @@
     <!-- Shown while an offline model listens. It gives no live text, so the user says when to stop. -->
     <string name="ime_voice_status_listening_hint">Listening. Press when you are done.</string>
     <!-- Replaces the line above for the last seconds of a clip. The offline
-         model can hear only 30 seconds, and it stops by itself at the end, so
-         words said after that are lost (#315). -->
+         model can hear only 30 seconds (two minutes for a whisper.cpp model),
+         and it stops by itself at the end, so words said after that are lost
+         (#315). -->
     <plurals name="ime_voice_status_stops_in">
         <item quantity="one">Stops in %d second. Press to finish now.</item>
         <item quantity="other">Stops in %d seconds. Press to finish now.</item>
@@ -112,6 +113,31 @@
     <!-- Collapse button on the voice panel and the compact bar: switch
          dictation to the small pill and make that the new default. -->
     <string name="ime_voice_collapse_desc">Collapse to the small bar</string>
+    <string name="ime_voice_mic_auto">Automatic mic</string>
+    <string name="ime_voice_mic_phone">Built-in mic</string>
+    <string name="ime_voice_mic_wired">Wired mic</string>
+    <string name="ime_voice_mic_usb">USB mic</string>
+    <string name="ime_voice_mic_bluetooth">Bluetooth mic</string>
+    <!-- "Bluetooth mic (X7)": the kind of microphone, then the name the device gives itself. -->
+    <string name="ime_voice_mic_named">%1$s (%2$s)</string>
+    <string name="ime_voice_mic_using">Using %1$s</string>
+    <string name="ime_voice_mic_desc">Microphone: %1$s</string>
+    <string name="ime_voice_mic_switch">Switch microphone</string>
+    <!-- The voice panel's engine chip and its menu: the engine, and the
+         model, the language being dictated uses. Engine names are product
+         names; keep them as they are. -->
+    <string name="ime_voice_engine_desc">Change the voice engine</string>
+    <!-- Menu heading. %1$s is a language name, such as "English". -->
+    <string name="ime_voice_engine_menu_title">Engine for %1$s</string>
+    <string name="ime_voice_engine_default">As in settings</string>
+    <string name="ime_voice_engine_more">Engine settings</string>
+    <string name="ime_voice_engine_system">System</string>
+    <string name="ime_voice_engine_whistle" translatable="false">Whistle</string>
+    <string name="ime_voice_engine_whisper" translatable="false">Whisper</string>
+    <string name="ime_voice_engine_asr4all" translatable="false">Asr4All</string>
+    <string name="ime_voice_engine_parakeet" translatable="false">Parakeet</string>
+    <string name="ime_voice_engine_moonshine" translatable="false">Moonshine</string>
+    <string name="ime_voice_engine_server">Server</string>
     <!-- The bar's expand button: go back to the surface it replaced. -->
     <string name="ime_voice_bar_expand_panel_desc">Open the voice panel</string>
     <string name="ime_voice_bar_expand_strip_desc">Open the bar over the keys</string>
@@ -185,23 +211,39 @@
     <!-- GIF and sticker panel. -->
     <string name="ime_gif_search_hint">Search GIFs</string>
     <string name="ime_sticker_search_hint">Search stickers</string>
-    <!-- Credit under the search box. %1$s is a list of providers, for example "Klipy · GIPHY". -->
-    <string name="ime_media_attribution">from <xliff:g id="providers" example="Klipy · GIPHY">%1$s</xliff:g></string>
+    <!-- Hint in the search box while KLIPY or GIPHY answers. KLIPY's brand terms
+         ask for this wording. %1$s is the provider, "KLIPY" or "GIPHY". Keep the
+         name in capitals. -->
+    <string name="ime_media_search_provider">Search <xliff:g id="provider" example="KLIPY">%1$s</xliff:g></string>
+    <!-- Credit under the search box. %1$s is a list of providers, for example "KLIPY · GIPHY". -->
+    <string name="ime_media_attribution">from <xliff:g id="providers" example="KLIPY · GIPHY">%1$s</xliff:g></string>
+    <!-- Spoken name of the KLIPY logo next to the search box. KLIPY is a brand name. -->
+    <string name="ime_media_powered_by_klipy">Powered by KLIPY</string>
+    <!-- Spoken name of the GIPHY logo next to the search box. GIPHY is a brand name. -->
+    <string name="ime_media_powered_by_giphy">Powered by GIPHY</string>
+    <!-- Who made a GIF or sticker, under its name in the long-press menu. %1$s is a GIPHY username. -->
+    <string name="ime_media_creator">by @<xliff:g id="username" example="giphystudios">%1$s</xliff:g></string>
     <!-- Bar over the grid when the text field takes no pictures. -->
     <string name="ime_gif_unsupported_field_notice">This field does not accept GIFs. Try a chat app or a notes app.</string>
     <string name="ime_sticker_unsupported_field_notice">This field does not accept stickers. Try a chat app or a notes app.</string>
-    <string name="ime_gif_need_key_body">The GIF tool needs an API key from Klipy or GIPHY. Both keys are free. Add a key in the settings for this tool.</string>
-    <string name="ime_sticker_need_key_body">The sticker tool needs an API key from Klipy or GIPHY. Both keys are free. Add a key in the settings for this tool.</string>
+    <string name="ime_gif_need_key_body">The GIF tool needs an API key from KLIPY or GIPHY. Both keys are free. Add a key in the settings for this tool.</string>
+    <string name="ime_sticker_need_key_body">The sticker tool needs an API key from KLIPY or GIPHY. Both keys are free. Add a key in the settings for this tool.</string>
     <string name="ime_media_trending_empty">No trending results now</string>
     <!-- The first chip in the category row: what is popular now, no category. -->
     <string name="ime_media_category_trending_label">Trending</string>
+    <string name="ime_gif_favourites_label">Favourites</string>
+    <string name="ime_gif_recent_label">Recent</string>
+    <string name="ime_gif_favourites_empty">No favourites yet. Long-press a GIF to add it.</string>
+    <string name="ime_gif_recent_empty">The GIFs you send show here.</string>
+    <string name="ime_gif_favourite_add_action">Add to favourites</string>
+    <string name="ime_gif_favourite_remove_action">Remove from favourites</string>
     <!-- %1$s is what the user typed in the search box. -->
     <string name="ime_gif_search_empty">No GIFs for “<xliff:g id="query" example="cat">%1$s</xliff:g>”</string>
     <!-- %1$s is what the user typed in the search box. -->
     <string name="ime_sticker_search_empty">No stickers for “<xliff:g id="query" example="cat">%1$s</xliff:g>”</string>
     <!-- Empty result inside the packs the user made. %1$s is the search text. -->
     <string name="ime_sticker_local_search_empty">No stickers of yours match “<xliff:g id="query" example="cat">%1$s</xliff:g>”</string>
-    <string name="ime_sticker_no_packs_empty">No sticker packs yet. Make a pack in the settings. You can also press and hold a sticker from Klipy or GIPHY to save it here.</string>
+    <string name="ime_sticker_no_packs_empty">No sticker packs yet. Make a pack in the settings. You can also press and hold a sticker from KLIPY or GIPHY to save it here.</string>
     <string name="ime_sticker_pack_empty">This pack is empty.</string>
     <!-- Chip that shows the stickers of every pack together. -->
     <string name="ime_sticker_pack_all_label">All</string>

@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+      The AI reply tool (#234): drafting an answer to a message somebody else
+      sent. The keyboard cannot read the conversation above it, so most of this
+      panel is about getting the other person's words in — from a copy, from a
+      screenshot, or typed by hand.
+    -->
+
+    <!-- Name of the tool, on the toolbar and in the toolbox. -->
+    <string name="ime_tool_ai_reply">AI reply</string>
+
+    <!-- Adds the most recent copied text as a message. -->
+    <string name="ime_reply_add_clip">Paste copied</string>
+    <!-- Opens a box to type or paste a message into. -->
+    <string name="ime_reply_add_typed">Type</string>
+    <!-- Opens the list of recent screenshots. -->
+    <string name="ime_reply_add_shot">Screenshot</string>
+    <!-- Adds what is in the box as one more message. -->
+    <string name="ime_reply_add">Add</string>
+    <!-- Adds the text selected in the field as a message. -->
+    <string name="ime_reply_add_selection">Use the selection</string>
+    <string name="ime_reply_typed_hint">What they said</string>
+    <!-- Shown while a screenshot is being read on the device. -->
+    <string name="ime_reply_reading">Reading the screenshot…</string>
+
+    <!-- Label on a message the other person sent. Tapping it switches sides. -->
+    <string name="ime_reply_side_them">Them</string>
+    <!-- Label on a message the user sent themselves. -->
+    <string name="ime_reply_side_me">Me</string>
+    <!-- Stands in for a screenshot that is being sent to the model as a picture. -->
+    <string name="ime_reply_entry_picture">Screenshot</string>
+
+    <!-- Checkbox: remove the copies and screenshots this reply was built from. -->
+    <string name="ime_reply_tidy_up">Clear the copies and screenshots used</string>
+
+    <string name="ime_reply_pick_tone_body">Pick a tone below and WM Keyboard drafts a few replies. Nothing is sent until you tap one.</string>
+    <!-- Heading over the tone buttons, once there is something to reply to. -->
+    <string name="ime_reply_tone_title">Next: pick how to reply</string>
+    <!-- The same heading while drafts are on screen. -->
+    <string name="ime_reply_tone_again">Try another tone</string>
+    <!-- Heading over the drafted replies. -->
+    <string name="ime_reply_drafts_title">Tap a reply to put it in the message box</string>
+    <!-- Goes back from the drafts to the messages they answer. -->
+    <string name="ime_reply_show_messages">Messages</string>
+    <!-- Small button between two messages: joins them into one. -->
+    <string name="ime_reply_merge">Join</string>
+    <!-- TalkBack: the Them/Me label on a message, which switches who said it. -->
+    <string name="ime_reply_swap_side_desc">Switch who said this</string>
+    <!-- TalkBack: one screenshot in the picker. %1$s is when it was taken. -->
+    <string name="ime_reply_shot_desc">Screenshot from %1$s</string>
+    <!-- Next to the missing-permission notice: asks for it. -->
+    <string name="ime_reply_allow_images">Allow</string>
+    <string name="ime_reply_empty_body">First add what they said with a button above: paste a copied message, pick a screenshot of the chat, or type it. Then pick a tone, and tap the reply you like to put it in the message box.</string>
+    <string name="ime_reply_pick_shot_title">Recent screenshots</string>
+    <string name="ime_reply_shot_hint">No screenshots found. Take one of the chat and it appears here.</string>
+    <string name="ime_reply_settings_desc">AI reply settings</string>
+
+    <!-- One-line notices under the panel's buttons. -->
+    <string name="ime_reply_notice_no_clip">Nothing copied yet. Copy their message first.</string>
+    <string name="ime_reply_notice_no_selection">Select their message first.</string>
+    <string name="ime_reply_notice_no_images_permission">WM Keyboard needs permission to read your images before it can show screenshots.</string>
+    <string name="ime_reply_notice_no_shots">No screenshots on this device yet.</string>
+    <!-- The chosen AI provider has no way to accept a picture. -->
+    <string name="ime_reply_notice_no_vision">This AI provider cannot read pictures. Choose another, or set screenshots to be read on the device.</string>
+    <!-- This build has no on-device text reader. -->
+    <string name="ime_reply_notice_no_ocr">This version cannot read screenshots on the device. Choose a provider that reads pictures instead.</string>
+    <string name="ime_reply_notice_nothing_read">No text was found in that screenshot.</string>
+    <string name="ime_reply_notice_no_context">Add their message first.</string>
+    <!-- The gallery copy of a screenshot could not be removed; ours was. -->
+    <string name="ime_reply_notice_reading_instead">This model can\'t see pictures, so the screenshot was read on your phone instead.</string>
+    <string name="ime_reply_send_as">Screenshot goes as</string>
+    <string name="ime_reply_send_picture">Picture</string>
+    <string name="ime_reply_send_text">Text</string>
+    <string name="ime_reply_remove_unclear">Remove unclear (%1$d)</string>
+    <string name="ime_reply_unclear_label">No real words?</string>
+    <string name="ime_reply_edit_hint">Edit the message</string>
+    <string name="ime_reply_save">Save</string>
+    <string name="ime_reply_instruction_hint">What should the reply say?</string>
+    <string name="ime_reply_write">Write</string>
+    <string name="ime_reply_screenshot_label">Screenshot</string>
+    <string name="ime_reply_screenshot_caption">Sent as a picture. The model reads who said what from where the bubbles sit.</string>
+    <string name="ime_reply_draft_line">From your draft: %1$s</string>
+    <string name="ime_reply_notice_shot_kept">Removed from WM Keyboard. The screenshot is still in your gallery.</string>
+    <!-- A tone that asks for an instruction every run has nowhere to type one here. -->
+</resources>

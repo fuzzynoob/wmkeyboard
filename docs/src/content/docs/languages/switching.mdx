@@ -77,6 +77,14 @@ A second setting takes this whole gesture away on purpose, the same way the hold
 
 The last row, **Other keyboards…**, isn't a layout. It opens Android's own "Choose input method" sheet, which is how you hand the field to a different keyboard app entirely. It sits below the scrolling part of the list so it's always in reach however many layouts you have on, and the hold-drag walk skips it: it's a tap-only row. In the carousel it is the keyboard glyph past the divider at the strip's end, and the same rules apply.
 
+### A way out of the switcher
+
+<SettingsPath path="Languages & layouts / Switching language / Extra stop in the switcher" />
+
+With two languages on, say Bangla and English, holding the spacebar shows just those two. **Extra stop in the switcher** adds one more stop after the last language, so the preview reads Bangla, English, then a gear. Drag onto the gear and lift, and the keyboard opens the Languages screen, where you add, remove and reorder what the switcher holds. Set it to **Other keyboards** instead and the last stop is a keyboard glyph that opens Android's "Choose input method" sheet, the same one the picker's **Other keyboards…** row opens.
+
+It ships on **None**. Only a hold reaches the extra stop: a quick swipe on the spacebar still walks your languages alone, so a flick past the last one never lands in settings. With two languages and the extra stop on, the hold-drag walks three stops in a line rather than toggling between two. The list and carousel pickers show the gear as a row of their own (a gear icon in the carousel), next to **Other keyboards…**, when it is set to Language settings.
+
 ## Using the globe key
 
 :::caution[Not shown by default]
@@ -133,7 +141,7 @@ To take the key off the bottom row altogether, turn off **Show the 🌐 key** in
 
 Every key and gesture above cycles through the same ordered list: your enabled layouts, in switch order. A fresh install seeds that list from your phone's own language settings, taking one layout per language it recognises, and then adds QWERTY. The whole list is capped at four layouts, so a phone set to four other languages fills up before QWERTY gets a slot. A phone set to Bangla and English starts with Avro and QWERTY. A phone set to English alone starts with QWERTY on its own and has nothing to cycle to yet. Everything else in the catalogue sits inactive until you add it. See [Languages overview](/languages/overview/) for how the full catalogue works and what's in it.
 
-The head of that list is also where the keyboard opens. On a phone set to French, the seeded ring is AZERTY (French) then QWERTY, and the first keyboard you see is AZERTY — spacebar label, dictionary and autocorrect included. Reordering the ring moves that starting point with it, right up until the first time you switch language yourself; from then on the keyboard opens in whichever layout you last used, and reordering only changes what the next step lands on.
+The head of that list is also where the keyboard opens. On a phone set to French, the seeded ring is AZERTY (French) then QWERTY, and the first keyboard you see is AZERTY, with its spacebar label, dictionary and autocorrect. Reordering the ring moves that starting point with it, right up until the first time you switch language yourself; from then on the keyboard opens in whichever layout you last used, and reordering only changes what the next step lands on.
 
 On the **Languages** screen:
 
@@ -141,7 +149,7 @@ On the **Languages** screen:
 - **Add language** searches the whole catalogue and enables an unadded language's first layout. A language with data to fetch asks about the download first (see [Downloads & mobile data](/languages/downloads/)), and its Cancel backs out of the language too.
 - **Switch order** appears once you have more than one layout enabled. Drag to reorder the raw layout list, so two English layouts (QWERTY and AZERTY, say) keep independent slots in the ring even though they're both "English."
 
-A romanized language (Banglish, Hinglish, Arabizi and the rest) can stay enabled without a stop in the ring. Open it under **Your languages** and turn on **Do not show in the language switcher**. The globe key, the spacebar swipe and the picker then skip it, while its words keep showing on every keyboard that lists it under **Also suggest from**. With English, Banglish and a Bangla layout enabled, hiding Banglish leaves two stops: English with Banglish suggestions, and Bangla. If hiding would leave nothing to switch to, every layout stays in the ring.
+Any language can stay enabled without a stop in the ring, which suits one you want only for its words: a romanized language such as Banglish on your English keyboard, or English suggestions on a Swedish one. Open it under **Your languages** and turn on **Do not show in the language switcher**. The globe key, the spacebar swipe and the picker then skip it, while its words keep showing on every keyboard that lists it under **Also suggest from**. With English, Banglish and a Bangla layout enabled, hiding Banglish leaves two stops: English with Banglish suggestions, and Bangla. With Swedish and English enabled and English listed under Swedish's **Also suggest from**, hiding English leaves one stop: the Swedish layout, with both dictionaries suggesting. If hiding would leave nothing to switch to, every layout stays in the ring.
 
 There's no "maximum visible" setting. (The one recently-used option, [🌐 goes back to the last language](#going-back-to-the-last-language), only changes which layout the key visits next, not which ones are in the ring.) The ring is exactly as long as your enabled-layout list, so reordering or removing is the only way to shorten it. Ring length changes behavior on its own at three thresholds: two layouts swipe as a toggle rather than a cycle, more than four turn the hold-drag gesture from an inline preview into a full list (unless **Picker for more than four layouts** is off), and more than five shrink the swipe preview to a sliding five-chip window.
 
@@ -175,13 +183,13 @@ A separate, unrelated toggle, **Remember language per app** (under Per-app langu
 
 ## Switching mid-word onto a phonetic layout
 
-<SettingsPath path="Languages / Switching language / Carry the word over" />
+<SettingsPath path="Languages & layouts / Switching language / Carry the word over" />
 
 Phonetic layouts spell their script with roman letters: Avro and Khipro write Bengali, Hindi phonetic writes Devanagari, and Urdu phonetic and the [other phonetic layouts](/languages/phonetic/) write theirs. Which means the letters you type on your Latin keyboard are the very letters those layouts take, and noticing halfway through a word that you never switched no longer costs you the word. **Carry the word over** is on by default. Type `tu`, switch to Avro, and what you already typed becomes তু; the `mi` after it finishes তুমি. Without it the `tu` commits as Latin and only the `mi` is Bengali, so the whole word has to be typed again.
 
 The letters are converted whether they were still being composed or already sitting in the field, and their capitals are dropped on the way, because the phonetic layouts spell retroflexes and aspirates with capitals and the `T` of a sentence-opening `Tumi` was not asked for as ট. A word with a digit, an apostrophe or a hyphen in it is left alone, as is anything longer than 32 letters, and so is a password field.
 
-One case argues the other way, and is why the setting exists: finishing an English word, *not* typing a space, and switching to write the next word in Bengali. That word is carried over too, so `hello` becomes হেল্লো. Nothing distinguishes it from the `tu` above — in both, the caret sits after a run of roman letters — so if that is how you switch, turn this off and switches commit the word as they always did.
+One case argues the other way, and is why the setting exists: finishing an English word, *not* typing a space, and switching to write the next word in Bengali. That word is carried over too, so `hello` becomes হেল্লো. Nothing distinguishes it from the `tu` above (in both, the caret sits after a run of roman letters), so if that is how you switch, turn this off and switches commit the word as they always did.
 
 Only the phonetic layouts take a carried word. Switching to Probhat, Jatiya, a Latin keyboard or a Chinese or Japanese input method commits the word as it stands, since none of them spells with the letters you just typed.
 
@@ -210,10 +218,11 @@ Automation apps such as Tasker, and `adb` on a computer, can switch too. They se
 | Comma key opens emoji | Layout & size → Bottom row keys | Off |
 | Your languages / Switch order | Languages | Seeded from your phone's language list, then QWERTY, capped at 4 layouts |
 | Carry the word over | Languages → Switching language | On |
+| Extra stop in the switcher | Languages → Switching language | None |
 | Remember language per app | Languages → Per-app language | Off |
 | Forget remembered apps | Languages → Language data | A button, shown once apps are remembered |
 | Link romanized languages automatically | Languages → Language data | On |
-| Do not show in the language switcher | Languages → a romanized language | Off |
+| Do not show in the language switcher | Languages → any language | Off |
 | List languages in the Android switcher | Languages → System language switcher | Off |
 | Show app name first | Languages → System language switcher | Off |
 

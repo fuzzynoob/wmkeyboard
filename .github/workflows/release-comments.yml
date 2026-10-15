@@ -1,8 +1,9 @@
 name: Release comments
 
 # Tells every issue a release links that it has shipped: which version, a
-# mention of whoever opened it, links that open any settings the change added,
-# and, when the caller names any, how long those stores take to catch up. The work is in
+# mention of whoever opened it and of everyone who reacted to it (any reaction
+# but 👎 and 😕), links that open any settings the change added, and, when the
+# caller names any, how long those stores take to catch up. The work is in
 # .github/scripts/release_comments.py, which explains how the commits and the
 # settings are found.
 #

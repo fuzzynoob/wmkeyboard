@@ -24,7 +24,8 @@ object SyncKeys {
      */
     private val LOCAL_KEYS = setOf(
         // Where the keyboard sits and how it floats: per screen and per hand.
-        "floating_keyboard", "floating_x", "floating_y", "floating_width", "floating_height_scale",
+        "floating_keyboard", "floating_keyboard_landscape", "floating_handle_position",
+        "floating_x", "floating_y", "floating_width", "floating_height_scale",
         "split_keyboard", "split_gap_percent", "split_only_large_screens", "split_spacebar",
         "symbol_row_height", "toolbar_height", "toolbar_padding_top", "toolbar_padding_bottom",
         "key_popup_offset_x", "key_popup_offset_y", "key_popup_floating_height",
@@ -51,6 +52,7 @@ object SyncKeys {
         "onboarding_persona_privacy", "auto_pair_romanized_done", "toolbox_hint_dismissed",
         // Security that belongs to one device's owner and hardware.
         "app_lock_enabled", "app_lock_relock", "app_lock_targets", "app_lock_allow_credential",
+        "app_lock_method", "app_lock_secret", "app_lock_biometric_shortcut",
     )
 
     /**

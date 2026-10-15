@@ -21,7 +21,7 @@ You reach this screen three ways: Home → **Keyboard modes**, the settings sear
 
 <SettingsPath path="Advanced / Keyboard modes" />
 
-The first control on this screen is **Use modes**, the master switch for the whole feature, on by default. Turn it off and the keyboard uses one setup everywhere: no mode ever activates, the Modes tool disappears from the toolbar and the toolbox, and per-mode themes and tool sets stop applying. Your modes are kept, not deleted. The list below stays on screen and stays editable, and turning the switch back on restores every one of them exactly as it was. Turn it off if you found your emoji row or pinned tools different in another app and would rather they never moved. Turning it off also hides **A mode you pick by hand** just below and the whole **Rearrange tools** group at the foot of the screen. Neither controls anything while no mode can activate.
+The first control on this screen is **Use modes**, the master switch for the whole feature, off by default (setup offers it as a card). Installs that already had modes of their own stored from before keep it on. Turn it off and the keyboard uses one setup everywhere: no mode ever activates, the Modes tool disappears from the toolbar and the toolbox, and per-mode themes and tool sets stop applying. Your modes are kept, not deleted. The list below stays on screen and stays editable, and turning the switch back on restores every one of them exactly as it was. Turn it off if you found your emoji row or pinned tools different in another app and would rather they never moved. Turning it off also hides **A mode you pick by hand** just below and the whole **Rearrange tools** group at the foot of the screen. Neither controls anything while no mode can activate.
 
 Under it, **A mode you pick by hand** chooses how long a manual pick from the Modes tool lasts: **Until you change app** (the default) or **Until you change it**. It sits above the list because it governs every mode. See [Rearranging tools](#rearranging-tools) below for the other list-level control.
 
@@ -105,7 +105,7 @@ At the bottom of the editor, **Delete mode** opens the same **"Delete *name*?"**
 
 ## The six default modes
 
-Six modes are seeded on first run. You can edit or delete any of them freely.
+Six modes are seeded on first run. You can edit or delete any of them freely. Delete one and **Restore built-in modes** appears at the foot of the mode list, naming the ones that are gone. Tap it and they come back as they ship, after your own modes, which it leaves untouched. The row disappears again once all six are in the list.
 
 | Mode | Emoji row | Symbol row | Toolbar | Toolbox leads with | Apps | Field types |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -149,6 +149,7 @@ Tool order can differ per app: whichever mode an app resolves to decides the arr
 
 | Setting | Default |
 | --- | --- |
+| Use modes | Off |
 | A mode you pick by hand (Until you change app / Until you change it) | Until you change app |
 | Keyboard modes list | 6 seeded modes (table above) |
 | Drags edit the active mode | On |
@@ -201,7 +202,7 @@ A mode you made has an ID of its own that only your install knows, so a link to 
 
 - **A brand-new mode isn't saved until its first edit.** Navigating into a freshly created mode's editor and backing out without changing anything leaves the modes list exactly as it was.
 - **Only the six shipped modes offer Reset to default**, matched by ID. Rename a built-in mode and it keeps its reset option. A mode you created from scratch never gets one.
-- **Off is not deleted.** A mode whose **Use this mode** switch is off keeps every binding and override and simply never reaches the keyboard. Resetting a built-in mode turns it back on, since the shipped copy is on.
+- **Off is not deleted.** A mode whose **Use this mode** switch is off keeps every binding and override and never reaches the keyboard. Resetting a built-in mode turns it back on, since the shipped copy is on.
 - **Both delete paths ask first.** The bin icon on a list row and **Delete mode** at the bottom of the editor open the same "Delete *name*?" dialog. Resetting a built-in mode confirms too.
 - **Hints beat field types beat apps when modes collide.** If two modes could both apply, the one that names a hint is preferred over one that names a field type, and that over one that only names apps: a password field inside a coding app still gets the Passwords mode, and a rename box whose hint reads "Extension" gets the mode bound to that word over one bound to every single-line field.
 - **The tool and symbol-set pickers only offer what's currently available.** A tool disabled globally, or unsupported in your build, is missing from a mode's own pinned-tools and toolbox-order chip lists too. A lite build, for instance, has no tools that need ML Kit or the grammar engine.

@@ -281,6 +281,7 @@ class KeyboardModeTest {
     fun `a mode switched off leaves the keyboard's view and takes its bindings with it`() {
         // The feature is on; only the browser mode is off (#152).
         val settings = KeyboardSettings(
+            modesEnabled = true,
             keyboardModes = listOf(password, email, browser.copy(enabled = false), chat),
         )
         val seen = settings.withoutModes()
@@ -294,8 +295,30 @@ class KeyboardModeTest {
     }
 
     @Test
+    fun `modes overriding a row are the ones that set it the other way`() {
+        val writing = KeyboardMode(id = "writing", name = "Writing", symbolRowEnabled = true)
+        val off = KeyboardSettings(
+            modesEnabled = true,
+            symbolRowEnabled = false,
+            emojiBarMode = EmojiBarMode.OFF,
+            keyboardModes = listOf(password, email, writing, chat),
+        )
+        // Passwords sets the row off, which is what the global switch says too.
+        assertEquals(listOf("writing"), off.modesOverridingRow(BarRow.SYMBOL).map { it.id })
+        assertEquals(listOf("chat"), off.modesOverridingRow(BarRow.EMOJI).map { it.id })
+        val on = off.copy(symbolRowEnabled = true, emojiBarMode = EmojiBarMode.ALWAYS)
+        assertEquals(listOf("password"), on.modesOverridingRow(BarRow.SYMBOL).map { it.id })
+        assertEquals(listOf("password"), on.modesOverridingRow(BarRow.EMOJI).map { it.id })
+        // Rows no mode can set, and modes the keyboard is not using, say nothing.
+        assertTrue(off.modesOverridingRow(BarRow.DICTIONARY).isEmpty())
+        assertTrue(off.copy(modesEnabled = false).modesOverridingRow(BarRow.SYMBOL).isEmpty())
+        val writingOff = off.copy(keyboardModes = listOf(writing.copy(enabled = false)))
+        assertTrue(writingOff.modesOverridingRow(BarRow.SYMBOL).isEmpty())
+    }
+
+    @Test
     fun `with every mode on the view is the settings themselves`() {
-        val settings = KeyboardSettings(keyboardModes = modes)
+        val settings = KeyboardSettings(modesEnabled = true, keyboardModes = modes)
         assertTrue(settings.withoutModes() === settings)
     }
 
@@ -306,6 +329,27 @@ class KeyboardModeTest {
         val legacy = json.replace("\"enabled\":false,", "").replace(",\"enabled\":false", "")
         assertFalse(legacy.contains("enabled"))
         assertTrue(KeyboardModeCodec.decodeList(legacy).single().enabled)
+    }
+
+    @Test
+    fun `one unreadable mode no longer takes the rest of the list with it`() {
+        val good = KeyboardModeCodec.encodeList(listOf(browser)).removeSurrounding("[", "]")
+        val json = "[{\"id\":\"broken\",\"emojiBarMode\":\"NOT_A_MODE\"},$good]"
+        assertEquals(listOf(browser.id), KeyboardModeCodec.decodeList(json).map { it.id })
+    }
+
+    @Test
+    fun `a store with nothing readable falls back to the shipped modes`() {
+        assertEquals(DefaultKeyboardModes, KeyboardModeCodec.decodeList("not json"))
+        assertEquals(DefaultKeyboardModes, KeyboardModeCodec.decodeList("[{\"name\":1}]"))
+        assertEquals(emptyList<KeyboardMode>(), KeyboardModeCodec.decodeList("[]"))
+    }
+
+    @Test
+    fun `missing defaults lists only the built-ins that are gone`() {
+        val kept = DefaultKeyboardModes.drop(2)
+        assertEquals(DefaultKeyboardModes.take(2), KeyboardModeCodec.missingDefaults(kept))
+        assertEquals(emptyList<KeyboardMode>(), KeyboardModeCodec.missingDefaults(DefaultKeyboardModes))
     }
 
     @Test

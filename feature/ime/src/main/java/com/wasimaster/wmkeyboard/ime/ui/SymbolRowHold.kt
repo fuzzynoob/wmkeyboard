@@ -23,6 +23,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Popup
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.theme.FrostSurface
 import com.wasimaster.wmkeyboard.ime.R
 
 /** The global Symbol row page, which a held entry's menu opens when no mode owns the row. */
@@ -75,6 +76,7 @@ class SymbolRowCallbacks(
 internal fun SymbolSetDeleteConfirm(name: String, onConfirm: () -> Unit, onDismiss: () -> Unit) {
     val kb = LocalKbTheme.current
     Popup(onDismissRequest = onDismiss) {
+        GlassPopupBackdrop(LocalKbTheme.current, FrostSurface.MENUS)
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -84,14 +86,15 @@ internal fun SymbolSetDeleteConfirm(name: String, onConfirm: () -> Unit, onDismi
         ) {
             Surface(
                 shape = kb.menuShape(),
-                color = kb.popup,
+                color = kb.popupFill(FrostSurface.MENUS),
                 border = kb.popupSurfaceBorder(),
                 shadowElevation = elevationFor(kb.menuShapeKind, 8.dp),
                 modifier = Modifier
                     .padding(12.dp)
                     .fillMaxWidth(0.86f)
                     // Taps inside the card must not reach the scrim.
-                    .pointerInput(Unit) { detectTapGestures { } },
+                    .pointerInput(Unit) { detectTapGestures { } }
+                    .frostGlass(kb, kb.menuShape(), FrostSurface.MENUS),
             ) {
                 Column(modifier = Modifier.padding(start = 20.dp, end = 12.dp, top = 18.dp, bottom = 6.dp)) {
                     Text(

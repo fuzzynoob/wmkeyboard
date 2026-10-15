@@ -1,6 +1,6 @@
 ---
 title: "Privacy"
-description: "Every row on the Privacy screen: learning on this device, incognito, Android backup, other apps controlling the keyboard, and the one button that clears learned data."
+description: "Every row on the Privacy screen: learning on this device, incognito, Android backup, other apps controlling the keyboard, download verification, and the one button that clears learned data."
 sidebar:
   order: 18
 ---
@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import Shot from '@components/Shot.astro';
 
-The Privacy screen is five groups, in this order: the way into the permissions inventory, learning on this device and incognito, Android's own backup opt-in, whether other apps may control the keyboard, and the one button that clears learned data. Nothing else. This page is the field reference. For the reasoning and the rest of the privacy story, start at [Privacy at a glance](/privacy/overview/).
+The Privacy screen is six groups, in this order: the way into the permissions inventory, learning on this device and incognito, Android's own backup opt-in, whether other apps may control the keyboard, whether downloads are checked against their checksum, and the one button that clears learned data. Nothing else. This page is the field reference. For the reasoning and the rest of the privacy story, start at [Privacy at a glance](/privacy/overview/).
 
 <PhoneFrame caption="The Privacy screen: the Permissions row, then the Learning on this device, Android backup and Your data groups.">
   <Shot id="reference/settings/privacy-screen-groups" alt="The Privacy screen: On-device learning, Android backup, and Your data groups." />
@@ -41,19 +41,19 @@ An unnamed group holding three navigation rows, sitting above everything else on
 
 The second row opens the log of every request the keyboard makes: which feature, which server, how much data, and whether it happened by itself. It keeps addresses and sizes only, never what you typed. The whole screen, and exactly what it does and doesn't record, is on [Network activity](/privacy/network-activity/).
 
-### Fingerprint lock
+### App lock
 
-<SettingsPath path="Privacy / Fingerprint lock" />
+<SettingsPath path="Privacy / App lock" />
 
 | Setting | Control | Default |
 |---|---|---|
-| Fingerprint lock | Opens a sub-screen | Off |
+| App lock | Opens a sub-screen | Off |
 
-The second row in the same group: "Ask for your fingerprint before the screens and the delete buttons that you pick". The right-hand side reads **On**, **Off**, or **Not available** when this phone has no fingerprint and no screen lock to check against.
+The second row in the same group: "Ask for your fingerprint, a PIN, a password or a pattern before the screens and the delete buttons that you pick". The right-hand side reads **On**, **Off**, or **Not available** when the lock uses the fingerprint and this phone has no fingerprint and no screen lock to check against.
 
-It opens a screen of its own, where you turn the lock on and choose what it covers. Turning it on and turning it off both ask for a check. See [Fingerprint lock](/reference/settings/app-lock/) for the full field list.
+It opens a screen of its own, where you turn the lock on, choose what it covers, and choose whether a fingerprint or a PIN, password or pattern answers it. Turning it on and turning it off both ask for a check. See [App lock](/reference/settings/app-lock/) for the full field list.
 
-Worth knowing before you turn it on: the lock hides screens inside the settings app, and it does not encrypt anything. An export file, the Android backup, USB debugging and a rooted phone all still reach the same data.
+Before you turn it on, note that the lock hides screens inside the settings app, and it does not encrypt anything. An export file, the Android backup, USB debugging and a rooted phone all still reach the same data.
 
 ### Learning on this device
 
@@ -61,12 +61,12 @@ Worth knowing before you turn it on: the lock hides screens inside the settings 
 
 | Setting | Control | Default |
 |---|---|---|
-| Learn from typing | Toggle | **On** |
+| Learn from typing | Toggle | On |
 | Add words to the system dictionary | Toggle, shown only while Learn from typing is on | Off |
-| Use the Android dictionary | Toggle | **On** |
+| Use the Android dictionary | Toggle | On |
 | Expand Android dictionary shortcuts | Toggle | On |
 | Incognito mode | Toggle | Off |
-| Follow private browsing | Toggle | **On** |
+| Follow private browsing | Toggle | On |
 
 **Learn from typing** is the master switch for the on-device word and word-pair lexicon. Turning it off stops new learning without deleting anything already learned.
 
@@ -76,7 +76,7 @@ Worth knowing before you turn it on: the lock hides screens inside the settings 
 
 **Expand Android dictionary shortcuts** reads the shortcut column of that list. Type a shortcut you've defined there, say "omw", and it offers the full phrase, "on my way", as a suggestion.
 
-**Incognito mode** and **Follow private browsing** are covered in full on [Incognito & secure fields](/privacy/incognito/), including exactly what pausing learning and clipboard capture means. Two things are worth knowing here. **Follow private browsing** defaults to **on**, the opposite of its neighbour "Incognito mode". And two related toggles, **Pause learning** and **Pause clipboard capture**, both on by default, live on <SettingsPath path="Tools / Incognito" /> rather than here, next to a third, **Keep copies in the keyboard**, off by default, which keeps the keyboard's own copies off the system clipboard while incognito is on. "Follow private browsing" appears on that Tools screen too. It's the same setting shown in both places, not a second copy.
+**Incognito mode** and **Follow private browsing** are covered in full on [Incognito & secure fields](/privacy/incognito/), including exactly what pausing learning and clipboard capture means. **Follow private browsing** defaults to **on**, the opposite of its neighbour "Incognito mode". Two related toggles, **Pause learning** and **Pause clipboard capture**, both on by default, live on <SettingsPath path="Tools / Incognito" /> rather than here, next to a third, **Keep copies in the keyboard**, off by default, which keeps the keyboard's own copies off the system clipboard while incognito is on. "Follow private browsing" appears on that Tools screen too. It's the same setting shown in both places, not a second copy.
 
 ### Android backup
 
@@ -107,35 +107,50 @@ This is a different screen from the sibling **Backup & restore** item on the Set
 
 **Allowed actions** has one switch per kind of command, in two groups. The **Keyboard controls** are on by default: switch language and layout, apply a keyboard mode, change the theme, show and pin the keyboard, sound and haptics, power saving and data saver, size and position, open a tool, and turn incognito on. The **Needs more trust** group is off by default: turn incognito off, add and block words, back up now, announce layout changes, and type text. The commands behind each row, and how to send them, are on [Automation: adb and Tasker](/reference/automation/).
 
+### Downloads
+
+<SettingsPath path="Privacy / Downloads" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Verify downloaded files | Toggle | On |
+
+**Verify downloaded files** holds every file the keyboard downloads or imports to the SHA-256 checksum it was published with: Chinese, Japanese and Cantonese dictionary packs, Whisper, Whistle, Parakeet, Moonshine and Asr4All voice models, the sticker cutout model, script fonts, add-ons, Rboard theme packs, Keyman layouts from the mirror, and app updates on the GitHub build. A file that doesn't match is refused and deleted, because it's either damaged or not the file that was published.
+
+Leave it on. It exists for one situation: a file had to change on the server, your installed version still expects the old checksum, and the update that knows the new one hasn't reached you yet. Turning it off lets that version take the new file in the meantime. Turning it off asks you to confirm first, and while it's off the row's subtitle says so. Turn it back on once you've updated.
+
+Some checks stay no matter what. An app update still has to carry the developer's signing certificate, so an APK someone else signed is never installed. An add-on that runs code still has to publish a checksum at all. Models with a fixed file size (Whistle, the ExecuTorch voice models, the cutout model) still have to be that size.
+
 ### Your data
 
 <SettingsPath path="Privacy / Your data" />
 
-A single row, **Learned words**, with a **Delete the learned words** button that asks to confirm first. Confirming deletes thirteen files: your word and word-pair lexicon, the new words still waiting to be counted, your emoji-usage history, autocorrect's revert memory (which corrections you undid), your Chinese/Japanese/Cantonese pick history, and the language-mix tracker that remembers which language you tend to reach for. It also takes the hand and tap key-offset models that learn where your fingers land, and what your own manual fixes taught autocorrect. It also takes your per-app language habit and the glide-outcome store that remembers which word you picked or undid. It also takes the glide-shape store that learns how you draw each word, and the word-rank file. The dialog names the first four, warns that your personal dictionary goes with them, and promises that your snippets and your imported word lists stay.
+A single row, **Learned words**, with a **Delete the learned words** button that asks to confirm first. Confirming deletes thirteen files: your word and word-pair lexicon, the new words still waiting to be counted, your emoji-usage history, autocorrect's revert memory (which corrections you undid), your Chinese/Japanese/Cantonese pick history, and the language-mix tracker that remembers which language you tend to reach for. It also takes the hand and tap key-offset models that learn where your fingers land, what your own manual fixes taught autocorrect, your per-app language habit, the glide-outcome store that remembers which word you picked or undid, the glide-shape store that learns how you draw each word, and the word-rank file. The dialog names the first four, warns that your personal dictionary goes with them, and promises that your snippets and your imported word lists stay.
 
-Your personal dictionary really does go. The [Personal dictionary](/reference/settings/dictionaries/) screen edits the same word and word-pair lexicon file the keyboard learns into, so a word you added by hand and a word the keyboard picked up sit side by side, and this button takes both.
+Your personal dictionary does go. The [Personal dictionary](/reference/settings/dictionaries/) screen edits the same word and word-pair lexicon file the keyboard learns into, so a word you added by hand and a word the keyboard picked up sit side by side, and this button takes both.
 
 <PhoneFrame caption="Learned words, the only control in the Your data group.">
   <Shot id="reference/settings/privacy-clear-learned-words" alt="Clear learned words, the only control in the Your data group." />
 </PhoneFrame>
 
-This is the only bulk clear on this screen. Personal dictionary entries, clipboard history, and downloads each have their own per-item controls elsewhere. See [Your data on device](/privacy/data/#clearing-whats-stored) for the complete map of where every other category's clear control actually lives.
+This is the only bulk clear on this screen. Personal dictionary entries, clipboard history, and downloads each have their own per-item controls elsewhere. See [Your data on device](/privacy/data/#clearing-whats-stored) for the complete map of where every other category's clear control lives.
 
 ## Details & edge cases
 
 - **"Delete the learned words" is one bulk action, not a per-category picker.** No dialog lets you choose which of the thirteen files to wipe. Confirming deletes all thirteen at once, with no undo.
 - **"Follow private browsing" isn't two settings.** The row here and the row of the same name under <SettingsPath path="Tools / Incognito" /> both read and write `autoIncognito`; flip it in either place and the other reflects the change.
 - **Saved API keys are included in an Android backup**, not excluded the way large downloads are. If that matters to you, use [Backup & restore](/privacy/backup/)'s manual export instead, which never leaves the device.
-- **A cloud backup needs an encryptable screen lock.** On a device without one, turning "Back up with Android" on has nothing to actually back up into: Android's own backup system requires it.
+- **A cloud backup needs an encryptable screen lock.** On a device without one, turning "Back up with Android" on has nothing to back up into: Android's own backup system requires it.
 - **The footer caption names the whole network side.** The screen's own note reads: "Typing works fully on this device. The word lists, prediction, autocorrect, transliteration and emoji search are part of the app, and none of them needs a network connection. The app collects nothing about you and has no analytics of its own. Handwriting, text scanning and QR scanning are built on Google's ML Kit, which reports its own diagnostics to Google while you use them. Only a tool uses the network, and only at the moment that you press it: translate, weather, web search, image search, GIFs, stickers, dictionary lookup and the AI tools. You can turn off each one of them on the Tools screen." See [Privacy at a glance](/privacy/overview/) for the same list with per-tool detail, plus the few fetches that happen without you pressing a tool.
 - **Allowed actions keeps its switches while the master toggle is off.** Turning **Let other apps control the keyboard** off hides the row and blocks every command, but the choices under it are kept for the next time you turn it on.
+- **Turning off "Verify downloaded files" is logged.** Each file it lets through despite a wrong checksum leaves a line in the debug log, so a bug report shows it happened.
 - **No edition differences.** Every setting on this screen behaves the same on both the full and lite builds.
 
 ## Related pages
 
 - [Privacy at a glance](/privacy/overview/): what leaves the device and what never does, with the receipts.
 - [Permissions](/reference/settings/permissions/): the field list for the sub-screen the top row on this page opens.
-- [Fingerprint lock](/reference/settings/app-lock/): the field list for the third sub-screen, including everything the lock does not protect.
+- [App lock](/reference/settings/app-lock/): the field list for the third sub-screen, including everything the lock does not protect.
 - [Your data on device](/privacy/data/): everything stored locally, where it sits, and every way to clear it. Not just the one button on this screen.
 - [Incognito & secure fields](/privacy/incognito/): incognito mode, private-browsing detection, and password/secure-field handling in full.
 - [Network policy](/privacy/network/): the complete tool-by-tool table of what reaches the network and why.

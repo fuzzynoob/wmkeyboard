@@ -57,6 +57,22 @@ Each half of the pair is independent: one can hold a single theme while the othe
 <Shot id="reference/settings/themes-auto-schedule" alt="Auto theme on, with Time of day chosen and both clock rows visible." />
 </PhoneFrame>
 
+### App colors
+
+<SettingsPath path="Appearance / Keyboard themes / Match the app colors" />
+
+| Setting | Control | Options | Default |
+|---|---|---|---|
+| Match the app colors | Toggle | On / Off | Off |
+| Themes that change *(shown only while Match the app colors is on)* | Choice | Default and wallpaper themes / All themes | Default and wallpaper themes |
+| Find colors in *(same)* | Choice | Auto / App icon / App screens | Auto |
+| Palette style *(same)* | Choice, each option drawn as three dots | Tonal spot / Vibrant / Expressive / Fidelity / Neutral / Monochrome / Rainbow / Fruit salad | Tonal spot |
+| Color for each app *(shown only once an app has a color other than its first)* | Button | Reset puts every app back on its first color | |
+
+The colors are laid over the theme as the keyboard draws it; nothing is saved into the theme. **Default and wallpaper themes** means the Default theme plus any theme with **Follow wallpaper colors** on; while you are in an app, its colors take the wallpaper's place. **Auto** reads the colors the app sets for its own screens first, then its launcher icon. The keyboard's own settings app is never recolored.
+
+The choice of color for one app is made on the keyboard: the **Appearance** tool shows a **This app** row with the app's colors (up to four), a struck-through circle for "no color in this app", and the palette styles drawn in the app's color. See [Matching the app you type in](/themes/overview/#matching-the-app-you-type-in).
+
 ### Themes
 
 | Setting | Control | Options | Default |
@@ -85,7 +101,7 @@ Each half of the pair is independent: one can hold a single theme while the othe
 
 The grid runs two cards per row. **Default (system)** comes first, with no edit, export, or delete, since it's generated live rather than stored. Then **Your themes**, which only shows once you have at least one. Then **Built-in**, under its own note: "Press a theme to use it. The pencil icon makes a copy that you can edit." Built-in cards never show a delete button. A second caption explains the pin: your own themes always show in the Appearance tool, built-ins only when pinned.
 
-There are 29 built-in themes: 19 original WM Keyboard designs, plus 10 ports of well-known editor colour schemes (Dracula, Alucard, Nord, Solarized Dark, Solarized Light, Catppuccin Mocha, Catppuccin Latte, Catppuccin Frappé, Catppuccin Macchiato, Tokyo Night). Cyberpunk sits with the ports in the source but isn't one: it's ours, and it's the theme that uses the whole feature set at once (animated board gradient, cut keys, translucent faces, neon outline). Twenty-four of the 29 sit in six families (Nightfall, Pastel, Gradients, Dracula, Solarized, Catppuccin), so the grouped grid shows eleven built-in cards. See [Theming overview](/themes/overview/#choosing-a-theme) for the full list and what each one showcases.
+There are 29 built-in themes: 19 original WM Keyboard designs, plus 10 ports of well-known editor colour schemes (Dracula, Alucard, Nord, Solarized Dark, Solarized Light, Catppuccin Mocha, Catppuccin Latte, Catppuccin Frappé, Catppuccin Macchiato, Tokyo Night). Cyberpunk sits with the ports in the source but isn't one: it's ours, and it's the theme that uses the whole feature set at once (animated board gradient, cut keys, translucent faces, neon outline). Twenty-four of the 29 sit in six families (Nightfall, Pastel, Gradients, Dracula, Solarized, Catppuccin), so the grouped grid shows eleven built-in cards. See [Theming overview](/themes/overview/#choosing-a-theme) for the full list and what each one shows.
 
 ## Theme editor
 
@@ -152,6 +168,35 @@ The landscape image row is independent: it's shown even with no portrait image s
 
 The last two rows stay hidden until you have started using photos, so a theme with one gallery picture never shows them. Full walkthroughs: [Image backgrounds](/themes/backgrounds/) and [Online photos and rotation](/themes/online-photos/).
 
+### Glass
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Glass" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Frosted glass | Toggle | Off |
+| Presets *(glass on)* | Frosted / Clear / Mica / Smoked / Liquid chips; each sets the sliders below and lowers still-opaque fills | n/a |
+| Kind of glass | Segmented row: Frosted / Liquid (Android 13 and later; frosted elsewhere) | Frosted |
+| Refraction *(Liquid)* | Slider, 0–100% | 60% |
+| Color split *(Liquid)* | Slider, 0–100% | 25% |
+| Blur behind the keyboard | Toggle; Android 12 and later, off while the phone's blur, power saving or the floating keyboard is in force | Off |
+| Blur strength | Slider, 4–64 dp; also the blur under popups and menus | 24 dp |
+| Board opacity without blur *(blur behind on)* | Slider, 50–100% | 92% |
+| Glass surfaces | Chips: Letter keys, Modifier keys, Enter key, Space bar, Bars, Tool buttons, Chips, Cards, Popups, Menus | All but Enter key |
+| Behind the glass | Segmented row: Auto / Image / Wallpaper / Nothing | Auto |
+| Part of the wallpaper *(wallpaper in use)* | Segmented row: Bottom / Middle / Top | Bottom |
+| Use your real wallpaper *(wallpaper in use, Android 12 and below, storage not allowed)* | Opens the storage permission request | n/a |
+| Accent-tinted board *(follows the wallpaper by role, as Frost does)* | Toggle | On |
+| Blur the background too *(image set)* | Toggle | On |
+| Backdrop blur *(something behind the glass)* | Slider, 0–25 | 14 |
+| Backdrop saturation *(something behind the glass)* | Slider, 0.5×–2× | 1.25× |
+| Backdrop brightness *(something behind the glass)* | Slider, −30%–+30% | 0% |
+| Rim | Slider, 0–100% | 50% |
+| Rim color *(rim above 0)* | Color, alpha, Auto | Auto (white) |
+| Grain | Slider, 0–25% | 6% |
+
+See [Frosted glass](/themes/glass/).
+
 ### Keys
 
 | Setting | Control | Default |
@@ -190,6 +235,7 @@ Six slots when Key popup (under Key press) is on, five without it, one image eac
 
 | Control | What it does |
 |---|---|
+| Pick on keyboard | Turns the pinned preview into a picker: pressing a key opens its sheet. Chips above the preview switch it to Letters, Symbols, Symbols 2, Fn (when the layout has one) or any panel that is a grid of keys |
 | Add a key | Dialog: type a letter, or pick one of Enter, Space, Shift, Delete, Symbols, Emoji, Languageswitch (the globe key) |
 | A key's row | Opens that key's own style sheet, below |
 | Bin icon | Drops the whole override for that key |
@@ -205,7 +251,7 @@ A key's sheet:
 | Bold label | Automatic / Off / On |
 | Label size | Switch to set one, then a slider from 30% to 200% of a letter's size |
 
-A letter's style follows that letter onto every layout that has it. Anything you leave unset keeps following the theme, and an armed or locked modifier still shows the accent or pressed face whatever colour you gave it. A label size the layout gave the key in the layout editor beats the theme's.
+A letter's style follows that letter onto every layout that has it. A key that does one particular thing (an arrow or Home on the text-editing pad, a tool key, a page key) is styled for that thing alone, and a style an older or imported theme gave the whole family still reaches every key with none of its own. The sheet opens half-way, so the pinned preview shows each change as you make it. Anything you leave unset keeps following the theme, and an armed or locked modifier still shows the accent or pressed face whatever colour you gave it. A label size the layout gave the key in the layout editor beats the theme's.
 
 ### Stickers
 
@@ -236,7 +282,15 @@ Purely decorative images laid over the keys. The layer takes no touches, so typi
 
 Accent drives the shift-on tint, the active-tool highlight, and buttons across the panels. Popup shape covers every popup surface, from the character bubble to the long-press alternates, the language list, and the panel menus. Menu shape is the exception. On **Automatic**, the list menus take Popup shape only when it's one of the four plain outlines (Rounded, Square, Cut, Squircle), and fall back to Rounded otherwise, since a slanted or scalloped menu clips its own rows. Picking a shape here overrules that.
 
-### Toolbar
+### Toolbar and strip
+
+| Control | What it does |
+|---|---|
+| Toolbar | Opens the toolbar's sheet, below |
+| Suggestion strip | Opens the strip's sheet, below. The preview shows a few sample words on the strip while it's open |
+| Pick on the keyboard | The same picker as under Single-key styles: a tool on the preview opens the toolbar's sheet, a suggestion the strip's, a key its own style. Also the pencil in the preview's corner |
+
+The toolbar's sheet:
 
 | Setting | Control | Default |
 |---|---|---|
@@ -248,20 +302,28 @@ Accent drives the shift-on tint, the active-tool highlight, and buttons across t
 | Tool outline | Color, alpha, Auto → no outline | Auto |
 | Tool outline width *(outline color set)* | Slider, 0–3dp | 0dp |
 
-**Toolbar background** paints the tools' own row and the suggestion strip while it shows the tools. The strip's own fill (**Suggestion strip**, under Board) comes back the moment words arrive.
+**Toolbar background** paints the tools' own row and the suggestion strip while it shows the tools. The strip's own fill (**Suggestion strip**, on the strip's sheet) comes back the moment words arrive.
+
+The strip's sheet:
+
+| Setting | Control | Default |
+|---|---|---|
+| Suggestion strip | Color, alpha, Auto → the board | Auto |
+| Suggestion text | Color, Auto → Key text | Auto |
+| Other suggestions | Color, Auto → Suggestion text | Auto |
+| Other suggestions size | Slider, 50–120% in 5% steps | 100% |
+
+**Suggestion strip** also fills the other bars around the keys (the emoji row, the symbol row, the dictionary bar and the rest), and **Suggestion text** also colours the panels' body text. **Other suggestions** and its size row cover every word on the strip except the primary one, as a colour and as a share of the primary's size; the CJK conversion candidates and Avro's candidate list ignore both.
 
 ### Panels & suggestions
 
 | Setting | Control | Default |
 |---|---|---|
 | Cards & search bar | Color, alpha, Auto → Modifier keys | Auto |
-| Suggestion text | Color, Auto → Key text | Auto |
-| Other suggestions | Color, Auto → Suggestion text | Auto |
-| Other suggestions size | Slider, 50–120% in 5% steps | 100% |
 | Secondary text | Color, alpha, Auto → Suggestion text at 65% opacity | Auto |
 | Dividers | Color, alpha, Auto → Suggestion text at 25% opacity | Auto |
 
-"Cards & search bar" covers suggestion chips and the search bar surface across the tool panels. **Other suggestions** and its size row cover every word on the strip except the primary one, as a colour and as a share of the primary's size; the CJK conversion candidates and Avro's candidate list ignore both.
+"Cards & search bar" covers suggestion chips and the search bar surface across the tool panels. The strip's own colours moved to the strip's sheet under [Toolbar and strip](#toolbar-and-strip).
 
 Any row still on Auto shows an "Auto" label instead of a swatch; once you override it, its [color picker](/themes/editor/#the-color-picker) gains an **Auto** button next to Apply that clears the override again. See [Theme editor](/themes/editor/#options) for the exact fallback formula behind every Auto field.
 
@@ -381,7 +443,7 @@ Tapping any color row opens the same dialog. A split preview strip sits at the t
 - **When Auto theme is on, the gallery shows a banner with a Turn off button** instead of a note, since picking one theme by hand does nothing until it is off.
 - **The editor's sixteen sections are collapsed cards.** Tap a header to open it; the state is remembered, and the live preview stays pinned under the title while you scroll.
 - **No per-row restore buttons on either screen.** The app-wide [putting one setting back](/reference/settings/#putting-one-setting-back) control doesn't appear here, because a theme is something you built rather than a setting the app shipped a default for. Undo works the way each thing itself works. A colour row goes back with its picker's **Auto** button. The two opt-in groups (theme-specific corner radii, layout for this theme) clear by switching the group off. A look, sticker or single-key style goes by deleting it. And the built-in you copied from is still sitting in the gallery if you want to start over.
-- **Editing an existing custom theme doesn't switch to it.** Opening the pencil on a theme already in Your themes just opens the editor. Only Create, the built-in pencil (duplicate), and Import set the opened theme as active, as a side effect of those specific actions.
+- **Editing an existing custom theme doesn't switch to it.** Opening the pencil on a theme already in Your themes only opens the editor. Only Create, the built-in pencil (duplicate), and Import set the opened theme as active, as a side effect of those specific actions.
 - **"Landscape background image" is reached only through a specific theme's editor**, not from the gallery screen itself. Its settings-search entry is filed under the gallery's breadcrumb anyway, because the editor needs a real theme open and search alone can't supply one.
 - **Mode, Material You colors, and the Auto trigger picker have no settings-search entry.** They're real rows on the gallery screen, but searching for "Mode" or "Trigger" won't surface them directly. Search "themes" or "auto theme" instead. Light theme, Dark theme, Change the theme, and Change the theme now are all indexed.
 - **Deleting a theme takes it out of every set that named it.** The half falls back to another theme in its set, or to the single theme it was showing when the set empties. The Random setting itself stays on, so putting a set back together is a matter of ticking themes rather than finding the control again.

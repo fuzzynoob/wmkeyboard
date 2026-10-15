@@ -12,7 +12,7 @@ import Shot from '@components/Shot.astro';
 
 About has its own group on the Settings home screen: one tap gets you the build you're running, every licence bundled into the app, and a diagnostics screen for pulling a shareable report when something needs debugging.
 
-<PhoneFrame caption="The About screen: Share, App, Updates, Feedback, Documentation, Third party, and Word lists groups.">
+<PhoneFrame caption="The About screen: Share, App, Updates, Feedback, Community, Documentation, Third party, and Word lists groups.">
   <Shot id="reference/settings/about-screen" alt="The About screen: Share, App, Documentation, Third party, and Word lists groups." />
 </PhoneFrame>
 
@@ -22,12 +22,13 @@ The **Share** group at the top has up to three rows: **Share the Play Store link
 
 ## Checking version, licence, and source
 
-The **App** group holds ten rows:
+The **App** group holds eleven rows:
 
 - **Version** shows the edition, build type and store channel as its subtitle ("Full build (release · Play Store)", or "Lite build (debug)" on something you sideloaded), with the build number after "code," and the version name as the row's trailing value. It navigates nowhere, but it isn't quite inert. Tap it seven times and you get [the hidden mini game](/reference/easter-eggs/#find-the-hidden-mini-game), with a toast counting you down from the fourth tap.
 - **Licence** shows "MIT, © 2026 Wasi Master" and opens the app's own MIT licence text in full underneath it, monospaced and horizontally scrollable.
 - **Source code** opens the GitHub repository directly in your browser; unlike the Share rows above, this one navigates immediately rather than opening a share sheet.
 - **Short app name** is a switch, off by default. Turn it on and your app drawer and home screen call the app **WMK** instead of **WM Keyboard**, so a narrow launcher grid doesn't cut the name short. See [Changing the name under the icon](#changing-the-name-under-the-icon).
+- **Show in app drawer** is a switch, on by default. Turn it off and the icon leaves your app drawer and home screen, while the keyboard keeps working. See [Hiding the icon](#hiding-the-icon). Android TV doesn't show this row.
 - **App language** picks the language the app's menus and settings are shown in, separate from your phone's. On the English-only download from GitHub it says so instead, and offers to fetch the version with every language. See [Changing the app's language](#changing-the-apps-language).
 - **Storage** opens the [storage screen](#seeing-what-the-app-is-using) below, which is where you see what the app keeps on your device and delete any of it.
 - **Statistics** opens [Statistics](/reference/settings/statistics/): your level and achievements, a heatmap of where you tap, how much you type day by day, plus the switch that turns the counting off.
@@ -49,6 +50,18 @@ A few things happen when you flip it:
 - The long-press shortcuts on the icon (Themes, Languages and the rest) stay the same under either name.
 
 The choice is kept by Android rather than in the app's settings, so it survives updates but doesn't travel in a settings export or a backup. Resetting the row puts the full name back.
+
+### Hiding the icon
+
+**Show in app drawer** takes the app's icon off your launcher. Nothing else changes: the keyboard types as before, and these settings open from the keyboard's own settings key, from WM Keyboard's entry under Android's keyboard settings, or from a settings link. The long-press shortcuts on the icon go with it. Flipping it reopens the About screen when you came in from the icon, for the same reason the name switch does. Hidden, the app still remembers which name you picked, and showing the icon again brings that name back.
+
+Up to Android 9, that's the whole story. Android 10 and newer add their own icon for any installed app that has none, and that icon opens the app's App info page rather than the app. Apps that came with the phone don't get one, which is how a preinstalled Gboard can hide completely; an app you installed can't avoid it, so what the switch gives you there is an icon that leads to App info. To turn those stand-in icons off for every app, connect the phone to a computer and run:
+
+```bash
+adb shell settings put global show_hidden_icon_apps_enabled 0
+```
+
+Some launchers never show the stand-in at all. Like the name, the choice is kept by Android, not in the app's settings, so it survives updates and stays out of exports and backups.
 
 ### Changing the app's language
 
@@ -102,6 +115,8 @@ The first row follows whatever the updater is currently doing, and its label alw
 
 Underneath, a **Release page** row appears whenever an update is on offer, so you can fetch the file yourself.
 
+Now and then a fix goes out under the version name you already have, with only its build number raised. When that happens the update names the build too, for example **0.5.14 (build 31)**, and the home-screen card and the update prompt add a note saying why: you have an earlier build of that version, and the new one is a fix released under the same number.
+
 ### Reading what changed
 
 Wherever an update is offered, on the home-screen card and in the dialog that asks about it, a **What's new** button opens that version's release notes in a dialog of their own. These are the full notes, the same ones the release page carries: headings, bullets, and links to the issues a change closed, laid out rather than shown as raw markdown. Tapping a link opens it in your browser.
@@ -112,7 +127,7 @@ GitHub builds only. An F-Droid build has a page to send you to and no notes behi
 
 ### What a GitHub build checks before it installs
 
-Downloading an APK and handing it to Android is the one thing in this app that replaces the app, so it's worth knowing exactly what's checked and in what order:
+Downloading an APK and handing it to Android is the one thing in this app that replaces the app, so here is exactly what's checked, and in what order:
 
 1. The file name has to match the release and your phone: the right edition, the same languages build as yours (every language, or English only), and the right CPU, falling back to the universal build if your CPU has no build of its own.
 2. The downloaded bytes are hashed and compared against the checksum published in the release. A file that doesn't match is deleted, not installed. A release that publishes no checksum at all is refused rather than trusted.
@@ -145,7 +160,7 @@ The figures come from Android's own storage stats rather than from adding up fil
 
 Tap a row to open that piece on its own: what it holds, how big each item in it is, and a delete button per item. **Free up N MB** at the top, which names the amount it would recover, clears every cache in one go and never touches anything you made. Deleting anything else asks first, in wording that matches what you'd lose. A cache is free to delete. A download can be fetched again. Something you made, or the keyboard learned, is gone for good.
 
-A few rows worth knowing about:
+Notes on a few rows:
 
 - **Sticker packs** lists one row per pack, plus **Images you made stickers from**, the photos the [sticker editor](/emoji/stickers/#the-sticker-editor) keeps so you can edit a sticker again later. Deleting that row keeps every sticker and only costs you the ability to resume those edits.
 - **Downloads** covers the things the app fetched and can fetch again: word lists, CJK dictionaries, emoji keyword packs, and (on the full build) the speech and AI models, which are usually the biggest rows on the screen.
@@ -164,13 +179,36 @@ Either way, take **Diagnostics** along. It names the exact build and device, and
 
 Something a model wrote isn't a bug in the app, and it has its own button. See [Reporting a result](/tools/ai/#reporting-a-result) in the AI tool.
 
+## Joining the community
+
+The **Community** group sits under Feedback. It has two rows:
+
+- **Join the Telegram group** opens [t.me/wmkeyboard](https://t.me/wmkeyboard). It's the quickest place to ask how to do something, show off a layout or theme you made, and hear about a release before it reaches the stores. With Telegram installed, the link opens straight in the app. Without it, it opens in your browser. Bugs still belong in **Report a bug**, where they can be tracked to a fix instead of scrolling away in a chat.
+- **Follow WM Keyboard** shows one tile per account: [X](https://x.com/wmkeyboard), [Reddit](https://www.reddit.com/r/wmkeyboard), [Instagram](https://www.instagram.com/wmkeyboardapp) and [TikTok](https://www.tiktok.com/@wmkeyboard). Tap a tile to open the account, in the platform's app if you have it. Touch and hold a tile to copy its link instead. Every account is `wmkeyboard` except Instagram, which is `wmkeyboardapp`.
+
+The same accounts are the icons at the top right of every page on this site.
+
 ## Documentation, third-party notices, and word lists
 
 Two more single-purpose groups round out the screen:
 
-- **Documentation** links to this documentation site (**User guide**) and to the privacy policy, both opening directly in your browser. The policy row goes to the page that is true of the APK you're holding, so a full build opens [Privacy policy (Google Play edition)](/privacy/policy/) and a lite build opens [Privacy policy (F-Droid edition)](/privacy/policy-fdroid/).
+- **Documentation** links to this documentation site (**User guide**) and to the privacy policy, both opening directly in your browser. The policy row goes to the page that is true of the APK you're holding, so a full build opens [Privacy policy (Google Play edition)](/privacy/policy/) and a lite build opens [Privacy policy (F-Droid edition)](/privacy/policy-fdroid/). Its third row, **Setting links**, is covered [below](#copying-a-link-to-a-setting).
 - **Third party** has one row, **Open-source licences**, which opens the [licence browser](#browsing-the-licences) below.
 - **Word lists** has one row, **Dictionaries**, explaining that the seed bigrams, loanword map, and offensive-word list are hand-curated for this project and covered by its licence, while downloadable wordlists keep their own sources' licences, listed under Open-source licences. Like Version, this row is informational only and doesn't navigate anywhere. See [Every wordlist](/languages/dictionaries/#every-wordlist) for the full, filterable list of what's downloadable per language.
+
+## Copying a link to a setting
+
+**Setting links** in the Documentation group lets any settings row hand you a web link to itself, so you can send someone straight to a setting instead of describing the path. Pick one of three options:
+
+- **Off** (the default): rows look and behave as they always have.
+- **Hold**: touch and hold a setting, or a group's heading, to copy its link. You feel a short vibration when it is copied. A tap still does what it always did.
+- **Button**: a small link button sits next to each setting's reset and **?** buttons, and next to each group heading. Tap it to copy.
+
+What is copied is two lines: the path to the setting, the way the breadcrumb strip at the top of the screen names it (for example `Home › Typing › Autocorrect › Undo on backspace`), and under it the link. The path is for whoever gets it when the link will not open, or when they would rather walk there themselves than tap a link they were sent.
+
+The link is a web address such as `https://wmkeyboard.pages.dev/open/#wmkeyboard://settings/typing?setting=typing_autocorrect_title&since=0.6.1`, the same **Web address (https)** form the [link builder](/reference/link-builder/) writes. Chat apps make it tappable, and a phone with WM Keyboard opens the app on that screen with the setting flashed. A phone without it gets the [/open/ page](/reference/link-builder/#where-a-wmkeyboard-link-is-not-allowed-to-be-a-link), which says how to install it. The `since=` part is the version you copied it from, so an older copy of the app that does not have the setting can tell its owner to update. See [Opening one setting](/reference/deep-links/#opening-one-setting-not-a-whole-screen) for how the app reads the link.
+
+Rows with no fixed name have no link, and show no button and copy nothing on a hold: one language, one layout, one theme, one installed pack, and anything else you made yourself. Text fields keep their own touch and hold for selecting text.
 
 ## Browsing the licences
 
@@ -180,7 +218,7 @@ Tapping **Open-source licences** opens a three-group screen: everything bundled 
   <Shot id="reference/settings/licenses-screen" alt="The open-source licences list, grouped by bundled components, downloadable data packs, and online services." />
 </PhoneFrame>
 
-**Inside the app** always lists AndroidX & Jetpack Compose, Kotlin/coroutines/serialization, Coil, OkHttp & Okio, ZXing, and LuaJ, all Apache-2.0 or MIT. <Flavor edition="full" /> adds Harper and its Rust dependencies (grammar checking), Google ML Kit (handwriting and scanning), LiteRT-LM (the local AI models), and LiteRT plus OpenAI Whisper and whisper_android (offline speech-to-text). The <Flavor edition="lite" /> build doesn't link those features, so their licences don't apply to it. A Play build adds one more, Play In-App Updates. It isn't open source, so it opens Google's SDK terms in your browser rather than a bundled text. Both editions also list Unicode CLDR & emoji data, gemoji, Keyman keyboard layouts, the Khipro layout rules, desktop Avro's data behind the Avro candidate list (ibus-avro, MPL-1.1), OpenCC, the LSHK Jyutping table, the bundled editor colour palettes (Dracula, Nord, Solarized, Catppuccin, Tokyo Night), Google Fonts, and Inter & Manrope. Those last two are the faces the settings app itself is set in. They ship as files in the APK, so they carry their own notice rather than the generic one.
+**Inside the app** always lists AndroidX & Jetpack Compose, Kotlin/coroutines/serialization, Coil, OkHttp & Okio, ZXing, and LuaJ, all Apache-2.0 or MIT. <Flavor edition="full" /> adds Harper and its Rust dependencies (grammar checking), Google ML Kit (handwriting and scanning), LiteRT-LM (the local AI models), and LiteRT plus OpenAI Whisper and whisper_android (offline speech-to-text). The <Flavor edition="lite" /> build doesn't link those features, so their licences don't apply to it. A Play build adds one more, Play In-App Updates. It isn't open source, so it opens Google's SDK terms in your browser rather than a bundled text. Both editions also list Unicode CLDR, emoji & Han data (the Han part is the character levels of the 通用规范汉字表 that Pinyin ranks rare characters by), gemoji, Keyman keyboard layouts, the Khipro layout rules, desktop Avro's data behind the Avro candidate list (ibus-avro, MPL-1.1), OpenCC, the LSHK Jyutping table, the bundled editor colour palettes (Dracula, Nord, Solarized, Catppuccin, Tokyo Night), Google Fonts, and Inter & Manrope. Those last two are the faces the settings app itself is set in. They ship as files in the APK, so they carry their own notice rather than the generic one.
 
 That makes 23 bundled components on a full Play build and 15 on a lite F-Droid one. The gap is the seven entries gated behind grammar checking, ML Kit, the local LLM and Whisper, plus the Play updates entry. So a full F-Droid build lists 22, and a lite Play build 16.
 
@@ -190,7 +228,7 @@ That makes 23 bundled components on a full Play build and 15 on a lite F-Droid o
 
 ## Diagnosing a problem
 
-**Diagnostics** is where you go if something's misbehaving and you want to send in what the keyboard recorded, or just look at it yourself. It never contains anything you typed. That's a hard design rule stated in the logging code's own documentation, not only a promise in the UI copy.
+**Diagnostics** is where you go if something's misbehaving and you want to send in what the keyboard recorded, or look at it yourself. It never contains anything you typed. That's a hard design rule stated in the logging code's own documentation, not only a promise in the UI copy.
 
 <PhoneFrame side caption="Diagnostics: report actions, the app log with its filter and level chips, and Clear app log at the bottom.">
   <Shot id="reference/settings/diagnostics-screen" alt="Diagnostics: report actions, the app log with its filter and level chips, and Clear app log at the bottom." />
@@ -208,22 +246,29 @@ The **app log** itself is a free-text filter field plus one level chip per sever
 
 ## Options
 
-There are only four switches and one picker in this whole tree. Everything else is either a display-only row (Version, Dictionaries) or a read-only browser (the licence and diagnostics screens).
+There are only five switches and two pickers in this whole tree. Everything else is either a display-only row (Version, Dictionaries) or a read-only browser (the licence and diagnostics screens).
 
 <SettingsPath path="About" />
 
 | Setting | Control | Default |
 |---|---|---|
-| Short app name | Toggle | **Off** |
-| App language | Choice | **System default** (on the English-only build, an offer to switch) |
+| Short app name | Toggle | Off |
+| Show in app drawer | Toggle | On |
+| App language | Choice | System default (on the English-only build, an offer to switch) |
+
+<SettingsPath path="About / Documentation" />
+
+| Setting | Control | Default |
+|---|---|---|
+| Setting links | Choice: Off, Hold, Button | Off |
 
 <SettingsPath path="About / Updates" />
 
 | Setting | Control | Default |
 |---|---|---|
-| Check for updates automatically | Toggle | **On** |
-| Ask me about updates | Toggle | **On** |
-| Include pre-releases | Toggle | **Off** (GitHub builds only) |
+| Check for updates automatically | Toggle | On |
+| Ask me about updates | Toggle | On |
+| Include pre-releases | Toggle | Off (GitHub builds only) |
 
 <SettingsPath path="About / Diagnostics" />
 
@@ -235,7 +280,7 @@ See [Privacy at a glance](/privacy/overview/) and [Network policy](/privacy/netw
 
 ## Details & edge cases
 
-- **The licence-text screen's title is always "Licence," never the specific component's name.** Tapping into AndroidX's Apache-2.0 text or the app's own MIT text lands on a top bar that just says "Licence" either way, so rely on the row you tapped (or the text itself) to know which one you're reading.
+- **The licence-text screen's title is always "Licence," never the specific component's name.** Tapping into AndroidX's Apache-2.0 text or the app's own MIT text lands on a top bar that says "Licence" either way, so rely on the row you tapped (or the text itself) to know which one you're reading.
 - **Several bundled components share one licence asset.** Every Apache-2.0 entry opens the same Apache-2.0 text rather than a per-project copy: AndroidX, Kotlin, Coil, OkHttp & Okio, ZXing, OpenCC, and, on a full build, Harper and LiteRT/LiteRT-LM. The per-project attribution (name, what it's used for, copyright line) is what you saw on the list row before tapping in.
 - **Licence texts don't reflow.** They're hard-wrapped at a fixed column width and rendered monospaced, so long lines scroll sideways instead of wrapping to the screen width.
 - **The word-list attribution splits by kind, not by download status.** The three word lists that ship as source (seed bigrams, loanword map, offensive-word list) are covered by the app's own MIT licence. Every wordlist you download separately keeps its own upstream licence, listed under Open-source licences whether or not you've actually downloaded it yet.

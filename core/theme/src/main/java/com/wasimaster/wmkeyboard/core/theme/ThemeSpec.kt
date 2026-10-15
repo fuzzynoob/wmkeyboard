@@ -659,6 +659,13 @@ data class ThemeSpec(
      */
     val wallpaperRoles: Map<String, Long> = emptyMap(),
     /**
+     * Frosted glass: which surfaces show what is behind them blurred, and how
+     * the glass is dressed; see [FrostSpec]. Null is no glass at all, which is
+     * every theme written before the field existed. A nested nullable class so
+     * an older build drops the one key and imports a plain translucent theme.
+     */
+    val frost: FrostSpec? = null,
+    /**
      * The family's display name, when this theme heads one (see [variants]).
      * Null on every variant and on themes with no variants; built-in families
      * are named through [builtInThemeFamilyNameRes] instead, so their label
@@ -1375,6 +1382,177 @@ private val SnowVariants: List<ThemeSpec> = listOf(
 )
 
 /**
+ * The Frost family's glass: every surface, a strong rim, colours lifted a
+ * little. Window blur on, so on Android 12 and later the app behind shows
+ * through the board blurred; where it cannot, the board is drawn almost
+ * opaque and the keys keep their rims.
+ */
+private val FrostGlass = FrostSpec(
+    windowBlur = true,
+    windowBlurRadiusDp = 28,
+    fallbackOpacity = 0.94f,
+    surfaces = FrostSurface.ALL_NAMES,
+    backdropBlur = 16f,
+    saturation = 1.3f,
+    brightness = 0f,
+    rim = 0.6f,
+    grain = 0.06f,
+)
+
+/** The sheen the Frost keys wear: a catch of light across the top of each pane. */
+private val FrostSheen = GradientSpec(listOf(0x2EFFFFFF, 0x00FFFFFF), GradientType.LINEAR, 90f)
+
+/**
+ * The Frost family's other looks. Frost wallpaper stands on the wallpaper
+ * rather than the app behind — a steady backdrop that never changes with the
+ * app, and the look every phone and the gallery can show; the light look is
+ * the same glass for a light phone.
+ */
+private val FrostVariants: List<ThemeSpec> = listOf(
+    ThemeSpec(
+        id = "builtin_frost_wallpaper",
+        name = "Frost wallpaper",
+        dark = true,
+        // A scrim over the wallpaper: the wallpaper's band is the board, the
+        // keys are the frosted panes over it.
+        boardBackground = 0x800A1020,
+        keyBackground = 0x33FFFFFF,
+        keyText = 0xFFF4F7FF,
+        // The same pane as a letter, so the glass reads as one material.
+        modifierKeyBackground = 0x33FFFFFF,
+        enterKeyBackground = 0xE68AB4F8,
+        enterKeyText = 0xFF0B1220,
+        pressedKeyBackground = 0x73FFFFFF,
+        accent = 0xFF9CC9FF,
+        popupBackground = 0xCC223047,
+        popupText = 0xFFF4F7FF,
+        toolCircleBackground = 0x33FFFFFF,
+        chipBackground = 0x33FFFFFF,
+        suggestionText = 0xFFF4F7FF,
+        keyGradient = FrostSheen,
+        keyCornerRadiusDp = 12,
+        frost = FrostGlass.copy(windowBlur = false, backdrop = FrostBackdropSource.WALLPAPER.name),
+    ),
+    ThemeSpec(
+        id = "builtin_frost_light",
+        name = "Frost light",
+        dark = false,
+        boardBackground = 0xB3F2F5FA,
+        keyBackground = 0x99FFFFFF,
+        keyText = 0xFF1A2130,
+        modifierKeyBackground = 0x99FFFFFF,
+        enterKeyBackground = 0xFF3B6FD6,
+        enterKeyText = 0xFFFFFFFF,
+        pressedKeyBackground = 0xD9FFFFFF,
+        accent = 0xFF2F62C4,
+        popupBackground = 0xD9FFFFFF,
+        popupText = 0xFF1A2130,
+        toolCircleBackground = 0x80FFFFFF,
+        chipBackground = 0x80FFFFFF,
+        suggestionText = 0xFF1A2130,
+        keyGradient = GradientSpec(listOf(0x59FFFFFF, 0x00FFFFFF), GradientType.LINEAR, 90f),
+        keyCornerRadiusDp = 12,
+        frost = FrostGlass.copy(fallbackOpacity = 0.95f),
+    ),
+    // The author's own daily look, tuned on a CPH2481: liquid panes over the
+    // blurred app, a board barely there, a bright rim and no grain, the
+    // action keys a quieter pane than the letters and Enter a pale grey.
+    // Backdrop NONE: where the blur cannot run, the board goes near opaque
+    // rather than standing on the wallpaper.
+    ThemeSpec(
+        id = "builtin_frost_liquid",
+        name = "Frost liquid",
+        dark = true,
+        boardBackground = 0x27000000,
+        keyBackground = 0x2EFFFFFF,
+        keyText = 0xFFF4F7FF,
+        modifierKeyBackground = 0x1FFFFFFF,
+        enterKeyBackground = 0xE6CBCBCB,
+        enterKeyText = 0xFF0B1220,
+        pressedKeyBackground = 0x73FFFFFF,
+        accent = 0xFFCBCBCB,
+        popupBackground = 0x9A00172F,
+        popupText = 0xFFF4F7FF,
+        popupSelectedBackground = 0xFFCCCCCC,
+        toolCircleBackground = 0x2EFFFFFF,
+        chipBackground = 0x2EFFFFFF,
+        suggestionText = 0xFFF4F7FF,
+        keyGradient = GradientSpec(listOf(0x26FFFFFF, 0x00FFFFFF), GradientType.LINEAR, 90f),
+        keyCornerRadiusDp = 12,
+        frost = FrostGlass.copy(
+            windowBlurRadiusDp = 20,
+            fallbackOpacity = 0.96f,
+            backdrop = FrostBackdropSource.NONE.name,
+            backdropBlur = 5f,
+            saturation = 1.15f,
+            brightness = 0.03f,
+            rim = 0.71f,
+            grain = 0f,
+            style = FrostStyle.LIQUID.name,
+            refraction = 1f,
+            dispersion = 0.2f,
+        ),
+    ),
+)
+
+/**
+ * Frost: the look FrostKeys ships as its frosted glass, so the two read the
+ * same side by side. Its night defaults, from its `KeyboardTheme.kt`: a 65 px
+ * window blur (25 dp on a 2.6x phone), the board the wallpaper's accent
+ * container at 80/255, every letter the wallpaper's primary at about 28%, the
+ * action keys (shift, delete, ?123, enter) a solid mid accent blue, rounder
+ * keys, no borders, no grain.
+ *
+ * The thin board is the point of the look and its cost: over a white app the
+ * labels sit on a pale blur, as they do in FrostKeys. Where the blur cannot
+ * run the board is drawn nearly opaque, and `FrostThemeContrastTest` holds
+ * that case and the dark-app case to 4.5:1.
+ */
+private val FrostTheme: ThemeSpec = ThemeSpec(
+    id = "builtin_frost",
+    name = "Frost",
+    dark = true,
+    boardBackground = 0x50243653,
+    keyBackground = 0x476E7B9A,
+    keyText = 0xFFF1F0F7,
+    // FrostKeys' action keys (shift, delete, ?123, enter) are a solid,
+    // saturated accent blue; sampled side by side on a CPH2481 it was
+    // (70, 104, 163) against the letters' pale glass.
+    modifierKeyBackground = 0xE63F5F96,
+    enterKeyBackground = 0xE63F5F96,
+    enterKeyText = 0xFFF1F0F7,
+    pressedKeyBackground = 0x806E7B9A,
+    accent = 0xFFD9E2FF,
+    popupBackground = 0xCC223047,
+    popupText = 0xFFF1F0F7,
+    toolCircleBackground = 0x476E7B9A,
+    chipBackground = 0x476E7B9A,
+    suggestionText = 0xFFF1F0F7,
+    keyCornerRadiusDp = 16,
+    // FrostKeys draws its frosted theme in the wallpaper's colours, and in
+    // the wallpaper's *own* colours: the board is its accent container, not
+    // a navy moved onto the wallpaper's hue, which kept the navy's darkness
+    // and came out a muddy grey beside FrostKeys' saturated blue. So each
+    // part names the Material You role FrostKeys takes it from, and the
+    // values above are what a phone with no wallpaper palette draws.
+    followWallpaper = true,
+    wallpaperRoles = mapOf(
+        wallpaperRoleKey(dark = true, role = "primaryContainer") to 0xFF243653,
+        wallpaperRoleKey(dark = true, role = "primary") to 0xFF6E7B9A,
+        wallpaperRoleKey(dark = true, role = "inversePrimary") to 0xFF3F5F96,
+        wallpaperRoleKey(dark = true, role = "onPrimaryContainer") to 0xFFD9E2FF,
+        wallpaperRoleKey(dark = true, role = "onSurface") to 0xFFF1F0F7,
+        wallpaperRoleKey(dark = true, role = "surfaceContainerHigh") to 0xFF223047,
+    ),
+    frost = FrostGlass.copy(
+        windowBlurRadiusDp = 25,
+        rim = 0f,
+        grain = 0f,
+    ),
+    variants = FrostVariants,
+)
+
+/**
  * Built-in gallery themes. Users can't edit these in place — the editor
  * duplicates one into a custom theme instead — so ids stay stable.
  *
@@ -1428,6 +1606,7 @@ val BuiltInThemes: List<ThemeSpec> = listOf(
         keyBorderColor = 0x338A94A6,
         keyBorderWidthDp = 1f,
     ),
+    FrostTheme,
 ) + PaletteThemes
 
 /**
@@ -1456,6 +1635,10 @@ private val BuiltInThemeNameRes: Map<String, Int> = mapOf(
     "builtin_glacier" to R.string.core_theme_builtin_glacier_label,
     "builtin_bubble" to R.string.core_theme_builtin_bubble_label,
     "builtin_facet" to R.string.core_theme_builtin_facet_label,
+    "builtin_frost" to R.string.core_theme_builtin_frost_label,
+    "builtin_frost_wallpaper" to R.string.core_theme_builtin_frost_wallpaper_label,
+    "builtin_frost_light" to R.string.core_theme_builtin_frost_light_label,
+    "builtin_frost_liquid" to R.string.core_theme_builtin_frost_liquid_label,
 ) + PaletteThemeNameRes
 
 /**
@@ -1474,6 +1657,7 @@ private val BuiltInThemeFamilyNameRes: Map<String, Int> = mapOf(
     "builtin_ocean" to R.string.core_theme_family_ocean_label,
     "builtin_snow" to R.string.core_theme_family_snow_label,
     "builtin_deep_sea" to R.string.core_theme_family_gradient_label,
+    "builtin_frost" to R.string.core_theme_family_frost_label,
 ) + PaletteThemeFamilyNameRes
 
 /**

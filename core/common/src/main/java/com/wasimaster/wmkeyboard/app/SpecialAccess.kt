@@ -19,9 +19,10 @@ import androidx.compose.ui.platform.LocalContext
 import com.wasimaster.wmkeyboard.common.R
 
 /**
- * The three grants Android does not hand out through a permission dialog:
- * notification access, usage access and the accessibility service. Each is a
- * toggle on a system Settings screen the app can only *navigate to*.
+ * The grants Android does not hand out through a permission dialog:
+ * notification access, usage access, the accessibility service, installing
+ * updates and drawing over other apps. Each is a toggle on a system Settings
+ * screen the app can only *navigate to*.
  *
  * Play treats these as more sensitive than ordinary permissions, not less —
  * notification access and the Accessibility API each have their own Console
@@ -68,6 +69,26 @@ enum class SpecialAccess {
      * checking the file against the release checksum and its own signing key.
      */
     INSTALL_UPDATES,
+
+    /**
+     * "Display over other apps", for the floating keyboard button (issue
+     * #374). Nothing is read with it: the one window it draws is the button.
+     */
+    OVERLAY,
+
+    /**
+     * "Alarms and reminders", for the clock tool: an alarm set for 6:30
+     * rings at 6:30. Without it the alarm still rings, but Android may hold
+     * it back by some minutes while the phone sleeps. Nothing is read.
+     */
+    EXACT_ALARMS,
+
+    /**
+     * Full-screen notifications, for the clock tool's ring screen on a locked
+     * phone (asked from Android 14). Without it a ringing alarm shows as a
+     * notification instead.
+     */
+    FULL_SCREEN,
     ;
 
     /** Dialog heading: the grant and the feature that wants it. */
@@ -79,6 +100,9 @@ enum class SpecialAccess {
             USAGE -> R.string.common_special_access_usage_title
             ACCESSIBILITY -> R.string.common_special_access_accessibility_title
             INSTALL_UPDATES -> R.string.common_special_access_install_updates_title
+            OVERLAY -> R.string.common_special_access_overlay_title
+            EXACT_ALARMS -> R.string.common_special_access_exact_alarms_title
+            FULL_SCREEN -> R.string.common_special_access_full_screen_title
         }
 
     /** What is read, why, where it goes, and that the feature is optional. */
@@ -90,6 +114,9 @@ enum class SpecialAccess {
             USAGE -> R.string.common_special_access_usage_body
             ACCESSIBILITY -> R.string.common_special_access_accessibility_body
             INSTALL_UPDATES -> R.string.common_special_access_install_updates_body
+            OVERLAY -> R.string.common_special_access_overlay_body
+            EXACT_ALARMS -> R.string.common_special_access_exact_alarms_body
+            FULL_SCREEN -> R.string.common_special_access_full_screen_body
         }
 
     /**
@@ -129,6 +156,28 @@ enum class SpecialAccess {
                 // page, where the bare intent lands on the list of apps.
                 Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES),
                 Intent(Settings.ACTION_SECURITY_SETTINGS),
+            )
+        } else {
+            emptyList()
+        }
+        // The app's own row first; some skins only have the list of apps.
+        OVERLAY -> listOf(
+            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri()),
+            Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
+        )
+        // Both pages are newer than minSdk; the checks are spelled out for Lint.
+        EXACT_ALARMS -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            listOf(
+                Intent(Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM, "package:$packageName".toUri()),
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:$packageName".toUri()),
+            )
+        } else {
+            emptyList()
+        }
+        FULL_SCREEN -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            listOf(
+                Intent(Settings.ACTION_MANAGE_APP_USE_FULL_SCREEN_INTENT, "package:$packageName".toUri()),
+                Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, "package:$packageName".toUri()),
             )
         } else {
             emptyList()

@@ -88,6 +88,8 @@
     <string name="languages_keyman_prompt_body">This keyboard uses rules to decide what its keys type. Without them, each key types the character printed on it. The rules are a few kilobytes and come from keyman.com.</string>
     <string name="languages_keyman_prompt_download">Download</string>
     <string name="languages_keyman_prompt_later">Not now</string>
+    <string name="languages_cjk_pack_prompt_title">Download the %1$s?</string>
+    <string name="languages_cjk_pack_prompt_body">%1$s types the reading and turns it into characters from this dictionary. Without it, no characters are offered. It is %2$s and works offline once downloaded.</string>
 
     <!--
       The way down to a language's converted Keyman layouts. Called "More
@@ -198,7 +200,7 @@
     <string name="languages_picker_hidden_group">Language switcher</string>
     <string name="languages_picker_hidden_title">Do not show in the language switcher</string>
     <string name="languages_picker_hidden_subtitle">Keep this language for its suggestions only</string>
-    <string name="languages_picker_hidden_info"><xliff:g id="language" example="Bangla (Romanized)">%1$s</xliff:g> stays on, but the globe key, the spacebar swipe and the language list do not stop at it. Its words continue to show on each keyboard that has it below Also suggest from. Use this to type it on your English keyboard and have one keyboard less to switch through.</string>
+    <string name="languages_picker_hidden_info"><xliff:g id="language" example="Bangla (Romanized)">%1$s</xliff:g> stays on, but the globe key, the spacebar swipe and the language list do not stop at it. Its words continue to show on each keyboard that has it below Also suggest from. Use this when you want a language only for its words, such as English suggestions on a Swedish keyboard, and one keyboard less to switch through.</string>
     <string name="languages_phonetic_english_group">English words</string>
     <string name="languages_phonetic_english_title">Type English words as English</string>
     <string name="languages_phonetic_english_subtitle">On the phonetic layout, hello stays hello</string>
@@ -387,18 +389,23 @@
     <string name="languages_cjk_delete_desc">Delete <xliff:g id="pack" example="Pinyin">%1$s</xliff:g></string>
 
     <string name="languages_cjk_traditional_title">Traditional characters</string>
-    <string name="languages_cjk_traditional_subtitle">The keyboard converts candidates to Traditional (繁體). It converts one character at a time, so a few forms that depend on context are wrong (发 → 發 / 髮).</string>
+    <string name="languages_cjk_traditional_subtitle">The keyboard converts candidates to Traditional (繁體). With the phrase table pack, it converts word by word, so 头发 becomes 頭髮.</string>
     <!-- Info text for the Traditional characters toggle. The Chinese characters
          are examples and stay as they are. 发 is the Simplified form, 發 means
          "to send" and 髮 means "hair". -->
-    <string name="languages_cjk_traditional_info">The keyboard converts each candidate from Simplified (简体) to Traditional (繁體) before it shows the candidate. The conversion reads one character at a time. A few Simplified characters have more than one Traditional form, and the keyboard always writes the more common one. 发 becomes 發, which is correct in 發展 but wrong in 頭髮. Correct those words by hand.</string>
+    <string name="languages_cjk_traditional_info">The keyboard converts each candidate from Simplified (简体) to Traditional (繁體) before it shows the candidate. Some Simplified characters have more than one Traditional form, and the word decides which one is correct: 发 is 發 in 發展 but 髮 in 頭髮, and 后 is 後 in 後來 but 后 in 皇后. With the phrase table pack downloaded, the keyboard reads whole words, so it writes the correct form. Without the pack, or for a word that is in no table, it converts one character at a time.</string>
     <string name="languages_cjk_region_title">Regional wording</string>
-    <string name="languages_cjk_region_info">Taiwan and Hong Kong often use different words for the same thing, not only different characters.</string>
+    <!-- The Chinese characters are examples and stay as they are. 出租車 and
+         計程車 both mean "taxi", but they are different words with different
+         readings. -->
+    <string name="languages_cjk_region_info">Taiwan and Hong Kong each prefer some character forms of their own. Taiwan also often uses different words for the same thing, for example 計程車 for 出租車. Only Taiwan wording changes the words. The other choices keep the word that you typed.</string>
     <string name="languages_cjk_region_generic_title">Standard</string>
     <string name="languages_cjk_region_generic_subtitle">Characters only, no changes to wording</string>
     <string name="languages_cjk_region_taiwan_title">Taiwan (臺灣)</string>
-    <string name="languages_cjk_region_taiwan_subtitle" translatable="false">出租車 → 計程車, 光盤 → 光碟</string>
-    <!-- Example word pairs. Chinese text, the same in every language. -->
+    <string name="languages_cjk_region_taiwan_subtitle">Character preferences of Taiwan, no changes to wording</string>
+    <string name="languages_cjk_region_taiwan_wording_title">Taiwan wording (臺灣用語)</string>
+    <!-- Example word pairs. The Chinese text stays as it is. -->
+    <string name="languages_cjk_region_taiwan_wording_subtitle">Changes words to the Taiwan words: 出租車 to 計程車, 光盤 to 光碟</string>
     <string name="languages_cjk_region_hong_kong_title">Hong Kong (香港)</string>
     <string name="languages_cjk_region_hong_kong_subtitle">Character preferences of Hong Kong</string>
 
@@ -426,6 +433,12 @@
     <string name="languages_cjk_jianpin_title">Jianpin (简拼)</string>
     <string name="languages_cjk_jianpin_subtitle">Type only the first letter of a syllable: wm finds 我们, zg finds 中国</string>
     <string name="languages_cjk_jianpin_info">A letter that is not a whole syllable stands for every syllable that starts with it, so wm finds 我们 and haod finds 好的. Each letter is one syllable: hd means h… plus d…. A syllable that you type in full is matched exactly and ranks first. The letters z, c and s also cover zh, ch and sh. A Double Pinyin scheme does not use this, because every syllable is exactly two keys there.</string>
+    <string name="languages_cjk_prediction_title">Next-word suggestions (联想)</string>
+    <string name="languages_cjk_prediction_subtitle">After you pick Chinese text, show the words that usually come next</string>
+    <string name="languages_cjk_prediction_info">When a conversion is complete and nothing is composing, the strip shows the words that usually follow the text before the cursor. Tap one to type it, and the strip shows what follows that. The words that you write after others come first, then the common word pairs, then the rest of a word that the last character starts (无 gives 聊). This needs the word pairs pack.</string>
+    <string name="languages_cjk_shortcuts_title">Date, time and numbers</string>
+    <string name="languages_cjk_shortcuts_subtitle">rq types the date, sj the time, xq the weekday, v and a number gives Chinese numerals</string>
+    <string name="languages_cjk_shortcuts_info">Type rq for the date, sj for the time and xq for the weekday. These show after the best candidate for the same letters. Type v and then a number, for example v1234.5, to get it as 一千二百三十四点五, as 壹仟贰佰叁拾肆点伍 for amounts, or digit by digit. No pinyin syllable starts with v, so this does not change pinyin.</string>
     <string name="languages_cjk_fuzzy_title">Fuzzy Pinyin</string>
     <!-- Only "Match confusable sounds" needs translation. The rest is Pinyin
          spelling and stays as it is. -->
