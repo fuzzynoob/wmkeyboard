@@ -37,6 +37,7 @@
     <string name="layout_editor_duplicate_desc">Duplicate <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g></string>
     <string name="layout_editor_reset_desc">Reset <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g></string>
     <string name="layout_editor_delete_desc">Delete <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g></string>
+    <string name="layout_editor_more_desc">More options for <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g></string>
 
     <!-- Import dialog. %1$s is the name of the layout inside the file. -->
     <string name="layout_editor_import_confirm_title">Import <xliff:g id="layout_name" example="Probhat">%1$s</xliff:g>?</string>
@@ -156,11 +157,8 @@
     <string name="layout_editor_add_row_subtitle">Adds an empty row at the end of this layer</string>
     <string name="layout_editor_number_row_title">Number row</string>
     <string name="layout_editor_number_row_caption">The keyboard shows this row above this layer. Tap a key to change it. Hold a key and drag it to move it.</string>
-    <string name="layout_editor_number_row_off_caption">The keyboard shows this row above this layer when Number row is on in Layout and size. Number row is off now.</string>
-    <string name="layout_editor_number_row_hidden_caption">The keyboard shows this row above this layer when Number row in symbols is on in Layout and size. It is off now.</string>
     <string name="layout_editor_fill_row_title">Row in place of the digits</string>
     <string name="layout_editor_fill_row_caption">The number row already shows the digits, so the keyboard shows this row in place of the first row of this layer.</string>
-    <string name="layout_editor_fill_row_off_caption">When Number row is on, the keyboard shows this row in place of the first row of this layer, because the number row already shows the digits. Number row is off now.</string>
     <string name="layout_editor_extra_row_add_key_desc">Add a key to this row</string>
     <string name="layout_editor_extra_row_reset">Use the standard row</string>
     <string name="layout_editor_reorder_rows_title">Reorder rows</string>
@@ -202,7 +200,7 @@
     <string name="layout_editor_problem_blocking_subtitle">You must fix this before you turn this layout on</string>
     <string name="layout_editor_problem_warning_subtitle">Look at this, but the layout still works</string>
     <!-- Under the preview grid, on every editor that lets you drag a key. -->
-    <string name="layout_editor_drag_caption">Press a key to change it. Press and hold a key, then drag, to move it somewhere else in the grid, including into another row.</string>
+    <string name="layout_editor_drag_caption">Press a key to change it. Press and hold a key, then drag, to move it somewhere else in the grid, including into another row. Let go on the line between two rows, or above or below them all, to give the key a row of its own.</string>
     <string name="layout_editor_not_live_caption">Your changes here do not affect typing until you turn the layout on under Languages.</string>
     <string name="layout_editor_live_caption">This layout is on, so your changes affect typing straight away. The keyboard adds a delete, space or enter key back if you remove the last one.</string>
     <string name="layout_editor_cannot_enable_title">Cannot turn on %1$s</string>
@@ -264,6 +262,13 @@
     <string name="layout_editor_layout_picker_title">Which layout</string>
     <string name="layout_editor_layout_picker_empty">No secondary layouts yet. Make one on the Key layouts screen first.</string>
 
+    <!-- Which keyboard mode a key toggles, shown when the key's action is "Toggle a keyboard mode". -->
+    <string name="layout_editor_mode_row_title">Mode</string>
+    <string name="layout_editor_mode_row_subtitle">The keyboard mode this key turns on and off</string>
+    <string name="layout_editor_mode_row_unset">Not set</string>
+    <string name="layout_editor_mode_picker_title">Which mode</string>
+    <string name="layout_editor_mode_picker_empty">No keyboard modes yet. Make one under Modes first.</string>
+
     <!-- Width of one key, in grid units. %1$.2f is the width, for example 1.50. -->
     <string name="layout_editor_key_width_label">Width <xliff:g id="width" example="1.50">%1$.2f</xliff:g></string>
     <!-- Button that gives the key all the width the row has left.
@@ -300,6 +305,8 @@
     <!-- Switch on a key's sheet. On: holding the key fires it again and again, the way holding delete does. -->
     <string name="layout_editor_flick_add_action">Add flick directions</string>
     <string name="layout_editor_flick_add_subtitle">A short swipe from the key in any of eight directions types something else, so one key can carry nine characters</string>
+    <string name="layout_editor_flick_swipe_only_title">Swipes only</string>
+    <string name="layout_editor_flick_swipe_only_subtitle">No centre character. A tap on this key types nothing; only its swipes do.</string>
     <string name="layout_editor_flick_caption">Tap a cell of the pad to set what a swipe that way types. A tap on the key still types the output. The keyboard draws the arms small on the key, and a swipe out to an arm and back types its capital.</string>
     <string name="layout_editor_flick_left_label">Flick left</string>
     <string name="layout_editor_flick_up_label">Flick up</string>
@@ -313,8 +320,12 @@
     <string name="layout_editor_flick_clear">Remove all flick directions</string>
     <string name="layout_editor_flick_field_hint">Blank: no flick in this direction</string>
     <string name="layout_editor_flick_set_hint">A flick this way types %1$s</string>
-    <string name="layout_editor_flick_add_subtitle_action">A short swipe from the key in any of eight directions does an action, such as moving the cursor</string>
-    <string name="layout_editor_flick_caption_action">Tap a cell of the pad to choose what a swipe that way does. A tap on the key still does what the key does.</string>
+    <string name="layout_editor_flick_add_subtitle_action">A short swipe from the key in any of eight directions types something or does an action, such as moving the cursor</string>
+    <!-- Under a modifier key's flick pad (#838): what giving it an arm takes over. -->
+    <string name="layout_editor_flick_takes_modifier_drag">With an arm here, a swipe off this key is the arm, not a drag onto a letter for its combination. Clear the arms to have the drag back.</string>
+    <!-- Under the ?123 or ABC key's flick pad (#838). -->
+    <string name="layout_editor_flick_takes_layer_peek">With an arm here, a swipe off this key is the arm, not the drag that peeks at the other layer. Holding it still, for a chord or the number pad, works either way. Clear the arms to have the peek back.</string>
+    <string name="layout_editor_flick_caption_action">Tap a cell of the pad to set what a swipe that way types, or tap its bolt for an action. A tap on the key still does what the key does.</string>
     <string name="layout_editor_flick_action_none">No flick this way. Tap to choose an action.</string>
     <string name="layout_editor_flick_action_set">A flick this way does this: %1$s</string>
     <string name="layout_editor_flick_action_pick_desc">Do an action instead</string>
@@ -335,7 +346,6 @@
     <string name="layout_editor_select_hold_notice">Holding a Select key turns selection mode on for as long as you hold it. If you give this key alternates, the long press opens them instead and hold to select stops working on it. Tap, double tap and triple tap still work either way.</string>
     <string name="layout_editor_alternates_field_hint">Separate the entries with spaces, so an alternate cannot be a space. Entries of more than one character, such as .com, are correct. The app also draws the first one in the corner of the key.</string>
     <!-- Small badge on the first alternate, which the keyboard also draws in the corner of the key. -->
-    <string name="layout_editor_alternate_hint_badge">hint</string>
 
     <!-- Per-key column count for the press and hold popup. The first step is not a
          number: it hands the key back to the Alternate key columns setting. -->
@@ -373,13 +383,13 @@
     <string name="layout_editor_hint_never_desc">This key never draws its corner hint</string>
 
     <string name="layout_editor_role_title">Field adaptation</string>
-    <string name="layout_editor_role_subtitle">Email and web fields put @ and / in these two slots</string>
+    <string name="layout_editor_role_subtitle">Email and web address fields change the comma and full stop keys</string>
     <string name="layout_editor_role_comma">Comma slot</string>
     <string name="layout_editor_role_period">Full stop slot</string>
     <string name="layout_editor_role_plain">Exactly as laid out</string>
     <!-- One line under each option in the field adaptation picker. -->
     <string name="layout_editor_role_none_desc">Work it out from the key: a full stop or a comma on the bottom row fills its slot</string>
-    <string name="layout_editor_role_comma_desc">An email field puts @ here, and a web field puts /</string>
+    <string name="layout_editor_role_comma_desc">An email field puts @ here. A web field keeps the comma and puts / first on its press and hold</string>
     <string name="layout_editor_role_period_desc">An email field and a web field add .com and the other endings to the long press</string>
     <string name="layout_editor_role_plain_desc">No slot and no substitution: the key types what you put on it, so a full stop stays a full stop on a language that ends sentences some other way</string>
 
@@ -521,6 +531,8 @@
     <string name="layout_editor_ime_picker_empty">No other keyboards are turned on. Enable one in your device\'s keyboard settings first.</string>
     <string name="layout_editor_action_layout_title">Open a layout</string>
     <string name="layout_editor_action_layout_detail">Shows one of your secondary layouts over the letters. Press the key again, or an ABC key, to go back. Pick the layout below</string>
+    <string name="layout_editor_action_mode_title">Toggle a keyboard mode</string>
+    <string name="layout_editor_action_mode_detail">Turns one of your keyboard modes on, the way picking it from the Modes tool does. Press it again to go back to automatic. Pick the mode below</string>
     <string name="layout_editor_action_tool_title">Open a tool</string>
     <string name="layout_editor_action_tool_detail">Opens one of the keyboard tools, such as voice typing or the editing pad. Pick the tool below</string>
     <string name="layout_editor_action_broadcast_title">Broadcast intent</string>
@@ -571,7 +583,7 @@
     <string name="layout_editor_bottom_row_laid_out_title">Keep this bottom row as it is here</string>
     <string name="layout_editor_bottom_row_laid_out_off_subtitle">Moving or changing a key that the settings changed turns this on</string>
     <string name="layout_editor_bottom_row_laid_out_on_subtitle">The Bottom row keys settings do not change this layer</string>
-    <string name="layout_editor_bottom_row_laid_out_info">The Bottom row keys settings change the bottom row of every layout. They can hide the 🌐 key, move it, swap it with the comma, or make it an emoji key. With this on, this layer keeps its bottom row as you make it here, and those settings do not change it. When you turn this on, or move or change a key that the settings changed, the layer keeps the row as the keyboard showed it, so no key moves. Turn this off to let the settings change the row again.</string>
+    <string name="layout_editor_bottom_row_laid_out_info">The Bottom row keys settings change the bottom row of every layout. They can hide the 🌐 key, move it, swap it with the comma, or make it an emoji key. With this on, this layer keeps its bottom row as you make it here, and those settings do not change it. When you turn this on, or move or change a key that the settings changed, the layer keeps the row as the keyboard showed it, so no key moves. Turn this off to let the settings change the row again. On a layer you have not changed in any other way, turning it off also puts back the standard row.</string>
     <string name="layout_editor_bottom_row_settings_subtitle">Change what the keyboard does to the bottom row of every layout</string>
 
     <string name="layout_editor_name_title">Name</string>
@@ -612,7 +624,7 @@
     <string name="layout_editor_composer_cangjie">Cangjie (倉頡)</string>
     <string name="layout_editor_composer_cangjie_quick">Quick (速成)</string>
     <string name="layout_editor_composer_jyutping">Jyutping (粵拼)</string>
-    <string name="layout_editor_composer_khipro">Khipro (ক্ষিপ্র)</string>
+    <string name="layout_editor_composer_khipro">Khipro Classic (ক্ষিপ্র)</string>
     <string name="layout_editor_composer_khipro_dark">Khipro Dark</string>
     <string name="layout_editor_composer_cheonjiin">Cheonjiin (천지인)</string>
     <string name="layout_editor_composer_naratgeul">Naratgeul (나랏글)</string>
@@ -659,6 +671,9 @@
     <string name="panel_layout_value_default">Standard</string>
     <string name="panel_layout_value_custom">Your own</string>
     <string name="panel_layout_editor_caption">Press a cell to change it. Component cells hold the live parts of the panel. Rows with a component share the height that the key rows leave.</string>
+    <string name="panel_layout_media_tabs_idle_group">Switch to GIFs and stickers</string>
+    <string name="panel_layout_media_tabs_idle_title">Turn on the GIF or Sticker tool</string>
+    <string name="panel_layout_media_tabs_idle_body">The switch stays empty on the keyboard until one of the two tools is on: with only emoji in it, there is nowhere to switch to.</string>
     <string name="panel_layout_live_caption">The keyboard uses your changes at once.</string>
     <string name="panel_layout_reset_title">Use the standard layout</string>
     <string name="panel_layout_reset_subtitle">Go back to the panel the app ships with</string>
@@ -712,6 +727,9 @@
     <string name="textedit_action_doc_start">Start of the text</string>
     <string name="textedit_action_doc_end">End of the text</string>
     <string name="textedit_action_cut">Cut</string>
+    <string name="textedit_action_retype_word">Retype word</string>
+    <string name="textedit_action_no_space">No space</string>
+    <string name="textedit_action_no_space_next">No space after the next key</string>
     <string name="textedit_action_home">Start of the line</string>
     <string name="textedit_action_end">End of the line</string>
     <string name="textedit_action_select">Select</string>
@@ -726,5 +744,73 @@
     <!-- Chevron on a layout's row that opens or closes the list of its layers. %1$s is the layout's name. -->
     <string name="layout_editor_layers_expand_desc">Show the layers of <xliff:g id="layout" example="QWERTY">%1$s</xliff:g></string>
     <string name="layout_editor_layers_collapse_desc">Hide the layers of <xliff:g id="layout" example="QWERTY">%1$s</xliff:g></string>
+
+    <!-- Issue #769: the editor's preview draws the keyboard as it is, and the selected key's settings sit on the page under it. -->
+    <!-- A row of the preview grid that has no keys in it. -->
+    <string name="layout_editor_empty_row_label">Empty row</string>
+    <!-- Label before the chips that pick the kind of text field the preview draws the keyboard for. -->
+    <string name="layout_editor_preview_field_label">Show as in</string>
+    <string name="layout_editor_preview_field_text">Ordinary text</string>
+    <string name="layout_editor_preview_field_email">Email address</string>
+    <string name="layout_editor_preview_field_web">Web address</string>
+    <string name="layout_editor_preview_field_email_caption">In an email address field the keyboard changes two keys on this layer. The comma key types @, and the press and hold of the full stop starts with .com and the other endings. To keep a key as you made it, open the key and set Field adaptation, under More, to Exactly as laid out.</string>
+    <string name="layout_editor_preview_field_web_caption">In a web address field, such as the address bar of a browser, the keyboard changes keys on this layer. The comma key keeps its comma but its press and hold, and its corner hint, start with /. The full stop gets .com and the other endings, and enter shows Go. To keep a key as you made it, open the key and set Field adaptation, under More, to Exactly as laid out.</string>
+    <!-- Heading of the group of settings for the layer on screen. %1$s is the layer's name. -->
+    <string name="layout_editor_layer_section_title">This layer: <xliff:g id="layer" example="Letters">%1$s</xliff:g></string>
+    <string name="layout_editor_layout_section_title">The whole layout</string>
+    <!-- Button on a theme row that opens that theme in the theme editor. -->
+    <string name="layout_editor_theme_edit_action">Edit</string>
+    <string name="layout_editor_arrow_row_title">Arrow keys row</string>
+    <string name="layout_editor_arrow_row_caption">The keyboard shows this row under this layer when Arrow keys row is on in Layout and size. You can add any key to it, such as Word left or a second Shift.</string>
+    <!-- Heading of a selected key on one of the rows around the grid. %1$d is the key's place in the row. -->
+    <string name="layout_editor_number_row_key_title">Number row, key <xliff:g id="key" example="3">%1$d</xliff:g></string>
+    <string name="layout_editor_fill_row_key_title">Row in place of the digits, key <xliff:g id="key" example="3">%1$d</xliff:g></string>
+    <string name="layout_editor_arrow_row_key_title">Arrow keys row, key <xliff:g id="key" example="3">%1$d</xliff:g></string>
+    <!-- Headings of the groups of the selected key's settings. -->
+    <string name="layout_editor_key_section_main">Label and action</string>
+    <string name="layout_editor_key_section_hold">Press and hold</string>
+    <string name="layout_editor_key_section_flicks">Flicks</string>
+    <string name="layout_editor_key_section_look">Size and look</string>
+    <string name="layout_editor_key_section_more">More</string>
+    <string name="layout_editor_key_close_desc">Done with this key</string>
+    <string name="layout_editor_insert_key_action">Add key after</string>
+    <string name="layout_editor_row_add_key_action">Add key</string>
+    <string name="layout_editor_key_hint_text_label">Corner hint text</string>
+    <string name="layout_editor_key_hint_text_hint">What the corner of the key shows. It does not change what a press and hold types. Blank shows the first alternate.</string>
+    <!-- %1$s is the first alternate of the key, which the corner shows while this field is blank. -->
+    <string name="layout_editor_key_hint_text_hint_alternate">What the corner of the key shows, for example ,?! on a full stop. It does not change what a press and hold types. Blank shows <xliff:g id="alternate" example="1">%1$s</xliff:g>.</string>
+    <string name="layout_editor_popup_preview_title">The popup</string>
+    <string name="layout_editor_popup_preview_caption">How the keyboard shows it. The outlined entry is what a plain press and hold types.</string>
+    <string name="layout_editor_popup_preview_caption_added">How the keyboard shows it. The outlined entry is what a plain press and hold types. Faded entries come from your settings, such as the press and hold shortcuts and the accents, not from this layout.</string>
+    <!-- Chip beside undo and redo that turns on picking several keys at once. -->
+    <string name="layout_editor_multi_chip">Select several</string>
+    <string name="layout_editor_multi_caption">Press keys to pick them, and press one again to put it back. Keys side by side in one row move together, with the arrows or by dragging one of them.</string>
+    <plurals name="layout_editor_multi_title">
+        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> key picked</item>
+        <item quantity="other"><xliff:g id="count" example="4">%d</xliff:g> keys picked</item>
+    </plurals>
+    <string name="layout_editor_multi_done_desc">Stop picking several keys</string>
+    <string name="layout_editor_multi_delete_action">Delete them</string>
+    <string name="layout_editor_multi_move_caption">To move them together, pick keys that sit side by side in one row.</string>
+    <string name="layout_editor_multi_section_look">For all of them</string>
+    <string name="layout_editor_copy_key_action">Copy</string>
+    <string name="layout_editor_paste_key_action">Paste after</string>
+    <!-- Label the system shows for copied keys on the clipboard. -->
+    <string name="layout_editor_key_clip_label">Keyboard keys</string>
+    <plurals name="layout_editor_copy_keys_done">
+        <item quantity="one">Copied <xliff:g id="count" example="1">%d</xliff:g> key, with its flicks, icon, corner hint and alternates. Pick a key in any layer or layout and press Paste after.</item>
+        <item quantity="other">Copied <xliff:g id="count" example="4">%d</xliff:g> keys, with their flicks, icons, corner hints and alternates. Pick a key in any layer or layout and press Paste after.</item>
+    </plurals>
+    <string name="layout_editor_paste_keys_wrong_clip_error">The clipboard holds no keys. Copy a key in the layout editor first.</string>
+    <string name="layout_editor_special_key_action">Add a special key</string>
+    <!-- Description of a text-editing operation in the special key picker. -->
+    <string name="layout_editor_special_edit_detail">A key that runs this text-editing operation.</string>
+    <!-- %1$.2f is the width of the selected row, in key widths. -->
+    <string name="layout_editor_row_width_label">Row width <xliff:g id="width" example="9.00">%1$.2f</xliff:g></string>
+    <!-- %1$.2f is the width of the grid, in key widths. -->
+    <string name="layout_editor_row_width_hint">Every key keeps its share. A row narrower than the grid (<xliff:g id="grid_width" example="10.00">%1$.2f</xliff:g>) is drawn centred, like the second row of QWERTY.</string>
+    <string name="layout_editor_row_width_field_label">Row width</string>
+    <string name="layout_editor_row_width_decrease_desc">Make the row narrower</string>
+    <string name="layout_editor_row_width_increase_desc">Make the row wider</string>
 
 </resources>

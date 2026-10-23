@@ -199,6 +199,8 @@ private fun voiceEngineLabel(engine: String): String = stringResource(
         "asr4all" -> R.string.voice_engine_asr4all
         "parakeet" -> R.string.voice_engine_parakeet
         "moonshine" -> R.string.voice_engine_moonshine
+        "sherpa" -> R.string.voice_engine_sherpa
+        "omnilingual" -> R.string.voice_engine_omnilingual
         "server" -> R.string.voice_engine_server
         else -> R.string.voice_engine_system
     },

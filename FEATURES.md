@@ -12,18 +12,18 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Area | Families | Features | Capabilities |
 |---|---|---|---|
 | Typing core: prediction, autocorrect, learning, spell check | 9 | 50 | 205 |
-| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 219 |
-| Languages, scripts, layouts, transliteration | 11 | 64 | 213 |
+| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 220 |
+| Languages, scripts, layouts, transliteration | 11 | 65 | 220 |
 | Themes and appearance | 14 | 73 | 183 |
-| Emoji, GIFs, stickers, kaomoji | 16 | 88 | 94 |
-| Toolbar and the tool set | 10 | 86 | 337 |
+| Emoji, GIFs, stickers, kaomoji | 16 | 96 | 94 |
+| Toolbar and the tool set | 10 | 88 | 364 |
 | Clipboard, snippets, text expansion | 7 | 37 | 191 |
-| AI, voice, handwriting, scanning | 11 | 71 | 167 |
-| Privacy, backup, storage, statistics | 14 | 69 | 173 |
+| AI, voice, handwriting, scanning | 12 | 81 | 168 |
+| Privacy, backup, storage, statistics | 14 | 70 | 180 |
 | Accessibility, form factors, platform integration | 13 | 61 | 111 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 203 |
-| **Total** | **133** | **809** | **2260** |
+| **Total** | **134** | **830** | **2288** |
 
 ## Typing core: prediction, autocorrect, learning, spell check
 
@@ -149,6 +149,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Word-key normalization `RARE` — One spelling per word across every store
     - Lowercase plus NFC — Bengali precomposed U+09DF vs decomposed nukta form would otherwise be two words
     - Applied at the store boundary, not the producer — Also covers pasted text and text typed on another keyboard
+    - The phone's fold, twice — Kotlin's WordKey on the typing path and a Rust twin on ICU4X (`word_key.rs`) for lexicon loads and WMK Desktop; the twin follows ART's CaseMapper (u_tolower per unit, one-character final-sigma check, full ICU lowercase only for İ or non-BMP text) and is held to it on every code point
   - Per-word language tag `RARE` — A learned word remembers the language it was typed under
     - Cross-language damp x3 — A learned-only word tagged for another language is handicapped, never banned
     - Damp is relative to the detected field language — In a Banglish field the English-tagged habits get damped instead
@@ -209,6 +210,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Sentence enders break the chain — "Hello. " yields a sentence-start sentinel, not "hello"
     - Combining marks count as word characters — Otherwise Bengali words ending in a vowel sign read as ending early
     - Trigram context degrades to bigram silently — prev2 is null across any boundary rather than guessed
+  - Words inside unspaced scripts `RARE` — Thai, Lao, Khmer and Burmese runs split into words by ICU4X's LSTM word segmenter in the Rust engine (310 KB of models, no download)
+    - Learned word by word — A committed run is learned as the words it holds and the pairs between them, unless the whole run is a word the keyboard knows
+    - Context read across a run — The word before the caret is the run's last word, the two before it the ones ahead, reading only the run's last 32 characters
+    - Learn from text reads them — Their runs are scanned as words instead of skipped; Chinese, Japanese, Tibetan and Javanese still skipped, and Burmese that is confidently Zawgyi
 - **Dictionaries and binary formats** `uncommon` — Two custom on-disk formats, both memory-mapped and read zero-copy
   - .wmdict v3 packed trie `RARE` — 5.9 bytes per node, down from 18.1 in v1
     - Memory-mapped, never parsed — Load time is one mmap call; resident memory is evictable page cache
@@ -246,6 +251,30 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Additive to the bundled list, not a replacement
     - A file that parses to zero words is deleted again — Picking a PDF fails visibly instead of contributing nothing
     - Legacy folder migration — ENGLISH, BANGLA, FRENCH folders renamed to language ids, merging without clobbering
+    - Hunspell .aff/.dic unfolded into words, and the two files kept beside the list (Hunspell.kt)
+  - Hunspell spell checking `RARE` — Native Hunspell 1.7.2 checks words against an imported .aff/.dic, where the unfolded list cannot reach
+    - A word Hunspell accepts is never autocorrected away and gets no corrections on the strip — German, Dutch, Hungarian and Finnish compounds made up on the spot stand
+    - Hunspell's spellings join the strip on the background pass, for a word it rejects that no list leads to — a listed spelling at the walk's one-far-edit score, an unlisted one (a compound) at an imported stem's
+    - Accepted words count as known to the learning gate
+    - On-demand library libwmhunspell.so (gate spell): pinned and downloaded on GitHub builds, the :feature:spell split on Play, built from source on F-Droid (native/hunspell-jni)
+    - Language › Dictionaries row and module banner for a language with an imported pair; never fetched from the keyboard itself
+    - No library, no pair, or a list switched off: the word lists decide alone, exactly as before
+    - The main thread waits at most 15 ms for Hunspell's lock and otherwise answers as if it were absent; answers cached per word
+  - GiellaLT spellers `RARE` — divvunspell checks words against GiellaLT finite-state spellers (.bhfst) for North Sámi, Greenlandic, Faroese and other morphologically rich languages, where no word list holds every form
+    - Same WordChecker seam as Hunspell: an accepted word is never autocorrected, a rejected one gets the speller's spellings on the background pass, ranked as Hunspell's are; a language with both uses both (WordChecker.of)
+    - Ten pinned downloads (GiellaLT versioned releases: se, sma, smj, smn, sms, kl, fo, olo, fkv, vep), URL + SHA-256 + licence per entry; the .pkt.tar.zst is verified, then unpacked by the library
+    - Import of the user's own .bhfst, .zhfst or GiellaLT .pkt.tar.zst, recognised by content; installed only once it opens, the old speller kept until then
+    - Language › Dictionaries row for every keyboard language GiellaLT builds a speller for (94); Import where only nightly builds exist
+    - libwmdivvun.so shares the spell gate and :feature:spell split with Hunspell; built from source on F-Droid (native/divvunspell-jni, Rust, divvunspell pinned by commit)
+    - The main thread waits at most 15 ms for a check (a cold memory-mapped walk can take longer) and otherwise answers no; the walk finishes and is cached
+    - No library or no speller: the word lists decide alone, exactly as before
+  - Voikko for Finnish `RARE` — libvoikko checks Finnish against voikko-fi's morphology (compounds, fifteen cases, possessives, clitics), the speller LibreOffice and Firefox use; in Hunspell's place for Finnish, Hunspell not even opened
+    - Same WordChecker seam: accepted words never autocorrected, spellings join the strip on the background pass; a GiellaLT Finnish speller still unions with it
+    - Pinned download of voikko-fi 2.6 mor-standard (1.6 MB zip, 4 MB on the phone) from the data repo, SHA-256 checked, unpacked into dict/fi/voikko only if libvoikko loads it; import of any zip with a 5/mor-<variant>/ folder, the old dictionary kept until the new one loads
+    - Language › Dictionaries row for Finnish; the Hunspell row says when Voikko checks instead
+    - libwmvoikko.so (VFST backend only, 0.56 MB arm64) rides the spell gate and :feature:spell split but lives in native/voikko-jni/jniLibs, which no module packages: never in an APK, absent from the offline build
+    - Built from source on F-Droid (native/voikko-jni, CMake, libvoikko 4.3.3 pinned by commit); the dictionary zip is built reproducibly from the signed voikko-fi release (build-dict.sh) and published beside its tarball
+    - VoikkoChecker.hyphenate exposes Voikko's Finnish hyphenation (kah-vi-kup-pi) for a later text tool
   - Three trie implementations behind one interface `uncommon` — Mutable node trie, heap-packed CSR trie, mapped trie
     - WordSource and TrieWalker split — The walker gives node-level access so fuzzy search steers its own traversal
     - One shared branch-and-bound completer — TrieCompleter replaces three parallel copies of the same loop
@@ -325,9 +354,9 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 | Feature | Needs |
 |---|---|
-| System spell checker (HarperSpellCheckerService) | full flavour only — lite ships no libharper_jni.so, and the service plus its manifest and spellchecker.xml live in src/full |
+| System spell checker (HarperSpellCheckerService) | every build (the service is in the main manifest); a build without libharper_jni.so keeps the spelling half only |
 | Contact names and contact-email completion in the strip | needs the READ_CONTACTS grant plus the per-feature setting; both off by default |
-| Contact-aware spell checking (names never flagged, name corrections lead the menu) | full flavour plus READ_CONTACTS grant plus the contactSuggestions setting |
+| Contact-aware spell checking (names never flagged, name corrections lead the menu) | READ_CONTACTS grant plus the contactSuggestions setting |
 | Downloadable wordlists (333 entries, 331 languages) | needs network; fetched from the public wmkeyboard-data GitHub repo, no API key |
 | Downloadable n-gram packs (English, Bengali, romanized Bengali) | needs network; fetched silently from the same repo |
 | Importing a custom word list from a URL | needs network; the file-picker import path does not |
@@ -350,6 +379,20 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Exclusive loops — A loop credits only the key nearest its centre, and the samples inside it belong to that key alone, so the keys its edge passes over cannot enter the word
     - Admissible bound pruning — logWeight + ln(1+maxSubtree) - shapeWeight*minCol; anchor radius 1.6 and near radius 1.5 key widths
     - 17 injectable tuning weights — sigma, maxPointCost, gapWeight, gapWindow, shapeWeight, repeatCost, unloopedRepeat, unclaimedDwell, loopExtent, loopMinArc, wiggleExtent, wiggleWeight, unclaimedLoop, shapeChannel, anchorRadius, nearRadius, vocabularyRank — swept by a test harness
+  - FUTO Swipe neural engine `RARE` — Optional glide engine for English on QWERTY (Typing > Gestures > Glide engine, built-in by default): FUTO's encoder and English QWERTY decoder on the app's ExecuTorch runtime, read by the app's own trie-constrained CTC beam (CtcGlideBeam, MIT) over the same word sources, reranker and picker as GlideBeam
+    - Measured on 5,000 real swipes — FUTO's MIT test set, words in the list: top-1 .957 vs GlideBeam .801, top-4 .993 vs .937 on the bundled English list; .949/.991 vs .819/.921 on the 160k AOSP list
+    - QWERTY by fit, not by name — Per-axis least-squares fit of the grid's 26 letters onto the models' training frame; a letter off its row (AZERTY, QWERTZ, Dvorak, Colemak) or any non-English language falls back to GlideBeam per stroke
+    - Licence-gated download — 3.9 MB from a pinned Hugging Face revision, SHA-256 checked, after the FUTO Model Weights License is accepted; "powered by FUTO Swipe" under the setting and in About
+    - GlideBeam's stroke readings, measured — look-ahead guesses (commonest word under a surviving prefix, 0.5 per added letter, none after a closing loop; 70%-cut strokes top-1 .068 → .120), a loop decides only between spellings that differ by doubling the looped key (looped doubles .944 → .946, real strokes unchanged), learned shapes gain 10× GlideBeam's learned-shape benefit (words drawn earlier in the session .981 → .984); pause/wiggle marks and shape seeding measured worse and left out (native/bench/futo-swipe)
+    - Own ExecuTorch gate — libwmexecutorch moved to an `executorch` delivery gate (Play :feature:executorch), shared with Asr4All, Parakeet and Moonshine, so the glide engine never fetches whisper.cpp
+  - Google's gesture library, user-imported `RARE` — Third glide engine (Typing > Gestures > Glide engine > Google's gesture library): Google's proprietary `libjni_latinime.so`, the build HeliBoard loads, imported by the user and never shipped, hosted or downloaded by the project; any language with one letter per key
+    - Pinned by hash — one SHA-256 per ABI (arm64-v8a, armeabi-v7a, x86_64, x86, HeliBoard's pins); staged into a read-only file before the first byte is written, hashed again before every load, stored in noBackupFilesDir; the Verify downloaded files switch does not relax it
+    - Import paths — Gesture library row (system file picker, Import / Replace / Remove) and the offline import, which recognises it by name (`libjni_latinime.so`, `libjni_latinimegoogle.so`) or by checksum
+    - Exact JNI surface — stub classes in `com.android.inputmethod.latin` / `.keyboard` declaring all 31 natives JNI_OnLoad registers, descriptors checked against AOSP's registration tables; R8 keeps every member
+    - Library-written dictionaries — the language's commonest 120,000 words, AOSP 0..255 log-scale probabilities, filled into an on-memory v4 (format 403) dictionary and flushed by the library itself, cached by word-set fingerprint; personal words added in memory
+    - Same pipeline after the decode — candidates go through the blacklist, context reranker, casing and ambiguity picker; GlideBeam reads every stroke until the library loads and the dictionary is built
+    - Crash probation — a marker around the load, the dictionary build and each process's first stroke; a process that dies inside one leaves the library off until Try again
+    - Compiled out of Play — `src/nouserlib` stands in for the loader on the Play channel (Play forbids loading code from outside Play); quality not measured on a phone
   - Per-language glide readiness gate `RARE` — Glide enables itself only where it can decode honestly; measured, not flagged
     - Coverage measurement — Top 1500 words per word source; grid must be able to spell 90% of them
     - Converting-layout block — Off on Avro, Hangul, Vietnamese and every CJK conversion layout — a stroke there spells a reading, not a word
@@ -531,8 +574,9 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Content detectors behind switches — Dates and times (numeric in either order, month names in English and Bengali, DateSuggest phrases, zone abbreviations) and places (coordinates read exactly, addresses guessed conservatively) only run while a macro that needs them is on
     - Banglish both ways — To Bangla through the spelling map, then the phonetic index under the strip's own confidence rule, then literal Avro, letter runs only; to Banglish through the inverted map and a rule romaniser with the inherent vowel dropped where speech drops it
     - Hinglish both ways — To Hindi and To Hinglish, the same converter over the Hindi scheme; back to Latin through a schwa-deleting romaniser (करना to karna, नमस्ते to namaste), offered only while the Hindi phonetic layout is enabled
+    - Zawgyi both ways — Zawgyi ⇄ Unicode on Burmese text, the direction picked by myanmar-tools' detector; written past a Zawgyi field's own conversion so it is never converted twice
     - Grammar, AI and speech — Harper over the selection alone with every fix committed at once; AI buttons that run a chosen action on the selection and land in the AI panel, whose Replace now swaps the selection rather than the field; reading aloud through the vocabulary speaker with a chip that reads Stop
-    - Intents with fallbacks — Contacts, Maps and Calendar each try two intents and toast when no app takes them
+    - Intents with fallbacks — Contacts, Maps and Calendar each try two intents and toast when no app takes them; Calendar first opens the Calendar tool's composer, prefilled, while that tool is on and saves in the keyboard
     - One-time list reset — The on-list and the order carry a list version; a list stored under an older one reads as the shipped list, so every existing user gets the new actions once
     - Select all leads every row — A long-pressed word widens to the whole field in one tap; the chip is dropped once the selection already spans the field, which costs a one-character read only when the selection starts at offset 0
     - Only offers what can work — WhatsApp hidden without WhatsApp installed, Search/Translate/QR hidden when their tools are off, which the power-saving and direct-boot settings views have already decided
@@ -703,15 +747,17 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 | Feature | Needs |
 |---|---|
-| Handwriting instead of glide (letter-area swipe drawing) | full flavour only (BuildConfig.ENABLE_ML_KIT_HANDWRITING); also needs a downloaded ML Kit digital-ink model, so a network fetch on first use |
+| Handwriting instead of glide (letter-area swipe drawing) | a downloaded model for the language: ML Kit digital ink, or zinnia for Chinese and Japanese (the only one in the F-Droid build), so a network fetch on first use |
 | TalkBack gesture pass-through for spacebar slide / backspace swipe / glide / handwriting | needs the 'WM Keyboard gestures' accessibility service granted by the user |
 | Glide typing in a non-bundled language | needs that language's word list present — a downloaded dictionary is a network fetch; coverage below 90% keeps glide off |
 | Auto-download of language data that unlocks glide readiness | network |
+| FUTO Swipe glide engine | English on a QWERTY layout; the licence accepted and the 3.9 MB models downloaded (network); the ExecuTorch runtime on the phone (fetched on first use where the build leaves it out). Any other case reads with the built-in decoder |
+| Google's gesture library glide engine | the user imports Google's `libjni_latinime.so` themselves, one of the pinned builds for the phone's ABI; not in the Google Play build; a word list for the language (the dictionary is built on the phone). Until then the built-in decoder reads every stroke |
 | Volume keys as cursor control | no permission, but only active while the input view is shown |
 
 ## Languages, scripts, layouts, transliteration
 
-- **Language registry** — 826 languages, each with script, locale tag and its own layout list
+- **Language registry** — 955 languages, each with script, locale tag and its own layout list
   - Catalogue size and shape — 826 LanguageDef entries across two Kotlin files, 386 hand-written and 440 generated from the Keyman corpus; unknown ids fall back to a generic Latin language
     - Endonym · English naming — Every row reads "বাংলা · Bangla", native name first
     - Script distribution — 234 Latin, 38 Cyrillic, 16 Arabic, 14 Devanagari, 5 Myanmar, 4 Bengali, plus 32 more scripts
@@ -758,6 +804,14 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Per-script pinned fonts `uncommon` — 25 scripts map to a specific Google font; Music to Noto Music, Braille to Noto Sans Symbols 2
     - Per-script font pickers — Curated alternative families per script, shown only while a language on that script is enabled
     - Per-glyph fallback — A glyph the pinned face lacks falls back to the system font rather than blanking
+  - Zawgyi for Burmese `RARE` — Google myanmar-tools' Markov detector and its CLDR-derived converters, ported into the Rust engine (no download) and held to upstream's own corpus and compatibility table
+    - Zawgyi output — A strip button on Burmese layouts writes Zawgyi; typing, the strip and prediction stay Unicode and the commit is converted, a letter-by-letter run rewritten whole so ေ lands in front of its consonant
+    - Context read back as Unicode — The text before the cursor goes through Zawgyi to Unicode before prediction reads it, in a Zawgyi field or one already holding Zawgyi
+    - Paste offer — Zawgyi pasted from the clipboard into a Unicode field gets a Convert to Unicode chip; already-Zawgyi text is never converted twice in a Zawgyi field
+    - Field offer — A Burmese text box already in Zawgyi offers to write Zawgyi there, for that box only
+    - Confidence bar — Acts unasked only at p ≥ 0.99999, four letters or more, and text the conversion changes; every Unicode line of the UDHR stays under it
+    - Clipboard conversion — Zawgyi ⇄ Unicode on picked clips, each converted the way it needs
+    - Unicode key font — Burmese keys in a keyboard-fetched Noto Sans Myanmar (SHA-pinned, 195 KB) for phones whose Myanmar font is Zawgyi
 - **Keyboard layouts** — 1,732 shipped layouts: 35 compiled built-ins + 1,697 JSON assets (862 of them converted Keyman keyboards)
   - Shipped catalogue — 20 Kotlin LayoutSpecs (boot-critical) plus 354 .wmlayout.json assets parsed off the main thread
     - Latin ergonomic alternates — QWERTY, AZERTY, Dvorak, Colemak, Workman, Halmak built in; BÉPO, Swiss German, LatAm Spanish, Turkish-Q as assets
@@ -783,7 +837,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Per-layout opt-out — tabletExpand flag, default true, for grids already laid out wide by hand
   - More than one letter per key `RARE` — Key.letters lets a grid put a set of letters on one key and leave the language model to say which was meant (#103); AOSP-derived keyboards cannot, because their decoders are one keystroke to one letter
     - Two shipped boards — T9 on the ITU E.161 keypad (8 letter keys, digit hints, 4 columns) and Compact QWERTY (QWERTY's own rows folded two to a key, 5 columns)
-    - T9 in 310 languages (#332) — Every keypad follows ETSI ES 202 130's table for its language, or the table the standard names for it (Catalan → Spanish, Faroese → Danish, Rusyn → Ukrainian); languages the standard does not cover start from the table their phones used (German, Russian, Persian, Urdu, or plain E.161) with their own letters on the key ETSI's language-independent table gives them. Indic scripts use the Indian-market plan of ETSI Annex A (signs on 1, vowels with their signs on 2 and 3, consonant rows from 4, punctuation in the shift slot), which Burmese, Khmer, Ol Chiki and Syloti Nagri follow too; Thai and Lao use the Thai phone keypad; Vietnamese's toned vowels ride with their vowel; standalone tone marks take fixed keys. Armenian keeps 9 for punctuation as the standard does; caseless scripts trade the shift key for a comma. Every keypad is checked against its language's 30,000 commonest words
+    - T9 in 444 languages (#332) — Every keypad follows ETSI ES 202 130's table for its language, or the table the standard names for it (Catalan → Spanish, Faroese → Danish, Rusyn → Ukrainian); languages the standard does not cover start from the table their phones used (German, Russian, Persian, Urdu, or plain E.161) with their own letters on the key ETSI's language-independent table gives them. Indic scripts use the Indian-market plan of ETSI Annex A (signs on 1, vowels with their signs on 2 and 3, consonant rows from 4, punctuation in the shift slot), which Burmese, Khmer, Ol Chiki and Syloti Nagri follow too; Thai and Lao use the Thai phone keypad; Vietnamese's toned vowels ride with their vowel; standalone tone marks take fixed keys. Armenian keeps 9 for punctuation as the standard does; caseless scripts trade the shift key for a comma. Every keypad is checked against its language's 30,000 commonest words
     - Letter sets hold combining marks — Key.withLetters keeps matras, viramas, nuktas and tone marks, and the decoder walks a key's composition-excluded letters (क़, ড়, אַ) along the decomposed spelling the NFC word lists use, as one keystroke
     - The buffer stays one character per keystroke — A tap commits the key's anchor letter, so backspace, the caret, word boundaries and every consumer of the composing buffer are untouched
     - Key sets ride beside the buffer — A per-keystroke frame, the twin of the tap-position frame, snapshotted with the word and size-checked against it
@@ -909,6 +963,13 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Word-list index through Devanagari — the Hindi fold reached by script conversion, with per-language romanization prep (Dravidian th/dh, closing m, Malayalam voicing) and, for Tamil's frequency-less list, ties broken by closeness to the rules' spelling; Persian and Arabic on Urdu's consonant-skeleton fold (gh as ق too, Arabizi digits as letters); big lists capped at 300k words (shortest first when flat)
     - Spelling maps and English loanwords for all eleven, ~380–500 and ~110–150 pairs each, every form checked against the word list
     - Composer chosen by the layout's language, not its script — Assamese vs Bangla, Marathi vs Hindi, Persian / Arabic vs Urdu
+  - Neural suggestions (IndicXlit) `RARE` — AI4Bharat's transliteration transformer (MIT, 11.5M parameters, one model for 21 languages) offers up to three readings after the word the space bar writes, on the Bangla, Hindi, Urdu, Assamese, Marathi, Gujarati, Punjabi, Odia, Tamil, Telugu, Kannada and Malayalam phonetic layouts; per language, off by default
+    - Never the commit by default — readings go right after the strip's first word in the layout's script, so the space bar and autocorrect are untouched; listed words first, then the model's order
+    - Optional word choice (Bangla, Hindi) — a second switch lets the model's best listed reading take the space bar only when the rules spell no known word and the spelling map has no entry; top-1 with the map on 25.0% → 56.4% (Bangla test words) and 40.9% → 48.6% (Hindi), 22 and 24 of 4,000 made worse; a space waits 30 ms at most for the answer
+    - Measured before shipping — on held-out words the right word reaches the strip's first four places 52% → 80% for Bangla chat spellings the map does not list, 88% → 93% for Hindi, and +17 to +45 points on every other language's Aksharantar test words
+    - On ONNX Runtime without bundling it — fairseq checkpoint exported to an encoder and a cached decoder step, int8 (13 MB, within half a point of float32); a 250 KB C++ beam search (libwmxlit) linked against a stub of ORT's C API, riding the same `onnx` gate as Offline Sherpa
+    - Off the typing thread with a budget — runs on its own thread beside the suggestion walk; the pass waits 50 ms at most, and a late answer redraws the strip if the word is still being typed
+    - Pinned download — one shared pack from the data repository's `models` release, size and SHA-256 checked; without it, or without the runtime, nothing changes
   - Vietnamese Telex and VNI — Two shared-engine transliterators; letters spell the marks in Telex, digits in VNI
     - Standard tone placement — A marked vowel wins; else single vowel, else last vowel of a closed cluster, else first of an open one (oa/oe/uy take the second)
     - qu/gi onsets excluded from the nucleus — The u or i is a glide unless it is the syllable's only vowel
@@ -970,6 +1031,26 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Resumable — .part file plus HTTP Range, with a preflight free-space check
     - Presence means valid — Atomic rename after verification, so a final file only exists if the download completed
     - Hot-swap token — A state token summarising which packs are on disk makes a finished download go live on the next field focus
+  - RIME engine `RARE` — Per language (Chinese, Cantonese), Engine = Built-in | RIME; with RIME the same layouts convert through librime 1.17.0 schemas. Built-in stays the default
+    - Own library on its own gate — `libwmrime.so` (native/librime-jni: librime, LevelDB, marisa-trie, OpenCC, yaml-cpp, Boost headers; 16 KB pages, reproducible) behind the `rime` gate: `:feature:rime` on Play, NativeDelivery elsewhere, F-Droid behind its opt-in
+    - Schema packs — Luna Pinyin, Rime Ice, Bopomofo, Cangjie 5, Jyutping, plus RIME essentials, as checksum-pinned zips through the CJK pack path; each carries its upstream licence
+    - Your own schemas — A zip with a `.schema.yaml` imports from the RIME group, Storage's Import, or Open with; recognised by content
+    - Compiling with progress — RIME's deploy runs in the background as soon as a pack lands, schema by schema; the keyboard types on the built-in engine until it finishes
+    - Same keys — Zhuyin glyphs map onto the Dachen keys, Cangjie radicals onto letters, strokes onto h s p n z; a schema picker per kind of layout
+    - Exact prefix commit — Spans are librime's own candidate ends; Simplified, Traditional, Taiwan and Hong Kong forms are librime filter switches inside its menu
+    - Learns whole phrases — A pick goes to RIME's user dictionary; picking 你好 then 世界 teaches 你好世界. Not in incognito or password fields
+    - 9-key Pinyin with the syllable column — Rime Ice's `t9` schema; a picked syllable reaches RIME set off by `'` (its T9 algebra reads `xi26` as xiao), the column leads with the syllable RIME's first candidate spells, and the composing text shows that spelling
+    - 联想 after a commit — Chinese gets the built-in Mandarin predictor (word pairs pack plus your habits) whichever schema typed it; librime-predict, keyed on the exact last commit, found almost nothing after RIME's phrase commits on held-out text. Cantonese gets none
+    - No Lua — librime-lua measured at +0.92 MiB (+34%) on arm64; left out, since Lua's io/os would let any imported schema run code in the keyboard. Rime Ice's Lua components are skipped
+    - Before first unlock — RIME's data is credential-protected, so a locked phone types on the built-in engine
+  - Mozc engine `RARE` — Japanese Engine = Built-in | Mozc; with Mozc every Japanese layout (romaji, flick 12-key, JIS kana) converts through Google's Mozc 3.34. Built-in stays the default
+    - Own library on its own gate — `libwmmozc.so` (native/mozc-jni: Mozc's converter with Abseil and Protocol Buffers, built with Mozc's own Bazel Android config; 16 KB pages, JNI symbols only) behind the `mozc` gate: `:feature:mozc` on Play, NativeDelivery elsewhere, F-Droid behind its opt-in
+    - Its own dictionary — Mozc's `mozc.data`, built from the same release, as a checksum-pinned CJK pack; not in the library
+    - Sentence conversion and prediction — Mozc's mobile prediction: whole-sentence conversions, then partial ones that convert the start of the reading; a pick commits that much and the rest converts again; zero-query suggestions after a pick
+    - Segments (文節) — Arrow keys split the reading and resize the highlighted part; with selection on (or on a physical keyboard, plain arrows once split) they move the highlight; Shift+arrows resize on a physical keyboard; the composing region shades the focused part
+    - Exact prefix commit — Spans are Mozc's own `consumed_key_size` and segment keys, in kana, mapped back to romaji through the transducer's spans
+    - Learns — Conversions, boundaries and predictions go to Mozc's user history, written a few seconds after a pick. Not in incognito or password fields
+    - Before first unlock — Mozc's dictionary and history are credential-protected, so a locked phone types on the built-in engine
   - Candidate surface — The suggestion strip is replaced by ranked candidates while a buffer is composing
     - Expanded grid — Ranked to depth 128 for lattice methods so a tap in the wrapping grid still resolves
     - Prefix-consistency contract — candidates(b,100).take(12) must equal candidates(b,12) or strip and grid would disagree
@@ -1052,13 +1133,13 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 | Feature | Needs |
 |---|---|
-| CJK conversion dictionary packs (pinyin, ja_kana, jyutping, stroke, cangjie, s2t_phrases) | network download required - none are bundled; until downloaded the composer shows the buffer but no candidates. Both flavours. |
+| CJK conversion dictionary packs (pinyin, ja_kana, jyutping, stroke, cangjie, s2t_phrases) | network download required - none are bundled; until downloaded the composer shows the buffer but no candidates. Every build. |
 | Downloadable word lists, emoji keyword packs and n-gram packs per language | network download; prompted once when adding a language |
 | Region-based language suggestions | reads TelephonyManager SIM/network country - no permission needed, but absent on Wi-Fi-only devices (falls back to time zone, then locale) |
 | Per-script pinned fonts and per-script font pickers (Noto Music, Noto Sans Symbols 2, Noto Sans <script>) | fetched through the Google Play Services downloadable-fonts provider; on a GMS-free or offline device the async font falls back to the platform default |
 | Android subtype auto-enabling for every layout | needs API 34+ (setExplicitlyEnabledInputMethodSubtypes); on Android 13 and below the user must tick languages in system settings |
 | Layout import from FlorisBoard/HeliBoard files, and addon-repo layout installs | file picker / repository URL; foreign files capped at 4 MB |
-| Everything else in this area (826-language registry, 1,732 layouts, all composers, Avro, Bengali spelling maps, fancy text, notation layouts, layout editor) | no flavour gate - :core:language and :core:input have no full/lite source sets, so all of it ships in Lite too |
+| Everything else in this area (955-language registry, 1,999 layouts, all composers, Avro, Bengali spelling maps, fancy text, notation layouts, layout editor) | no build gate: all of it ships in every build, F-Droid's included |
 
 ## Themes and appearance
 
@@ -1486,11 +1567,19 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Seeded before any history exists `uncommon` — 24 default emoji, more than fit across a phone, drawn with the user's default skin tone.
   - Row order configurable `RARE` — Emoji row, toolbar and symbol row can be arranged in any order via barOrder.
   - Hardware hotkey badges `RARE` — Row cells can carry hint badges from the hardware-keyboard hint plan.
-- **Kaomoji & ASCII emoticons** `uncommon` — Two optional panel tabs, off by default, compiled in as plain data.
-  - 201 kaomoji in 15 mood groups `uncommon` — Happy, Love, Sad, Angry, Table flip, Confused, Surprised, Cool, Cute, Animals, Actions, Sleepy, Greetings, Party, Apologies.
-  - 111 ASCII emoticons in 8 groups `uncommon` — Happy, Sad, Playful, Love, Surprised, Neutral, Cool, Figures.
+- **Kaomoji & ASCII emoticons** `uncommon` — An optional panel tab, off by default, over an editable library (`kaomoji/kaomoji.json`).
+  - 312 built-in faces under 18 tags `uncommon` — 201 kaomoji and 111 ASCII emoticons; moods both families share are one tag.
+  - Tag tabs `RARE` — A scrolling row of tags (Favourites, Recent, All, then the user's) filters the grid in place; opens on the last tag, Recent, Favourites or All.
+  - Separate Emoticons tab `uncommon` — Optional split by family; a face's family is guessed from its characters and can be changed.
+  - Edit rail `RARE` — Search, Add, Edit and Tags buttons beside the grid; left, right or off, each button switchable; buttons move to the tag row when the rail is off.
+  - In-keyboard editing `RARE` — Add and change faces with the keys under the panel, tag chips, drag to reorder in edit mode, hold for star, edit, copy and delete.
+  - Tag management `uncommon` — Reorder, hide, rename (merging on a clash) and delete tags in the keyboard and in settings.
+  - Search `uncommon` — Ranked by exact tag, tag prefix, tag substring, then face; also listed after emoji in the emoji panel's search.
+  - Kaomoji suggestions `RARE` — Typing a tag's name offers its faces in the strip, favourites and most used first; opt-in.
+  - Emotic import `RARE` — Reads Emotic's `.tar.gz` and older bare SQLite exports with tags and order; its reaction images become a sticker pack.
+  - JSON and plain-text import and export, plus a Kaomoji backup section `uncommon`.
   - Auto-shrinking cells `RARE` — Font size steps down 12% at a time until the face fits one line; hidden until it settles.
-    - Different column widths per tab — 132dp minimum for kaomoji, 64dp for emoticons
+    - Kaomoji take wider cells than emoticons — 132dp against 64dp
     - Never wraps or ellipsises — Half a kaomoji is unrecognisable, so it shrinks instead
   - Atomic plain-text insert `uncommon` — Composing flushed with autocorrect off, then committed in one step; skips history and prediction.
   - Restricted to fonts Android ships `RARE` — Glyphs limited to Noto Sans CJK / Symbols coverage so nothing renders as tofu.
@@ -1549,6 +1638,21 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Never leaves the device — Excluded from pack export, the settings backup's sticker section, and cloud backup
     - Its own storage row — Listed separately under About › Storage so it can be deleted without losing stickers
   - New file name on every edit `RARE` — s1a2b3c4.webp → _1 → _2, because the shared image loader caches on path.
+- **Sticker generator** `RARE` — Type a prompt, the phone draws stickers offline; a picked one is cut out and opens in the sticker editor.
+  - Two catalog models `RARE` — SDXS-512 Dreamshaper (one step, every phone, MNN on the CPU) and Qualcomm AI Hub's Stable Diffusion 1.5 w8a16 on the Snapdragon 8 Gen 3 / 8 Elite / 8 Elite Gen 5 NPU (20 steps, guidance, negative prompt)
+    - Pinned downloads — SDXS from the data repository's models release, the NPU zip from Qualcomm's own bucket, both by SHA-256 and size; the zip is checked whole, unpacked, then deleted
+    - Licence consent first — CreativeML OpenRAIL++-M or OpenRAIL-M (and Qualcomm's for the NPU runtime) before the first byte
+  - Own process `uncommon` — ImageGenService in `:imagegen`; the model stays loaded between prompts, idles out after 3 minutes, and Android can end it without touching the keyboard
+    - Every network call separate — cancel lands within one UNet run; the encoded prompt is cached per model
+    - Several pictures per tap — four on flagships, two mid-range, one on small phones, two on the NPU; each streams in as it finishes, NPU steps with rough previews
+  - Exact CLIP tokenizer `uncommon` — byte-level BPE built from merges.txt alone, matching transformers' CLIPTokenizer; the 75-token limit shown as a counter, with the words past it named
+  - Prompts in any language — on-device translators first (Bergamot, NLLB, ML Kit), then the online translate list; the English is shown and editable
+  - Style chips — Sticker, Cartoon, Kawaii, Pixel art, 3D, Line art, Emoji, No style; Improve with AI rewrites the prompt through the user's AI provider
+  - Safety filter `uncommon` — a word list on the prompt and its translation, and Falconsai's NSFW classifier (MNN, 87 MB) on every picture; held-back pictures are never shown
+  - Advanced — size (384 or 512), pictures per tap, seed and keep-seed, and steps, guidance and negative prompt for the models that take them
+  - Import a converted model `RARE` — a zip or the five files of a bundle from tools/imagegen/convert_sd.py (any SD 1.x/2.x checkpoint, LCM and one-step models too); checked in the generator's process for loadable networks and matching shapes
+  - Native runtimes on their own gate — libwmimagegen (MNN 3.6.1, CPU only, every ABI) and libwmimagegen_qnn (arm64, opens Qualcomm's runtime by path); `imagegen` gate, `:feature:imagegen` on Play, MNN built from source on F-Droid
+  - Entry points — Sticker packs › Create stickers, a pack's Create from a prompt, and the sparkle chip beside + in the keyboard's My stickers
 - **Sticker editor** `RARE` — Crop, background removal and border for one sticker, all on the 512×512 canvas.
   - Four modes `RARE` — Crop (drag/pinch, 6× max zoom), Erase, Restore, Border.
     - Brush 8–96px with a preview ring — A ring the brush's size appears on mode switch or slider move and fades after 1.1s
@@ -1558,18 +1662,25 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - One-tap background removal `RARE` — ML Kit subject segmentation where there are Play services (module on demand), the app's own U²-Net-P on LiteRT where there are none (#278); either way the model arrives on the first tap with a progress bar.
     - Own model — 4.6 MB `u2netp.tflite` from wmkeyboard-data `models/cutout/`, SHA-256 pinned, resumable, kept in `files/cutout`, listed under Stickers on the storage screen, excluded from Android backup
     - Refuses degenerate masks — Under 1% or over 99% coverage reports "no subject" rather than erasing the picture
-    - Brushes still work without it — Lite builds and un-fetchable models just lose the button
+    - Brushes still work without it — the F-Droid build and un-fetchable models just lose the button
   - Edits resume across sessions `RARE` — Reopens the source photo with the crop, mask, border and brush size still applied.
     - Crop stored as fractions — Survives a different screen, window size or decode scale — not the editor's own pan/zoom
     - Opens on Erase when resuming — A stray pan in Crop is the one gesture that would throw the erasing away
     - Re-cropping warns first — Within a session the edit is destructive, so a new crop asks before discarding the mask
     - Stickers with no original reopen as themselves — The version being replaced is kept as the original from then on
   - Animated stickers skip the editor `uncommon` — No still to edit and no encoder to reassemble an animation.
+  - Upscale `RARE` — Redraws a small crop ×4 (256 px or less on its long side) or ×2 (up to 640 px) with waifu2x's UpConv7 drawing network, on the phone.
+    - Same process and engine as the sticker generator — UpscaleEngine in `:imagegen` on libwmimagegen (MNN, CPU, float32); no new native library or gate
+    - Tiled — 128 px tiles read with the 7 px the network eats around them, so a 4096 px result never needs the whole picture as floats; cancel lands between tiles
+    - Transparency through the network too — the alpha as a grey picture after the colour; colour under transparent pixels bled in from the edge first so no dark fringe
+    - Upscaled crop becomes the kept original — a later edit starts from it; the erased parts are scaled to match, the undo steps go
+    - 2.2 MB download — `sr-waifu2x-upconv7-art.mnn` from the data repository's models release, SHA-256 pinned; listed as Upscaler under the sticker generator on the storage screen
 - **Sending mechanics** `uncommon` — MIME negotiation over commitContent, with fallbacks rather than silent failure.
   - WhatsApp sticker MIME offered first `RARE` — image/webp.wasticker before plain image/webp when send mode is Sticker.
     - Only for real WebP bytes — A GIF can never carry the sticker MIME, so animated results always send as images
     - Separate defaults — Stickers default to Sticker mode, GIFs to Image
   - WebP→PNG re-encode fallback `RARE` — When the field rejects WebP but advertises PNG; skipped for animated sources.
+  - Small stickers upscaled for the 512 square `RARE` — A still under 384 px going to WhatsApp or Messenger is upscaled ×2 or ×4 first when the upscaler is already on the phone (never downloaded for this); 20 s timeout, then the plain square; cached as `<name>_square_sr.webp`.
   - Clipboard fallback with a toast `uncommon` — If no candidate MIME matches, the file goes to the clipboard via FileProvider and says so.
   - Pre-send acceptsRichMedia gate `uncommon` — Fields taking no images never start a download; a vibration and a standing notice instead.
   - Debug line per commit `RARE` — Logs the chosen MIME, the mode and everything the field advertised.
@@ -1580,7 +1691,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 | Feature | Needs |
 |---|---|
-| Sticker editor: one-tap background removal | full flavour only (ML Kit subject segmentation, or U²-Net-P on the LiteRT interpreter without Play services); lite ships a stub reporting supported=false |
+| Sticker editor: one-tap background removal | not in the F-Droid build (ML Kit subject segmentation, or U²-Net-P on the LiteRT interpreter without Play services); there supported=false |
 | Sticker editor: segmentation model | needs a one-time download (network): the Play services on-demand module, or without Play services (or when they lack the module) the app's own 4.6 MB model from the data repository (on Play the LiteRT interpreter that runs it is the on-demand :feature:litert split, fetched first under the same bar); button offers the download and falls back to brushes if neither can be fetched |
 | GIF search and send (Klipy, GIPHY) | needs a user-supplied API key for at least one provider, plus network |
 | Sticker search and send (Klipy, GIPHY) | needs a user-supplied API key for at least one provider, plus network; keys shared with the GIF tool |
@@ -1596,7 +1707,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 ## Toolbar and the tool set
 
-- **Toolbar & toolbox mechanics** `uncommon` — 83 tools in ToolbarTool enum; 3 pinned by default (Emoji, Clipboard, Settings)
+- **Toolbar & toolbox mechanics** `uncommon` — 86 tools in ToolbarTool enum; 3 pinned by default (Emoji, Clipboard, Settings)
   - Pinned bar vs toolbox — A tool is on the bar or in the toolbox grid, never both
     - Default pinned row — Emoji, Clipboard, Settings (DefaultToolbarTools)
     - Tablet-aware default pin set — 5 pinned on small tablets, 7 on large, applied only if user never rearranged
@@ -1617,6 +1728,13 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Page size 4–40 — ToolboxPageSizeRange, default 12, with page dots
     - Empty toolbox is still one page — toolboxPageCount floors at 1; out-of-range pages return empty, not a crash
     - Drag reorders within the held page — Pages don't flip under the finger
+  - Toolbox folders `RARE` (#709) — Drop a tool on the middle of another and the two become a named folder in one cell; ToolboxSettings.folders, key toolbox_folders, in backups
+    - Middle files, edges reorder — ToolboxMergeZone is the middle of a cell; its outer parts stay the slots either side
+    - Opens in place — Header with back, rename through the capture field (TOOLBOX_FOLDER_NAME), pin to toolbar, ungroup; drag onto the header takes a tool out
+    - Folder sits where its first tool ranks — toolboxOrder stays a ranking of tools, so mode-owned orders keep working; one set of folders for every mode
+    - Dissolves at one tool — normalizedFolders drops folders under TOOLBOX_FOLDER_MIN_TOOLS
+    - Pinnable — A pinned folder draws after the bar's tools and opens the toolbox at itself; drag a folder onto the bar to pin it
+  - Toolbox search `RARE` (#687) — Magnifier beside the toolbar back button while the toolbox is open (ToolboxSettings.searchButton, key toolbox_search_button), opens full-bleed with its own back button; TOOLBOX_SEARCH capture field with the keys under a shorter panel; matches names across folders, starts-with first; Enter opens the first
   - Tools on their own row `uncommon` — ToolbarPlacement: STRIP (default, shares the suggestion strip), ON_DEMAND_ROW (the chevron opens a tools row above it, FUTO-style), ALWAYS_ROW (that row stays open, LeanType-style)
     - Strip stops flipping — With a row of their own the strip is only ever candidates, so the surface swap, the emoji handoff and the settle beat all rest
     - Chevron changes job — Opens and closes the row on ON_DEMAND_ROW, and disappears on ALWAYS_ROW where it would do nothing
@@ -1646,7 +1764,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Tool background radius and shape — toolCircleRadiusDp default 20, toolShape shares the key shapes; 0 removes it
     - Tool button width 38dp default — toolWidthDp stretches the circle into a pill
     - Tool icon size 22dp default (14–30) — toolbarBehavior.iconSizeDp, glyph only, button stays 38dp; toolbar + toolbox grid
-  - Per-tool settings screen `RARE` — Every one of the 83 tools has its own screen under Settings → Tools
+  - Per-tool settings screen `RARE` — Every one of the 86 tools has its own screen under Settings → Tools
     - Eight groups plus an Other catch-all — Panels, Scanners, Online, Create & convert, Modes, Cursor, Quick actions, Utilities
     - Tune icon marks tools with real options — toolHasOptions; toggle-only tools show just the switch
     - One switch controls bar, toolbox and leader key — setToolEnabled hides the tool everywhere at once
@@ -1655,7 +1773,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Per-tool colour override — toolColorOverrides map, reset-all button when any override exists
     - Two-colour gradient icons — toolIconGradients off by default, with its own end-colour override map
     - Icon-pack glyph substitution — IconSlots.forTool resolves an installed icon pack's glyph
-  - Direct-boot tool filter `RARE` — 48 of 83 tools work before the first unlock after reboot
+  - Direct-boot tool filter `RARE` — 50 of 86 tools work before the first unlock after reboot
     - Rule is what the tool reads — Arithmetic, sensors and keyboard-own state stay; disk, credentials, providers, activities go
     - All 14 cursor tools stay usable — They only touch the input connection
     - Not a user toggle — isDirectBootSafeTool is automatic and only applies pre-first-unlock
@@ -1664,14 +1782,14 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Toolbox and cheat-sheet letters — T opens the toolbox; ? expands a two-column legend of every binding
     - Badges drawn on the tools themselves — HintPlan badges replaced the old floating legend line
     - Disabled tools lose their letter too — usableTools filters the shortcut map
-  - Type-a-word tool access `RARE` — 36 tools have default suggestion-strip keywords
+  - Type-a-word tool access `RARE` — 37 tools have default suggestion-strip keywords
     - Editable per tool — Keyword shortcut field on each tool's settings screen; clearable
     - Chip replaces the typed word — replaceSpan drops the keyword when the tool opens
   - Mode-scoped toolbars `RARE` — A keyboard mode can carry its own pinned row and toolbox order
     - Reset pinned tools always resets the global row — Mode overrides are edited on the mode itself
   - Availability gating `uncommon` — isSupportedTool (build) vs isUsableTool (runtime)
-    - Lite ships 66 of 71 — Handwriting, OCR, QR scan, Doc scan, Grammar are compiled out
-    - Doc scan also needs Play services — PlayServices.available gate, since the scanner UI lives in Play services
+    - The F-Droid build has every tool — Handwriting reads Chinese and Japanese with zinnia, QR scan reads with zxing-cpp, and text scan reads Chinese, Japanese and Latin script with PaddleOCR on MNN
+    - Doc scan is everywhere — Google's scanner where Play services runs it, the built-in OpenCV scanner elsewhere
     - Search tools appear only with a Brave key — hasSearchKey: user key or the build's baked-in key
   - Panel back-out paths — Back arrow replaces the toolbox button; system Back; Esc on hardware
   - Panel key capture `uncommon` — Input-taking panels reroute keystrokes into their own field
@@ -1716,7 +1834,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Numpad — 4×4 numeric keypad panel over any field
     - Phone or calculator digit order — 1 2 3 top by default; calculator style puts 7 8 9 on top
     - Backspace repeats on hold — Enter sends a normal Enter key
-  - Handwriting `uncommon` — Full-width ink canvas, ML Kit digital-ink recognition
+  - Handwriting `uncommon` — Full-width ink canvas, ML Kit digital-ink recognition, zinnia for Chinese and Japanese without it
     - Per-language model manager — Catalog read from ML Kit itself, filtered to enabled languages; 8-26MB each, sized from ML Kit's own shipped manifest
     - Measured download progress — Bytes counted off disk against the manifest size; stall notice at 20s, gives up and cleans up at 90s; panel download button doubles as cancel
     - Language chip on the canvas — Only shown when two or more enabled languages have a model
@@ -1764,6 +1882,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Fix all — Applies each lint's top suggestion in one action
     - Per-lint dismiss — Cards can be dismissed instead of fixed
     - Card jumps the caret when it has no suggestion — Focus-ring seeded only from the leader key
+    - Checkers provider list — `ProviderTool.GRAMMAR`, FALLBACK: Harper (on device) on, LanguageTool off by default; a check goes to the first row that knows the layout's language (Harper = English), down the list when one cannot answer, Harper on anything when nothing knows it (`GrammarProviders.plan`)
+    - LanguageTool over HTTP — `POST /v2/check`, blank address = `api.languagetool.org`, username + key = Premium (`api.languagetoolplus.com`), own server per row; picky level and mother tongue in the row's setup; matches mapped onto Harper's 20 kinds (`LanguageToolClient.kindFor`), UTF-16 offsets, ≤5 fix chips; keyboard language → LT code with English by the dialect, else `auto` (`LanguageToolLanguages`)
+    - Public-API limits kept — Text cut at paragraph / sentence / space into ≤18 KB pieces (60 KB elsewhere), a sliding minute of 20 requests and 75 KB, 429 retried on Retry-After or 2 s / 5 s, waits over 15 s reported; answers cached per piece; ≥1.2 s debounce while a server checks first
+    - Never sent — Password fields, incognito (manual or field), or while Data saver › Online grammar check holds it; panel says why; own NetSource `languagetool` in Network activity
   - App launcher `RARE` — App drawer inside the keyboard
     - Live search over names and packages — Keys return under a shortened panel while searching
     - Pinned and recent row — Last 10 opened, stored as package names only
@@ -1771,7 +1893,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Show private screens — Non-exported activities listed dimmed with a lock
     - No QUERY_ALL_PACKAGES — Reads the same launcher list the home screen sees
     - Sort A–Z or most recent — Labels under icons can be hidden
-- **Scanners** `uncommon` — 3 camera-driven tools, all ML Kit, full edition only
+- **Scanners** `uncommon` — 3 camera-driven tools, all in every build; the F-Droid build reads text with PaddleOCR on MNN, QR codes with zxing-cpp, and scans documents with the built-in scanner
   - Text scan (OCR) `uncommon` — Full-bleed viewfinder, on-device recognition: ML Kit for Latin script, Tesseract (per-language download) for 100+ languages in most other scripts
     - Words as tappable chips grouped by line — Trim the capture down before inserting
     - Start with everything selected — On by default; off makes chips opt-in instead
@@ -1783,13 +1905,19 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Insert automatically — Off by default; types the value the instant it's spotted
     - Link details preview — Off by default; force-disabled by power saving's background-network toggle
     - Pinch to zoom with a percentage pill — Pill shows above roughly 1.05x
-  - Document scanner `uncommon` — Hands off to Google's scanner UI
+  - Document scanner `uncommon` — Google's scanner UI, or the built-in OpenCV scanner where Google's can't run
     - Pages inserted one at a time — JPEG, same path as a camera-tool photo
     - Gallery import allowed — Alongside the camera capture
     - Save to gallery — Off by default; writes to Pictures/WM Keyboard
+- **Gallery photo editor: Upscale** `RARE` — The editor's seventh tool redraws a photo ×2 or ×4 on the phone (waifu2x UpConv7, a photo network and a drawing-and-text network; a PNG starts on the drawing one).
+  - Offered up to 4,096 px out — ×2 for photos up to 2,048 px on the long side, ×4 up to 1,024
+  - An undoable edit step — PhotoEdit.upscale names the copy; the rest of the edit is in fractions, so crops, drawings and text land where they were
+  - Progress bar and Cancel — runs in the sticker generator's `:imagegen` process, never the keyboard's
+  - The sent and saved copies read the upscaled file — still capped by the send bar's quality chip
+  - Measured before choosing (Apple M2, MNN CPU, 4 threads) — 1080p ×2 in 2.7 s against 11.8 s for realesr-animevideov3 and 23.6 s for realesr-general-x4v3; ONNX Runtime 3–5× slower on the same network
 - **Online tools** `uncommon` — 8 tools in the Online group
   - Translate — Type-and-translate panel with its own search bar
-    - 63 languages — TranslateClient.languages; source is detected, or picked from the source chip for the visit
+    - 68 languages — TranslateClient.languages; source is detected, or picked from the source chip for the visit
     - Swap — Result becomes the text, its language the source, the detected language the new target
     - Two online providers behind one switch — Google's free public endpoint, or Cloud Translation v2 with your key
     - On-demand on Play — The translator's ~16 MB/ABI lives in the :feature:translate split, fetched through SplitInstall when an on-device engine is first picked; sideload builds compile the same bridge into :core:intelligence
@@ -1798,6 +1926,13 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Download offer in the panel — A query that needs a model turns the result area into the offer and the action row into Download/Cancel; retranslates the moment the models land
     - One model store for keyboard and settings — OnDeviceTranslator.models; progress read off the system DownloadManager row ML Kit enqueues, shade notification, data-saver ask
     - Source detection on device — Bundled ML Kit language-id; a weak answer falls back on the typed languages and shows as a guess ("French?")
+    - Second on-device engine: Bergamot `RARE` — Mozilla's bergamot-translator (the engine in Firefox Translations, MPL-2.0) on Marian + ruy, as libwmbergamot.so (~6.7 MB arm64; arm64-v8a and x86_64, Android 9+; a load-refusing stub on armeabi-v7a); no Google code, so it is the on-device engine of F-Droid and de-Googled phones. A `bergamot` row in the translate provider list beside ML Kit; with both, the list order (or Pick mode) decides, and a pair one engine has no models for goes on to the other
+    - Firefox Translations models per direction — 114 directions over 57 languages (incl. Traditional Chinese, Serbian, Uyghur, Basque), pinned by SHA-256 in the generated BergamotCatalog from Mozilla's Remote Settings collection translations-models-v2; zstd from Mozilla's attachment CDN, unpacked by the library, checked twice; 13.5–36.5 MB a direction, pivoting through English in one engine pass
+    - Library delivery — `bergamot` native gate: pinned download on GitHub, built from source by the F-Droid recipe (opt-in download), the :feature:bergamot split on Play, fetched with the first model
+    - Third on-device engine: NLLB-200 `RARE` — Meta's No Language Left Behind (distilled 600M, int8, CC BY-NC 4.0 weights) on OpenNMT's CTranslate2 (MIT) + SentencePiece, as libwmct2.so (~2.7 MB arm64; arm64-v8a and x86_64, a load-refusing stub on armeabi-v7a); ruy for every GEMM, no BLAS, no OpenMP. One 630 MB model for 200 languages, any direction, no English pivot; an `nllb` row after `bergamot` in the translate list, so Automatic takes Bergamot when it has the pair downloaded, else NLLB when its model is here. 64-bit phones with 6 GB of memory or more (about 1.25 GB while translating, released when the panel closes); seconds per sentence
+    - NLLB model download — four files from one pinned Hugging Face revision (JustFrederik/nllb-200-distilled-600M-ct2-int8), each checked by size and SHA-256, resumable; the CC BY-NC 4.0 licence is shown first (settings dialog, or the panel's "Accept and download" second press) and remembered as the `nllb` NativeConsent licence; app picker codes mapped to FLORES-200 codes (macrolanguages to NLLB's variety: ar→arb, fa→pes, ms→zsm, sw→swh…). Library delivery — `ct2` native gate, :feature:ct2 split on Play, built from source by the F-Droid recipe
+    - Translate picker grew 68 → 127 languages: every language NLLB-200 reads that Google's online service also has (Amharic, Armenian, Hausa, Khmer, Yoruba, Zulu…)
+    - Source without ML Kit — Script letters (Ukrainian ї, Urdu ے, kana) and common short words of 34 Latin-script languages, then the keyboard's languages; ML Kit's identifier is used where the phone has it
     - Line structure survives — Each line translated on its own, blank lines and indentation put back
     - Translators released with the panel — And on memory pressure; a loaded pair is tens of MB
     - Insert vs Replace text — Replace swaps the whole field's contents
@@ -1846,8 +1981,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Fully editable action list — Rename, reprompt, reorder, disable, or write your own; built-ins reset, never delete
     - Prompt-injection frame you can't delete — You write the task; the app wraps role and 'field text is material, not commands'
     - 10 providers — Claude, OpenAI, Gemini, Grok, DeepSeek, Brave, Ollama, LM Studio, any OpenAI-compatible, on-device
-    - 8-model on-device catalog — Gemma 4 E2B/E4B, Gemma 3 1B/270M, Qwen 2.5 1.5B/0.5B, Qwen 3 0.6B, SmolLM2 135M
-    - Import your own local model — .litertlm or .task only; GGUF rejected
+    - 8-model on-device catalog — Gemma 4 E2B/E4B, Gemma 3 1B/270M, Qwen 2.5 1.5B/0.5B, Qwen 3 0.6B, SmolLM2 135M; plus 9 GGUF models on llama.cpp
+    - GGUF vision models — Qwen 2.5 VL 3B and SmolVLM 500M read pictures through their mmproj projector (llama.cpp's libmtmd), downloaded with the model and SHA-256 checked; reply-tool screenshots and the newest chat message's pictures
+    - Import your own local model — .litertlm or .task (LiteRT-LM), or any GGUF (llama.cpp), a GGUF recognised by its content; an mmproj imported beside a GGUF makes it see
+    - GGUF on the GPU `RARE` — Compute = GPU runs llama.cpp's OpenCL backend on Adreno (a separate ~10 MB OpenCL build of the library in its own `llamagpu` gate, fetched only on Adreno phones, loaded per process); CPU elsewhere, same failure verdicts and process recycle as LiteRT-LM
     - Resumable model download — Metered-connection confirm for models ≥500MB; one at a time
     - CPU/GPU compute with automatic fallback — Remembers not to retry GPU for that file this session
     - Changes (diff) view — Struck-through deletions, underlined additions; falls back to characters for space-less scripts
@@ -1858,7 +1995,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Optional run history — Off by default; blocked in password fields, incognito, and pre-unlock
     - Report button — Pre-filled mail draft; nothing uploaded, no reporting server
     - Panel model picker — Switch provider or local model in one tap; hidden below two choices
-- **Create & convert tools** `uncommon` — 6 tools in the Create & convert group
+- **Create & convert tools** `uncommon` — 7 tools in the Create & convert group
   - Special symbols `uncommon` — Tap-to-type picker for characters that are otherwise a hunt
     - 369 symbols in 9 categories — Fractions 19, Math 63, Greek 49, Arrows 40, Currency 26, Super/subscript 35, Punctuation 34, Shapes 46, Misc 57
     - Recents chip — Capped at 24, most recent first; a repeat tap re-fronts rather than duplicates
@@ -1894,9 +2031,18 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Passphrases from the bundled English dictionary — 4–8 letter lowercase distinct words; no separate wordlist download
     - Passphrase options — 2–10 words, free-text separator, capitalise, append a digit
     - Entropy estimate in bits — Shown for both modes
+  - Text repeat `RARE` — A piece of text written out many times: Repeat, Stretch ("no" → "nooooo") and Stairs ("ha", "haha", "hahaha") modes
+    - Count 1–1000 with a hold-to-step stepper and 2/3/5/10/25/50/100 chips — Default 10; the panel's options persist as the tool's settings
+    - Separator None/Space/New line/Comma/Custom (≤8 chars) — Stairs with None switches to New line
+    - Number each copy and alternate case toggles — "1. ha 2. HA"
+    - Live preview card with copies and character count — Insert pulses it; Undo takes the last insert back while the field still ends with it
+    - Longest result 500–20,000 chars (default 5,000) — Cut at the last whole copy, never mid-word
+    - Recent texts (10) in their own prefs file — Off in incognito, secure and no-learning fields; never backed up
+    - Repeated-text smart chip — "no no no" (configurable 2–6 copies) raises "Repeat “no” ×3"; opens the tool with separator and count set; Insert replaces or appends to the typed run per setting; once per text per field
+    - Selection action Repeat — Opens the panel on the selection; on by default (LIST_VERSION 4)
   - Learn from text `RARE` — Lists the words in the field or selection the keyboard does not know, to add to the personal dictionary in one go (#174)
     - Selection, else the whole field — Password fields refused; a partial read or a list past 2,000 words says so
-    - Unknown means every source the engine asks — Active language mix, imported lists, personal and Android dictionaries, contacts, apps; blacklisted words, numbers, links and spaceless scripts skipped
+    - Unknown means every source the engine asks — Active language mix, imported lists, personal and Android dictionaries, contacts, apps; blacklisted words, numbers, links and Chinese/Japanese runs skipped; Thai, Lao, Khmer and Burmese runs read word by word
     - All rows checked, sortable — Select all/none; Most used, Text order or A to Z, remembered
     - Per-row Edit, Show in text, Never suggest, Ignore — Edit types into the panel's own buffer with glide blocked; Ignore lasts one scan
     - Add as by hand — Same path as Add word: out of the waiting room, off the blacklist, mirrored to Android when that is on
@@ -1987,6 +2133,16 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Warns when nothing is configured to drop — Separate toast when the profile drops nothing
   - Settings — Opens the settings app from the keyboard
 - **Clock** `RARE` — World clocks, alarms, timers, stopwatch, meeting planner, date maths and history in one keyboard panel, with a full Clock screen in the settings app on the same store
+- **Send files** (#729) `RARE` — Files to anyone as an end-to-end encrypted link through a Send instance (the Firefox Send fork), or straight to a device nearby; links received too
+  - Link mode — Pick from four sources (document picker, the Gallery tool, the clipboard, the field's text as a .txt), set expiry and download limit from the instance's own `/config`, add or generate a password, upload with one progress ring (encryption streams through the upload)
+    - Send protocol client in `:core:send` — HKDF/PBKDF2 keys, RFC 8188 aes128gcm records, encrypted metadata envelope, WebSocket upload, nonce-signed metadata/download, owner calls (delete, download limit, info); JVM-tested against the RFC vectors and a mock server
+    - Finished link — Inserted, copied or shown per setting (hold the button to choose per upload), QR code, share, Manage (change downloads, delete from the server), confetti under tool-result motion
+    - Instance catalogue — timvisee/send-instances list with limits and live probe dots, plus the user's own instances; too-big uploads suggest instances with room
+  - Receiving — A Send link typed or pasted raises a strip chip (longer smart lookbehind), a copied one raises an offer chip; the panel checks the file, asks for its password, warns on the final download, decrypts into Downloads/WM Keyboard, inserts a picture into the field or opens/shares anything else
+  - Nearby — Devices on the same Wi-Fi through the KDE Connect engine (pair, send with live transfer rows, receive); a direct Wi-Fi link between two phones (Wi-Fi Direct group or local hotspot on the host, per-app network join on the sender) carried by one QR code with the Wi-Fi credentials and a one-time pairing token
+  - Share sheet — `Send with WM Keyboard` activity-alias, enabled while the tool and its setting are on; a card with the same limits, progress and the link with its QR
+  - History — Uploads with time left and downloads used (`/info`), delete from the server, received files; `filesDir/send` is excluded from backups (owner tokens)
+  - Data saving — `MeteredFeature.FILE_SEND` asks before a whole file moves on mobile data; traffic logged under `NetSource.SEND`
   - World clocks — Home clock with seconds, an analog face light by day and dark by night, sunrise and sunset from the tz database's own coordinates; a card per city with offset delta and today/tomorrow
     - Offline city search — ~420 tz zones, ICU city and country names in the user's language, word-start, accent-folded, abbreviations (IST, PST) and offsets (+5:30, utc-3)
     - Insert any time — Time, date and time, full date, time and place, ISO 8601, relative, Discord timestamp, Unix time; each chip previews what it types; hold sets the default
@@ -2027,8 +2183,15 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - 8 non-Gregorian systems, two at a time — Bengali, Hijri, Chinese, Hebrew, Hindu (Saka), Persian, Buddhist, Japanese era
     - Alternate day number inside the cell — Bengali digits ০–৯; a Chinese lunar month's first day shows the month name
     - Region-guessed defaults — From SIM, then network, then locale; only until the user picks
-    - Device calendar events per selected day — Colour stripe, time or All day, location; recurrences expanded per occurrence
-    - Read-only — No insert, edit or delete path against the provider
+    - Device calendar events per selected day — Colour stripe, time or All day, location; recurrences expanded per occurrence; dot under each busy day
+    - Add, edit and delete events in the keyboard — WRITE_CALENDAR asked on first save; the draft waits through the dialog and survives closing the panel
+    - Full repeat editing — Daily/weekly/weekdays/monthly by date or nth weekday/yearly, interval, weekdays, end by date or count; This event / This and following / All events for edit and delete
+    - Foreign repeat rules kept — A rule the editor cannot model shows as Custom and is written back verbatim
+    - Reminders, Busy/Free, calendar picker, overlap warning, time zone kept from the selection
+    - Guests with contact suggestions — Attendee rows diffed so nobody is re-invited; the account may email invitations on sync
+    - Insert as text — One line in the user's date format, from the event sheet or the composer
+    - Undo — Add, single delete, cancelled occurrence, cut series
+    - Save events: in the keyboard or the calendar app; default calendar, length and reminder
     - Weekend presets — Seven options including Fri&Sat, Thu&Fri, and none
     - Hijri day adjustment −2..+2 — Tabular calendar can miss local sighting by a day or two
     - Chinese computed astronomically — Real new-moon and solar-longitude calculations
@@ -2040,6 +2203,27 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Conditional stat grid — Feels-like, humidity, wind always; rain chance, cloud, pressure, UV, sunrise, sunset when present
     - 8-point wind direction — Plus emoji and short description for current conditions
     - Shares its location with the compass — Qibla reads the same saved coordinates
+  - Smart home `RARE` — The user's homes from the keyboard: Home Assistant, Google Home, SmartThings, a Hue bridge, openHAB, Smart Life (Tuya), SwitchBot as rooms of live tiles, a card of controls per entity, a typed Assist bar for Home Assistant
+    - A provider list of homes — `ProviderTool.SMART_HOME`, always mixed: every row is connected, in list order; each home is a `ProviderCredential` with an `extra` map for its tokens, remote address, bridge id or granted structure; several homes at once, rooms prefixed with the home's name
+    - One model for every platform — `HomeBackend` in `:core:homeassistant`; every other platform is an adapter onto Home Assistant's entity shape (`HaEntity`, HA domains and attribute names, `HaFeatures` bits) and back from `HaServiceCall`, so the panel, formatter, icons, AI tools and snippets never know which platform drew a tile
+    - Home Assistant — Live over the WebSocket API (`subscribe_entities` compressed stream, JVM-tested); REST fallback; reconnect with backoff; a refused token stops and asks once; browser sign-in IndieAuth style through the docs site's `/ha/` page naming `wmkeyboard://ha-auth`, tokens refresh themselves, a long-lived token is the fallback; mDNS `_home-assistant._tcp` finds the server; home and remote addresses; every HA kind incl. camera stills, Assist, agents
+    - Google Home — The Home APIs SDK through Play services, not in the F-Droid build, and only when the SDK is checked in under `feature/ime/libs/googlehome` (Google hands it out as a bundle, not a Maven artifact); Google's own consent picks the account, the structure and the device kinds; Matter traits (OnOff, LevelControl, ColorControl, Thermostat, DoorLock, WindowCovering, FanControl, MediaPlayback, sensors) mapped to HA domains; `ENABLE_GOOGLE_HOME` per channel, a `<queries>` entry for the Google Home app
+    - SmartThings (`:core:smarthome`) — Samsung's REST API: locations as the home, rooms, devices with status, scenes; OAuth through the docs site's `/st/` return page and the build's client id, or a pasted personal access token (24 h); polled every 10 s while running since events need a hosted SmartApp; lights, switches, fans, shades, locks, valves, thermostats, media players, sensors
+    - Philips Hue bridge (`:core:smarthome`) — CLIP v2 on the LAN over the bridge's own TLS, pinned at pairing (press the button, `POST /api`); mDNS `_hue._tcp`; lights, room group lights, scenes, motion, contact, temperature, light level, battery; live over the SSE event stream; xy ↔ hue/saturation conversion
+    - openHAB (`:core:smarthome`) — `/rest/items` with an API token, items by type and semantic tag, rooms and floors from the semantic model, live over `/rest/events`
+    - Smart Life / Tuya (`:core:smarthome`) — the user's own Tuya Developer Platform project with the app account linked: data centre as the address, Access Secret as the key, Access ID in `extra`; HMAC-SHA256 signed OpenAPI, simple-mode token (`grant_type=1`, never stored, refetched on 1010); `/v1.0/iot-01/associated-users/devices` paged and polled every 30 s, specifications once per device; homes, rooms and scenes through the devices' uid; standard instruction codes by category: lights (v1/v2 brightness, temperature, colour), sockets and strips per channel, fans, curtains, garage openers, thermostats, sensors
+    - SwitchBot (`:core:smarthome`) — API v1.1 with the app's token as the key and the secret in `extra`, Base64 HMAC signature; device list once per session, statuses once a minute for devices that report (10,000 calls a day); lights, plugs, relays (2PM as two switches), curtains, roller shades, blind tilt, garage opener, locks, fans, purifiers, radiator thermostat, sensors; IR remotes as assumed-state switches; manual scenes
+    - Tiles by room — Favourites, one tab per room of each home, Elsewhere, All; search by name, id or room; a tab per room can be switched off; favourites and hidden sets keyed by `HomeRef` (`home|entity_id`)
+    - Every kind — light (brightness, warmth, hue, colours, effects), switch, fan, cover, valve, climate dial, media transport and volume, lock, alarm with codes, vacuum, humidifier, water heater, siren, number, select, text, button, scene, script, automation, camera stills (sendable as a picture), sensors with three insert formats
+    - Optimistic taps — The tile shows the expected state, the home's event confirms it, a refusal shakes it back
+    - Hold to confirm — Locks, alarms, garage doors, gates, sirens and valves fill a ring for 800 ms before acting
+    - Motion — Staggered tile entrance, a pulse ring when a home changes an entity, run flash on scenes, card grows from the middle, rolling thermostat digits, breathing status dot while connecting; all under the motion flags
+    - Assist bar — With a Home Assistant listed: a capture target under the tiles; the reply slides up, touched tiles ring, Insert reply types it; conversation id kept per panel session
+    - Smart chip — "turn off the lights" typed anywhere offers Ask home, which opens the panel and sends it to Assist
+    - AI chat tools — `home_assistant` (Assist, one sentence) and `home_assistant_states` (what is on across every home, or a search), both Ask by default
+    - Snippet variables — `{ha:entity_id}` searched across homes, `{ha:home_key|entity_id}`, `{ha:entity_id:attribute}`
+    - Cache — Last states per home on disk so the panel draws at once, dimmed until live; excluded from backups; every home's key in `provider_credentials`, a SECRET_KEY, never in the direct-boot mirror
+    - Network log — `HOME_ASSISTANT`, `SMARTTHINGS`, `HUE`, `OPENHAB`, `TUYA`, `SWITCHBOT` sources; the local ones and the polled clouds stay out of the data saver
   - Location (#350) `RARE` — The phone's position or a saved place into any field, in the format the user picks
     - One reading per tap — LocationManager only (no Play services): AOSP fused, GPS and network asked at once, each better answer shown as it lands, stops at 25 m or 20 s, nothing left registered
     - Tile-free position dial — Accuracy ring, the shared precision cell and the shared point drawn to scale, north up; no map server learns where the user is
@@ -2097,12 +2281,12 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 | Feature | Needs |
 |---|---|
-| Handwriting tool and handwrite-with-swipes | full flavour only (ML Kit digital ink); each language model is an 8-26MB download |
-| Text scan (OCR) | full flavour only (ML Kit text recognition + bundled Tesseract library); needs CAMERA permission |
-| QR & barcode scanner | full flavour only (ML Kit barcode); needs CAMERA permission; link details need network |
-| Document scanner | full flavour only, and hidden entirely when Google Play services is unavailable |
-| Grammar tool | full flavour only (BuildConfig.ENABLE_GRAMMAR, Harper Rust JNI) |
-| AI On-device provider and its 8-model catalog | full flavour only; 2 of the 8 models need a Hugging Face token and licence acceptance |
+| Handwriting tool and handwrite-with-swipes | every build; the F-Droid build reads only Chinese and Japanese (zinnia, no ML Kit); each language model is an 8-26MB ML Kit download or a 26-52MB zinnia one |
+| Text scan (OCR) | every build; the F-Droid build reads only Chinese, Japanese and Latin script offline (PaddleOCR on MNN, a 21 MB download; no ML Kit, no Tesseract), any script online; needs CAMERA permission |
+| QR & barcode scanner | every build: ML Kit where it can run, zxing-cpp (an on-demand library, about 1.1 MB) on F-Droid and on Play without Play services; needs CAMERA permission; link details need network |
+| Document scanner | every build: Google's scanner with Play services, the built-in OpenCV scanner without (its library is an on-demand download, about 2.5 MB) |
+| Grammar tool | every build (BuildConfig.ENABLE_GRAMMAR, Harper Rust JNI; F-Droid compiles it from source); LanguageTool checker needs the network and the user switching it on, public server or self-hosted on every build |
+| AI On-device provider and its 8-model catalog | not in the F-Droid build; 2 of the 8 models need a Hugging Face token and licence acceptance |
 | AI cloud providers (Claude, OpenAI, Gemini, Grok, DeepSeek, Brave) | needs the user's own API key — no built-in or proxied key for any of them |
 | AI self-hosted providers (Ollama, LM Studio, Other service) | needs a reachable server address; plain-HTTP traffic on the local network |
 | Web search and Image search | needs a Brave API key (user's or the build's); with none the tools vanish from bar, toolbox, chips and hardware shortcuts |
@@ -2118,14 +2302,14 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Wikipedia and Dictionary | network; keyless public APIs |
 | GIF and Sticker | network for the KLIPY/GIPHY providers; local packs work offline |
 | Camera tool | needs CAMERA permission, granted through a trampoline activity; shared with OCR and QR scan |
-| Calendar events | needs calendar read permission, requested from the panel's Allow button |
+| Calendar events | read needs calendar permission from the panel's Allow button; saving, editing and deleting ask for write on the first save |
 | Media controls | needs the notification-listener grant, awarded in system Settings |
 | Clipboard user screenshots | needs the photos/storage permission |
 | Clipboard source-app attribution | needs Usage Access; best-effort foreground-app guess |
 | Voice typing | needs microphone permission; audio may reach the OS recognizer service unless the on-device language model is installed |
 | Clipboard link previews and QR link details and dictionary auto-lookup | network, and force-disabled by power saving's background-network toggle |
 | 35 tools of 83 are unavailable before the first unlock after reboot | direct-boot filter; the other 48 (arithmetic, sensors, keyboard-own state, all 14 cursor tools) stay usable |
-| Lite edition tool count | 78 of 83 tools; the 5 ML Kit / Harper tools are compiled out, not just hidden |
+| F-Droid build tool count | 4 fewer; the ML Kit tools are compiled out, not just hidden |
 
 ## Clipboard, snippets, text expansion
 
@@ -2336,6 +2520,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Installable snippet add-on packs, 4 MB, previewable before install
     - Uninstalling a pack removes exactly the ids it added
     - Own config-backup section
+  - `search_snippets` AI tool ("Read your snippets") — up to five snippets matching every word of the query in their name, triggers, tags or text (name or trigger hits first), the newest five with no query; each read as name, trigger and text cut short, with up to three other expansions; templates and patterns read as written and marked as templates, never expanded; starts on Ask
 - **Contact-aware completion** `uncommon` — Names, emails and app labels held in memory only, never written to disk
   - Contact name suggestions — Off by default; needs the Contacts permission
     - Display names split into component words and indexed
@@ -2353,7 +2538,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Token characters include . _ % + - @
     - Up to 5 addresses offered
     - Committed with no trailing space and not learned as a word
-  - Contacts in the system spell checker `RARE` — Full flavour only; separate Android spell-checker component
+  - Contacts in the system spell checker `RARE` — Every build with Harper; separate Android spell-checker component
     - Known contact names and emails are not underlined
     - Matching contact name ranked first in the correction menu
     - Reads the same contact-names setting, with no toggle of its own
@@ -2386,19 +2571,40 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 | Feature | Needs |
 |---|---|
-| Clipboard tool (history, panel, entity chips, phone masks) | ships identically in full and lite; no edition gating |
-| Snippets and text expansion | ships identically in full and lite; no edition gating |
+| Clipboard tool (history, panel, entity chips, phone masks) | ships identically in every build |
+| Snippets and text expansion | ships identically in every build |
 | Clipboard link previews | network — direct unauthenticated request to the copied site, off by default |
 | Screenshots in clipboard history | needs READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE; off by default |
 | "Show source app" on clip cards | needs the Usage Access special permission; off by default, best-effort guess |
 | One-time-code chip from notifications | needs the notification-listener grant (shared component with the media tool); off by default |
 | Dismiss the code's notification after use | uses the same notification-listener grant |
 | Contact name and contact email suggestions | needs READ_CONTACTS; both off by default |
-| Contact names in the system spell checker | full flavour only (Harper); also requires selecting WM Keyboard as Android's spell checker |
+| Contact names in the system spell checker | every build with Harper; also requires selecting WM Keyboard as Android's spell checker |
 | Clipboard history, snippets, contacts | unavailable before the first unlock after reboot (credential-encrypted storage / locked providers) |
 | Inline autofill and system smart-reply chips | Android 11+ (API 30) only; both suppressed in incognito |
 
 ## AI, voice, handwriting, scanning
+
+- **Search by meaning** `RARE` — the clipboard, notes, snippets, emoji and sticker search boxes also list what means the query, after the keyword matches, in 100+ languages, fully on device; the gallery's photos are searched by what they show; the AI can search clips, notes and snippets by meaning; off by default (AI screen)
+  - EmbeddingGemma 2 (Apache-2.0) on the classic LiteRT interpreter — the litert gate shared with Whisper, the cutout and PaddleOCR; no ONNX Runtime, no sqlite-vec
+    - LiteRT-LM bundles repacked once — external weight sections inlined, only the 128/256/512-token encoder and 70-token vision signatures kept (the classic interpreter prepares subgraph 0 at load), outputs bit-identical; published as the data repo's `models` release, SHA-256 pinned
+    - Token embedder needs no interpreter — the int4 table is read straight from a mapped file (low nibble first × row scale × √512), exactly the bundle's graph
+    - SentencePiece BPE in pure Kotlin — byte fallback, user-defined pieces, score-priority merges; identical ids to SentencePiece on 620 multilingual test texts, ~14 MB heap
+  - One vector space for text and pictures — the Text Vision tower feeds the same encoder, so a typed query finds stickers and screenshots too
+    - Three choices with sizes — Off / Text (~155 MB) / Text and pictures (~375 MB); picking one is the download, behind the metered-connection question
+    - Emoji vectors precomputed off device — 1,716 catalogue names embedded by script and downloaded (2.6 MB) instead of ten minutes of phone CPU
+  - Runs in its own `:semantic` process — the loaded model's ~350 MB never counts against the keyboard; text model released after 3 idle minutes, vision tower after 20 s
+  - Incremental background index — per kind, stamped by content hash, on one low-priority thread when its panel opens; 400 texts or 32 pictures per pass; brute-force cosine over a flat file
+    - Locked notes and password clips never indexed — their vectors would leak what the keyboard masks; turning the feature off deletes every index
+  - Stands-out ranking, not a fixed cutoff — a hit must be near the best, over the median by a margin, and over a floor; thresholds read off the model's scores on mixed-language texts and COCO photos
+  - Untagged stickers tagged from their picture — nearest emoji names become trigger keywords for stickers-as-you-type, kept apart from the user's own and never written to the pack
+  - Falls back silently — no model, no LiteRT (F-Droid), a slow first load: the box shows its keyword matches as before
+  - Gallery photo search (Text and pictures) — a search button in the gallery header ranks the library's photos by a typed description; photos indexed from MediaStore thumbnails, 32 per pass, pass after pass while the panel stays open, newest 3,000 kept; follows the photos permission (no access drops the index); no button without the pictures model, and none on Play (no library access)
+  - `search_clipboard` AI tool — the model's query against the clipboard index, up to eight excerpts; every hit re-checked against the store (marked or password-shaped clips and deleted ones dropped); offered only with the feature on and the text model present; starts on Ask
+  - `search_notes` meaning half — with the feature on, notes that mean the query follow the word matches under "Close in meaning", minus the ones the words found; locked and trashed notes never
+  - `search_snippets` meaning half — the same for snippets, from the snippets index; each hit re-read from the store, so a snippet deleted since it was indexed is dropped
+    - Clean module seam — the search lives in `:feature:ime` and is lent through `AiToolHost.searchClipboard` / `notesByMeaning` / `snippetsByMeaning`, so `:feature:tools` gains no dependency on `:core:intelligence`
+  - Storage row — About → Storage → Search by meaning lists the text model, the pictures model and the indexes with sizes; deleting the text model or the indexes turns the feature off, the pictures model alone drops it to Text
 
 - **AI writing actions** `RARE` — On-keyboard panel that runs prompts against the focused field's text; 8 shipped actions, user-extensible
   - Shipped action set `RARE` — 11 built-ins: Rewrite, Summarize, Translate, Improve, Formal, Shorter, Friendly, Fix grammar, Explain, Continue, Custom
@@ -2455,9 +2661,12 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Selected chip animates to the front
   - Hardware-keyboard focus ring over the panel `RARE` — chips, results and controls are focus targets (FocusRegion CHIPS/RESULTS)
 - **AI providers and connectivity** `RARE` — 9 selectable backends, bring-your-own-key only — no bundled or proxied key for any cloud provider
+  - A provider list like translate's — `ProviderTool.AI`, always pick: rows of Anthropic, OpenAI, Gemini, xAI, DeepSeek, Brave Answers, Ollama, LM Studio, OpenAI-compatible, On your device; each row its own key/address/model with a Test button; the same service more than once (a second key, a second server); the row in use is `AiSettings.providerKey`, set under In use or by the panel's model picker
+    - Worked out from the old per-provider fields until edited — every service that had a key or address is a row, the chosen one stays chosen
+    - The row in use is written into `AiSettings` on every settings read (`withProviderChoices`), so the client and every caller read one answer; an emptied list reports the AI as not set up whatever old keys remain
   - Cloud providers with fixed endpoints `RARE` — 6: Anthropic, OpenAI, Gemini, xAI (Grok), DeepSeek, Brave Answers
     - Brave (#438) — `/res/v1/chat/completions` on the Brave Search host, model `brave`, `X-Subscription-Token`; one user message only, so system prompt + history fold into it; `<usage>`/`<citation>` tags stripped from the stream; blank key falls back to the user's own web search Brave key (never the built-in one); needs the Answers plan
-    - Per-provider default model — claude-sonnet-5, gpt-5.6-luna, gemini-3.5-flash, grok-4.5, deepseek-v4-flash; shown as the field hint
+    - Per-provider default model — claude-sonnet-5-5, gpt-6-luna, gemini-3.8-flash, grok-4.7, deepseek-flash; shown as the field hint
     - Model field is free text — blank falls back to the default above
   - Self-hosted servers `RARE` — Ollama and LM Studio by LAN address, no key required
     - Ollama speaks NDJSON on /api/chat — num_predict under options; thinking on message.thinking
@@ -2475,7 +2684,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - Truncation detected per provider `RARE` — stop_reason=max_tokens, finish_reason=length, finishReason=MAX_TOKENS, done_reason=length
   - Response-length control `uncommon` — 8 presets 1024–131072 plus "Provider maximum"; default 8192
     - Provider maximum omits the field entirely — so the service applies its own default
-    - Reasoning models get 4x the ceiling — capped at 131072; guessed from 13 model-id substrings (thinking, reason, -r1, qwq, magistral, gpt-5, o1-, o3, o4-, qwen3, grok-4, deepseek-v4)
+    - Reasoning models get 4x the ceiling — capped at 131072; guessed from 15 model-id substrings (thinking, reason, -r1, qwq, magistral, gpt-5, gpt-6, o1-, o3, o4-, qwen3, qwen-3, grok-4, deepseek-v4, deepseek-flash)
     - Anthropic over-ceiling auto-retry — Anthropic requires max_tokens and hard-rejects an oversize value; the app reads the real limit out of the error and retries once
   - Conversation normalisation before send `RARE` — blank turns dropped, leading/trailing assistant turns removed, same-role runs merged — Anthropic rejects all three
 - **On-device LLM (LiteRT-LM)** `RARE` — A full LLM running locally with no network; 8-model curated catalog
@@ -2489,15 +2698,32 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Free-space preflight with margin — reports roughly how many GB to free
     - Metered-connection confirmation above 500 MB
     - Orphan cleanup — directories left by models dropped from the catalog are reported with a one-tap Free up
-  - Import your own model file `RARE` — any .litertlm or .task; GGUF rejected on extension
-  - Compute backend choice `RARE` — CPU (default) or GPU
+  - Import your own model file `RARE` — any .litertlm or .task for LiteRT-LM, any GGUF for llama.cpp; a GGUF is told by its `GGUF` magic, so a file that lost its extension imports and gets `.gguf` back; Storage › Import files does the same and checks a catalog GGUF against its SHA-256
+  - Compute backend choice `RARE` — CPU (default) or GPU, plus NPU on SM8750 and SM8850 (issue #804); SM8650's runtime is there for the sticker generator, with no AI model built for it yet
     - GPU failure falls back to CPU and is remembered per model file
+    - NPU runs a model's ahead-of-time build for this chip — Gemma 3 1B and Gemma 3 270M have one; Download fetches it while Compute is NPU, a row offers the other build when Compute wants it
+    - NPU falls back to the GPU, then the CPU — a model with no NPU build never tries it; a build that fails to start, or crashes the keyboard, stays off the NPU until a system or app update; a failed answer only for that session
+    - Qualcomm QNN runtime as compressed assets — LiteRT's dispatch library plus libQnnHtp, libQnnSystem and the V75/V79/V81 stub and skel, about 14 MB instead of 50 as native libraries; unpacked into no-backup storage per app version
+    - On Play the runtime is the on-demand :feature:npu split — requested when NPU is picked; until it arrives the model runs on the GPU or CPU
+    - GitHub edition: native delivery — Qualcomm's licence is accepted first (on the Compute row or Privacy › Downloads), then the shared QNN libraries and the chip's stub and skel are read out of qnn-runtime on Maven Central (gates npu and npu-V75/npu-V79/npu-V81)
   - Context-window setting `RARE` — 5 presets 1024–16384 plus the model's own default; changing it reloads the model
     - No per-response ceiling on-device — the window bounds prompt and answer together
   - Engine lifecycle `RARE` — one cached engine rebuilt only when model file or backend changes
     - Retired conversations closed lazily — closing the native conversation the instant generation finished raced the runtime and crashed the IME
     - Sampler fixed at topK 40 / topP 0.95 / temperature 0.7
     - Streaming through the raw MessageCallback — litertlm's Flow bridge throws NoSuchMethodError on this project's coroutines, on a native thread where nothing can catch it
+- **On-device LLM (llama.cpp)** `RARE` — A second on-device runtime beside LiteRT-LM, for GGUF models; the model picked decides the runtime, LiteRT-LM stays the default
+  - llama.cpp b11753 (MIT) as libwmllama.so — CPU backend, its own ggml (not shared with whisper.cpp), arm64 ARMv8.0 plus an ARMv8.2 dotprod+fp16 build picked from /proc/cpuinfo, armeabi-v7a, x86_64; 16 KB pages, JNI symbols only, paths mapped out
+    - Library delivery — `llama` native gate: pinned download on GitHub, built from source by the F-Droid recipe, the :feature:llama split on Play, requested with the first GGUF download
+  - 7-model GGUF catalog `RARE` — Qwen 3 1.7B, Llama 3.2 1B, Gemma 3 1B, Qwen 3 0.6B, Qwen 2.5 0.5B, SmolLM2 360M, Gemma 3 270M; each pinned to a Hugging Face commit and a SHA-256 checked after download, licence per row, none gated
+  - The model's own chat template `RARE` — llama.cpp's Jinja interpreter renders the GGUF's template, falling back to its built-in formats, then ChatML; field text is tokenized without special tokens, so it cannot open a turn
+  - Prefix-reusing KV cache `RARE` — one context shared by chats and keyboard actions; a prompt decodes only what the cache does not already hold, so a chat's next turn is warm with no replay, and the oldest exchanges drop when a chat outgrows the window
+  - Stop that stops `RARE` — an answer ends at the next token and the cache keeps exactly the partial; a new keyboard request stops the one before it
+  - Memory check before load `RARE` — weights plus KV cache (from the model's layer and head counts) plus 160 MB against free memory; the window halves down to 1024 tokens to fit, else a message with both figures; refused outright above 60% of RAM
+  - Threads on the big cores — kernel cpu_capacity at half the top or more, else clocks above the slowest cluster, 1 to 8
+  - Unload on idle — after 3 minutes unused, and whenever the keyboard releases its engines
+  - CPU only, no pictures — Compute applies to LiteRT-LM; a screenshot is read the other way
+  - Internal scoring API — per-token log-probabilities of a text (LlamaCpp.score), kept internal for prediction experiments
 - **AI chat screen** `RARE` — Multi-turn conversations in the settings app, against the same provider set
   - Saved conversations `uncommon` — 50 conversations, 200 messages each, 20000 chars per message, oldest fall off
     - Auto title from the first user message — cut to 48 chars on a word boundary
@@ -2512,7 +2738,14 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Retry drops the failed bubble and re-answers the same user message
     - Failed turns excluded from the context sent to the model
   - Launcher shortcut straight into chat `RARE` — wmkeyboard://settings/ai_chat, one of 7 allowlisted shortcut routes
-- **AI history and privacy guards** `RARE` — Optional on-device log of every AI run
+- **AI memory** `uncommon` — Short facts about the user that chats save and later chats and AI actions are handed, on the phone only (Settings › AI › Memory)
+  - `remember` and `forget` tools `uncommon` — offered to a chat only, never to AI actions or AI reply (their input is the field's text, which may be anyone's words); no Run/Ask policy, every save shows under the answer as "Saved to memory" with Undo
+  - Deduplicated `RARE` — a fact equal once normalised, or saying no more than one kept, is a duplicate; one saying more ("likes tea" → "likes green tea", or 80% shared words) replaces the old wording under the same id; normalising keeps combining marks so Bengali and Hindi words stay whole
+  - Secret filter in code `RARE` — refuses a named secret with its value, a one-time code, a Luhn-valid 13–19 digit card number, provider key shapes (sk-, AIza, ghp_, xox, AKIA, PEM) and generated-looking tokens, for the model's saves and the user's own alike
+  - Few go whole, many go ranked `uncommon` — up to 30 facts and 3000 chars go to every run; past that 12 best matches (search by meaning when its model is on the phone, shared words otherwise) then the newest, 20 in all; a chat picks once per conversation so on-device sessions and prompt caches stay warm
+  - Who gets it — on-device models always while it is on (default on); cloud and self-hosted only with "Use with cloud models" (default off); never incognito fields or chats begun in incognito; never before the first unlock (credential-encrypted storage)
+  - Memory screen — on/off, cloud switch, Add memory, edit, swipe or button delete, Delete all (app-lock target); 500 facts, 300 chars each
+  - Backup section `AI memory`, off by default; the one section sync can never carry
   - Four-condition write guard `RARE` — a pure, separately tested function: enabled AND device unlocked since boot AND not a password field AND not incognito
   - What a record holds `RARE` — action id and name-at-the-time, provider, model, input, output, duration, instruction, reasoning chars, streamed flag, error, truncated flag
     - Whether the answer was actually used — NONE / REPLACE / INSERT, written back when the user commits
@@ -2588,6 +2821,12 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Buffer full auto-transcribes — continuous mode then starts the next clip
     - No live partials — the whole clip is transcribed after you stop; the panel says "tap when you're done"
     - Keystrokes during transcription never cost a recording — the audio is already in the recorder, not the editor
+  - Compute: Automatic | CPU | GPU `RARE` — `whisper_compute` on the engine's screen, for the whisper.cpp models only; Automatic runs Base and larger on the GPU, Tiny on the CPU
+    - Adreno only — `libwmwhispercpp_opencl.so` (arm64, ARMv8.2) with ggml's OpenCL backend, Qualcomm's own; Mali, Xclipse and PowerVR stay on the CPU. Vulkan rejected: ~29 MB of shaders, no ggml tuning for Mali
+    - Loads beside the CPU build — its own JNI class (WhisperCppGpu), so Compute changes and a fallback need no restart; links the vendor libOpenCL.so (`uses-native-library`, not required)
+    - Fallback to CPU — no device, a refused model (out of GPU memory) or a failed clip goes to the CPU builds at once; a native crash is caught by an attempt file and the next process remembers it; verdicts keyed to the build fingerprint and install time, cleared by choosing GPU
+    - Kernels cached in codeCacheDir — the driver's first compile takes seconds, later processes load the binaries
+    - Measured on an M2 (Vulkan via MoltenVK, encoder per 30 s window): Tiny 94 ms, Base 199 ms, Small 620 ms; Metal 57/96/318; words identical to the CPU, one comma apart on Base greedy. Not measured on a phone
   - Speech translation to English `RARE` — where the graph was actually trained for it — 9 of the 10 multilingual models
     - Turbo excluded on purpose — it carries the translate signature but was trained for transcription only, so running it returns confident nonsense
   - Whisper downloads `uncommon` — two files per model into one directory, both required
@@ -2597,7 +2836,56 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Storage total and orphan cleanup on the same screen
   - No prompt or arbitrary language forcing `RARE` — the published .tflite conversions traced generate() inside the graph, so only the spectrogram and a lang_token are reachable
   - Missing-model state offers both ways out `uncommon` — download a model, or switch back to the system recognizer and start listening immediately
+- **Offline Sherpa dictation** `RARE` — Engine value `sherpa`: k2-fsa's sherpa-onnx running streaming Zipformer transducers on Microsoft's ONNX Runtime, words into the field while they are said
+  - 11 downloads — Ten dictation models over 13 languages (English small and large, Bangla, Russian, Korean, French, German, Spanish, Mandarin, and one for ar/en/id/ja/ru/th/vi/zh) plus an English punctuation model; pinned Hugging Face revisions, every file SHA-256 checked, through the same `EtCatalog`/`EtStore`/`EtDownloadManager` as the ExecuTorch engines
+  - Per-language models — `EtModel.languages` narrows a model below its engine; the largest downloaded model that knows every dictation language dictates; a language with none goes to the system recognizer, as Whistle does
+  - Live partials — Shares asr4all's streaming loop in the service through the `VoiceStream` interface, on its own single thread (`SherpaNative.dispatcher`)
+  - Silero VAD endpointing — Each model carries silero_vad.onnx; the phrase ends after "Stop after a pause" of silence following speech, then Keep listening chains the next one; the recognizer's own trailing-silence rule is the fallback
+  - Punctuation and case — Capitals-only output from audiobook-trained models is lowered; marks and capitals come from Add punctuation and capitals (below) for the eight models that write bare words; the German, Spanish, Korean and eight-language models punctuate themselves (`EtModel.writesPunctuation`, read from each tokens.txt) and are left alone
+  - Its own gate — `FeatureModules.onnx`: `:feature:onnx` on Play, libonnxruntime.so read out of Microsoft's AAR on Maven Central elsewhere, bundled in the offline build; `libwmsherpa.so` links only a build-time stub of the runtime, so F-Droid builds it from source
+  - Words to listen for as hotwords `RARE` — The recognizer's bias list (typed words, then personal words, up to 200) becomes sherpa-onnx hotwords on a modified-beam-search recognizer (4 paths, score 1.5 a piece); greedy whenever no word can be spelled, so an empty list costs nothing
+    - Spelled from tokens.txt alone (`SherpaHotwords`) — Most catalog models ship no bpe.model, so the vocabulary sherpa-onnx cuts words with is written from tokens.txt with a rank-based score; it matches the real SentencePiece cut on 93–100% of 400–735 words per model; `cjkchar+bpe` for the Chinese and eight-language models, case forced for capitals-only and small-letters-only models, precomposed pieces (Bengali য়) restored, unspellable or sub-3-letter phrases dropped
+    - Old-bridge safe — new JNI entry points (`nativeHotwordRecognizer`, `nativeHotwordStream`); an older libwmsherpa or a beam recognizer that will not open falls back to greedy
+- **Offline Omnilingual dictation** `RARE` — Engine value `omnilingual`: Meta's Omnilingual ASR 300M CTC (int8, Apache-2.0) on ONNX Runtime (`omnilingual_jni.cpp` in libwmsherpa), one model for ~380 keyboard languages (1,600 in all), many with no other voice typing
+  - One 367 MB download — csukuangfj's sherpa-onnx export pinned to a Hugging Face revision, every file SHA-256 checked, Silero VAD alongside; same `EtCatalog`/`EtStore`/`EtDownloadManager` and the `onnx` gate as Sherpa
+  - Language list built from the registries — every LanguageRegistry, Keyman and corpus language whose ISO 639-3 code (macrolanguages mapped to Omnilingual's individual codes) is in omnilingual-asr's `lang_ids.py`, minus the ones it only writes in another script than the keyboard's (`OmnilingualLanguages`)
+  - Phrase at a time — Not a streaming model: Silero cuts the microphone's audio at each 0.5 s pause (20 s cap, under the model's 40 s limit) and each phrase is decoded whole on Sherpa's thread while the user keeps talking; the live loop shows the text so far, "Stop after a pause" ends the dictation
+  - Memory — ~1 GB RSS while open; opening it frees Sherpa's model and vice versa, released on memory trim between dictations
+  - Held to the dictation's scripts — `OmnilingualScriptMask` flags the tokens.txt characters of the dictation languages' Unicode scripts (union for several; digits, spaces, punctuation; Latin's modifier letters; combining marks by family); the native greedy CTC picks only flagged ids, a held letter stands in for a frame the model gives to another script (unless it trails by more than the phrase's median + 4 logits), and a phrase spelled mostly in another script gives held letters a 2-logit margin over the blank; unknown or notation scripts decode unheld
+- **Transcription server dictation** `uncommon` — Engine value `server`: each phrase goes to a speech-to-text server the user runs or pays for (speaches, whisper.cpp's `whisper-server`, LocalAI, Groq, OpenAI) over OpenAI's `POST …/audio/transcriptions`; per-language servers and models, words to listen for in `prompt`, Data saver row, on-device fallback when unreachable
+  - Opus uploads `RARE` — `OpusEncoder` (`native/opus-jni`: libopus 1.6.1 + a hand-written Ogg page writer, `libwmopus.so` ~300 KB) sends `speech.ogg` at 20 kbit/s VBR voice mode, complexity 10: 12.7x smaller than WAV (30 s ≈ 75 KB against 960 KB)
+    - Own gate `opus` — `:feature:opus` on Play, a feature-library download elsewhere; asked for on the first clip, which goes as WAV, so a server-only phone never fetches the on-device engines' libraries
+    - WAV where the receiver needs it — whisper.cpp's `/inference` always; an endpoint that answers Opus with 400/415/422 gets the same phrase again as WAV at once, and WAV for the rest of the process once that works (whisper-server without `--convert` reads WAV/MP3/FLAC only)
+    - Measured, not assumed — 73 LibriSpeech clips through an OpenAI-shaped faster-whisper server: small.en WER 5.65% WAV, 5.74% Opus 20k, 6.52% at 16k; base.en 9.22% WAV, 8.96% Opus; PESQ-WB 4.38. Complexity 5 was 2.3x faster but lost words, so 10 stays
+    - Saved bytes in Network activity — `NetEntry.bytesSaved` (WAV size minus Opus size, set only on a 2xx); the request sheet shows **Saved**
+- **Add punctuation and capitals** `RARE` — `voice_punctuate`, on by default: full stops, commas, question marks and sentence capitals, in the language's own marks, for the offline engines that write bare words (Offline Omnilingual, eight of the Sherpa models), in 88 languages; never for an engine that punctuates itself, plain voice typing or the keyboard's own boxes
+  - Measured, not assumed — FLORES-200 paragraphs and Tatoeba questions with marks and case stripped, then restored: Horizon Labs' punctuation-restoration-small (mmBERT-small, Apache-2.0) beat 1-800-BAD-CODE's punct_cap_seg_47 and xlm-roberta truecasers and sherpa-onnx's CT-Transformer in all eight languages on FLORES (F1 en 0.81, bn 0.73, hi 0.78, es 0.84, ar 0.73, zh 0.83, ru 0.90, fr 0.85; English questions 0.95 on Tatoeba against the old English model's 0.60)
+  - Requantised for the phone — int8 token table, 8-bit weight-only MatMulNBits (int8 compute); labels identical to fp32, 151 MB, weights in an external data file ONNX Runtime maps, so ~90 MB RSS; 7–37 ms a phrase on two M2 cores. Built by the data repository's `scripts/export_punctuation.py`, pinned by size and SHA-256 (`filesDir/punctuation`, on the storage screen)
+  - Its tokenizer in Kotlin — the moved `GemmaTokenizer` (`:core:common`) reads tokenizer.json converted to a SentencePiece model and runs it a word at a time, the same ids as Hugging Face on all 3,200 test texts; `PunctuationText` reads the labels back onto the words (unit-tested)
+  - The script's own marks — `।` for Bangla and Devanagari, `،` `؟` for Arabic script, `۔` for Urdu, `。` `，` for Chinese, `、` for Japanese, `;` for a Greek question, an opening `¿` for Spanish; a number takes the mark of the words before it
+  - Capitals without a truecaser — sentence starts by rule; names from the keyboard's word lists and learned case (`SuggestionEngine.displayOf`), and for English from the Sherpa English punctuation model when it is downloaded (case right on 97% of FLORES words, 92% by rule alone); that model alone still punctuates English without the big one
+  - On the onnx gate — `tagger_jni.cpp` in libwmsherpa, a generic token classifier (input_ids, attention_mask, argmax per token), +6 KB arm64; spoken punctuation goes in first so a said mark never gets a second one
+- **Reduce background noise** `uncommon` — Off | Light | Strong (`voice_denoise_level`; the old on/off switch reads as Light) in `WhisperRecorder` in front of every on-device engine; the level ring keeps the raw microphone, the silence stop and the clip get the cleaned audio; off by default; never for the system recognizer or the server
+  - Light — RNNoise (v0.1.1, BSD): 16 kHz raised to 48 kHz by a polyphase sinc filter, denoised in 10 ms frames, brought back down. Rides the speech gate (`libwmdenoise.so`, ~130 KB)
+  - Strong `RARE` — DPDFNet baseline (Ceva's DeepFilterNet2 + dual-path RNN, Apache-2.0, 16 kHz) on sherpa-onnx's streaming denoiser in `libwmsherpa.so` (`dpdfnet_jni.cpp`), so the `onnx` gate; 8.8 MB model from sherpa-onnx's release, size + SHA-256 pinned, downloaded from the setting's own row (`filesDir/denoise`, on the storage screen)
+  - Measured, not assumed — street/café/fan noise in LibriSpeech at 0/5/10 dB: Whisper Tiny WER 27.2% raw, 32.8% Light, 24.1% Strong; Sherpa zipformer-en-20M 33.1% raw, 40.0% Light, 31.1% Strong. Fully scrubbed DPDFNet output was barely better than raw, so 12 dB of the microphone (40 ms delayed to line up) is mixed back under it
+  - Latency kept — 100 ms chunks in, 40 ms output delay; the first `delay` samples are dropped and a silent tail at the end of the clip brings the last 40 ms out, so live partials and clip length are unchanged
+  - Never stalls the microphone — the ONNX session opens on its own thread while the first audio waits inside the stream; the loaded denoiser is reset and kept for the next clip, freed with the other heavy engines
+  - Falls back to Light — without the model, the `onnx` module or a bridge that has the denoiser (an older `libwmsherpa.so`), and to the raw microphone when neither loads; picking Strong fetches the `onnx` module for the next phrase
+- **Read back and offline voices** `RARE` — A `READ_BACK` tool reads the selection, or the whole field (up to 4,000 characters), aloud in the keyboard's language; lit while reading, a second tap stops; never a password field
+  - Meta MMS-TTS voices — 1,132 languages (`assets/speech/mms_tts.tsv`, from `native/sherpa-onnx-jni/mms_tts_catalog.py`), one VITS model per language from one pinned revision of an ONNX conversion on Hugging Face, every file SHA-256 checked; about 114 MB each; voices needing uroman left out
+  - Licence gate — CC-BY-NC-4.0 weights fetched by the phone after `NativeConsent.MMS` is given in a dialog before the first download; credit on the tool page and in About
+  - VITS on ONNX Runtime directly — `vits_jni.cpp` in libwmsherpa runs the network through ORT's C++ API (sherpa-onnx's own TTS would link espeak-ng, GPL-3.0); the character frontend (lower-case, unknown characters dropped, blank id 0 interleaved) is Kotlin (`MmsTokens`), and text is cut at sentence marks of a dozen scripts so the first sentence plays while the rest is made (`SpeechOut`, float `AudioTrack`)
+  - One speaker for everything — `VocabSpeaker` asks `SpeechOut` before the platform synthesiser, so vocabulary cards, Look up and selection Read aloud also use a downloaded voice; recordings still play first
+  - Rides the `onnx` gate — same runtime download as Offline Sherpa; voices on the Storage screen under Voice models
 - **Handwriting** — ML Kit digital-ink recognition on a full-width canvas, or drawn straight on the letter keys
+  - zinnia for Chinese and Japanese `RARE` — Taku Kudo's BSD recogniser (native/zinnia-jni, `libwmzinnia.so`, ~450 KB arm64, gate `zinnia`, `:feature:zinnia` on Play) with the Tegaki project's LGPL models: Japanese 6,420 characters, Simplified Chinese 6,763 (GB 2312), Traditional Chinese 11,853 (Big5)
+    - Takes over where ML Kit is not in the build (F-Droid: the only recogniser, so other languages get a "Chinese and Japanese only" panel note), for Cantonese (ML Kit has no model; Traditional), or with Handwriting > Offline recogniser for Chinese and Japanese (off by default, shown only where ML Kit is in the build)
+    - Chinese model follows Traditional characters — Simplified with it off, Traditional with it on; the model list shows both
+    - Models are CJK packs — pinned SHA-256, resumable download through CjkDictDownloadManager, offline import by file name, never listed on the language dictionary screens; one Download button fetches the library first, then the model
+    - Line segmentation — ink cut at horizontal gaps, a late stroke over an earlier character joins it; every joining of up to six pieces (three per character) is read and the best average zinnia score wins, so 硍 is not read as 石艮 and two characters written apart are two
+    - Fit to the training box — each character scaled by its own bounding box to the Tegaki models' 1000-unit square (longer side 820, centred at 500,490), with a floor of 30% of the canvas height so a lone dot stays small
+    - Desktop-verified JNI — on the models' own training characters, jittered and resampled: top 1 93-99%, top 4 99-100%, two-character lines 92-100%
   - Model catalog read from the library, not hardcoded `RARE` — ML Kit's own identifier table minus autodraw/emoji/shape/gesture models, filtered to enabled languages
     - 32 script codes mapped for variant selection — keeps Sanskrit on sa-Deva-IN rather than the romanised sa-Latn
     - Subtag aliases — nb→no, tl→fil
@@ -2626,6 +2914,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 - **Scanners** `uncommon` — Three camera tools: text OCR, QR/barcode, and document scan
   - Text scan (OCR) `RARE` — ML Kit Latin text recognition inside the keyboard, full-bleed over the toolbar
     - Tesseract for other scripts (#306) `RARE` — engine setting Automatic / ML Kit / Tesseract; language chip on the viewfinder; tessdata_fast packs downloaded per enabled language from the panel or the tool page; slim 1.7 MB native library (native/tesseract-jni); reads twice (Sauvola local threshold, then Otsu) and keeps the read with more text, since global Otsu blacked out unevenly lit photos; a failed read or a pack that won't load shows as an error, not as "no text"
+    - PaddleOCR PP-OCRv5 for Chinese and Japanese (#757) `RARE` — DB text detector and CTC line recogniser behind PaddleRuntime, everything around them Kotlin (PaddleOcrPipeline, NEON box average and argmax); one pack for both, vertical columns read right to left; runs on LiteRT where the build has it and on MNN in F-Droid's (the sticker generator's libwmimagegen, imagegen gate, no second copy), where it reads Latin script too
+      - MNN export of PaddlePaddle's own weights, constants rounded through fp16 to match the LiteRT graphs: same text on 63/63 lines of a 14-page set; MNN fp16 storage and fp16 compute misread, so neither is used (data repo scripts/export_ppocrv5_mnn.py)
     - Recognised words become tappable chips grouped by line
     - Start-with-everything-selected toggle — on by default: tap to deselect and trim the capture down
     - Select-all / deselect-all toggle, Copy and Insert act on the selection
@@ -2641,14 +2931,27 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Link preview for URL payloads — off by default; fetches page title and description, and an Open button appears
     - Pinch to zoom with a percentage pill above 1.05x
     - Rescan re-arms the decoder
+    - Two readers behind one BarcodeReader interface (ime/scan) `RARE` — ML Kit's where it can run (bundled model off Play, Play services' on Play), zxing-cpp everywhere else: the F-Droid build, a Play install without Play services, or "Read codes with zxing-cpp" (off by default, shown only where ML Kit can run)
+      - zxing-cpp v3.1.1, readers only, as libwmzxing.so (~1.1 MB arm64, native/zxingcpp-jni) — every format it reads, including Micro QR, rMQR, MicroPDF417, MaxiCode, DataBar and Telepen (labelled "Barcode")
+      - One JNI crossing per frame on the Y plane's direct ByteBuffer, no copy; light-on-dark codes tried on every other frame; a gallery picture read at full effort
+      - UPC-A and UPC-E come back as ML Kit gives them (12 and 8 digits), not ISO's 13-digit EAN-13
+      - Library delivery — `zxing` native gate: pinned download on GitHub, built from source by the F-Droid recipe (opt-in download), the :feature:zxing split on Play; download prompt in place of the viewfinder
   - Document scanner `RARE` — hands off to Play services' GmsDocumentScanner (edge detection, crop, cleanup) through an invisible trampoline activity
+    - Built-in scanner (PageScanActivity) `RARE` — OpenCV core + imgproc as libwmdocscan.so (~2.4 MB arm64), no Google code: what F-Droid, de-Googled phones and a failed Google scanner get, and a per-tool "Use the built-in scanner" switch elsewhere
+      - Live page outline in the viewfinder — CameraX ImageAnalysis at 640×480, every 120 ms, same 4:3 frame as preview and photo
+      - Detection — four edge maps (median-scaled Canny, gentle Canny, per-colour-channel Canny, Otsu region) → convex hulls → quads with plausible corners whose sides the edges follow; a side on the frame border counts only beside two real ones
+      - Draggable corners with a loupe, red outline and disabled Crop while the corners cross; swap between found corners and the whole picture
+      - Flattened page with Original, Colour (default), Grey and Black and white; quarter turns; Add page / Done for multi-page scans
+      - Clean-up — paper light measured per channel on a grid from unsaturated pixels only, so coloured boxes survive and shadows lift; B/W = local threshold plus a level, solid dark areas kept
+      - Library delivery — `docscan` native gate: pinned download on GitHub, built from source by the F-Droid recipe (opt-in download), the :feature:docscan split on Play; prompt on the scanner screen and a banner on the tool page
+      - Desktop check — native/docscan-jni/desktop/check.sh runs the same docscan.cpp on photos on a Mac
     - Gallery import allowed alongside the camera
     - Pages come back as JPEGs and are committed one at a time when the IME regains the field
     - Pending-page directory trimmed to the 8 newest
     - Optional copy into Pictures/WM Keyboard
     - Tool hidden entirely on a device without Play services
   - Shared camera permission gate `uncommon` — one trampoline activity for OCR, QR and the camera tool; the panel rechecks on resume
-- **Camera tool** `uncommon` — Live viewfinder inside the keyboard that sends a photo into the field, both editions
+- **Camera tool** `uncommon` — Live viewfinder inside the keyboard that sends a photo into the field, every build
   - Viewfinder controls `uncommon` — tap to focus, pinch to zoom, flash cycle, self-timer, lens switch
     - Flash cycles Off → Auto → On, shown only when the lens has a flash unit
     - Self-timer cycles Off → 3s → 10s with a large countdown digit and a tick per second
@@ -2674,28 +2977,56 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 | Feature | Needs |
 |---|---|
-| On-device LLM provider and its whole model catalog | full flavour only (BuildConfig.ENABLE_LOCAL_LLM; LiteRT-LM) — the provider chip is absent in lite |
-| Offline Whisper dictation and the Recognition-engine picker | full flavour only (BuildConfig.ENABLE_WHISPER); the section does not render in lite |
-| Handwriting panel and handwrite-with-swipes | full flavour only (BuildConfig.ENABLE_ML_KIT_HANDWRITING; ML Kit digital ink) |
-| Text scan (OCR) and QR/barcode scanner | full flavour only (BuildConfig.ENABLE_ML_KIT_SCANNERS; ML Kit text + barcode) |
-| Document scanner | full flavour only, and additionally requires Google Play services — the tool is hidden when Play services is absent |
+| On-device LLM provider and its whole model catalog | not in the F-Droid build (BuildConfig.ENABLE_LOCAL_LLM; LiteRT-LM) — the provider chip is absent there |
+| Offline Whisper dictation and the Recognition-engine list's Whisper row | LiteRT Whisper is not in the F-Droid build (BuildConfig.ENABLE_WHISPER); the whisper.cpp models run wherever their library is |
+| Handwriting panel and handwrite-with-swipes | every build; without ML Kit (F-Droid) only Chinese and Japanese, through zinnia |
+| Text scan (OCR) | every build; without ML Kit (F-Droid) PaddleOCR on MNN reads Chinese, Japanese and Latin script (OcrLanguages, PaddleOcrModel.runtime) |
+| QR/barcode scanner | every build; BarcodeEngine.useZxing picks zxing-cpp where ML Kit cannot run or when picked |
+| Document scanner | every build and phone: Google's scanner where Play services can run it, the built-in OpenCV scanner (on-demand library) everywhere else |
 | Every cloud AI provider (Anthropic, OpenAI, Gemini, xAI, DeepSeek, Brave) | needs a user-supplied API key and network; no bundled or proxied key exists |
 | Ollama and LM Studio providers | needs a reachable server address on the user's network; traffic is plain HTTP (cleartext allowed app-wide) |
-| On-device LLM model downloads | network (Hugging Face); the 2 gated Gemma models additionally need a Hugging Face token and an accepted licence |
+| On-device LLM model downloads | network (Hugging Face); the 2 gated Gemma models additionally need a Hugging Face token and an accepted licence; GGUF models also need the llama.cpp library (a Play split or a GitHub native download) |
+| NPU under Compute | Play and sideload builds only (BuildConfig.ENABLE_NPU, wmkb.enableNpu, never F-Droid: Qualcomm's licence); Android 12+, a 64-bit process, and an SM8750 or SM8850 chip by Build.SOC_MODEL; the chip is absent everywhere else |
 | Whisper model downloads | network (Hugging Face); ~40 MB to 1.5 GB per model, metered confirmation above ~150 MB |
-| Handwriting language models | one-time network download per language through ML Kit |
+| Handwriting language models | one-time network download per language through ML Kit, or from the data repository for zinnia's Chinese and Japanese models (plus the zinnia library: a Play split, or a native download after the F-Droid opt-in) |
 | Voice dictation (any engine) | needs the RECORD_AUDIO runtime permission, requested through a trampoline activity |
 | System speech recognition without the on-device language pack | sends audio to the OS recognizer service; the on-device model download itself needs network |
 | Camera tool, OCR and QR scanner | need the CAMERA runtime permission (shared trampoline) |
 | Location tool and Use my location | need ACCESS_FINE_LOCATION or ACCESS_COARSE_LOCATION, asked together through a trampoline; never background |
+| Send files direct link (host or join a Wi-Fi) | needs NEARBY_WIFI_DEVICES (API 33+, neverForLocation) or ACCESS_FINE_LOCATION before that, asked through a trampoline only when Receive here or Scan a code is pressed; same-Wi-Fi Nearby needs nothing |
 | QR scanner link previews | network; force-disabled by Power Saving's background-network option |
 | Whisper engine and handwrite-with-swipes | silently downgraded by Power Saving's "drop on-device models" option (Whisper → system recognizer, handwrite → glide typing) |
 | AI tool, handwriting, all three scanners and the camera tool | not direct-boot safe — unavailable until the device has been unlocked once after a restart |
 | AI history and AI chat transcripts | stored only on device, deliberately excluded from settings backup; history additionally requires the user to enable it and is never written from a password field or in incognito |
+| AI memory | stored only on device in credential-encrypted storage; goes to a cloud model only with "Use with cloud models" on; in a backup only when its section is ticked (off by default); never synced; never read or written in incognito |
 | Report a bad AI generation | opens a draft in the user's own mail app; there is no reporting server and nothing is uploaded |
 | Save-to-gallery for camera captures and scanned pages | writes into shared storage (Pictures/WM Keyboard); off by default |
 
 ## Privacy, backup, storage, statistics
+
+- **Google Home on demand** — On Play, the Home APIs SDK (~22 MB of dex) is the on-demand `:feature:googlehome` split, fetched on the first Choose a home; `GoogleHomeSupport` in `src/googlehomeplay` reaches `GoogleHomeBridge` by reflection and recreates the activity once the split lands, so consent can register. Builds off Play with the SDK compile it in (`src/googlehomedirect`); every other build has the stub.
+- **Interface language packs** — The standard GitHub build carries English strings only and fetches each other interface language as a ~1.3 MB resource-only APK on Android 11+ (`LanguagePackResources` in :core:common, `LanguagePackDownloads` in :app); below Android 11 it shows English.
+  - Cut in CI — `.github/scripts/language-packs.sh` runs `aapt2 optimize --split` on the all-languages build, compiled with the English build's resource IDs (`wmkb.emitResourceIds` / `wmkb.stableResourceIds`), and signs each pack with the release key.
+  - Trusted by signature — A pack loads only when it is signed with the app's own certificate and its versionCode is this release's; packs live per version under `noBackupFilesDir/langpacks/<versionCode>`, older versions are dropped.
+  - One ResourcesLoader — Attached to the Application, every activity (`onActivityPreCreated`) and the keyboard service; a new pack reaches all of them through `setProviders`.
+  - Picker and import — About › App language and Android 13's per-app language fetch the pack before switching; a pack file imports offline; Storage lists Interface languages.
+- **Two GitHub builds** — From 0.6.3 a release publishes the standard build (English, on-demand libraries and languages) and the offline build (all languages, no internet permission, everything built in). The updater moves lite and all-languages installs onto the standard build (`ReleaseAssets.pickAsset` falls back to `full`/`en`).
+- **Native delivery** — The GitHub and F-Droid editions leave the native libraries behind optional features out of the APK and fetch each one the first time its feature asks, the way Play's on-demand modules do (`wmkeyboard.native-pins`, `NativeDelivery` in :core:common).
+  - Pinned in the APK — `assets/native/pins.tsv` carries each library's gate, ABI, size and SHA-256, written at build time from the jniLibs or the resolved AAR; the host serving the bytes is never trusted.
+  - Two sources — The project's own libraries (whisper.cpp, ExecuTorch, Whistle, RNNoise, the sherpa-onnx bridge, Harper, Hunspell, divvunspell, Voikko, Tesseract, librime, Mozc) from the data repository's `natives` release, by hash; ML Kit, LiteRT, LiteRT-LM, Qualcomm's QNN and Microsoft's ONNX Runtime read entry by entry out of the vendor's own Maven artifact with HTTP ranges, never mirrored.
+  - Same gates as Play — Every library sits behind a `ModuleGate`, so the banners, `awaitInstalled` callers and `GatedLibrary` facades are unchanged; ML Kit's bundled text and barcode readers gained a `scanner` gate.
+  - Loaded without ART double-registration — A dependency that loads its library itself is preloaded with a plain `dlopen` from `libwm_engine_jni.so`, so `JNI_OnLoad` runs once.
+  - Consent — F-Droid edition: off until Privacy › Downloads › Download feature libraries, worded per F-Droid's inclusion policy. Qualcomm's licence is accepted before the NPU runtime is fetched.
+  - Import and storage — A library file whose hash matches a pin installs through the offline import; Storage lists them as Feature libraries.
+  - Off with `-Pwmkb.nativeDelivery=false`, and always off on Play and in the no-internet build.
+- **Parallel, resumable downloads** `uncommon` — One downloader (`FileDownloader` in :core:common) behind models, feature libraries, CJK tables, spellers, interface language packs and GitHub app updates.
+  - Twelve ranged requests per file — Pieces from a queue into one preallocated `.part`, so a slow connection holds up only its own piece; GitHub gives 0.3 to 0.8 MB/s per connection from Bangladesh, twelve measured about 5 MB/s on the phone (2026-10-21)
+  - Every piece resumes — A `.part.ranges` map records how far each piece got; a stopped download asks only for the missing bytes, and an old one-stream `.part` counts as the file's start
+  - Falls back to one stream — A server that answers a range request with the whole file is read in one go
+  - Expired redirects re-asked — A 4xx from GitHub's signed CDN address sends the next request back to the release URL; tokens (Hugging Face) go only to the address given, never to the redirect target
+  - Dropped pieces retried — Up to three tries per piece from where it stopped, with backoff; a 5xx is retried, a 4xx is not
+  - Data saving's say mid-download — Before every request, `DataSaverDownloadGate` stops a download that finds itself on a connection where data saving holds downloads (Downloads: Turn off), keeping what arrived
+  - Same checks as before — Length and SHA-256 over the finished file before it is renamed into place; each request is a Network activity row under the feature's own source
 
 - **App lock** — Optional check in front of the settings screens and destructive buttons the user picks: BiometricPrompt, or the app's own PIN, password or pattern.
   - App-own secret — PIN (4–16 digits, own number pad, no IME), password (4+ chars) or 3×3 pattern (4+ dots, jumped middle dot joins); salted PBKDF2-SHA256 hash, 120k iterations, never the secret.
@@ -2935,7 +3266,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Direct boot — Rows held in memory until the first unlock, then written.
   - Screen `RARE` — Live "contacting…" line, Today / 7 days / 30 days card with a stacked, scrubbable chart in each tool's own colour, By feature and Servers contacted cards, filtered timeline, per-request sheet.
     - Server badges — New (after the log is 7 days old), Your server (self-hosted and backup addresses), Local network (decided from the name, never resolved).
-    - Request sheet — Why it happened, result in words, data each way, time taken, what that feature sends, links to its settings and Data saver.
+    - Request sheet — Why it happened, result in words, data each way (plus Saved for a voice clip sent as Opus), time taken, what that feature sends, links to its settings and Data saver.
     - Incognito marked, not paused — Rows made while incognito are badged and filterable.
     - CSV export, clear with undo — Also listed on the Storage screen.
   - Keyboard activity dot `RARE` — Off by default; a dot on the toolbar in the requesting tool's colour, hold to read the server.
@@ -2979,7 +3310,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | WebDAV / S3 / FTP destinations | need network plus user-supplied server credentials (WebDAV and S3 refuse plain http; FTP allows plain with a stated warning) |
 | Automatic backup job | requires the device to be charging, and skips entirely until the user has unlocked once since boot |
 | Android system backup | needs the opt-in switch plus a device capable of encrypting the backup under the user's screen lock (disableIfNoEncryptionCapabilities) |
-| Backup exclusion of Whisper / on-device AI models | full flavour only — those directories exist only where the models can be downloaded |
+| Backup exclusion of Whisper / on-device AI models | not in the F-Droid build — those directories exist only where the models can be downloaded |
 | Exact storage totals | API 26+ StorageStatsManager; below that the screen falls back to its own walk and labels the figure an estimate |
 | Clipboard screenshot capture (storage category, backup content) | needs the photos grant (READ_MEDIA_IMAGES / READ_EXTERNAL_STORAGE) |
 | OTP notification chip (disabled during direct boot) | needs the notification-listener grant, which is a system settings screen rather than a prompt |
@@ -3169,7 +3500,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - microG answers both probes the same way, by design — The feature is offered and its own failure path takes over per module.
     - Probed answers cached for the process, primed in both onCreate paths — Defaults to 'available' before priming so a tool never disappears on a device that supports it.
   - Drive backup destination behind a gms/nogms source seam `uncommon` — Only the OAuth token provider is gated; the Drive REST calls are ordinary HTTP and compile everywhere.
-  - full / lite build flavours `uncommon` — lite drops ~100 MB of ML Kit and native Harper: handwriting, OCR, QR scan, doc scan, grammar, local LLM and Whisper.
+  - F-Droid build `uncommon` — wmkb.enableFdroid leaves out ML Kit, LiteRT and LiteRT-LM (src/nogoogle stands in): ML Kit handwriting (zinnia stands in for Chinese and Japanese), ML Kit and LiteRT OCR (PaddleOCR on MNN stands in, Chinese, Japanese and Latin script), ML Kit QR scan (zxing-cpp stands in), Google's doc scan (the built-in one stands in), local LiteRT-LM models and LiteRT Whisper. The full/lite flavours of 0.6.2 and earlier are gone.
 - **Notification listener and special access** `RARE` — One prominent-disclosure layer for the three grants Android hands out on a system Settings screen rather than a permission dialog.
   - One notification-listener component worn by two features `RARE` — Media control needs only the grant; the OTP chip reads notification text, gated per notification.
     - Renaming the class would silently revoke existing users' grant — Android grants notification access per component.
@@ -3197,8 +3528,8 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Media control tool and OTP notification chips | needs the notification-listener grant (Settings > Notification access); Play Console declaration still outstanding per project notes |
 | Clipboard 'show source app' | needs the usage-access grant |
 | Play In-App Updates (card, About rows, flexible/immediate flows) | play-channel builds only (wmkb.enablePlayStore); also requires the install to have come from Play and a network call |
-| Document scanner tool | full flavour only (ML Kit) and hidden entirely on devices without Google Play services |
-| Handwriting, OCR, QR scan, grammar check, offline Whisper dictation, local LLM | full flavour only (ML Kit / LiteRT / Harper native) — power saving's 'drop on-device models' and the direct-boot restriction both fall back to system alternatives |
+| Document scanner tool | not in the F-Droid build (ML Kit) and hidden entirely on devices without Google Play services |
+| LiteRT Whisper dictation, LiteRT-LM local models | not in the F-Droid build (LiteRT; GGUF models on llama.cpp are) — power saving's 'drop on-device models' and the direct-boot restriction both fall back to system alternatives |
 | Offline Whisper dictation, the sticker editor's own background remover, handwriting recognition | on Play, each runtime is an on-demand split fetched on first use (:feature:litert for the LiteRT interpreter the first two share, :feature:handwriting for ML Kit's ink recogniser); the language-to-model mapping for handwriting is compiled in (InkModelTags) so the tool knows what it is offering before the split arrives; sideload builds compile the same bridges into :core:voice, :core:content and :core:intelligence |
 | Google Drive backup destination | GMS-enabled builds only (wmkb.enableGms); reports unavailable in F-Droid builds |
 | Servers screen (Advanced) and per-tool server fields | F-Droid builds only (wmkb.enableFdroid) |
@@ -3439,7 +3770,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 | Lua plugins | unavailable during direct boot; scripts and their storage live in credential-encrypted storage |
 | Word list and emoji keyword pack import from a URL | needs network; http/https only |
 | Installing a plugin from a repository | requires a sha256 in the manifest — the install is refused without one (opening a .wmplugin file directly skips that check) |
-| Plugin runtime (luaj) | no flavour gate — core:plugins has no src/full or src/lite sources and luaj-jse ships in both full and lite builds |
+| Plugin runtime (luaj) | no build gate — luaj-jse ships in every build |
 | Font import validation | the second validation stage calls android.graphics.Typeface, so it only runs on device (injected as a lambda for JVM tests) |
 
 ## Modes, rows, field adaptation, runtime
@@ -3656,7 +3987,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Answers recomputed as a whole, so the depth/privacy pair is order-independent
   - Starter tool sets `RARE` — 3 ordered sets: Minimal 8 tools, Recommended 21, Power 35, out of 64
     - Set order is load-bearing — the default toolbox ranking is built from it
-    - Unsupported tools filtered out, then topped up with Wikipedia and Power saving — Covers the lite build and Play-less devices losing handwriting, OCR and doc scan
+    - Unsupported tools filtered out, then topped up with Wikipedia and Power saving — Covers a build or phone that lacks a tool of the set
     - Finishing from any page lands the persona's set — Only when the enabled set is still the untouched everything-on default; unanswered gets the middle set
   - Page gating — OnboardingPage enum of 11; the unanswered short path is deliberate
     - Languages page appears for "two or more" or when a second language is already enabled
@@ -3764,10 +4095,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 | Feature | Needs |
 |---|---|
-| Rickroll detection in the QR scanner | full flavour only (ML Kit barcode scanning); the matcher itself lives in :core:tools and compiles in both |
-| Whisper card on the onboarding Discover page | full flavour only (BuildConfig.ENABLE_WHISPER) |
+| Rickroll detection in the QR scanner | not in the F-Droid build (ML Kit barcode scanning); the matcher itself lives in :core:tools and compiles in both |
+| Whisper card on the onboarding Discover page | not in the F-Droid build (BuildConfig.ENABLE_WHISPER) |
 | OTP discover card and the OTP chip on the suggestion strip | needs the notification-listener grant; the wizard asks with a prominent disclosure as the switch goes on |
-| Handwriting and text-scanning tools in the Recommended/Power starter sets | full flavour only; the sets top up with Wikipedia and Power saving when they drop out |
+| Handwriting and text-scanning tools in the Recommended/Power starter sets | not in the F-Droid build; the sets top up with Wikipedia and Power saving when they drop out |
 | Document scanner in the Power starter set | needs Google Play services; absent otherwise, triggering the same top-up |
 | Weather section of the onboarding tool-setup page | needs a location (search or coordinates) and a network call to be useful |
 | Autofill chips and platform smart replies in the suggestion strip | needs Android 11+ and a system autofill service; suppressed while incognito |
@@ -3781,7 +4112,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 - **Input behaviour: glide, gestures, cursor, editing, keys**: Read in full or in the relevant sections: core/input (DeadKeys, BrailleChord, MorseCode), core/prediction/gesture (GlideBeam, GlideCoverage, GlideKeyMap, GlideWorkspace, RomanizedIndex, GestureGeometry), core/language KeyActions.kt, core/tools/HardwareShortcuts.kt, core/settings/SettingsRepository.kt (KeyPopupSettings, KeyRepeatSettings, OneHandedSettings, HardwareKeyboardSettings, FeedbackSettings, LongPressLetterActions, GestureSettings, LayoutBehaviorSettings, TextEditingSettings, SpaceSwipeAction/LetterSwipeAction/SpacebarDisplay, and the input-related fields of KeyboardSettings), core/common ToolbarTool.kt. In feature/ime: KeyboardScreen.kt gesture detectors, pointerInputKey (spacebar / backspace / flick / generic branches), smart-hit observers, popups, one-handed rail, docked and floating frames; ResizeOverlay.kt; TextEditPanel.kt; ComposingResume.kt; LanguageSwitchOverlay.kt; and WMKeyboardService.kt onKey/onShift/onCapsLock/onDelete/deleteFromField/onDeleteWord/onSpace/onCursorMove(+Vertical)/onUndoRedo/onTextEdit/glide decode+commit paths/hardware key dispatch/autoCapitalizeShift/onModifier/onSizingAction/onComputeInsets. Selection macros were added later and read from core/content/.../core/selection/SelectionMacros.kt, the SelectionMacroSettings/SelectionMacroPlacement block and DirectBootSettings entry in core/settings, feature/ime/.../ui/SelectionMacroBar.kt, and WMKeyboardService's refreshSelectionMacros/onSelectionMacro/replaceSelection paths. Cross-checked against docs/src/content/docs/reference/gestures.mdx but every entry is grounded in code. Not covered (other areas): the suggestion strip and autocorrect scoring itself, prediction engine internals, emoji/GIF/sticker panel gestures, clipboard panel swipes, toolbar drag-to-pin, voice bar dragging, theme/appearance, layout editor, per-app language, and the CJK/Avro composers beyond how they gate glide and hardware interception. I did not count shipped layouts or languages (another area's job) — the only layout count here is the single shipped flick layout (app/src/main/assets/layouts/ja_flick.wmlayout.json). Nothing was run or device-verified; this is a static read.
 - **Languages, scripts, layouts, transliteration**: Read in full: core/language (Script.kt, Language.kt, Numerals.kt, FancyStyles.kt, LanguageSuggestions.kt, DeviceLocales.kt, RomanizedPairing.kt; core/layout's LayoutSpec, BuiltInLayouts, AssetLayouts, KeyActions, KeyboardLayout, LayoutFile, LayoutSelection, ForeignLayout end to end, LayoutRepair head, TabletExpansion head; transliteration/AvroPhonetic, BengaliGraphemes, BengaliPhoneticIndex). Read in core/input: Composer.kt, PinyinComposer, DoublePinyin, CjkConfig, CjkDictCatalog, CjkDictDownloadManager head, HanVariant, PinyinFuzzy, JyutpingFuzzy, CjkUserHistory, CjkNgrams, StrokeComposer, CangjieComposer, T9/Zhuyin/Japanese/Jyutping heads, HangulComposer, VietnameseComposer head, IndicClusterComposer, DeadKeys, MorseCode, BrailleChord. Also Subtypes.kt, the per-app-language and fullStop/emoji-key rewrite paths in WMKeyboardService and KeyboardScreen, KeyIcons, KeyboardFonts, LanguageSettingsScreens, LayoutEditorScreens (action catalog + foreign import), SpellingMap, FieldLanguageMix, LanguageMixConfidence, and all 8 docs/src/content/docs/languages/*.mdx.
 
-Counts come from code and assets and are pinned by `ShippedCountsTest`: 826 languages (386 hand-written + 440 generated from the Keyman corpus) and 1,732 layouts (35 built-in + 1,697 .wmlayout.json assets, 862 of them converted Keyman keyboards). Run that test rather than recounting by hand; it also lists every file that quotes these figures. Spelling-map figures are data lines excluding comments (11,914 bn_rom + 2,369 en_bn); the docs round these to 12,000 and 2,300. The editor's action picker has 28 entries in 6 groups, which the docs now match.
+Counts come from code and assets and are pinned by `ShippedCountsTest`: 955 languages (515 hand-written + 440 generated from the Keyman corpus) and 1,999 layouts (35 built-in + 1,964 .wmlayout.json assets, 862 of them converted Keyman keyboards). Run that test rather than recounting by hand; it also lists every file that quotes these figures. Spelling-map figures are data lines excluding comments (11,914 bn_rom + 2,369 en_bn); the docs round these to 12,000 and 2,300. The editor's action picker has 28 entries in 6 groups, which the docs now match.
 
 Not covered (other areas or not read): the suggestion/prediction engine itself, glide typing, autocorrect, the downloadable word-list catalogue and its per-language sizes, emoji keyword packs, handwriting, voice/dictation languages, theme-side script font storage (ThemeSpec.scriptFontIds), and the addon repository format beyond noting "layout" is one of its types. I did not read Lattice.kt, ConversionDictionary.kt, CodeTableDictionary.kt or SyllableSegmenter.kt in full (headers and call sites only), nor LayoutRepair.kt past its rule constants, TabletExpansion.kt past its eligibility contract, or the 354 asset layout files individually - those I analysed programmatically for composer/layer/flick distribution. IPA and music layer contents come from the asset JSON structure plus the docs, not a key-by-key read.
 - **Themes and appearance**: Read in full: core/theme (ThemeSpec.kt, PaletteThemes.kt, ThemeRendering.kt, ColorVision.kt, PhotoPalette.kt, BackgroundBitmaps.kt, FlexTheme.kt, SnyggMapper.kt head), core/settings (ThemeOverrides.kt, RotationPool.kt, PhotoBackgroundSettings.kt, ThemePhotoSweep.kt, RotatingBackground.kt, DirectBootSettings.kt theme half, AutoThemeSettings + ThemeMode + KeySoundStyle + ThemeGalleryStyle in SettingsRepository.kt), feature/ime/ui/KbTheme.kt, feature/tools/PhotoBackgroundManager.kt, core/tools/PhotoSources.kt, app/PhotoBackgroundUi.kt. Read in full or by section: app/ThemeScreens.kt (4180 lines — gallery, editor, all pickers, gradient editor, cropper, colour picker), core/icons (IconSlots.kt, IconOverrides.kt, IconPacks.kt, IconPackFile.kt head, IconPackStore constants), feature/ime/ui/KeyboardFonts.kt, KeyTextures.kt, KeyPressEffects.kt, BoardDecals.kt, BuiltinIcons.kt catalog. Counts verified from code/assets: 28 built-in looks in 12 entries (4 families), 10 palette ports, 12 key shapes, 24 editor colour rows, 15 seed swatches, 6 texture slots, 6 decals, 12 variants, 6 effect kinds, 6 effect images, 97 icon slots, 181 bundled glyphs, 20 Latin Google Fonts, 27 automatic script faces, 22 script pickers, 12 photo topics, 14 photo colours, 6 rotation intervals, 3 scopes. Skipped or only skimmed: Snygg.kt stylesheet parser internals, SvgParser.kt, IconPackStore.kt beyond its constants, PhotoDetailScreens.kt and the photo library/rotation settings screens (read only their entry points and the shared UI in PhotoBackgroundUi.kt), UnsplashClient/PexelsClient request building, AddonScreens/AddonInstaller theme-install UI beyond the theme branches, MainActivity route plumbing, onboarding theme picks (OnboardingPages.kt), and the docs prose (used only to cross-check — note docs/themes/overview.mdx says 26 built-ins, which is stale against the 28 in code). Did not run the app or verify anything on a device.

@@ -72,6 +72,7 @@ import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.expandForTablet
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.fillRowFor
+import com.wasimaster.wmkeyboard.core.layout.arrowRowFor
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
 import com.wasimaster.wmkeyboard.core.layout.panelLayers
 import com.wasimaster.wmkeyboard.core.layout.repair
@@ -370,8 +371,11 @@ fun ThemeKeyboardPreview(
  * Share of the screen's height the miniature may take. The mock-up it replaces
  * was about a quarter of a phone's height; a working keyboard earns a little
  * more, and stops well short of pushing the first section off the screen.
+ * Raised from 0.30 so that on a phone the cap does not bind and the miniature
+ * fills the width it is given (#769): held to 30%, it drew narrower than the
+ * screen with a margin either side, every key a size the keyboard never is.
  */
-private const val MINIATURE_HEIGHT_SHARE = 0.30f
+private const val MINIATURE_HEIGHT_SHARE = 0.40f
 
 /**
  * The callbacks the keyboard is given, held for the life of one preview so
@@ -499,8 +503,11 @@ private fun previewLayoutSet(
         symbolsShifted = safe.compile(LayoutLayer.SYMBOLS_SHIFTED).unthemed(),
         fn = safe.layer(LayoutLayer.FN)?.let { safe.compile(LayoutLayer.FN).unthemed() },
         number = safe.layer(LayoutLayer.NUMBER)?.let { safe.compile(LayoutLayer.NUMBER).unthemed() },
+        // A panel's own theme off too (#779): a Numpad tab naming a theme
+        // painted the open pad in it, not the draft.
         panels = safe.panelLayers.mapValues { (kind, grid) ->
-            PanelLayoutSpec(kind, grid, appearance = safe.appearance)
+            val unthemed = if (grid.themeId == null) grid else grid.copy(themeId = null)
+            PanelLayoutSpec(kind, unthemed, appearance = safe.appearance)
         },
         numberRows = buildMap {
             safe.numberRowFor(LayoutLayer.LETTERS)?.let { put(LayoutMode.LETTERS, it) }
@@ -509,8 +516,18 @@ private fun previewLayoutSet(
             safe.numberRowFor(LayoutLayer.FN)?.let { put(LayoutMode.FN, it) }
         },
         symbolsFillRow = safe.fillRowFor(LayoutLayer.SYMBOLS),
+        arrowRows = buildMap {
+            safe.arrowRowFor(LayoutLayer.LETTERS)?.let { put(LayoutMode.LETTERS, it) }
+            safe.arrowRowFor(LayoutLayer.SYMBOLS)?.let { put(LayoutMode.SYMBOLS, it) }
+            safe.arrowRowFor(LayoutLayer.SYMBOLS_SHIFTED)?.let { put(LayoutMode.SYMBOLS_SHIFTED, it) }
+            safe.arrowRowFor(LayoutLayer.FN)?.let { put(LayoutMode.FN, it) }
+        },
         gridWidth = gridWidth,
-        themeId = safe.themeId,
+        // Null rather than the layout's: a panel with no theme of its own falls
+        // back to this one (see `screenThemeId`), so a themed layout drew every
+        // panel the preview opened — the Numpad first among them (#779) — in its
+        // theme while the letters showed the draft.
+        themeId = null,
         secondaries = secondaryLayouts(customs).associate { secondary ->
             secondary.id to secondary.repair().spec.compile(LayoutLayer.LETTERS).unthemed()
         },

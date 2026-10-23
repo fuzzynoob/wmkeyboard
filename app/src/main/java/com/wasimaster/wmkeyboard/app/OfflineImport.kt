@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.config.BuildConfig
+import com.wasimaster.wmkeyboard.core.modules.NativeDelivery
 import android.content.Context
 import android.net.Uri
 import android.os.StatFs
@@ -13,21 +15,33 @@ import com.wasimaster.wmkeyboard.core.dictionaries.KhiproGlideDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackDownloadManager
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackEntry
+import com.wasimaster.wmkeyboard.core.dictionaries.PhoneticIndexDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
+import com.wasimaster.wmkeyboard.core.gesture.latinime.LatinImeLibrary
+import com.wasimaster.wmkeyboard.core.gesture.latinime.LatinImePins
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.handwriting.InkPackImports
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictCatalog
 import com.wasimaster.wmkeyboard.core.input.composer.CjkDictDownloadManager
+import com.wasimaster.wmkeyboard.core.input.rime.RimeRuntime
+import com.wasimaster.wmkeyboard.core.input.rime.RimeStore
+import com.wasimaster.wmkeyboard.core.localllm.GgufFile
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmCatalog
+import com.wasimaster.wmkeyboard.core.localllm.LocalLlmDownloadManager
 import com.wasimaster.wmkeyboard.core.localllm.LocalLlmStore
 import com.wasimaster.wmkeyboard.core.localllm.ModelFormat
 import com.wasimaster.wmkeyboard.core.ocr.OcrLanguages
 import com.wasimaster.wmkeyboard.core.ocr.OcrPacks
+import com.wasimaster.wmkeyboard.core.ocr.PaddleOcrModel
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.stickers.CutoutModel
+import com.wasimaster.wmkeyboard.core.tools.offlinedict.OfflineDictionaries
+import com.wasimaster.wmkeyboard.core.tools.offlinedict.OfflineDictionaryDownloads
 import com.wasimaster.wmkeyboard.core.tools.offlinegif.OfflineGifPacks
+import com.wasimaster.wmkeyboard.core.tools.yomichan.YomichanDictionaries
+import com.wasimaster.wmkeyboard.core.tools.yomichan.YomichanImport
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperDownloadManager
 import com.wasimaster.wmkeyboard.core.voice.whistle.WhistleModelDownloadManager
 import com.wasimaster.wmkeyboard.core.voice.whistle.WhistleModelStore
@@ -47,7 +61,9 @@ import java.util.zip.ZipFile
  * keeps them in, so a language pack (`wmkb-lang-de.zip`, holding the
  * language's word list, word pairs and emoji names) installs in one go. The
  * exception is a CleverKeys GIF pack, which is a zip that is itself the
- * thing installed ([OfflineGifPacks]).
+ * thing installed ([OfflineGifPacks]), a Yomichan dictionary, and a RIME
+ * schema zip of the user's own: any zip holding a `*.schema.yaml` that is
+ * not one of the published packs, unpacked whole for the RIME engine.
  *
  * Every file goes through the same code its download would: the same parse,
  * the same checksum where the download has one, the same place on disk. So
@@ -66,12 +82,87 @@ internal object OfflineImport {
         val args: List<String> = emptyList(),
     )
 
+    /** What marks a zip as RIME schemas: librime's schema file name. */
+    private const val RIME_SCHEMA_SUFFIX = ".schema.yaml"
+
     /** Names inside a language pack that are not for this app, and are passed over without comment. */
     private val IGNORED = listOf(
         Regex("""(?i)^(readme|license|licence|notice|copying)([._-].*)?$"""),
         Regex("""^.*_offensive\.txt(\.gz)?$"""),
         Regex("""^\..*"""),
     )
+
+    /**
+     * Whether [name] is one of the published files this installs, by name
+     * alone: a word list, a word-pair half, an emoji name list, a conversion
+     * dictionary, a Bengali phonetic table or an offline dictionary. What
+     * opening a file from outside the app goes by, to send a language pack
+     * here rather than call it nobody's file.
+     */
+    fun recognises(name: String): Boolean {
+        val leaf = name.substringAfterLast('/').substringAfterLast('\\')
+        return DictionaryCatalog.byFileName(leaf) != null ||
+            NgramPackCatalog.byFileName(leaf) != null ||
+            EmojiDictCatalog.byFileName(leaf) != null ||
+            CjkDictCatalog.byFileName(leaf) != null ||
+            leaf == AvroDictionaryDownloads.PUBLISHED_NAME ||
+            leaf == KhiproGlideDownloads.PUBLISHED_NAME ||
+            PhoneticIndexDownloads.languageOfPublishedName(leaf) != null ||
+            OfflineDictionaries.recognises(leaf) ||
+            isNativeLibrary(leaf) ||
+            isLibraryArchive(leaf) ||
+            (LatinImeLibrary.supported && LatinImePins.isLibraryName(leaf)) ||
+            LanguagePackDownloads.isPackName(leaf)
+    }
+
+    /**
+     * A native library this build delivers on demand: its own name, or the
+     * `<sha256>-<name>` the data repository's release publishes it as. The
+     * hash decides whether it installs.
+     */
+    private fun isNativeLibrary(leaf: String): Boolean =
+        NativeDelivery.active && leaf.endsWith(".so") &&
+            NativeDelivery.pins().any { leaf == it.name || leaf.endsWith("-${it.name}") }
+
+    /**
+     * A vendor's Android library (`.aar`) that one of this build's libraries
+     * is read out of (ML Kit, LiteRT, ONNX Runtime, Qualcomm's QNN), by the
+     * name its Maven repository serves it under. Imported whole.
+     */
+    private fun isLibraryArchive(leaf: String): Boolean =
+        NativeDelivery.active && leaf.endsWith(".aar") &&
+            NativeDelivery.pins().any { NativeDelivery.publishedName(it) == leaf }
+
+    /**
+     * [recognises], plus the files told by their name *and* their size, or
+     * by an extension nothing else uses: a Whisper model or its vocabulary,
+     * the Whistle model, OCR data, the background remover, an on-device AI
+     * model and a handwriting pack. [size] is -1 when the provider does not
+     * say, and then only the names that need no size can match.
+     */
+    fun recognises(context: Context, name: String, size: Long): Boolean {
+        if (recognises(name)) return true
+        val leaf = name.substringAfterLast('/').substringAfterLast('\\')
+        if (size > 0 && WhisperDownloadManager.recognises(leaf, size)) return true
+        if (leaf == WhistleModelStore.MODEL_FILE_NAME || leaf == CutoutModel.FILE_NAME) return true
+        if (PaddleOcrModel.partOf(leaf) != null || OcrPacks.packOf(leaf) != null) return true
+        val extension = leaf.substringAfterLast('.', "").lowercase()
+        if (ModelFormat.entries.any { it.extension == extension }) return true
+        return size > 0 && InkPackImports.isPackFile(context, leaf, size)
+    }
+
+    /**
+     * Whether a zip with these entries is something this installs: a
+     * language pack (any entry [recognises]), a CleverKeys GIF pack, a
+     * Yomichan dictionary or RIME schemas, the three zips installed whole.
+     */
+    fun recognisesArchive(entryNames: List<String>): Boolean {
+        val leaves = entryNames.map { it.substringAfterLast('/') }
+        if (leaves.any(::recognises)) return true
+        if (OfflineGifPacks.MANIFEST_NAME in leaves && OfflineGifPacks.DATABASE_NAME in leaves) return true
+        if (leaves.any { it.endsWith(RIME_SCHEMA_SUFFIX) }) return true
+        return YomichanDictionaries.looksLikeDictionary(entryNames)
+    }
 
     /**
      * Installs what [uris] hold and reports on each file, in order.
@@ -100,15 +191,34 @@ internal object OfflineImport {
                     outcomes += failure(name, it)
                     return@forEachIndexed
                 }
-                // A handwriting pack is a zip ML Kit unpacks itself, so it is
-                // installed whole rather than opened here.
-                if (!isZip(staged) || InkPackImports.isPack(context, staged)) {
+                // Any .aar, whatever a browser renamed it to: the entries
+                // the pins name decide, and the rest of it is not ours.
+                if (NativeDelivery.active && name.endsWith(".aar", ignoreCase = true)) {
+                    outcomes += installLibraryArchive(name, staged)
+                    staged.delete()
+                    return@forEachIndexed
+                }
+                // A handwriting pack is a zip ML Kit unpacks itself, and a
+                // published RIME pack is checked against its pin whole, so
+                // both are installed as files rather than opened here.
+                if (!isZip(staged) || keptWhole(name) || InkPackImports.isPack(context, staged)) {
                     files += staged
                     return@forEachIndexed
                 }
                 val isGifPack = runCatching { ZipFile(staged).use { OfflineGifPacks.isPack(it) } }.getOrDefault(false)
+                val isYomichan = !isGifPack &&
+                    runCatching { ZipFile(staged).use { YomichanDictionaries.isDictionary(it) } }.getOrDefault(false)
+                val isRimeSchemas = !isGifPack && !isYomichan && runCatching {
+                    ZipFile(staged).use { zip -> zip.entries().asSequence().any { it.name.endsWith(RIME_SCHEMA_SUFFIX) } }
+                }.getOrDefault(false)
                 if (isGifPack) {
                     outcomes += installGifPack(context, name, staged)
+                } else if (isRimeSchemas) {
+                    outcomes += installRimeSchemas(context, name, staged)
+                    staged.delete()
+                } else if (isYomichan) {
+                    outcomes += installYomichan(context, name, staged, onFile)
+                    staged.delete()
                 } else {
                     runCatching { files += unzip(staged, File(dir, "zip")) }
                         .onFailure { outcomes += Outcome(name, false, R.string.offline_import_unreadable_zip) }
@@ -121,11 +231,24 @@ internal object OfflineImport {
                 onFile(ink.joinToString(", ") { it.name })
                 outcomes += installInk(context, ink)
             }
+            // A RIME pack or schema zip changes what RIME compiles; the
+            // runtime notices and the RIME screen deploys again.
+            RimeRuntime.recheck(context)
             return outcomes
         } finally {
             staging.deleteRecursively()
         }
     }
+
+    /**
+     * Zips installed as they are rather than opened: a published RIME pack,
+     * checked against its pin whole, and any APK. An APK is a zip too, and an
+     * interface language pack has to reach [LanguagePackDownloads.import]
+     * intact for its signature to be checked; unpacked, it is a manifest and a
+     * resource table nothing here uses.
+     */
+    internal fun keptWhole(name: String): Boolean =
+        name.endsWith(".apk", ignoreCase = true) || CjkDictCatalog.byFileName(name) != null
 
     /**
      * Sorts [files] by what they are, then installs them. Sorting first is
@@ -243,6 +366,15 @@ internal object OfflineImport {
                 }
             }
         }
+        PaddleOcrModel.partOf(name)?.let { part ->
+            return attempt(name) {
+                if (OcrPacks.installPaddle(filesDir, part, file)) {
+                    Outcome(name, true, R.string.offline_import_ocr_done, listOf(OcrLanguages.nameOf(PaddleOcrModel.PACK)))
+                } else {
+                    Outcome(name, false, R.string.offline_import_mismatch)
+                }
+            }
+        }
         OcrPacks.packOf(name)?.let { pack ->
             return attempt(name) {
                 OcrPacks.install(filesDir, pack, file)
@@ -261,6 +393,19 @@ internal object OfflineImport {
                 Outcome(name, true, R.string.offline_import_khipro_glide_done)
             }
         }
+        PhoneticIndexDownloads.languageOfPublishedName(name)?.let { langId ->
+            return attempt(name, busy = PhoneticIndexDownloads.isBusy(langId)) {
+                PhoneticIndexDownloads.install(filesDir, langId, file)
+                Outcome(name, true, R.string.offline_import_phonetic_index_done, listOf(languageName(langId)))
+            }
+        }
+        if (OfflineDictionaries.recognises(name)) {
+            return attempt(name) {
+                val installed = OfflineDictionaries.install(filesDir, file)
+                OfflineDictionaryDownloads.refresh(filesDir)
+                Outcome(name, true, R.string.offline_import_dictionary_done, listOf(installed.pack.name))
+            }
+        }
         if (name == CutoutModel.FILE_NAME) {
             return attempt(name) {
                 if (CutoutModel.install(filesDir, file)) {
@@ -270,19 +415,73 @@ internal object OfflineImport {
                 }
             }
         }
+        if (LanguagePackDownloads.isPackName(name)) {
+            return attempt(name) {
+                val qualifier = LanguagePackDownloads.import(context, file)
+                if (qualifier != null) {
+                    Outcome(name, true, R.string.offline_import_language_pack_done, listOf(qualifier))
+                } else {
+                    Outcome(name, false, R.string.offline_import_mismatch)
+                }
+            }
+        }
+        // Google's gesture library, the user's own file: told by its name, or
+        // by its hash for a .so renamed on the way. Only the pinned builds.
+        if (LatinImeLibrary.supported &&
+            (LatinImePins.isLibraryName(name) || (name.endsWith(".so") && LatinImeLibrary.isPinned(file)))
+        ) {
+            return attempt(name) {
+                when (val result = LatinImeLibrary.import(context.noBackupFilesDir, file)) {
+                    LatinImeLibrary.ImportResult.Installed -> Outcome(name, true, R.string.offline_import_gesture_library_done)
+                    is LatinImeLibrary.ImportResult.OtherAbi -> Outcome(
+                        name, false, R.string.typing_glide_library_result_other_abi,
+                        listOf(result.abi, LatinImeLibrary.processAbi()),
+                    )
+                    else -> Outcome(name, false, R.string.offline_import_mismatch)
+                }
+            }
+        }
+        if (isNativeLibrary(name)) {
+            return attempt(name) {
+                val pin = NativeDelivery.import(file)
+                if (pin != null) {
+                    Outcome(name, true, R.string.offline_import_native_done, listOf(pin.name))
+                } else {
+                    Outcome(name, false, R.string.offline_import_mismatch)
+                }
+            }
+        }
         val extension = name.substringAfterLast('.', "").lowercase()
-        if (ModelFormat.entries.any { it.extension == extension }) {
+        // A GGUF is told by its first four bytes as well, so a model whose
+        // name lost its extension on the way (a browser, a chat app) still
+        // installs; it gets the extension back, which is what the model
+        // list and the runtime routing go by.
+        val gguf = extension != ModelFormat.GGUF.extension && GgufFile.isGguf(file)
+        if (gguf || ModelFormat.entries.any { it.extension == extension }) {
+            // F-Droid's build has llama.cpp but no LiteRT-LM: only a GGUF runs.
+            if (!gguf && extension != ModelFormat.GGUF.extension && !BuildConfig.ENABLE_LITERT_LM) {
+                return Outcome(name, false, R.string.models_llm_import_error_gguf_only)
+            }
             return attempt(name) {
                 // A catalog model goes where its download would, so its row
-                // reads as downloaded; anything else is the user's own.
+                // reads as downloaded, and so does a catalog model's vision
+                // projector; anything else is the user's own, a projector
+                // included, which then pairs with the imported model beside it.
                 val model = LocalLlmCatalog.models.firstOrNull { it.fileName == name }
+                    ?: LocalLlmCatalog.models.firstOrNull { it.projector?.fileName == name }
+                // A pinned catalog file has to be the pinned bytes, as its
+                // download would be checked.
+                val expected = model?.let { LocalLlmDownloadManager.expectedSha256(it, name) }
+                if (expected != null && !LocalLlmDownloadManager.sha256Of(file).equals(expected, ignoreCase = true)) {
+                    return@attempt Outcome(name, false, R.string.offline_import_mismatch)
+                }
                 val target = if (model != null) {
-                    LocalLlmStore.modelFile(filesDir, model)
+                    LocalLlmStore.modelFile(filesDir, model, name)
                 } else {
-                    File(LocalLlmStore.customDir(filesDir), name)
+                    File(LocalLlmStore.customDir(filesDir), if (gguf) "$name.${ModelFormat.GGUF.extension}" else name)
                 }
                 copyInto(file, target)
-                Outcome(name, true, R.string.offline_import_llm_done, listOf(model?.displayName ?: name))
+                Outcome(name, true, R.string.offline_import_llm_done, listOf(model?.displayName ?: target.name))
             }
         }
         return Outcome(name, false, R.string.offline_import_unknown)
@@ -308,6 +507,42 @@ internal object OfflineImport {
                 is InkPackImports.Result.Failed -> Outcome(result.fileName, false, R.string.offline_import_failed)
             }
         }
+    }
+
+    /**
+     * A Yomichan / Yomitan dictionary (#765): a zip that is itself the thing
+     * installed, as a GIF pack is. Large ones take minutes, so the progress
+     * line carries a percentage.
+     */
+    private fun installYomichan(context: Context, name: String, zip: File, onFile: (String) -> Unit): Outcome = attempt(name) {
+        var shown = -1
+        val info = YomichanDictionaries.import(context.filesDir, zip) { done, total ->
+            val percent = if (total > 0) (done * 100 / total).toInt() else 0
+            if (percent != shown) {
+                shown = percent
+                onFile("$name · $percent%")
+            }
+        }
+        Outcome(name, true, R.string.offline_import_yomichan_done, listOf(info.title, count(info.terms)))
+    }
+
+    /** The pinned libraries an `.aar` holds, one line each. */
+    private fun installLibraryArchive(name: String, archive: File): List<Outcome> {
+        val installed = runCatching { NativeDelivery.importArchive(archive) }.getOrElse { return listOf(failure(name, it)) }
+        if (installed.isEmpty()) return listOf(Outcome(name, false, R.string.offline_import_unknown))
+        return installed.map { (pin, ok) ->
+            if (ok) {
+                Outcome(name, true, R.string.offline_import_native_done, listOf(pin.name))
+            } else {
+                Outcome(name, false, R.string.offline_import_mismatch)
+            }
+        }
+    }
+
+    /** A RIME schema zip of the user's own, for the RIME engine to compile on its next deploy. */
+    private fun installRimeSchemas(context: Context, name: String, zip: File): Outcome = attempt(name) {
+        val imported = RimeStore.import(context.filesDir, zip, name)
+        Outcome(name, true, R.string.offline_import_rime_done, listOf(imported.schemas.joinToString(", ").ifEmpty { imported.name }))
     }
 
     private fun installGifPack(context: Context, name: String, zip: File): Outcome = attempt(name) {
@@ -339,6 +574,9 @@ internal object OfflineImport {
 
     private fun failure(name: String, error: Throwable): Outcome = when (error) {
         is NoSpaceException -> Outcome(name, false, R.string.offline_import_no_space)
+        is YomichanImport.NoSpaceException -> Outcome(name, false, R.string.offline_import_no_space)
+        is YomichanImport.NotADictionaryException -> Outcome(name, false, R.string.offline_import_mismatch)
+        is OfflineDictionaries.NotAPackException -> Outcome(name, false, R.string.offline_import_mismatch)
         else -> Outcome(name, false, R.string.offline_import_failed)
     }
 

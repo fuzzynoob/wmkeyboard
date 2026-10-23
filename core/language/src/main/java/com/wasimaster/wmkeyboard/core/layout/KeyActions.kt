@@ -174,7 +174,7 @@ sealed interface KeyAction {
      *
      * The tool is fired whether or not it is one of the tools shown on the
      * toolbar — a key bound by hand is its own reason for the tool to run — but
-     * a tool this build does not ship (a full-flavour scanner on lite) or one
+     * a tool this build does not ship (an ML Kit scanner on F-Droid) or one
      * that is not usable yet (a search tool with no key configured) does
      * nothing, the same as it would on the toolbar.
      *
@@ -232,6 +232,25 @@ sealed interface KeyAction {
      * wants.
      */
     @Serializable @SerialName("layer") data class LayerSwitch(val layer: String = "") : KeyAction
+
+    /**
+     * Switches the keyboard into one of the user's keyboard modes, the same as
+     * picking it on the Modes panel, and a second press goes back to automatic.
+     *
+     * The point is a mode that is one press away rather than two: a "peck" mode
+     * with glide and two-thumb typing off, for a URL or a password, reached from
+     * a key or a flick instead of the panel.
+     *
+     * [id] is the mode's id. A key naming a mode that has since been deleted
+     * does nothing, the dead-key outcome a [Layout] naming a deleted layout
+     * gets. A blank [id] is the editor's placeholder while the picker is open.
+     *
+     * The press is a toggle against the mode that is on (#834): its own mode
+     * on, however it got there, goes back to automatic; anything else picks it.
+     * A mode that is on because a rule chose it for this app or field has no
+     * "off" to go to, so the key leaves it on, and pins nothing by hand.
+     */
+    @Serializable @SerialName("mode") data class Mode(val id: String = "") : KeyAction
 
     /**
      * Latches a modifier for the next key, the way [Shift] latches case: tap to
@@ -558,6 +577,9 @@ fun KeyAction.fallbackLabel(): String = when (this) {
     // unlabelled one falls back to, and it is deliberately not the layer's key,
     // which is an identifier and can be any length.
     is KeyAction.LayerSwitch -> "▤"
+    // The board draws the mode's current name over this (#821, see
+    // modeBindingLabel); the glyph is for a face drawn without the modes to hand.
+    is KeyAction.Mode -> "◐"
     is KeyAction.SwitchInputMethod -> "⌨"
     // A field is not a key: the cell draws its component, and the editor draws
     // the component's name from a string resource.
@@ -717,7 +739,7 @@ fun KeyAction.canRepeatOnHold(): Boolean = when (this) {
     KeyAction.LanguageSwitch, KeyAction.InputMethodPicker -> false
     is KeyAction.SwitchInputMethod -> false
     is KeyAction.Mod, is KeyAction.Layout, is KeyAction.Tool -> false
-    is KeyAction.LayerSwitch -> false
+    is KeyAction.LayerSwitch, is KeyAction.Mode -> false
     is KeyAction.Unknown -> false
     // A list, not a key: nothing presses it as a whole.
     KeyAction.ReadingColumn -> false
@@ -746,6 +768,9 @@ fun KeyAction.commitsNoText(): Boolean = when (this) {
     -> true
     is KeyAction.Layout -> true
     is KeyAction.LayerSwitch -> true
+    // Switching into a URL or email mode to reach `:` or `@` is the same
+    // trip the ?123 key makes, and must leave the typed space as spendable.
+    is KeyAction.Mode -> true
     else -> false
 }
 
@@ -778,6 +803,9 @@ private fun TextEditAction.fallbackGlyph(): String = when (this) {
     TextEditAction.DOC_START -> "⇱"
     TextEditAction.DOC_END -> "⇲"
     TextEditAction.CUT -> "✂"
+    TextEditAction.RETYPE_WORD -> "↺"
+    TextEditAction.NO_SPACE -> "⁀"
+    TextEditAction.NO_SPACE_NEXT -> "⁀›"
 }
 
 /**

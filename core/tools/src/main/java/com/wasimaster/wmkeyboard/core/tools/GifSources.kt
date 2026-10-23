@@ -1,6 +1,8 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.core.providers.ChainMode
+import com.wasimaster.wmkeyboard.core.providers.ProviderTypes
 import com.wasimaster.wmkeyboard.tools.R
 
 /**
@@ -14,9 +16,14 @@ import com.wasimaster.wmkeyboard.tools.R
  * channel: KLIPY and GIPHY both want an API key that build cannot carry. Its
  * corpus is educational rather than reactive, which the panel says out loud
  * rather than leaving the user to conclude the search is broken.
+ *
+ * [GIFCITIES] is the Internet Archive's search over old GeoCities GIFs. It
+ * needs no key, so any build can offer it, but only once the user turns it
+ * on: the corpus is a curiosity rather than a reaction-GIF catalogue, and it
+ * carries no content rating.
  */
 enum class GifSource {
-    KLIPY, GIPHY, LOCAL, COMMONS, OFFLINE;
+    KLIPY, GIPHY, LOCAL, COMMONS, OFFLINE, GIFCITIES;
 
     /** Files on the device rather than a provider: its own grid, never interleaved, never metered. */
     val onDevice: Boolean get() = this == LOCAL || this == OFFLINE
@@ -56,8 +63,40 @@ data class GifItem(
     val creator: String = "",
 )
 
-/** One chip in the source row, with the label it shows. */
-data class SourceChip(@StringRes val labelRes: Int, val source: GifSource)
+/**
+ * One provider row of the GIF or sticker list, ready to ask: which client
+ * ([source]) and what it was set up with. [key] is the row's
+ * `ProviderEntry.key`, which is what tells two Commons wikis apart and what
+ * the panel's selected chip remembers.
+ */
+data class MediaTarget(
+    val key: String,
+    val source: GifSource,
+    val apiKey: String = "",
+    val url: String = "",
+    /** The name the user gave this server, shown on its chip instead of the kind's. */
+    val name: String = "",
+    /** Rows of the same kind asked in turn when this one fails: a second key kept as a backup. */
+    val backups: List<MediaTarget> = emptyList(),
+) {
+    constructor(source: GifSource) : this(source.name, source)
+
+    /** This target, then its [backups]: the order one fetch walks. */
+    val withBackups: List<MediaTarget> get() = if (backups.isEmpty()) listOf(this) else listOf(copy(backups = emptyList())) + backups
+
+    val onDevice: Boolean get() = source.onDevice
+}
+
+/**
+ * One chip in the source row, with the label it shows: [name] when the user
+ * named the server, else [labelRes].
+ */
+data class SourceChip(
+    @StringRes val labelRes: Int,
+    val source: GifSource,
+    val key: String = source.name,
+    val name: String = "",
+)
 
 /** Helpers shared by the multi-provider GIF/sticker pipeline. */
 object GifSources {
@@ -70,52 +109,83 @@ object GifSources {
         GifSource.LOCAL -> R.string.core_tools_gif_source_local
         GifSource.COMMONS -> R.string.core_tools_gif_source_commons
         GifSource.OFFLINE -> R.string.core_tools_gif_source_offline
+        GifSource.GIFCITIES -> R.string.core_tools_gif_source_gifcities
+    }
+
+    /** The client a provider type is asked through, or null for a type that is not a GIF or sticker source. */
+    fun sourceOf(typeId: String): GifSource? = when (typeId) {
+        ProviderTypes.KLIPY.id -> GifSource.KLIPY
+        ProviderTypes.GIPHY.id -> GifSource.GIPHY
+        ProviderTypes.COMMONS.id -> GifSource.COMMONS
+        ProviderTypes.GIFCITIES.id -> GifSource.GIFCITIES
+        ProviderTypes.OFFLINE_GIFS.id -> GifSource.OFFLINE
+        ProviderTypes.STICKER_PACKS.id -> GifSource.LOCAL
+        else -> null
     }
 
     /**
-     * Which sources one fetch should hit, given the chip the user is on.
-     *
-     * Packs on the device and GIPHY ([GifSource.ownGrid]) are never
-     * interleaved with anything: picking one is always a grid of its own, in
-     * mixed mode as much as in tabs mode.
+     * A chip of its own, never part of the lead grid: the packs on the device
+     * always, and GIPHY when the grid would mix (its terms). One provider at
+     * a time never mixes, so there GIPHY can take its turn like the rest.
      */
-    fun targets(sources: List<GifSource>, selected: GifSource, tabs: Boolean): List<GifSource> {
-        if (sources.isEmpty()) return emptyList()
-        val pick = selected.takeIf { it in sources }
-        if (pick != null && pick.ownGrid) return listOf(pick)
-        if (tabs) return listOf(pick ?: sources.first())
-        val mixed = sources.filterNot { it.ownGrid }
-        return mixed.ifEmpty { listOf(sources.first()) }
+    private fun ownChip(target: MediaTarget, mode: ChainMode): Boolean =
+        target.onDevice || (mode == ChainMode.MIX && target.source.ownGrid)
+
+    /**
+     * Which providers one fetch should hit, given the chip the user is on.
+     * In tabs mode that is the chip's provider. Otherwise it is the lead
+     * group, mixed or asked in turn by [mode], unless the chip is one with a
+     * grid of its own ([ownChip]).
+     */
+    fun targets(providers: List<MediaTarget>, selected: String, mode: ChainMode): List<MediaTarget> {
+        if (providers.isEmpty()) return emptyList()
+        val pick = providers.firstOrNull { it.key == selected }
+        if (mode == ChainMode.TABS) return listOf(pick ?: providers.first())
+        if (pick != null && ownChip(pick, mode)) return listOf(pick)
+        val lead = providers.filterNot { ownChip(it, mode) }
+        return lead.ifEmpty { listOf(providers.first()) }
     }
 
     /**
      * Chips for the source row, or an empty list when there is nothing to
-     * switch between. Mixed mode collapses the providers it may interleave
-     * into one "Online" chip standing for the interleaved grid (or the
-     * provider's own name, when only one is left), so the sources with a grid
-     * of their own ([GifSource.ownGrid]) still get a tab each.
+     * switch between. Outside tabs mode the lead group collapses into one
+     * "Online" chip (or the provider's own name, when it is alone), and the
+     * providers with a grid of their own still get a chip each.
      */
-    fun chips(sources: List<GifSource>, tabs: Boolean): List<SourceChip> {
-        if (tabs) {
-            return if (sources.size > 1) sources.map { SourceChip(displayNameRes(it), it) } else emptyList()
+    fun chips(providers: List<MediaTarget>, mode: ChainMode): List<SourceChip> {
+        fun chip(target: MediaTarget) = SourceChip(displayNameRes(target.source), target.source, target.key, target.name)
+        if (mode == ChainMode.TABS) {
+            return if (providers.size > 1) providers.map(::chip) else emptyList()
         }
-        val mixed = sources.filterNot { it.ownGrid }
-        val lead = when (mixed.size) {
+        val lead = providers.filterNot { ownChip(it, mode) }
+        val leadChip = when (lead.size) {
             0 -> emptyList()
-            1 -> listOf(SourceChip(displayNameRes(mixed[0]), mixed[0]))
-            else -> listOf(SourceChip(R.string.core_tools_gif_source_online, mixed[0]))
+            1 -> listOf(chip(lead[0]))
+            else -> listOf(SourceChip(R.string.core_tools_gif_source_online, lead[0].source, lead[0].key))
         }
-        val chips = lead + sources.filter { it.ownGrid }.map { SourceChip(displayNameRes(it), it) }
+        val chips = leadChip + providers.filter { ownChip(it, mode) }.map(::chip)
         return if (chips.size > 1) chips else emptyList()
     }
 
-    /** Index of the active chip in [chips], falling back to the first. */
-    fun selectedChip(chips: List<SourceChip>, selected: GifSource): Int {
-        val exact = chips.indexOfFirst { it.source == selected }
+    /** Index of the active chip in [chips], falling back to the lead group's, then the first. */
+    fun selectedChip(chips: List<SourceChip>, selected: String, providers: List<MediaTarget>, mode: ChainMode): Int {
+        val exact = chips.indexOfFirst { it.key == selected }
         if (exact >= 0) return exact
-        // Mixed mode: any interleaved provider means the "Online" chip is the active one.
-        return chips.indexOfFirst { !it.source.ownGrid }.coerceAtLeast(0)
+        val own = providers.filter { ownChip(it, mode) }.mapTo(HashSet()) { it.key }
+        return chips.indexOfFirst { it.key !in own }.coerceAtLeast(0)
     }
+
+    /** [targets] for a plain list of sources, one provider each: tabs, or mixed. */
+    fun targets(sources: List<GifSource>, selected: GifSource, tabs: Boolean): List<GifSource> =
+        targets(sources.map(::MediaTarget), selected.name, if (tabs) ChainMode.TABS else ChainMode.MIX).map { it.source }
+
+    /** [chips] for a plain list of sources: tabs, or mixed. */
+    fun chips(sources: List<GifSource>, tabs: Boolean): List<SourceChip> =
+        chips(sources.map(::MediaTarget), if (tabs) ChainMode.TABS else ChainMode.MIX)
+
+    /** [selectedChip] for a plain list of sources in mixed mode. */
+    fun selectedChip(chips: List<SourceChip>, selected: GifSource): Int =
+        selectedChip(chips, selected.name, chips.map { MediaTarget(it.source) }, ChainMode.MIX)
 
     /**
      * A cell's shape in the picker grid. Clamped so one degenerate banner or
@@ -183,14 +253,6 @@ object GifSources {
      * Round-robin merge for "mixed" mode: one item from each provider in
      * turn, so no source dominates the top of the grid.
      */
-    fun interleave(lists: List<List<GifItem>>): List<GifItem> {
-        val iterators = lists.map { it.iterator() }
-        val merged = ArrayList<GifItem>(lists.sumOf { it.size })
-        while (iterators.any { it.hasNext() }) {
-            for (iterator in iterators) {
-                if (iterator.hasNext()) merged += iterator.next()
-            }
-        }
-        return merged
-    }
+    fun interleave(lists: List<List<GifItem>>): List<GifItem> =
+        com.wasimaster.wmkeyboard.core.providers.ProviderRunner.interleave(lists)
 }

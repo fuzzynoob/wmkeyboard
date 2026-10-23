@@ -10,29 +10,22 @@ plugins {
 }
 
 // Coverage for the root's merged report (`./gradlew koverHtmlReportUnit`):
-// this module's full-flavour debug unit tests.
+// this module's debug unit tests.
 kover {
     currentProject {
-        createVariant("unit") { add("fullDebug") }
+        createVariant("unit") { add("debug") }
     }
 }
 
 android {
     namespace = "com.wasimaster.wmkeyboard.theme"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
     }
     defaultConfig {
         minSdk = 24
     }
 
-    flavorDimensions += "capabilities"
-    productFlavors {
-        create("full") { dimension = "capabilities" }
-        create("lite") { dimension = "capabilities" }
-    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -52,6 +45,8 @@ kotlin {
 
 dependencies {
     api(project(":core:common"))
+    // NativeEngine: the frosted-glass blur runs on the engine's NEON kernel.
+    implementation(project(":core:language"))
     implementation(libs.androidx.core.ktx)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.kotlinx.serialization.json)
@@ -67,3 +62,7 @@ dependencies {
     // internals anyway.
     testImplementation(libs.junit)
 }
+
+// FrostBakeTest reaches the engine's blur, which loads libwm_engine_jni for
+// this machine; :core:language builds it (see the comment on its task).
+tasks.withType<Test>().configureEach { dependsOn(":core:language:buildHostEngine") }

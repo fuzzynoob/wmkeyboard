@@ -10,6 +10,7 @@ import com.wasimaster.wmkeyboard.tools.feature.R
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.booleanOrNull
 import kotlinx.serialization.json.buildJsonArray
@@ -49,6 +50,14 @@ object AiClient {
          * passes an id of its conversation instead.
          */
         val sessionId: String = UUID.randomUUID().toString(),
+        /**
+         * The chat's Reasoning switch (#882): true asks the model to reason
+         * and to show it, false asks it not to, null sends nothing and leaves
+         * the model to its own default, which is every request but the
+         * chat's. Only where [controlsReasoning] says a provider has a field
+         * for it; everywhere else it is ignored.
+         */
+        val reasoning: Boolean? = null,
     )
 
     /** The placeholder a header value can use for [Config.sessionId]. */
@@ -96,6 +105,12 @@ object AiClient {
          * the picture with OCR instead of sending it where it cannot go.
          */
         val images: List<AiImage> = emptyList(),
+        /**
+         * The assistant turn exactly as the provider wrote it, for a turn that
+         * asked for tools: see [Completion.replay]. Null rebuilds the turn
+         * from [text] and [toolCalls], which is all any older provider needs.
+         */
+        val replay: JsonObject? = null,
     ) {
         /**
          * Part of a tool exchange rather than something a person wrote. These
@@ -161,7 +176,34 @@ object AiClient {
         val truncated: Boolean = false,
         /** What the model asked to call instead of, or as well as, answering. */
         val toolCalls: List<AiToolCall> = emptyList(),
+        /**
+         * What the provider insists on reading back, verbatim, on the
+         * assistant turn of a tool exchange. Several now refuse a rebuilt
+         * turn: Gemini 3 400s a `functionCall` that lost its
+         * `thoughtSignature`, Anthropic wants a thinking block back with its
+         * signature, DeepSeek's thinking mode wants its `reasoning_content`,
+         * and Gemini behind an OpenAI-shaped endpoint (or OpenRouter) hides
+         * the same signature in `extra_content` / `reasoning_details`.
+         *
+         * One key per request shape ([REPLAY_GEMINI], [REPLAY_ANTHROPIC],
+         * [REPLAY_OPENAI], [REPLAY_OLLAMA]), so a body builder only ever uses
+         * a replay written in its own shape and rebuilds the turn otherwise.
+         * Set only on a round that asked for tools.
+         */
+        val replay: JsonObject? = null,
     )
+
+    internal const val REPLAY_GEMINI = "geminiParts"
+    internal const val REPLAY_ANTHROPIC = "anthropicContent"
+    internal const val REPLAY_OPENAI = "openAiMessage"
+    internal const val REPLAY_OLLAMA = "ollamaMessage"
+
+    /**
+     * What Gemini accepts in place of a real `thoughtSignature` on a call it
+     * did not make in this exchange — a rebuilt turn with no replay. Google
+     * documents it for exactly this; without it Gemini 3 rejects the request.
+     */
+    private const val GEMINI_SKIP_SIGNATURE = "skip_thought_signature_validator"
 
     /**
      * Model each provider falls back to when its settings field is blank.
@@ -169,12 +211,12 @@ object AiClient {
      * "Blank = …" hints — they must not drift apart.
      */
     object DefaultModels {
-        const val ANTHROPIC = "claude-sonnet-5"
-        const val OPENAI = "gpt-5.6-luna"
-        const val GEMINI = "gemini-3.5-flash"
+        const val ANTHROPIC = "claude-sonnet-5-5"
+        const val OPENAI = "gpt-6-luna"
+        const val GEMINI = "gemini-3.8-flash"
         const val OLLAMA = "qwen3"
-        const val XAI = "grok-4.5"
-        const val DEEPSEEK = "deepseek-v4-flash"
+        const val XAI = "grok-4.7"
+        const val DEEPSEEK = "deepseek-flash"
 
         /** Brave's Answers API has one model, and this is its name. */
         const val BRAVE = "brave"
@@ -269,8 +311,8 @@ object AiClient {
      */
     private val REASONING_MODEL_HINTS = listOf(
         "thinking", "reason", "-r1", "qwq", "magistral",
-        "gpt-5", "o1-", "o3", "o4-", "qwen3", "qwen-3",
-        "grok-4", "deepseek-v4",
+        "gpt-5", "gpt-6", "o1-", "o3", "o4-", "qwen3", "qwen-3",
+        "grok-4", "deepseek-v4", "deepseek-flash",
     )
 
     /** Reasoning models get this much more room than the user's setting. */
@@ -311,6 +353,49 @@ object AiClient {
      * guess from the model id — see [REASONING_MODEL_HINTS] — so callers must
      * treat a `false` as "probably not" rather than proof.
      */
+    /**
+     * Whether the chat's Reasoning switch does anything for [provider] with
+     * [model] (#882): Claude's `thinking`, Gemini's `thinkingConfig`,
+     * Ollama's `think`, and OpenAI's `reasoning_effort` on a model that
+     * reasons. Another OpenAI-shaped service has no field all of them agree
+     * on, so the switch is not offered there.
+     */
+    fun controlsReasoning(provider: AiProvider, model: String): Boolean {
+        val name = model.lowercase()
+        return when (provider) {
+            // Claude 3 models before 3.7 have no thinking to switch.
+            AiProvider.ANTHROPIC -> !name.startsWith("claude-3") || "3-7" in name
+            // Gemini 1.5 and 2.0 do not think, and may refuse the field.
+            AiProvider.GEMINI -> "1.5" !in name && "2.0" !in name
+            AiProvider.OLLAMA -> true
+            AiProvider.OPENAI -> REASONING_MODEL_HINTS.any { it in name }
+            else -> false
+        }
+    }
+
+    /** [controlsReasoning] for the model [settings] would send to. */
+    fun controlsReasoning(settings: AiSettings): Boolean =
+        config(settings).let { controlsReasoning(it.provider, it.model) }
+
+    /**
+     * Gemini's `thinkingConfig` for the Reasoning switch. On asks for the
+     * thoughts back. Off turns thinking off where a model can: a budget of 0
+     * on a 2.5 model that is not Pro, the lowest level on a Gemini 3 or
+     * later, which is as near to off as Google allows there.
+     */
+    private fun geminiThinking(model: String, reasoning: Boolean): JsonObject = buildJsonObject {
+        if (reasoning) {
+            put("includeThoughts", true)
+            return@buildJsonObject
+        }
+        val name = model.lowercase()
+        when {
+            "2.5" in name && "pro" !in name -> put("thinkingBudget", 0)
+            "2.5" in name || "2.0" in name || "1.5" in name -> Unit
+            else -> put("thinkingLevel", if ("pro" in name) "low" else "minimal")
+        }
+    }
+
     fun expectsReasoning(settings: AiSettings): Boolean {
         val model = config(settings).model.lowercase()
         return REASONING_MODEL_HINTS.any { it in model }
@@ -333,6 +418,8 @@ object AiClient {
 
     /** Whether the selected provider has what it needs to make a request. */
     fun isConfigured(settings: AiSettings): Boolean {
+        // Nothing on the AI list can answer: old keys still stored do not count.
+        if (!settings.listed) return false
         val config = config(settings)
         return when (config.provider) {
             AiProvider.OLLAMA, AiProvider.LM_STUDIO -> config.baseUrl.isNotBlank()
@@ -516,10 +603,21 @@ object AiClient {
         onToolResult = onToolResult,
         isActive = isActive,
     ) { roundSystem, roundTurns, roundTools, roundPartial ->
-        completeStreaming(
-            config, roundSystem, roundTurns, maxTokens, roundTools,
-            onPhase, roundPartial, isActive,
-        )
+        if (config.provider == AiProvider.ANTHROPIC && roundTools.isEmpty() && tools.isNotEmpty()) {
+            // Anthropic binds a thinking block's signature to the tools list
+            // it was written under, so a final round that drops the tools has
+            // every earlier round's thinking refused. The same tools go back
+            // with tool_choice "none", which forces the answer instead.
+            anthropicStream(
+                config, roundSystem, normalizedTurns(roundTurns), maxTokens, tools,
+                onPhase, roundPartial, isActive, answerOnly = true,
+            )
+        } else {
+            completeStreaming(
+                config, roundSystem, roundTurns, maxTokens, roundTools,
+                onPhase, roundPartial, isActive,
+            )
+        }
     }
 
     /**
@@ -644,6 +742,31 @@ object AiClient {
 
         private class PartialCall(var id: String, var name: String) {
             val arguments = StringBuilder()
+
+            /** Gemini-behind-OpenAI's `extra_content`, holding its signature. */
+            var extra: JsonObject? = null
+        }
+
+        // ---- what [Completion.replay] is built from ----
+
+        /** The answer alone, without the think block [text] wraps around it. */
+        private val answerText = StringBuilder()
+
+        /** Side-channel reasoning, and the field name it came in. */
+        private val rawReasoning = StringBuilder()
+        private var reasoningField = ""
+
+        /** OpenRouter's `reasoning_details`, merged by their `index`. */
+        private val reasoningDetails = ArrayList<JsonObject>()
+
+        /** Every part Gemini sent, adjacent plain text merged. */
+        private val geminiParts = ArrayList<JsonObject>()
+
+        /** Anthropic's content blocks by index: the start event plus deltas. */
+        private val anthropicBlocks = LinkedHashMap<Int, AnthropicBlock>()
+
+        private class AnthropicBlock(val start: JsonObject) {
+            val fields = LinkedHashMap<String, StringBuilder>()
         }
 
         /**
@@ -659,8 +782,11 @@ object AiClient {
             truncated = true
         }
 
-        fun reasoning(chunk: String) {
+        /** [field] is the OpenAI-shaped field it arrived in, to send it back under. */
+        fun reasoning(chunk: String, field: String = "") {
             if (chunk.isEmpty()) return
+            rawReasoning.append(chunk)
+            if (field.isNotEmpty()) reasoningField = field
             if (!inThink) {
                 text.append(THINK_OPEN)
                 inThink = true
@@ -670,6 +796,7 @@ object AiClient {
 
         fun answer(chunk: String) {
             if (chunk.isEmpty()) return
+            answerText.append(chunk)
             if (inThink) {
                 text.append(THINK_CLOSE)
                 inThink = false
@@ -694,6 +821,153 @@ object AiClient {
         fun toolCall(id: String, name: String, arguments: String) {
             if (name.isEmpty()) return
             wholeCalls.add(AiToolCall(id, name, arguments.ifBlank { "{}" }))
+        }
+
+        /** The `extra_content` a streamed call carried, kept for its replay. */
+        fun toolCallExtra(index: Int, extra: JsonObject) {
+            streamedCalls.getOrPut(index) { PartialCall("", "") }.extra = extra
+        }
+
+        /**
+         * One `reasoning_details` entry. A streamed entry arrives in pieces
+         * that share an index; their text is joined, anything else is the
+         * latest value seen.
+         */
+        fun reasoningDetail(entry: JsonObject) {
+            val index = (entry["index"] as? JsonPrimitive)?.intOrNull
+            val at = if (index == null) -1 else reasoningDetails.indexOfFirst {
+                (it["index"] as? JsonPrimitive)?.intOrNull == index
+            }
+            if (at < 0) {
+                reasoningDetails.add(entry)
+                return
+            }
+            val merged = LinkedHashMap(reasoningDetails[at])
+            for ((key, value) in entry) {
+                val old = merged[key]
+                merged[key] = if (key in JOINED_DETAIL_FIELDS && old is JsonPrimitive && old.isString &&
+                    value is JsonPrimitive && value.isString
+                ) {
+                    JsonPrimitive(old.content + value.content)
+                } else {
+                    value
+                }
+            }
+            reasoningDetails[at] = JsonObject(merged)
+        }
+
+        /**
+         * One Gemini part, kept whole. A `thoughtSignature` may sit on any
+         * part — a `functionCall`, or an otherwise empty text part at the very
+         * end of a stream — and must go back on that same part, so only plain
+         * text with no signature is merged into the part before it.
+         */
+        fun geminiPart(part: JsonObject) {
+            if (part.isPlainGeminiText() && part.text("text").isEmpty()) return
+            val last = geminiParts.lastOrNull()
+            if (last != null && last.isPlainGeminiText() && part.isPlainGeminiText() &&
+                last["thought"] == part["thought"]
+            ) {
+                geminiParts[geminiParts.lastIndex] =
+                    JsonObject(last + ("text" to JsonPrimitive(last.text("text") + part.text("text"))))
+            } else {
+                geminiParts.add(part)
+            }
+        }
+
+        private fun JsonObject.isPlainGeminiText(): Boolean =
+            keys.all { it == "text" || it == "thought" } && containsKey("text")
+
+        /** An Anthropic `content_block_start`, whatever its type. */
+        fun anthropicBlockStart(index: Int, block: JsonObject) {
+            anthropicBlocks[index] = AnthropicBlock(block)
+        }
+
+        /** A `text`, `thinking` or `signature` delta against one block. */
+        fun anthropicDelta(index: Int, field: String, chunk: String) {
+            if (chunk.isEmpty()) return
+            anthropicBlocks[index]?.fields?.getOrPut(field) { StringBuilder() }?.append(chunk)
+        }
+
+        private fun replay(): JsonObject? {
+            if (toolCalls.isEmpty()) return null
+            return when {
+                geminiParts.isNotEmpty() ->
+                    buildJsonObject { put(REPLAY_GEMINI, JsonArray(geminiParts)) }
+                anthropicBlocks.isNotEmpty() ->
+                    buildJsonObject { put(REPLAY_ANTHROPIC, anthropicReplay()) }
+                streamedCalls.isNotEmpty() ->
+                    buildJsonObject { put(REPLAY_OPENAI, openAiReplay()) }
+                else -> buildJsonObject {
+                    putJsonObject(REPLAY_OLLAMA) {
+                        put("content", answerText.toString())
+                        if (rawReasoning.isNotEmpty()) put("thinking", rawReasoning.toString())
+                    }
+                }
+            }
+        }
+
+        /**
+         * The blocks in the order Anthropic sent them. A thinking block goes
+         * back with its signature and a redacted one untouched: with thinking
+         * on, the turn that asked for a tool is refused without them.
+         */
+        private fun anthropicReplay(): JsonArray = buildJsonArray {
+            for ((index, block) in anthropicBlocks) {
+                val accumulated = { key: String -> block.fields[key]?.toString().orEmpty() }
+                when (block.start.text("type")) {
+                    "text" -> {
+                        val text = block.start.text("text") + accumulated("text")
+                        // Anthropic refuses an empty text block.
+                        if (text.isNotBlank()) add(buildJsonObject { put("type", "text"); put("text", text) })
+                    }
+                    "thinking" -> add(buildJsonObject {
+                        put("type", "thinking")
+                        put("thinking", block.start.text("thinking") + accumulated("thinking"))
+                        put("signature", block.start.text("signature") + accumulated("signature"))
+                    })
+                    "redacted_thinking" -> add(block.start)
+                    "tool_use" -> {
+                        val call = streamedCalls[index] ?: continue
+                        if (call.name.isEmpty()) continue
+                        add(buildJsonObject {
+                            put("type", "tool_use")
+                            put("id", call.id)
+                            put("name", call.name)
+                            put("input", argumentsObject(call.arguments.toString().ifBlank { "{}" }))
+                        })
+                    }
+                }
+            }
+        }
+
+        /**
+         * The assistant message in OpenAI's shape, carrying back only what the
+         * server itself sent: reasoning under the field it used, OpenRouter's
+         * details, and each call's `extra_content`. A plain OpenAI response has
+         * none of them, so its message is the same one a rebuild would make.
+         */
+        private fun openAiReplay(): JsonObject = buildJsonObject {
+            put("role", "assistant")
+            put("content", answerText.toString())
+            if (rawReasoning.isNotEmpty() && reasoningField.isNotEmpty()) {
+                put(reasoningField, rawReasoning.toString())
+            }
+            if (reasoningDetails.isNotEmpty()) put("reasoning_details", JsonArray(reasoningDetails))
+            put("tool_calls", buildJsonArray {
+                for (call in streamedCalls.values) {
+                    if (call.name.isEmpty()) continue
+                    add(buildJsonObject {
+                        put("id", call.id)
+                        put("type", "function")
+                        putJsonObject("function") {
+                            put("name", call.name)
+                            put("arguments", call.arguments.toString().ifBlank { "{}" })
+                        }
+                        call.extra?.let { put("extra_content", it) }
+                    })
+                }
+            })
         }
 
         /**
@@ -724,12 +998,15 @@ object AiClient {
                 text.append(THINK_CLOSE)
                 inThink = false
             }
-            return Completion(text.toString(), truncated, toolCalls)
+            return Completion(text.toString(), truncated, toolCalls, replay())
         }
 
         private companion object {
             const val THINK_OPEN = "<think>"
             const val THINK_CLOSE = "</think>"
+
+            /** The `reasoning_details` fields that stream as pieces of one string. */
+            val JOINED_DETAIL_FIELDS = setOf("text", "summary")
         }
     }
 
@@ -798,19 +1075,76 @@ object AiClient {
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
+        answerOnly: Boolean = false,
     ): Completion {
         // Anthropic is the one provider that makes the ceiling mandatory, so
         // "let the service decide" has to become a number here.
         val asked = maxTokens ?: ANTHROPIC_PROVIDER_MAXIMUM
         return try {
-            anthropicStreamOnce(config, system, turns, asked, tools, onPhase, onPartial, isActive)
+            anthropicStreamOnce(config, system, turns, asked, tools, onPhase, onPartial, isActive, answerOnly)
         } catch (e: ToolHttpException) {
             // Asking for more output than the chosen model allows is a hard 400
             // rather than a clamp, and the error names the real ceiling. Retry
             // at that number: nothing has streamed yet, because the status is
             // read before the first byte of the body.
             val ceiling = anthropicModelCeiling(e)?.takeIf { it < asked } ?: throw e
-            anthropicStreamOnce(config, system, turns, ceiling, tools, onPhase, onPartial, isActive)
+            anthropicStreamOnce(config, system, turns, ceiling, tools, onPhase, onPartial, isActive, answerOnly)
+        }
+    }
+
+    /**
+     * How a Claude model takes the Reasoning switch. Each generation rejects
+     * some shape the others need: models before 4.6 know only a token budget,
+     * Sonnet 5.5 400s on `disabled` and turns thinking off with
+     * `between_tools`, and Opus 5.5, Fable and Mythos cannot turn it off at
+     * all, so off there is the lowest effort instead.
+     */
+    private enum class ClaudeThinking { BUDGET, ADAPTIVE, BETWEEN_TOOLS, ALWAYS_ON }
+
+    private val CLAUDE_VERSION = Regex("""claude-(opus|sonnet|haiku)-(\d+)(?:-(\d)(?!\d))?""")
+
+    /** The smallest thinking budget Anthropic accepts on a pre-4.6 model. */
+    private const val CLAUDE_MIN_THINKING_BUDGET = 1024
+
+    private fun JsonObjectBuilder.putClaudeThinking(model: String, on: Boolean, maxTokens: Int) {
+        val name = model.lowercase()
+        val match = CLAUDE_VERSION.find(name)
+        // 4.5 is 45, 5 is 50: the minor digit is absent on whole versions and
+        // a date suffix (claude-sonnet-4-20250514) is not a minor at all.
+        val version = match?.let { it.groupValues[2].toInt() * 10 + (it.groupValues[3].toIntOrNull() ?: 0) }
+        val tier = match?.groupValues?.get(1)
+        val kind = when {
+            "fable" in name || "mythos" in name -> ClaudeThinking.ALWAYS_ON
+            name.startsWith("claude-3") -> ClaudeThinking.BUDGET
+            version == null -> ClaudeThinking.ADAPTIVE
+            version < 46 -> ClaudeThinking.BUDGET
+            tier == "opus" && version >= 55 -> ClaudeThinking.ALWAYS_ON
+            tier == "sonnet" && version >= 55 -> ClaudeThinking.BETWEEN_TOOLS
+            else -> ClaudeThinking.ADAPTIVE
+        }
+        if (on) {
+            if (kind == ClaudeThinking.BUDGET) {
+                // The budget comes out of max_tokens and must stay below it.
+                val budget = (maxTokens / 2).coerceAtLeast(CLAUDE_MIN_THINKING_BUDGET)
+                if (budget < maxTokens) {
+                    putJsonObject("thinking") { put("type", "enabled"); put("budget_tokens", budget) }
+                }
+                return
+            }
+            putJsonObject("thinking") {
+                put("type", "adaptive")
+                // From 4.7 on the thinking text streams back empty unless
+                // asked for, which leaves the switch showing nothing.
+                if (kind == ClaudeThinking.ALWAYS_ON || (version ?: 0) >= 47) put("display", "summarized")
+            }
+            return
+        }
+        when (kind) {
+            // Thinking is off unless asked for.
+            ClaudeThinking.BUDGET -> Unit
+            ClaudeThinking.ADAPTIVE -> putJsonObject("thinking") { put("type", "disabled") }
+            ClaudeThinking.BETWEEN_TOOLS -> putJsonObject("thinking") { put("type", "between_tools") }
+            ClaudeThinking.ALWAYS_ON -> putJsonObject("output_config") { put("effort", "low") }
         }
     }
 
@@ -820,11 +1154,15 @@ object AiClient {
         turns: List<ChatTurn>,
         maxTokens: Int,
         tools: List<AiToolSpec> = emptyList(),
+        answerOnly: Boolean = false,
     ): String = buildJsonObject {
         put("model", config.model)
         put("max_tokens", maxTokens)
         put("system", system)
         put("stream", true)
+        // The chat's Reasoning switch (#882), in the shape the model accepts.
+        config.reasoning?.takeIf { controlsReasoning(config.provider, config.model) }
+            ?.let { on -> putClaudeThinking(config.model, on, maxTokens) }
         if (tools.isNotEmpty()) {
             put("tools", buildJsonArray {
                 for (tool in tools) {
@@ -837,6 +1175,7 @@ object AiClient {
                     })
                 }
             })
+            if (answerOnly) put("tool_choice", buildJsonObject { put("type", "none") })
         }
         put("messages", anthropicMessages(turns))
     }.toString()
@@ -874,6 +1213,14 @@ object AiClient {
                 continue
             }
             index++
+            val replayed = turn.replay?.get(REPLAY_ANTHROPIC) as? JsonArray
+            if (turn.toolCalls.isNotEmpty() && replayed != null) {
+                add(buildJsonObject {
+                    put("role", "assistant")
+                    put("content", replayed)
+                })
+                continue
+            }
             if (turn.toolCalls.isEmpty()) {
                 add(buildJsonObject {
                     put("role", if (turn.role == ChatRole.USER) "user" else "assistant")
@@ -927,8 +1274,9 @@ object AiClient {
         onPhase: (AiPhase) -> Unit,
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
+        answerOnly: Boolean = false,
     ): Completion {
-        val body = anthropicBody(config, system, turns, maxTokens, tools)
+        val body = anthropicBody(config, system, turns, maxTokens, tools, answerOnly)
         return runStream(
             source = config.netSource,
             url = ServiceEndpoints.base(ServiceEndpoint.ANTHROPIC) + "/v1/messages",
@@ -955,16 +1303,27 @@ object AiClient {
         when (event["type"]?.jsonPrimitive?.contentOrNull) {
             // A tool_use block names the call up front; its arguments then
             // arrive as input_json_delta fragments against the same index.
+            // Every block is recorded, not only tool_use: a thinking block has
+            // to go back with its signature on the turn that asked for a tool.
             "content_block_start" -> {
                 val block = event["content_block"]?.jsonObject ?: return
+                buffer.anthropicBlockStart(event.index(), block)
                 if (block.text("type") != "tool_use") return
                 buffer.toolCallStart(event.index(), block.text("id"), block.text("name"))
             }
             "content_block_delta" -> {
                 val delta = event["delta"]?.jsonObject ?: return
                 when (delta["type"]?.jsonPrimitive?.contentOrNull) {
-                    "text_delta" -> buffer.answer(delta.text("text"))
-                    "thinking_delta" -> buffer.reasoning(delta.text("thinking"))
+                    "text_delta" -> {
+                        buffer.answer(delta.text("text"))
+                        buffer.anthropicDelta(event.index(), "text", delta.text("text"))
+                    }
+                    "thinking_delta" -> {
+                        buffer.reasoning(delta.text("thinking"))
+                        buffer.anthropicDelta(event.index(), "thinking", delta.text("thinking"))
+                    }
+                    "signature_delta" ->
+                        buffer.anthropicDelta(event.index(), "signature", delta.text("signature"))
                     "input_json_delta" ->
                         buffer.toolCallArguments(event.index(), delta.text("partial_json"))
                 }
@@ -994,6 +1353,11 @@ object AiClient {
         // for. Sending a huge number instead would be rejected by some.
         if (maxTokens != null) put("max_tokens", maxTokens)
         put("stream", true)
+        // The chat's Reasoning switch off (#882): the least effort every
+        // OpenAI reasoning model accepts. On leaves the model's default.
+        if (config.reasoning == false && controlsReasoning(config.provider, config.model)) {
+            put("reasoning_effort", "low")
+        }
         if (tools.isNotEmpty()) put("tools", openAiTools(tools))
         put("messages", buildJsonArray {
             add(buildJsonObject { put("role", "system"); put("content", system) })
@@ -1021,6 +1385,7 @@ object AiClient {
      * alongside whatever text it wrote first.
      */
     private fun openAiMessage(turn: ChatTurn): JsonObject = buildJsonObject {
+        val replayed = turn.replay?.get(REPLAY_OPENAI) as? JsonObject
         when {
             turn.role == ChatRole.TOOL -> {
                 put("role", "tool")
@@ -1028,6 +1393,10 @@ object AiClient {
                 put("name", turn.toolResult?.call?.name.orEmpty())
                 put("content", turn.text)
             }
+            // Sent back exactly as it came, reasoning and signatures included;
+            // see Completion.replay.
+            turn.toolCalls.isNotEmpty() && replayed != null ->
+                replayed.forEach { (key, value) -> put(key, value) }
             turn.toolCalls.isNotEmpty() -> {
                 put("role", "assistant")
                 put("content", turn.text)
@@ -1107,8 +1476,19 @@ object AiClient {
         // Reasoning models behind an OpenAI-compatible server put the think
         // stream on a side field; vLLM and DeepSeek name it reasoning_content,
         // others just reasoning.
-        buffer.reasoning(delta.text("reasoning_content").ifEmpty { delta.text("reasoning") })
+        // The field name is kept, because DeepSeek's thinking mode refuses a
+        // tool round whose assistant turn does not hand reasoning_content back.
+        val reasoningContent = delta.text("reasoning_content")
+        if (reasoningContent.isNotEmpty()) {
+            buffer.reasoning(reasoningContent, "reasoning_content")
+        } else {
+            buffer.reasoning(delta.text("reasoning"), "reasoning")
+        }
         buffer.answer(delta.text("content"))
+        // OpenRouter carries a reasoning model's signatures here instead.
+        delta["reasoning_details"]?.let { it as? JsonArray }?.forEach { entry ->
+            (entry as? JsonObject)?.let(buffer::reasoningDetail)
+        }
         // Tool calls stream as fragments keyed by index: the id and name come
         // on the first chunk for a given index, the argument JSON in pieces
         // after it. A fragment on its own is not valid JSON, which is why the
@@ -1119,6 +1499,8 @@ object AiClient {
             val function = entry["function"]?.jsonObject
             buffer.toolCallStart(index, entry.text("id"), function?.text("name").orEmpty())
             function?.text("arguments")?.let { buffer.toolCallArguments(index, it) }
+            // Gemini's OpenAI-shaped endpoint puts its thought_signature here.
+            (entry["extra_content"] as? JsonObject)?.let { buffer.toolCallExtra(index, it) }
         }
         // The last chunk of a cut-off answer carries this instead of "stop".
         val choice = event["choices"]?.jsonArray?.firstOrNull()?.jsonObject
@@ -1130,6 +1512,9 @@ object AiClient {
         turns: List<ChatTurn>,
         maxTokens: Int?,
         tools: List<AiToolSpec> = emptyList(),
+        /** The chat's Reasoning switch and the model it applies to; see [geminiThinking]. */
+        reasoning: Boolean? = null,
+        model: String = "",
     ): String = buildJsonObject {
         putJsonObject("system_instruction") {
             put("parts", buildJsonArray { add(buildJsonObject { put("text", system) }) })
@@ -1162,28 +1547,40 @@ object AiClient {
         // Left out entirely for "provider maximum", so Gemini writes up to
         // the model's own output limit. This is the setting that used to cut
         // a long answer off in the middle with nothing to say so.
-        if (maxTokens != null) {
-            putJsonObject("generationConfig") { put("maxOutputTokens", maxTokens) }
+        if (maxTokens != null || reasoning != null) {
+            putJsonObject("generationConfig") {
+                if (maxTokens != null) put("maxOutputTokens", maxTokens)
+                if (reasoning != null) put("thinkingConfig", geminiThinking(model, reasoning))
+            }
         }
     }.toString()
 
     /**
      * One Gemini content. A tool answer is a *user* part of `functionResponse`
-     * — Gemini has no tool role — and is matched to its call by name rather
-     * than by an id, which is why [AiToolCall.id] is left blank here.
+     * — Gemini has no tool role — matched to its call by the call's `id` when
+     * the model gave one (Gemini 3 does) and by name otherwise.
      */
     private fun geminiContent(turn: ChatTurn): JsonObject = buildJsonObject {
+        val replayed = turn.replay?.get(REPLAY_GEMINI) as? JsonArray
         when {
             turn.role == ChatRole.TOOL -> {
                 put("role", "user")
                 put("parts", buildJsonArray {
                     add(buildJsonObject {
                         putJsonObject("functionResponse") {
+                            // Gemini 3 numbers its calls; older models match by name.
+                            turn.toolResult?.call?.id?.takeIf { it.isNotEmpty() }?.let { put("id", it) }
                             put("name", turn.toolResult?.call?.name.orEmpty())
                             putJsonObject("response") { put("result", turn.text) }
                         }
                     })
                 })
+            }
+            // The model's own parts, signatures and all: Gemini 3 refuses a
+            // functionCall that comes back without its thoughtSignature.
+            turn.toolCalls.isNotEmpty() && replayed != null -> {
+                put("role", "model")
+                put("parts", replayed)
             }
             turn.toolCalls.isNotEmpty() -> {
                 put("role", "model")
@@ -1191,12 +1588,16 @@ object AiClient {
                     if (turn.text.isNotBlank()) {
                         add(buildJsonObject { put("text", turn.text) })
                     }
-                    for (call in turn.toolCalls) {
+                    turn.toolCalls.forEachIndexed { index, call ->
                         add(buildJsonObject {
                             putJsonObject("functionCall") {
+                                if (call.id.isNotEmpty()) put("id", call.id)
                                 put("name", call.name)
                                 put("args", argumentsObject(call))
                             }
+                            // No real signature survives a rebuilt turn, and
+                            // the first call of a step must carry one.
+                            if (index == 0) put("thoughtSignature", GEMINI_SKIP_SIGNATURE)
                         })
                     }
                 })
@@ -1229,7 +1630,10 @@ object AiClient {
         onPartial: (String) -> Unit,
         isActive: () -> Boolean,
     ): Completion {
-        val body = geminiBody(system, turns, maxTokens, tools)
+        val body = geminiBody(
+            system, turns, maxTokens, tools,
+            config.reasoning?.takeIf { controlsReasoning(config.provider, config.model) }, config.model,
+        )
         return runStream(
             source = config.netSource,
             url = ServiceEndpoints.base(ServiceEndpoint.GEMINI) + "/v1beta/models/" +
@@ -1256,11 +1660,12 @@ object AiClient {
         val parts = candidate?.get("content")?.jsonObject?.get("parts")?.jsonArray ?: return
         for (element in parts) {
             val part = element.jsonObject
+            buffer.geminiPart(part)
             // Gemini sends a whole call in one part, arguments already parsed
             // — no fragments to reassemble, unlike OpenAI and Anthropic.
             part["functionCall"]?.jsonObject?.let { call ->
                 buffer.toolCall(
-                    id = "",
+                    id = call.text("id"),
                     name = call.text("name"),
                     arguments = (call["args"] as? JsonObject)?.toString().orEmpty(),
                 )
@@ -1301,6 +1706,10 @@ object AiClient {
     ): String = buildJsonObject {
         put("model", config.model)
         put("stream", true)
+        // The chat's Reasoning switch off (#882). On sends nothing: a model
+        // that thinks does so by default, and asking one that cannot is an
+        // error.
+        if (config.reasoning == false) put("think", false)
         if (tools.isNotEmpty()) put("tools", openAiTools(tools))
         // Ollama spells the ceiling num_predict, and it sits under options
         // rather than at the top level. Left out for "provider maximum",
@@ -1326,8 +1735,12 @@ object AiClient {
             put("content", turn.text)
         }
         turn.toolCalls.isNotEmpty() -> buildJsonObject {
+            val replayed = turn.replay?.get(REPLAY_OLLAMA) as? JsonObject
             put("role", "assistant")
-            put("content", turn.text)
+            // The answer without its think block, and the thinking in its own
+            // field, which is how Ollama asks for a tool loop's history.
+            put("content", replayed?.text("content") ?: turn.text)
+            replayed?.text("thinking")?.takeIf { it.isNotEmpty() }?.let { put("thinking", it) }
             put("tool_calls", buildJsonArray {
                 for (call in turn.toolCalls) {
                     add(buildJsonObject {
@@ -1603,7 +2016,9 @@ object AiClient {
      * sends an empty object: the tool then reports its argument missing, which
      * the model can act on, where a malformed body would only 400.
      */
-    private fun argumentsObject(call: AiToolCall): JsonObject =
-        runCatching { json.parseToJsonElement(call.arguments).jsonObject }
+    private fun argumentsObject(call: AiToolCall): JsonObject = argumentsObject(call.arguments)
+
+    private fun argumentsObject(arguments: String): JsonObject =
+        runCatching { json.parseToJsonElement(arguments).jsonObject }
             .getOrDefault(JsonObject(emptyMap()))
 }

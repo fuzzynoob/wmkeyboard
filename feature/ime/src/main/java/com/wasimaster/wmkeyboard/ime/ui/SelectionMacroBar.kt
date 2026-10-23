@@ -28,6 +28,9 @@ import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.KeyboardArrowLeft
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Undo
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeUp
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ArrowDownward
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ArrowUpward
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Checklist
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ArrowOutward
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoFixHigh
@@ -52,6 +55,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FormatListNumbered
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FormatStrikethrough
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HourglassEmpty
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Language
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapHoriz
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.LinkOff
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.LocationOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.LockOpen
@@ -65,6 +69,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCode2
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SelectAll
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Share
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Repeat
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.StickyNote2
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Sms
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SortByAlpha
@@ -268,6 +273,7 @@ internal fun SelectionMacroBar(
                                 swatch = if (macro == SelectionMacro.COLOUR) offer.content.colour?.let { Color(it.argb) } else null,
                                 reduceMotion = !motion,
                                 app = if (macro == SelectionMacro.OPEN) linkApp else null,
+                                iconOnly = macro in state.settings.selectionMacros.iconOnly,
                                 onClick = {
                                     feedback()
                                     // The doors the service never sees: on prose
@@ -452,12 +458,16 @@ private fun MacroChip(
     swatch: Color?,
     reduceMotion: Boolean,
     app: MacroLinkApp? = null,
+    iconOnly: Boolean = false,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
     val shape = kb.chipShape()
     val label = if (speaking) stringResource(R.string.ime_selection_macro_stop_label) else stringResource(macro.labelRes)
     val icon = if (speaking) Icons.Outlined.StopCircle else selectionMacroIcon(macro)
+    // Its icon alone when asked for (#679), so long as it has something to
+    // show in place of the word; the description still names it.
+    val bare = iconOnly && (busy || swatch != null || app != null || icon != null)
     val description = when {
         busy -> stringResource(R.string.ime_selection_macro_busy_desc)
         app != null -> stringResource(R.string.ime_selection_macro_open_in_desc, app.name)
@@ -470,7 +480,8 @@ private fun MacroChip(
             .background(kb.chipActive)
             .chipBorder(kb, shape)
             .clickable(enabled = !busy, onClick = onClick)
-            .padding(horizontal = 10.dp, vertical = 6.dp)
+            // A bare icon stands as tall as a worded chip beside it.
+            .padding(horizontal = 10.dp, vertical = if (bare) 8.dp else 6.dp)
             .semantics { contentDescription = description },
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -505,13 +516,15 @@ private fun MacroChip(
                 tint = kb.chipActiveText,
             )
         }
-        if (busy || swatch != null || app != null || icon != null) Spacer(Modifier.width(6.dp))
-        Text(
-            text = label,
-            fontSize = 14.sp,
-            color = kb.chipActiveText,
-            maxLines = 1,
-        )
+        if (!bare) {
+            if (busy || swatch != null || app != null || icon != null) Spacer(Modifier.width(6.dp))
+            Text(
+                text = label,
+                fontSize = 14.sp,
+                color = kb.chipActiveText,
+                maxLines = 1,
+            )
+        }
         if (app != null && !busy) {
             Spacer(Modifier.width(3.dp))
             Icon(
@@ -610,6 +623,7 @@ fun selectionMacroIcon(macro: SelectionMacro): ImageVector? = when (macro) {
     SelectionMacro.DELETE -> Icons.Outlined.DeleteOutline
     SelectionMacro.SHARE -> Icons.Outlined.Share
     SelectionMacro.SAVE_NOTE -> Icons.Outlined.StickyNote2
+    SelectionMacro.REPEAT -> Icons.Outlined.Repeat
     SelectionMacro.FORMAT -> Icons.Outlined.TextFormat
     SelectionMacro.FIND -> Icons.Outlined.FindInPage
     SelectionMacro.REPLACE -> Icons.Outlined.FindReplace
@@ -617,6 +631,9 @@ fun selectionMacroIcon(macro: SelectionMacro): ImageVector? = when (macro) {
     SelectionMacro.LINES_DEDUPE -> Icons.Outlined.FilterList
     SelectionMacro.LINES_NUMBER -> Icons.Outlined.FormatListNumbered
     SelectionMacro.LINES_BULLET -> Icons.Outlined.FormatListBulleted
+    SelectionMacro.LINES_CHECKBOX -> Icons.Outlined.Checklist
+    SelectionMacro.LINES_UP -> Icons.Outlined.ArrowUpward
+    SelectionMacro.LINES_DOWN -> Icons.Outlined.ArrowDownward
     SelectionMacro.SEARCH -> Icons.Outlined.Search
     SelectionMacro.TRANSLATE -> Icons.Outlined.Translate
     SelectionMacro.GRAMMAR_FIX -> Icons.Outlined.Spellcheck
@@ -625,6 +642,7 @@ fun selectionMacroIcon(macro: SelectionMacro): ImageVector? = when (macro) {
     SelectionMacro.TO_BANGLA, SelectionMacro.TO_BANGLISH,
     SelectionMacro.TO_HINDI, SelectionMacro.TO_HINGLISH,
     -> Icons.Outlined.Language
+    SelectionMacro.ZAWGYI -> Icons.Outlined.SwapHoriz
     SelectionMacro.DIGITS_LATIN -> Icons.Outlined.Pin
     SelectionMacro.COLOUR -> Icons.Outlined.Palette
     SelectionMacro.JSON_FORMAT -> Icons.Outlined.DataObject

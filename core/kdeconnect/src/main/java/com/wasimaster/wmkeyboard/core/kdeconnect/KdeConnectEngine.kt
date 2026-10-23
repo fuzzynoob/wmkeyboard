@@ -21,7 +21,10 @@ import java.io.InputStream
 import java.io.OutputStream
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.security.MessageDigest
+import java.security.SecureRandom
 import java.security.cert.X509Certificate
+import java.util.Base64
 import javax.net.ssl.SSLSocket
 
 /**
@@ -90,6 +93,15 @@ class KdeConnectEngine(
     @Volatile private var discovering = false
     @Volatile private var running = false
 
+    /**
+     * Pins every socket this engine dials or announces from to one network;
+     * null (the default) leaves them on the system's default route. Read as
+     * each socket is created, so it may be installed before [start] or
+     * changed while running: the announce socket is made at [start], a dial
+     * socket per connection. See [KdeSocketBinder].
+     */
+    @Volatile var socketBinder: KdeSocketBinder? = null
+
     private val trust = KdeTrustStore(dir)
     private var identity: KdeLocalIdentity? = null
     private var tls: KdeTls? = null
@@ -123,9 +135,12 @@ class KdeConnectEngine(
     val battery = BatteryPlugin(host)
     val findDevice = FindDevicePlugin(host)
     val lockDevice = LockPlugin(host)
+    val codes = CodesPlugin(host)
+    val sync = WmkSyncPlugin(host)
 
     private val plugins: List<KdePlugin> = listOf(
         mousepad, clipboard, mpris, phoneMedia, volume, commands, presenter, share, ping, battery, findDevice, lockDevice,
+        codes, sync,
     )
     private val byIncoming: Map<String, List<KdePlugin>> =
         plugins.flatMap { p -> p.incoming.map { it to p } }.groupBy({ it.first }, { it.second })
@@ -164,7 +179,7 @@ class KdeConnectEngine(
         val secure = KdeTls(me, tlsProtocols)
         identity = me
         tls = secure
-        payloads = PayloadTransfer(secure, ports, traffic)
+        payloads = PayloadTransfer(secure, ports, traffic, binder = { socketBinder })
         val lan = LanTransport(
             scope = scope,
             self = ::selfInfo,
@@ -174,6 +189,7 @@ class KdeConnectEngine(
             allowLoopback = allowLoopback,
             now = now,
             log = log,
+            binder = { socketBinder },
             wantsDial = ::wantsDial,
             onLink = ::onLink,
         )
@@ -276,6 +292,84 @@ class KdeConnectEngine(
     val tcpPort: Int get() = transport?.tcpPort ?: 0
 
     // ---- pairing ----
+
+    /** The computer whose pairing code was scanned, until its link comes up. */
+    @Volatile private var pendingCode: KdePairCode? = null
+
+    /**
+     * Pairs with the computer a scanned code names: dials it straight at the
+     * address in the code (no discovery needed), and once the link is up and
+     * its certificate is the one the code vouches for, asks to pair carrying
+     * the code's token, which the computer accepts without asking. Turns
+     * discovery on, as any pairing needs; the caller turns it off again.
+     */
+    fun pairByCode(code: KdePairCode): Boolean {
+        val lan = transport ?: return false
+        if (!running) return false
+        pendingCode = code
+        setDiscovering(true)
+        scope.launch {
+            runCatching { lan.dial(InetAddress.getByName(code.host), code.port, code.deviceId, KDE_PROTOCOL_VERSION) }
+                .onFailure { log("pair by code: ${it.brief()}") }
+        }
+        return true
+    }
+
+    private fun requestPairWithToken(deviceId: String, token: String) {
+        val record = synchronized(lock) { records[deviceId] } ?: return
+        val effects = synchronized(record.pairing) { record.pairing.request(now()) }.map { effect ->
+            if (effect is KdePairing.Effect.Send && effect.packet.type == KdeTypes.PAIR) {
+                KdePairing.Effect.Send(
+                    effect.packet.copy(
+                        body = kotlinx.serialization.json.JsonObject(
+                            effect.packet.body + ("wmkToken" to kotlinx.serialization.json.JsonPrimitive(token)),
+                        ),
+                    ),
+                )
+            } else {
+                effect
+            }
+        }
+        runEffects(deviceId, record, effects)
+    }
+
+    /** The token a pairing code of ours carries, and when it stops being good. */
+    private class PairToken(val value: String, val expiresAtMs: Long)
+
+    @Volatile private var pairToken: PairToken? = null
+
+    /**
+     * Mints the one-time token for a pairing code this device shows (a QR
+     * code the other phone scans). A pair request that brings it back within
+     * [ttlMs] is accepted without a prompt: whoever scanned the code was
+     * standing at this screen, which is the question the prompt asks. One
+     * token is live at a time; issuing another retires the last. A request
+     * with a wrong or stale token is treated as any other and prompts.
+     */
+    fun issuePairToken(ttlMs: Long = DEFAULT_PAIR_TOKEN_TTL_MS): String {
+        val bytes = ByteArray(PAIR_TOKEN_BYTES)
+        SecureRandom().nextBytes(bytes)
+        val token = Base64.getUrlEncoder().withoutPadding().encodeToString(bytes)
+        pairToken = PairToken(token, now() + ttlMs)
+        return token
+    }
+
+    /** True exactly once per issued token: the token is spent whether or not pairing then completes. */
+    private fun consumePairToken(presented: String): Boolean = synchronized(lock) {
+        val live = pairToken
+        when {
+            live == null -> false
+            now() > live.expiresAtMs -> {
+                pairToken = null
+                false
+            }
+            MessageDigest.isEqual(live.value.toByteArray(Charsets.UTF_8), presented.toByteArray(Charsets.UTF_8)) -> {
+                pairToken = null
+                true
+            }
+            else -> false
+        }
+    }
 
     fun requestPair(deviceId: String) {
         val record = synchronized(lock) { records[deviceId] }
@@ -411,6 +505,19 @@ class KdeConnectEngine(
         }
         link.start()
         if (paired) plugins.forEach { p -> runCatching { p.onConnected(info.id) } }
+        // The computer a scanned code named: pair, carrying its token, if it
+        // is the very certificate the code vouched for.
+        val code = pendingCode
+        if (!paired && code != null && code.deviceId == info.id) {
+            pendingCode = null
+            if (KdePairCode.sameFingerprint(code.fingerprint, fingerprint)) {
+                requestPairWithToken(info.id, code.token)
+            } else {
+                log("pair by code: ${info.id} is not the computer the code named")
+                update(info.id) { it.copy(pairFailure = KdePairFailure.REJECTED) }
+                _events.tryEmit(KdeEvent.PairFailed(info.id, KdePairFailure.REJECTED))
+            }
+        }
     }
 
     private fun onLinkClosed(link: KdeLink) {
@@ -437,7 +544,19 @@ class KdeConnectEngine(
         val id = link.info.id
         val record = synchronized(lock) { records[id] } ?: return
         if (packet.type == KdeTypes.PAIR) {
-            apply(id, record) { it.onPacket(packet, now()) }
+            val token = packet.string("wmkToken")
+            val effects = synchronized(record.pairing) {
+                val stepped = record.pairing.onPacket(packet, now())
+                // A request carrying the live token was sent by whoever
+                // scanned our code: answer it the way the user's Accept
+                // would, instead of asking. Anything else runs as usual.
+                if (token != null && stepped.any { it is KdePairing.Effect.AskUser } && consumePairToken(token)) {
+                    stepped.filter { it !is KdePairing.Effect.AskUser } + record.pairing.accept()
+                } else {
+                    stepped
+                }
+            }
+            runEffects(id, record, effects)
             return
         }
         if (packet.type == KdeTypes.IDENTITY) return
@@ -673,6 +792,8 @@ class KdeConnectEngine(
 
     private companion object {
         const val MAX_UNPAIRED_LINKS = 42
+        const val DEFAULT_PAIR_TOKEN_TTL_MS = 10 * 60_000L
+        const val PAIR_TOKEN_BYTES = 24
         const val DUPLICATE_WINDOW_MS = 3_000L
         const val STALE_LINK_MS = 45_000L
         val ANNOUNCE_RAMP_MS = longArrayOf(1_500L, 3_500L, 5_000L)

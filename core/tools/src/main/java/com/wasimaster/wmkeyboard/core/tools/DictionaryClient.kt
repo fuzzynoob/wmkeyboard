@@ -4,6 +4,7 @@ import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import com.wasimaster.wmkeyboard.core.netlog.NetLog
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
+import com.wasimaster.wmkeyboard.core.vocab.VocabTranslation
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -36,6 +37,24 @@ data class DictEntry(
     /** URL of a pronunciation recording, or null when the API has none. */
     val audioUrl: String?,
     val meanings: List<DictMeaning>,
+    /**
+     * The word in other languages, keyed by Wiktionary language code (#764):
+     * the codes the look-up asked for that the source had. Empty for a
+     * source that carries no translations.
+     */
+    val translations: Map<String, VocabTranslation> = emptyMap(),
+    /**
+     * How the word is read when that differs from how it is written: the
+     * kana of a Japanese headword, from an imported dictionary (#765). Empty
+     * otherwise.
+     */
+    val reading: String = "",
+    /** Pitch accent downstep positions for [reading] (0 = flat), from an imported dictionary. */
+    val pitch: List<Int> = emptyList(),
+    /** An imported dictionary's frequency figure for the word, as it shows it ("1234", "★★★"). */
+    val frequency: String = "",
+    /** The imported dictionary this entry is from, for the card's "From …" line; empty for the built-in sources. */
+    val origin: String = "",
 )
 
 /**

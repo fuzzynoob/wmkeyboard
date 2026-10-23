@@ -41,7 +41,7 @@ The default letter is the tool's own initial, wherever that letter was still fre
 | <KeyCap>F</KeyCap> | Fancy text | <KeyCap>U</KeyCap> | Unit converter |
 | <KeyCap>G</KeyCap> | GIFs | <KeyCap>V</KeyCap> | Voice typing |
 | <KeyCap>H</KeyCap> | Hide keyboard | <KeyCap>W</KeyCap> | Web search |
-| <KeyCap>I</KeyCap> | Image search | <KeyCap>X</KeyCap> | Text editing |
+| <KeyCap>I</KeyCap> | Image search (web search's Images tab) | <KeyCap>X</KeyCap> | Text editing |
 | <KeyCap>J</KeyCap> | App launcher | <KeyCap>Y</KeyCap> | Special symbols |
 | <KeyCap>K</KeyCap> | Stickers | <KeyCap>Z</KeyCap> | Undo |
 | <KeyCap>L</KeyCap> | Calculator | | |
@@ -52,7 +52,7 @@ The default letter is the tool's own initial, wherever that letter was still fre
 
 <KeyCap>Space</KeyCap> after the shortcut key shows or hides the on-screen keys while only the toolbar is showing (see [Show the keys again](/typing/hardware-keyboard/#show-the-keys-again)). Anywhere else it does nothing and the keyboard vibrates.
 
-The remaining 48 tools ship with no default letter at all: KDE Connect, flashlight, compass, bubble level, redo, moon phase, weather, calendar, incognito, themes, autocorrect, sound & haptics, handwriting, camera, vocabulary, text scan (OCR), QR & barcode scanner, document scanner, grammar check, Wikipedia, currency converter, keyboard modes, typing speed test, plugins, one-handed mode, split and floating keyboard, resize, trackpad, secondary layout, keep the keyboard on screen, selection actions, every cursor-move tool, select word, select line, selection mode, and copy, cut and paste. There aren't 47 letters left to give them, so they get a <KeyCap>Shift</KeyCap>+key instead, assigned automatically in toolbox order and shown as a badge under each one while the toolbox is open. Handwriting, the three scanners and grammar checking only appear in the list at all <Flavor edition="full" />.
+The remaining 48 tools ship with no default letter at all: KDE Connect, flashlight, compass, bubble level, redo, moon phase, weather, calendar, incognito, themes, autocorrect, sound & haptics, handwriting, camera, vocabulary, text scan (OCR), QR & barcode scanner, document scanner, grammar check, Wikipedia, currency converter, keyboard modes, typing speed test, plugins, one-handed mode, split and floating keyboard, resize, trackpad, secondary layout, keep the keyboard on screen, selection actions, every cursor-move tool, select word, select line, selection mode, and copy, cut and paste. There aren't 47 letters left to give them, so they get a <KeyCap>Shift</KeyCap>+key instead, assigned automatically in toolbox order and shown as a badge under each one while the toolbox is open. Text scan only appears in the list outside the F-Droid build <Flavor edition="google" />.
 
 ## Toolbar buttons
 
@@ -119,6 +119,20 @@ The two modes reach different depths. **Alt + number** stops at nine, so a tenth
 
 The numbers count slots from the left, not the engine's ranking, so with <SettingsPath path="Typing / Best suggestion in the middle" /> on the strip still reads 1 2 3 across and <KeyCap>1</KeyCap> commits the leftmost word.
 
+### Pick mode
+
+<SettingsPath path="Typing / Physical keyboard / Pick mode key" />
+
+| Keys, while pick mode is on | Does |
+| --- | --- |
+| The pick mode key | Turns pick mode on or off |
+| <KeyCap>1</KeyCap>–<KeyCap>9</KeyCap>, <KeyCap>0</KeyCap> | Picks the suggestion in that slot, or types the number if the slot is empty |
+| <KeyCap>Shift</KeyCap>+number | Types the number |
+| <KeyCap>Shift</KeyCap>+<KeyCap>Alt</KeyCap>+number | Types the symbol on that key |
+| <KeyCap>F1</KeyCap>–<KeyCap>F10</KeyCap> | Opens all tools, then the toolbar buttons from the left, while **F-keys press the toolbar** is on **In pick mode** (the default) or **Always** |
+
+There's no pick mode key until you set one. It can be a chord, a double-tapped modifier, or <KeyCap>F1</KeyCap>–<KeyCap>F12</KeyCap> or <KeyCap>Insert</KeyCap> alone, but not the shortcut key that opens the tools.
+
 ## Driving an open panel
 
 <SettingsPath path="Typing / Physical keyboard / Arrow keys move a highlight" />
@@ -132,7 +146,7 @@ Not every panel offers the same sections, and a few offer none at all. "Actions"
 | GIFs, Stickers | Search, chips, categories, results |
 | Emoji, Clipboard, App launcher | Search, chips, results |
 | Translate | Search, chips, results, actions |
-| Dictionary, Web search, Image search, Wikipedia | Search, results |
+| Dictionary, Web search, Wikipedia | Search, results |
 | Special symbols, Grammar check | Chips, results |
 | Themes | Chips, categories, results |
 | AI writing tools | Actions, chips, results |
@@ -177,6 +191,8 @@ The physical-key behavior WM Keyboard adds on top is all on this page: the leade
 | Esc closes the tool | On |
 | Number keys select suggestions | Alt + number |
 | Show the suggestion numbers | On |
+| Pick mode key | Off |
+| F-keys press the toolbar | In pick mode |
 | macOS shortcuts | Off |
 | Ctrl+Space changes the language | On |
 | Show the keyboard for shortcuts | On |
@@ -197,7 +213,7 @@ With **Volume keys move the cursor** on, volume down and up move the text cursor
 - **Process the physical keys only governs typed characters.** Turning it off stops physical keys from running through autocorrect and suggestions, but the leader, tool shortcuts, panel navigation and Esc keep working regardless.
 - **A letter can only ever open one tool.** Capturing a letter that's already bound offers to reassign it: the other tool loses that letter the moment you confirm, so two tools can never share one. A capture takes a digit too, not only a letter, and an X on the row unbinds a tool without opening the dialog.
 - **A tool you've turned off in Tools keeps its letter, but the letter does nothing.** The row in the shortcuts list still shows the binding, labeled "This tool is off in Tools," and pressing it from the picker only vibrates instead of opening anything. The letter also drops off the cheat sheet while the tool stays disabled. A tool whose API key is missing counts as off the same way.
-- **No edition split for the mechanism itself.** The leader, the default 25-letter table and panel navigation work identically on full and lite builds. Only the five tools gated to <Flavor edition="full" /> (handwriting, the three scanners, and grammar checking) are absent from the picker on lite, the same as everywhere else in the app.
+- **No edition split for the mechanism itself.** The leader, the default 25-letter table and panel navigation work identically in every build, and every tool is in the picker on every build, the F-Droid one included.
 - **Presence detection is automatic.** WM Keyboard notices a physical keyboard attaching and detaching through the system's own configuration; nothing here needs to be told which mode it's in.
 
 For the full explanation of every setting on this page, plus what typing itself does and doesn't do on a physical keyboard, see [Hardware keyboards](/typing/hardware-keyboard/). For the toolbar setting that hides the key grid whenever a keyboard is attached, see [Appearance settings](/reference/settings/appearance/).

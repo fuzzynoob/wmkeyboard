@@ -62,7 +62,7 @@ These formats import as they are, with nothing to reformat first:
 - **`.combined` word lists**, the source format every AOSP-derived keyboard's dictionary is built from. The header line is recognised and the indented `word=the,f=222` records are read as words and frequencies, `bigram=` and `ngram=` records as word pairs, and `shortcut=` records as shortcuts.
 - **Compiled `.dict` dictionaries**, which is what HeliBoard, LeanType and FUTO download and what comes out of a GApps package. The app unpacks one into an ordinary text list at import, so the word count, the switch, the trash icon and removing a single word all work on it afterwards exactly as they do on a list you wrote yourself. Files built with a `codePointTable` read correctly.
 - **Version 4 dictionaries**, the format AOSP keyboards write on the device (a user history, for one). Each is two files, `NAME.header` and `NAME.body`: select the two together.
-- **Hunspell spelling dictionaries**, the format LibreOffice, Firefox, Chrome and macOS spell-check with, and so the one dictionary nearly every language has. Each is two files, `NAME.aff` (the rules) and `NAME.dic` (the stems): select the two together. The app unfolds them into every word they spell, each stem with all the prefixes and suffixes its rules allow, so a 200,000-stem Bosnian `.dic` imports as about 377,000 words. A LibreOffice `.oxt` or Firefox `.xpi` dictionary is a zip of the same two files and imports as it is. Compound words are not generated. Hunspell has no frequencies, so a stem ranks just above the forms made from it and both rank below every counted word. Past 600,000 words the rarest forms are left out.
+- **Hunspell spelling dictionaries**, the format LibreOffice, Firefox, Chrome and macOS spell-check with, and so the one dictionary nearly every language has. Each is two files, `NAME.aff` (the rules) and `NAME.dic` (the stems): select the two together. The app unfolds them into every word they spell, each stem with all the prefixes and suffixes its rules allow, so a 200,000-stem Bosnian `.dic` imports as about 377,000 words. A LibreOffice `.oxt` or Firefox `.xpi` dictionary is a zip of the same two files and imports as it is. Compound words are not generated. Hunspell has no frequencies, so a stem ranks just above the forms made from it and both rank below every counted word. Past 600,000 words the rarest forms are left out. The app also keeps the `.aff` and `.dic` themselves beside the list, for [Hunspell spell checking](#hunspell-spell-checking).
 - **A `.zip`**, such as a HeliBoard or LeanType backup. The app takes every dictionary out of it and leaves the rest (layouts, blacklists, images) alone.
 
 When the file holds more than words, **Choose what to import** opens first. It lists each dictionary it found, with the language code the file names, and one checkbox for each part the file has: **Words**, **Word pairs** (for next-word predictions) and **Shortcuts** (the long form shows as the first suggestion when you type the short form, the way "omw" offers "on my way"). All start checked. The word pairs and shortcuts stay with the list: its switch turns them off too, and its trash icon deletes them. They do not depend on the **Word pairs** download of the language, or on the setting for Android's dictionary shortcuts.
@@ -74,6 +74,58 @@ Only the older 402 revision of version 4 is turned down, with a message that nam
 Version 0.5.9 and earlier didn't unpack anything. They copied whatever you picked into the list as it was, so a compiled `.dict` imported back then sat on the device as raw binary and was read as tens of thousands of junk "words". Those junk words could show up as suggestions, and they also [switched glide typing off](/typing/glide-typing/#turning-it-on) for the language. After an update the keyboard repairs such a list by itself the next time it loads your word lists. A `.dict` it can read is unpacked in place, exactly as a fresh import would be: same name, same switch position, with its word pairs and shortcuts beside it. A file it can't read (one half of a version 4 dictionary, or anything else that isn't text) is switched off and reads as zero words, so it can't pollute anything. Delete that row and import the file again, both halves together for version 4.
 
 A local-file import over 32 MiB is turned down before it's even read, with "That file is too large to import." A URL import enforces the same 32 MiB cap mid-download, but every failure there, oversized file or dead link or network error alike, surfaces as "The app cannot download that list. Check the URL and try again." Only `http://` and `https://` URLs are accepted, and anything else is caught before the download starts with its own message, "The app accepts only http:// and https:// links." A successful import reports "The app added N words to `<language>`.", or lists the word pairs and shortcuts as well when there were some. An empty file reports "The app found no words in that file. Make sure that it is a word list." Every successful import or removal signals a running keyboard session to reload.
+
+### Hunspell spell checking
+
+A word list holds words, while a Hunspell dictionary also holds the rules that make new ones. German, Dutch, Hungarian and Finnish join words into compounds on the spot (`Donaudampfschifffahrt`), and no list can hold them all. So when a language has an imported Hunspell dictionary, the keyboard can also ask Hunspell itself, through a small native library:
+
+- A word Hunspell accepts is never autocorrected, and the strip offers no corrections for it, the same as a word in a list.
+- For a word Hunspell rejects, and that no list word starts with, Hunspell's own spellings join the suggestions. One a list knows ranks with the other corrections; one only Hunspell knows (a compound, mostly) ranks below the counted words.
+
+The language's **Dictionaries** section shows a **Hunspell spell checking** row once it has such a dictionary. The library comes in one download of about 4 MB with the [GiellaLT speller](#giellalt-spellers) engine and is not part of every install: where it is missing, the row carries a **Download** banner, and the keyboard spells with the word list alone until it arrives. On an F-Droid install the banner asks you to turn on library downloads under <SettingsPath path="Privacy / Downloads" /> first. Switching the list off under **Custom dictionaries** turns its Hunspell checking off too, and deleting the list deletes the two files.
+
+Only dictionaries imported with this version or later have their `.aff` and `.dic` kept. Import an older one again to use it with Hunspell.
+
+### GiellaLT spellers
+
+For many minority languages there is no Hunspell dictionary worth the name, because a word can take hundreds of forms. [GiellaLT](https://giellalt.github.io/), the language technology group at UiT The Arctic University of Norway, builds finite-state spellers for about 150 of them, North Sámi, Greenlandic and Faroese among them. A speller is one archive that knows every inflected and compound form the language allows. The keyboard checks words with it through [divvunspell](https://github.com/divvun/divvunspell), the engine Divvun's own keyboards use, and it works the same way as Hunspell checking:
+
+- A word the speller accepts is never autocorrected, and the strip offers no corrections for it.
+- For a word it rejects, and that no list word starts with, the speller's spellings join the suggestions, ranked the way Hunspell's are.
+
+A language GiellaLT builds a speller for has a **GiellaLT speller** row in its **Dictionaries** section. Where GiellaLT has made a versioned release, the row has a **Download** button that fetches that exact release from GiellaLT's GitHub and checks it against a fixed SHA-256 before unpacking it. The row gives the download size, the space the speller takes once unpacked and its licence. These are the ones it downloads:
+
+| Language | Release | Download | On the phone | Licence |
+| --- | --- | --- | --- | --- |
+| North Sámi | 4.5.2 | 10.6 MB | 79 MB | GPL-3.0 |
+| South Sámi | 4.7.0 | 2.8 MB | 25 MB | GPL-3.0 |
+| Lule Sámi | 4.5.1 | 7.9 MB | 87 MB | GPL-3.0 |
+| Inari Sámi | 1.2.1 | 6.6 MB | 62 MB | GPL-3.0 |
+| Skolt Sámi | 1.0.2 | 14.6 MB | 107 MB | LGPL-3.0 |
+| Greenlandic | 1.0.3 | 11.8 MB | 94 MB | GPL-3.0 |
+| Faroese | 1.3.1 | 4.4 MB | 34 MB | GPL-3.0 |
+| Livvi Karelian | 0.1.4 (pre-release) | 1.1 MB | 9 MB | LGPL-3.0 |
+| Kven | 0.2.1 (pre-release) | 2.6 MB | 28 MB | LGPL-3.0 |
+| Veps | 0.1.2 (pre-release) | 0.2 MB | 3 MB | LGPL-3.0 |
+
+Every other language GiellaLT builds for has only nightly builds, which are replaced on every change and so cannot be pinned. Its row has **Import** instead, and so do the rows above. Import takes a `.bhfst` speller, an older `.zhfst` one, or the whole `.pkt.tar.zst` package from a GiellaLT release page (`github.com/giellalt/lang-<code>/releases`, the `noarch-mobile` file). The app recognises the file by its contents, not its name, unpacks it if needed, and installs it only if it opens; a speller that was already there stays until the new one has. "That file is not a speller" means it is none of the three; "That speller would not open" means it is damaged or made for a newer divvunspell.
+
+The library is part of the same download as Hunspell's, about 4 MB, and the row carries the same **Download** banner until it is on the phone; on an F-Droid install, turn on library downloads under <SettingsPath path="Privacy / Downloads" /> first. A language that has both an imported Hunspell dictionary and a speller uses both: a word either accepts stands, and their spellings take turns on the strip. To stop using a speller, delete it from the row or swipe the row. The keyboard picks up a new or deleted speller straight away.
+
+The spellers are GiellaLT's work and stay under their own licences, mostly GPL-3.0 or LGPL-3.0; the app only downloads them. Irish has a versioned GiellaLT release too, but its repository states no licence yet, so it is offered for import only.
+
+### Voikko (Finnish)
+
+Finnish joins words into compounds and inflects each one in fifteen cases, with possessive endings and particles like *-kin* on top, so `kahvinkeittimessäkin` ("in the coffee maker, too") is an ordinary word that no list will ever hold. [Voikko](https://voikko.puimula.org/), the Finnish spell checker LibreOffice and Firefox use, describes the language's morphology rather than listing its words, and the keyboard checks Finnish with it:
+
+- A word Voikko accepts is never autocorrected, and the strip offers no corrections for it. That covers compounds and inflected forms (`taloissammekin`, `ylioppilastutkintolautakunta`), and capitalisation: `Helsingissä` stands, `helsingissä` does not.
+- For a word it rejects, and that no list word starts with, Voikko's spellings join the suggestions, ranked the way Hunspell's are: `kirajstossakin` gets `kirjastossakin`, `paiva` gets `päivä`.
+
+Finnish has a **Voikko spell checking** row in its **Dictionaries** section. **Download** fetches the Finnish dictionary (voikko-fi 2.6, the standard vocabulary), a 1.6 MB download that takes 4 MB on the phone, and checks it against a fixed SHA-256 before installing it. **Import** takes a Voikko dictionary you built yourself, as a zip with a `5/mor-standard` folder (or another `mor-` variant) inside; it is installed only if it loads, and the dictionary that was there stays until then. "That file is not a Voikko dictionary" means the zip has no such folder; "That dictionary would not load" means it is damaged or made for a newer Voikko.
+
+While Finnish has a Voikko dictionary, Voikko checks it in place of an imported Finnish Hunspell dictionary; the Hunspell row says so, and Hunspell takes over again once the Voikko dictionary is deleted. A GiellaLT Finnish speller, if you imported one, still works beside Voikko. The library is part of the same spelling download as Hunspell's, about 4.5 MB in all, with the same **Download** banner; on an F-Droid install, turn on library downloads under <SettingsPath path="Privacy / Downloads" /> first. The offline build has no Voikko library at all, so the row says so and Finnish uses the word lists and Hunspell there. To stop using Voikko, delete the dictionary from the row or swipe the row; the keyboard picks up the change straight away.
+
+The library is libvoikko (MPL 1.1, GPL 2 or LGPL 2.1, at your choice) and the dictionary is voikko-fi (GPL 2 or later). The app never carries either in its APK: the library is downloaded on demand, and the dictionary comes from the WM Keyboard data repository, next to the voikko-fi source release it is built from.
 
 Lists are additive, so several can sit under one language, and for English and Bangla they stack on top of the bundled dictionary rather than replacing it. That's a different mechanism from the downloadable wordlists reached from a language's own Dictionary section, which *do* replace the built-in English or Bangla list. See [Downloadable dictionaries](/languages/dictionaries/) for that pipeline, its size tiers, and the full list of every available wordlist.
 
@@ -117,7 +169,7 @@ See [Emoji search in your language](/emoji/customization/#emoji-search-in-your-l
 - **Custom dictionaries truncates malformed lines silently rather than skipping them.** The parser splits each line on its *last* space. If that trailing token isn't a number the frequency defaults to 1, but the line is still cut at that last space. A real multi-word phrase, or any word with a trailing non-numeric token, loses everything after the final space instead of importing as written. Check a hand-written list for stray trailing words before you import it.
 - **Emoji-pack URL imports report the wrong error more often than not.** Custom dictionaries tells a too-large file apart from a failed download. The emoji-pack importer doesn't. A dead link, a network error and an oversized file all show "That file is too large to import." The one failure it names correctly is a URL that isn't `http://` or `https://`, which is caught before the download and says so.
 - **The two import screens share a shape but not their limits.** Custom dictionaries caps at 32 MiB, Emoji keywords at 8 MiB. Both accept only `http://`/`https://` URLs, and both stack multiple lists per language rather than replacing what's there.
-- **None of these four screens are gated by edition.** Full and lite builds show identical dictionary, blacklist and emoji-keyword screens.
+- **None of these four screens are gated by build.** Every build shows identical dictionary, blacklist and emoji-keyword screens.
 - **Three separate stores, easy to conflate.** The personal dictionary is what you've typed. Custom dictionaries are lists you import. The blacklist is what to withhold. A word can sit in more than one at once, and the blacklist always wins as a candidate, whatever is learned or imported.
 
 ## Related pages

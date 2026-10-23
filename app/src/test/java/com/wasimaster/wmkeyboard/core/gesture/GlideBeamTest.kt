@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.gesture
 
+import com.wasimaster.wmkeyboard.core.gesture.reference.KotlinGlideBeam
+import com.wasimaster.wmkeyboard.core.gesture.reference.KotlinGlideWorkspace
 import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
 import com.wasimaster.wmkeyboard.core.prediction.Trie
 import kotlin.math.PI
@@ -28,11 +30,25 @@ class GlideBeamTest {
         "hello" to 900, "help" to 700, "held" to 300, "hell" to 200, "ho" to 400,
         "the" to 1000, "they" to 800, "then" to 700, "them" to 650,
         "was" to 900, "war" to 400, "what" to 850, "good" to 800,
-        "god" to 300, "food" to 500, "test" to 400, "text" to 350,
+        "god" to 600, "food" to 500, "test" to 400, "text" to 350,
     )
 
     private val beam = GlideBeam()
     private val workspace = GlideWorkspace()
+
+    // The loop tests read the decoder's workspace, which only the Kotlin
+    // reference decoder still keeps where a test can see it; the Rust one
+    // matches it bit for bit (`NativeGlideParityTest`).
+    private val reference = KotlinGlideBeam()
+    private val referenceWorkspace = KotlinGlideWorkspace()
+
+    private fun referenceDecode(
+        path: List<GesturePoint>,
+        from: List<FuzzyBeamSearch.WalkSource> = sources,
+        decoder: KotlinGlideBeam = reference,
+    ) {
+        decoder.decode(path, grid, keyWidth, from, referenceWorkspace, 4)
+    }
 
     private fun sourcesOf(entries: List<Pair<String, Int>>): List<FuzzyBeamSearch.WalkSource> {
         val trie = Trie().apply { entries.forEach { (word, frequency) -> insert(word, frequency) } }
@@ -221,12 +237,22 @@ class GlideBeamTest {
     }
 
     @Test
-    fun `an unmarked doubling loses to the single spelling`() {
+    fun `an unmarked doubling loses a near tie to the single spelling`() {
         // The stroke is identical either way — the o is one key, crossed once —
-        // so the only thing that can separate "good" from "god" is a mark
-        // drawn on the o. "good" is the commoner word by frequency, and that
-        // deliberately is not enough on its own.
+        // so on shape the two spellings tie. "good" is a little commoner here,
+        // and the small charge on a doubling no loop marks keeps "god" ahead:
+        // a mark on the o is what settles a close call.
         assertEquals("god", decode(gestureFor("god")).first())
+    }
+
+    @Test
+    fun `an unmarked doubling still wins when it is the far commoner word`() {
+        // Issue #886: the charge used to be worth more than a list's whole
+        // range of frequencies, so `all` lost to `al`, `been` to `ben` and
+        // `ill` to anything the stroke passed near. Frequency decides again
+        // once the doubled word is clearly the commoner one.
+        val src = sourcesOf(listOf("all" to 9000, "al" to 900))
+        assertEquals("all", decode(gestureFor("al"), from = src).first())
     }
 
     @Test
@@ -356,12 +382,12 @@ class GlideBeamTest {
         // p-o-p is the tightest reversal two adjacent keys allow: twice the
         // arc of its extent, where a loop needs two and a half. A zigzag has
         // arc to spare but its turns cancel. Only the circle reads.
-        decode(gestureFor("pop"), from = sourcesOf(listOf("pop" to 100)))
-        assertEquals(0, workspace.loopCount)
-        decode(gestureFor("what", jitter = 14f))
-        assertEquals(0, workspace.loopCount)
-        decode(loopedAt(gestureFor("god"), 'o'))
-        assertEquals(1, workspace.loopCount)
+        referenceDecode(gestureFor("pop"), from = sourcesOf(listOf("pop" to 100)))
+        assertEquals(0, referenceWorkspace.loopCount)
+        referenceDecode(gestureFor("what", jitter = 14f))
+        assertEquals(0, referenceWorkspace.loopCount)
+        referenceDecode(loopedAt(gestureFor("god"), 'o'))
+        assertEquals(1, referenceWorkspace.loopCount)
     }
 
     @Test
@@ -450,12 +476,11 @@ class GlideBeamTest {
         // A reach of 1.2 keys takes in the o and the keys around it; only the
         // nearest may be credited, or a circle on the o doubles the i and the
         // p as well (#337).
-        val wide = GlideBeam(GlideBeam.Tuning(loopRadius = 1.2f))
-        wide.decode(loopedAt(gestureFor("god"), 'o'), grid, keyWidth, sources, workspace, 4)
-        assertEquals(1, workspace.loopCount)
-        val credited = (0 until grid.keyCount).filter { workspace.keyLoop[it] > 0f }
+        referenceDecode(loopedAt(gestureFor("god"), 'o'), decoder = KotlinGlideBeam(GlideBeam.Tuning(loopRadius = 1.2f)))
+        assertEquals(1, referenceWorkspace.loopCount)
+        val credited = (0 until grid.keyCount).filter { referenceWorkspace.keyLoop[it] > 0f }
         assertEquals(listOf(grid.keyIndex('o'.code)), credited)
-        assertEquals(grid.keyIndex('o'.code), workspace.loopKey[0])
+        assertEquals(grid.keyIndex('o'.code), referenceWorkspace.loopKey[0])
     }
 
     @Test
@@ -465,17 +490,17 @@ class GlideBeamTest {
         // not pull their letters into the word; its own key, and the first
         // and last samples, stay as they were (#337).
         val stroke = loopedAt(gestureFor("god"), 'o')
-        GlideBeam(GlideBeam.Tuning(loopExclusion = 0f)).decode(stroke, grid, keyWidth, sources, workspace, 4)
-        val open = workspace.pointCost.copyOf()
-        decode(stroke)
-        assertEquals(1, workspace.loopCount)
-        val own = workspace.loopKey[0]
-        val from = workspace.loopFrom[0]
-        val to = workspace.loopTo[0]
+        referenceDecode(stroke, decoder = KotlinGlideBeam(GlideBeam.Tuning(loopExclusion = 0f)))
+        val open = referenceWorkspace.pointCost.copyOf()
+        referenceDecode(stroke)
+        assertEquals(1, referenceWorkspace.loopCount)
+        val own = referenceWorkspace.loopKey[0]
+        val from = referenceWorkspace.loopFrom[0]
+        val to = referenceWorkspace.loopTo[0]
         assertTrue("window $from..$to", to - from >= 2)
         val tuning = GlideBeam.Tuning()
         val n = grid.keyCount
-        for (j in 0 until GlideWorkspace.SAMPLE_POINTS) {
+        for (j in 0 until referenceWorkspace.samples) {
             for (k in 0 until n) {
                 val at = j * n + k
                 val expected = if (j in from + 1 until to && k != own) {
@@ -483,7 +508,7 @@ class GlideBeamTest {
                 } else {
                     open[at]
                 }
-                assertEquals("sample $j key $k", expected, workspace.pointCost[at], 1e-6f)
+                assertEquals("sample $j key $k", expected, referenceWorkspace.pointCost[at], 1e-6f)
             }
         }
     }
@@ -598,6 +623,60 @@ class GlideBeamTest {
         assertTrue("expected hello in $wide", "hello" in wide)
         val tight = wordsAt(0.5f)
         assertFalse("expected no hello in $tight", "hello" in tight)
+    }
+
+    /**
+     * #805: the slider's top end against its default, on a touch-down two and
+     * a half key widths below h. Only b and n sit within 1.6 of it and nothing
+     * in the lexicon starts with either, so 1.6 reads nothing; 4 admits h.
+     */
+    @Test
+    fun `a start radius of 4 reads a touch-down two and a half keys off the first letter`() {
+        val h = centers.getValue('h'.code)
+        val far = gestureFor("hello").toMutableList().apply {
+            this[0] = GesturePoint(h.x, h.y + 2.5f * keyWidth)
+        }
+        fun wordsAt(startRadius: Float): List<String> =
+            GlideBeam(GlideBeam.Tuning(startRadius = startRadius))
+                .decode(far, grid, keyWidth, sources, GlideWorkspace(), 4)
+                .map { it.word }
+
+        val wide = wordsAt(4f)
+        assertTrue("expected hello in $wide", "hello" in wide)
+        val shipped = wordsAt(1.6f)
+        assertFalse("expected no hello in $shipped", "hello" in shipped)
+    }
+
+    /**
+     * What #805's reporter asked for: a radius above the default widens the
+     * score, not just the gate. As a gate alone, `hello` drawn from 2.5 keys
+     * off still paid its first letter's capped location cost and the lead-in
+     * as gap, and trailed `bello`, which starts where the finger went down, by
+     * more than its hundredfold frequency lead. With the excess over 1.6
+     * forgiven on the first sample, the lead-in and the shape channel, the two
+     * fit about equally and frequency picks `hello`. At the default the slack
+     * is zero, so the shipped decoder still reads only `bello` here.
+     */
+    @Test
+    fun `a wide start radius lets a far first letter beat a rarer word the finger touched`() {
+        val h = centers.getValue('h'.code)
+        val far = gestureFor("hello").toMutableList().apply {
+            this[0] = GesturePoint(h.x, h.y + 2.5f * keyWidth)
+        }
+        val withRival = sourcesOf(lexicon + ("bello" to 9))
+        fun wordsAt(startRadius: Float): List<String> =
+            GlideBeam(GlideBeam.Tuning(startRadius = startRadius))
+                .decode(far, grid, keyWidth, withRival, GlideWorkspace(), 4)
+                .map { it.word }
+
+        val wide = wordsAt(4f)
+        val hello = wide.indexOf("hello")
+        val bello = wide.indexOf("bello")
+        assertTrue("expected hello over bello in $wide", hello >= 0 && (bello < 0 || hello < bello))
+        assertEquals(0f, GlideBeam.Tuning().startSlack, 0f)
+        assertEquals(0f, GlideBeam.Tuning().endSlack, 0f)
+        val shipped = wordsAt(1.6f)
+        assertFalse("expected no hello in $shipped", "hello" in shipped)
     }
 
     @Test

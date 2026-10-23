@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
+
+    <!-- Text scanner (OCR) panel: camera viewfinder, capture, recognized words. -->
+    <string name="ime_scanner_ocr_hint">Put the text in the frame, then press the shutter</string>
+    <!-- Over a copied picture that the OCR panel reads in place of the camera. -->
+    <string name="ime_scanner_ocr_image_hint">Press the button to read this picture</string>
+    <string name="ime_scanner_ocr_image_error">The keyboard cannot open this picture.</string>
+    <string name="ime_scanner_ocr_permission_body">The text scanner needs the camera to read printed text. Your device does all of the recognition.</string>
+    <!-- Content description of the frozen photo while the text is recognized. -->
+    <string name="ime_scanner_ocr_capture_desc">The photo of the captured text</string>
+    <string name="ime_scanner_ocr_reading_progress">Reading the text…</string>
+    <!-- Shown above the word chips when the photo held no readable text. -->
+    <string name="ime_scanner_ocr_no_text_label">No text found</string>
+    <!--
+      Count of the recognized words that the user selected.
+      %1$d is the number of selected words, %2$d is the number of words found.
+      The plural form follows %2$d, the total.
+    -->
+    <plurals name="ime_scanner_ocr_word_count">
+        <item quantity="one">%1$d/%2$d word</item>
+        <item quantity="other">%1$d/%2$d words</item>
+    </plurals>
+    <string name="ime_scanner_ocr_close_desc">Close the text scanner</string>
+    <!-- Companion of common_select_all on the same button. -->
+    <string name="ime_scanner_ocr_deselect_all_desc">Deselect all</string>
+    <string name="ime_scanner_ocr_empty">The scanner found no text. Hold the camera closer, add more light, then try again.</string>
+    <!-- Shown above the result instead of ime_scanner_ocr_no_text_label when
+         text recognition itself failed, as opposed to finding no text. -->
+    <string name="ime_scanner_ocr_failed_label">Could not read</string>
+    <string name="ime_scanner_ocr_online_unset">No online text reader is on. Add a vision model or a Rens server on the settings page of Scan text.</string>
+    <string name="ime_scanner_ocr_online_error">The online text reader did not answer, or answered with an error. Check its address (and for a vision model, the model and the key) on the settings page of Scan text.</string>
+    <string name="ime_scanner_ocr_read_error">Text recognition stopped with an error, so the scanner could not read this photo. Try again.</string>
+    <string name="ime_scanner_ocr_model_downloading">Google Play services is downloading the text reader for this script. Try again in a minute.</string>
+    <!-- Language chip on the viewfinder. %1$s is the name of a language. -->
+    <string name="ime_scanner_ocr_language_desc">Text language: <xliff:g id="language" example="Bangla">%1$s</xliff:g>. Tap to change.</string>
+    <!-- Tesseract reads a language only after its data is on the phone.
+         %1$s is the name of a language, %2$s the download size, for example "2.4 MB". -->
+    <string name="ime_scanner_library_body">The scanner needs a one-time download of its reading library, <xliff:g id="size" example="16 MB">%1$s</xliff:g>.</string>
+    <string name="ime_scanner_library_downloading">Downloading the scanner\'s reading library…</string>
+    <string name="ime_scanner_library_failed">The reading library did not download. Check the connection and try again.</string>
+    <string name="ime_scanner_library_import">This offline build cannot download the scanner library. Get it and import it in Settings › Privacy › Feature libraries.</string>
+    <string name="ime_scanner_library_consent">Feature library downloads are off. Turn them on in Settings › Privacy › Feature libraries, then try again.</string>
+    <!-- In a build without ML Kit or Tesseract (F-Droid's), for a language PaddleOCR cannot read either. %1$s is the language's name. -->
+    <string name="ime_scanner_ocr_no_reader_body">Nothing on this phone reads <xliff:g id="language" example="Bangla">%1$s</xliff:g> text in this build. Set Text recognition to Online model in the tool\'s settings to read it online.</string>
+    <string name="ime_scanner_ocr_need_pack_body">To read <xliff:g id="language" example="Bangla">%1$s</xliff:g> text, the scanner needs a one-time download of <xliff:g id="size" example="0.9 MB">%2$s</xliff:g>.</string>
+    <!-- %1$s is the name of a language. -->
+    <string name="ime_scanner_ocr_downloading_progress">Downloading the <xliff:g id="language" example="Bangla">%1$s</xliff:g> text data…</string>
+    <!-- %1$s is how much has arrived, %2$s the whole size, for example "1.2 MB of 2.4 MB". -->
+    <string name="ime_scanner_ocr_download_of_total_progress"><xliff:g id="downloaded" example="1.2 MB">%1$s</xliff:g> of <xliff:g id="total" example="2.4 MB">%2$s</xliff:g></string>
+
+    <!-- QR code and barcode scanner panel. -->
+    <string name="ime_scanner_qr_hint">Point the camera at a QR code or a barcode</string>
+    <string name="ime_scanner_qr_picture_desc">Scan a code from a picture</string>
+    <string name="ime_scanner_ocr_picture_desc">Read text from a picture</string>
+    <string name="ime_scanner_qr_picture_none">No QR code or barcode found in that picture</string>
+    <string name="ime_scanner_qr_permission_body">The scanner needs the camera to read QR codes and barcodes. Your device does all of the decoding.</string>
+    <!-- Camera zoom level pill. %1$f is the zoom, for example 2.5 for "2.5x". -->
+    <string name="ime_scanner_qr_zoom_label">%1$.1fx</string>
+    <string name="ime_scanner_qr_link_progress">Loading the link…</string>
+    <!-- Opens the scanned link in the browser. -->
+    <string name="ime_scanner_qr_open_action">Open</string>
+    <string name="ime_scanner_qr_close_desc">Close the scanner</string>
+
+    <!-- Controls that both scanner panels share. -->
+    <string name="ime_scanner_torch_desc">Torch</string>
+    <string name="ime_scanner_scan_again_action">Scan again</string>
+    <!-- Puts the scanned text into the field that the user types in. -->
+    <string name="ime_scanner_insert_action">Insert</string>
+    <string name="ime_scanner_translate_action">Translate</string>
+    <string name="ime_scanner_copied_toast">Copied</string>
+    <string name="ime_scanner_permission_action">Allow the camera</string>
+    <string name="ime_scanner_no_camera">Your device has no camera.</string>
+
+    <!--
+      Name of the barcode symbology, shown under a scanned code. The named
+      standards are proper nouns and keep their spelling in every language.
+    -->
+    <string name="ime_scanner_format_qr_code">QR code</string>
+    <string name="ime_scanner_format_aztec" translatable="false">Aztec</string>
+    <string name="ime_scanner_format_codabar" translatable="false">Codabar</string>
+    <string name="ime_scanner_format_code_39" translatable="false">Code 39</string>
+    <string name="ime_scanner_format_code_93" translatable="false">Code 93</string>
+    <string name="ime_scanner_format_code_128" translatable="false">Code 128</string>
+    <string name="ime_scanner_format_data_matrix" translatable="false">Data Matrix</string>
+    <string name="ime_scanner_format_ean_8" translatable="false">EAN-8</string>
+    <string name="ime_scanner_format_ean_13" translatable="false">EAN-13</string>
+    <string name="ime_scanner_format_itf" translatable="false">ITF</string>
+    <string name="ime_scanner_format_pdf417" translatable="false">PDF417</string>
+    <string name="ime_scanner_format_upc_a" translatable="false">UPC-A</string>
+    <string name="ime_scanner_format_upc_e" translatable="false">UPC-E</string>
+    <!-- Fallback name when the code is of a format that has no name here. -->
+    <string name="ime_scanner_format_generic">Barcode</string>
+
+    <!-- Document scanner trampoline (DocScanActivity). -->
+    <!-- The built-in document scanner (PageScanActivity), used where Google's is missing. -->
+    <plurals name="ime_docscan_pages_shared">
+        <item quantity="one">The app did not take the last page here, so it opens in the app\'s share screen</item>
+        <item quantity="other">The app did not take <xliff:g id="count" example="3">%d</xliff:g> pages here, so they open together in the app\'s share screen</item>
+    </plurals>
+    <string name="ime_docscan_library_body">The document scanner needs a one-time download of its library.</string>
+    <string name="ime_docscan_library_body_sized">The document scanner needs a one-time download of its library, <xliff:g id="size" example="2.4 MB">%1$s</xliff:g>.</string>
+    <string name="ime_docscan_library_downloading">Downloading the document scanner…</string>
+    <string name="ime_docscan_library_failed">The scanner did not download. Check the connection and try again.</string>
+    <string name="ime_docscan_library_unavailable">The document scanner does not run on this phone.</string>
+    <string name="ime_docscan_open_settings">Open settings</string>
+    <string name="ime_docscan_camera_permission">Allow the camera to scan a page, or pick a photo of one.</string>
+    <string name="ime_docscan_allow_camera">Allow the camera</string>
+    <string name="ime_docscan_pick_photo">Pick a photo</string>
+    <string name="ime_docscan_torch_desc">Light</string>
+    <string name="ime_docscan_done_count">Done · <xliff:g id="count" example="2">%1$d</xliff:g></string>
+    <string name="ime_docscan_adjust_hint">Drag a corner if it missed the page.</string>
+    <string name="ime_docscan_adjust_not_found">No page found. Drag the corners onto it.</string>
+    <string name="ime_docscan_retake">Retake</string>
+    <string name="ime_docscan_whole">Whole picture</string>
+    <string name="ime_docscan_detected">Found page</string>
+    <string name="ime_docscan_next">Crop</string>
+    <string name="ime_docscan_page_number">Page <xliff:g id="number" example="1">%1$d</xliff:g></string>
+    <string name="ime_docscan_filter_original">Original</string>
+    <string name="ime_docscan_filter_colour">Colour</string>
+    <string name="ime_docscan_filter_grey">Grey</string>
+    <string name="ime_docscan_filter_bw">Black and white</string>
+    <string name="ime_docscan_rotate_desc">Turn</string>
+    <string name="ime_docscan_add_page">Add page</string>
+    <string name="ime_docscan_discard_title">Send the scanned pages?</string>
+    <plurals name="ime_docscan_discard_body">
+        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> page is scanned and not sent yet.</item>
+        <item quantity="other"><xliff:g id="count" example="2">%1$d</xliff:g> pages are scanned and not sent yet.</item>
+    </plurals>
+    <string name="ime_docscan_send">Send</string>
+    <string name="ime_docscan_discard">Discard</string>
+    <string name="ime_docscan_photo_error">That picture could not be read.</string>
+    <string name="ime_docscan_capture_error">The camera could not take the picture.</string>
+    <string name="ime_docscan_crop_error">The page could not be flattened. Move the corners and try again.</string>
+    <string name="ime_docscan_save_error">The page could not be saved.</string>
+    <string name="ime_docscan_unavailable_error">The document scanner is not available. It needs Google Play services.</string>
+
+</resources>

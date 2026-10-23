@@ -31,10 +31,12 @@ enum class KdeLinkLifetime {
  */
 data class KdeConnectSettings(
     /**
-     * The master switch, off until the user presses Turn on in the panel.
-     * Nothing announces itself on the network, or listens to it, before that.
+     * The master switch. On by default, so a computer with WM Keyboard can be
+     * paired by scanning its code and then sync with this phone. On costs
+     * nothing by itself: the engine opens no socket until something is
+     * paired or the user is looking for a device (see KdeConnectHub).
      */
-    val enabled: Boolean = false,
+    val enabled: Boolean = true,
     /** The name computers show for this phone; blank uses the phone's model. */
     val deviceName: String = "",
     val lifetime: KdeLinkLifetime = KdeLinkLifetime.KEYBOARD,
@@ -44,6 +46,13 @@ data class KdeConnectSettings(
     val clipboardReceive: Boolean = true,
     /** Text copied on the phone is sent to the computer. Sensitive clips never are, by themselves. */
     val clipboardSend: Boolean = true,
+    /**
+     * Minutes a password or code received from the computer stays on the
+     * phone's clipboard before it is cleared (#704); 0 leaves it there. The
+     * computer's copy is wanted for one paste, and every app can read the
+     * clipboard for as long as it sits there.
+     */
+    val clearSecretsMinutes: Int = 1,
     /** The computer's keyboard may type into the focused field while this keyboard is showing. */
     val remoteTyping: Boolean = true,
     /**
@@ -63,6 +72,12 @@ data class KdeConnectSettings(
     val padHaptics: Boolean = true,
     /** Tell the computer the phone's charge. */
     val batteryReport: Boolean = true,
+    /**
+     * Send the one-time codes found in notifications to the computer. Off by
+     * default: a code is a secret for the minutes it is valid. Needs the
+     * phone's own Codes from notifications on, which is what reads them.
+     */
+    val sendCodes: Boolean = false,
     /** Offer what the phone is playing to the computer as a media player. Needs notification access. */
     val exposeMedia: Boolean = true,
     /** Show "Send to computer" in other apps' share sheets once something is paired. */
@@ -79,5 +94,6 @@ data class KdeConnectSettings(
     companion object {
         val PAD_SPEED_RANGE = 0.3f..3f
         const val MAX_HOSTS = 12
+        const val MAX_CLEAR_SECRETS_MINUTES = 30
     }
 }

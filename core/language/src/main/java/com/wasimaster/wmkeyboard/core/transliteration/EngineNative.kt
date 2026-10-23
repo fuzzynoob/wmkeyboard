@@ -1,68 +1,24 @@
 package com.wasimaster.wmkeyboard.core.transliteration
 
-import java.io.File
+import com.wasimaster.wmkeyboard.core.engine.NativeEngine
 
 /**
  * JNI surface of the text engines: libwm_engine_jni, built from
  * `native/wm-engine-jni` over the `native/wm-engine` crate, which is the one
  * implementation of the phonetic engines the Android app and WMK Desktop
  * share. The Kotlin objects in this package ([AvroPhonetic], [Khipro],
- * [BijoyAnsi] and the rest) are facades over these calls and keep the
+ * [BijoyAnsi], [Zawgyi] and the rest) are facades over these calls and keep the
  * signatures the rest of the app always had.
  *
- * On a device the library is in the base APK, so `System.loadLibrary` finds
- * it. In a JVM unit test it is the host build `native/wm-engine-jni/build-host.sh`
- * makes, found by walking up from the test's working directory to
- * `settings.gradle.kts`; the Gradle test tasks of the modules that touch the
- * engine run that script first. `-Dwmkeyboard.engine.lib=<path>` or
- * `WM_ENGINE_LIB` name a library outright.
+ * [NativeEngine] loads the library, on a device and in a JVM test alike.
  *
  * Strings cross as they are; enums cross as ordinals in declaration order,
  * which the Rust side mirrors, so neither enum may be reordered on its own.
  * A panic inside an engine comes back as a [RuntimeException].
  */
 internal object EngineNative {
-    const val LIBRARY = "wm_engine_jni"
-
     init {
-        load()
-    }
-
-    private fun load() {
-        val explicit = System.getProperty("wmkeyboard.engine.lib") ?: System.getenv("WM_ENGINE_LIB")
-        if (!explicit.isNullOrEmpty()) {
-            System.load(explicit)
-            return
-        }
-        // ART reports itself as Dalvik; Robolectric runs on a desktop JVM.
-        if (System.getProperty("java.vm.name") == "Dalvik") {
-            System.loadLibrary(LIBRARY)
-            return
-        }
-        val host = hostLibrary() ?: error(
-            "libwm_engine_jni is not built for this machine: run native/wm-engine-jni/build-host.sh " +
-                "(needs cargo), or point -Dwmkeyboard.engine.lib at a build of it",
-        )
-        System.load(host.absolutePath)
-    }
-
-    /** The host build under the repo's `native/wm-engine-jni/target`, release first. */
-    private fun hostLibrary(): File? {
-        val names = listOf("libwm_engine_jni.dylib", "libwm_engine_jni.so", "wm_engine_jni.dll")
-        var dir: File? = File("").absoluteFile
-        while (dir != null) {
-            if (File(dir, "settings.gradle.kts").isFile) {
-                for (profile in listOf("release", "debug")) {
-                    for (name in names) {
-                        val file = File(dir, "native/wm-engine-jni/target/$profile/$name")
-                        if (file.isFile) return file
-                    }
-                }
-                return null
-            }
-            dir = dir.parentFile
-        }
-        return null
+        NativeEngine.requireLoaded()
     }
 
     // Phonetic engines.
@@ -95,6 +51,13 @@ internal object EngineNative {
     external fun bijoy(text: String, version: Int, before: String): String
     external fun bijoyNeedsConversion(text: String): Boolean
 
+    // Zawgyi.
+    external fun zawgyiToUnicode(text: String): String
+    external fun zawgyiFromUnicode(text: String): String
+    external fun zawgyiConvertEitherWay(text: String): String
+    external fun zawgyiProbability(text: String): Double
+    external fun zawgyiConfident(text: String): Boolean
+
     // Bengali graphemes. Lengths are UTF-16 units; `previous` is a code point or -1.
     external fun clusterDeleteLength(text: String): Int
     external fun vowelFormAfter(previous: Int): Int
@@ -110,4 +73,18 @@ internal object EngineNative {
     external fun urduRomanize(text: String): String
     external fun urduRomanizeWord(word: String): String
     external fun urduNormalize(text: String): String
+
+    // Linker. Null on success, the linker's message otherwise.
+    external fun dlopen(path: String): String?
+}
+
+/**
+ * Opens a downloaded native library with a plain `dlopen` from this always-
+ * shipped library, for the native delivery of non-Play builds: see
+ * `NativePreload` in :core:common, which is handed this function at startup
+ * because it sits below this module.
+ */
+object NativeLinker {
+    /** Null on success, the dynamic linker's message otherwise. */
+    fun dlopen(path: String): String? = EngineNative.dlopen(path)
 }

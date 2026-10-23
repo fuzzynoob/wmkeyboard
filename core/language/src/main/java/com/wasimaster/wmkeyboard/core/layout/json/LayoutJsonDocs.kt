@@ -76,6 +76,8 @@ object LayoutJsonDocs {
             "The number row above this grid, when that setting is on. Leave it out for the digits the layer always shows.",
         "LayerSpec.fillRow" to
             "On the symbols layer, the row shown in place of the digit row while the number row is on. Leave it out for = \\ < > [ ] { } | ~.",
+        "LayerSpec.arrowRow" to
+            "The arrow keys row under this grid, when that setting is on. Leave it out for the four arrows in the setting's order.",
         "LayerSpec.rowHeights" to "A height for each row, in the order of rows. 1 is the standard height, and a row with no entry is 1.",
         "LayerSpec.fontScale" to
             "This layer's own label size, in place of the layout's. Useful for a symbols page that stays small while the letters grow.",
@@ -116,6 +118,9 @@ object LayoutJsonDocs {
         "Key.role" to "Which punctuation slot this key fills, so an email or web address field can change it to @ or /.",
         "Key.icon" to "The name of an icon to draw in place of the label. The label still names the key for a screen reader.",
         "Key.iconHint" to "The name of an icon to draw as the corner hint, in place of the first alternate.",
+        "Key.hint" to
+            "Text to draw as the corner hint, in place of the first alternate, such as ,?! on a full stop. It changes " +
+            "only what the corner shows, not what a hold types. iconHint wins when both are set.",
         "Key.iconBesideLabel" to "On the space bar, draws the icon before the language name instead of in its place.",
         "Key.hideHint" to "Draws no corner hint on this key, even when it has alternates.",
         "Key.forceHint" to "Draws this key's corner hint even when hints are off in the settings. hideHint wins when both are on.",
@@ -187,6 +192,10 @@ object LayoutJsonDocs {
             "Shows another of this layout's own grids: the page key of a layout spread over several pages. " +
                 "Naming the letters layer, or a layer this layout does not have, goes back to the letters.",
         "action:layer.layer" to "The layer's name, as it is spelled under \"layers\".",
+        "action:mode" to
+            "Switches to one of your keyboard modes, the same as picking it on the Modes panel. A second press goes back to " +
+                "automatic.",
+        "action:mode.id" to "The id of the keyboard mode.",
         "action:mod" to "Ctrl, Alt or Meta for the next key. Tap to arm it, and tap again to lock it.",
         "action:mod.key" to "Which modifier.",
         "action:send_key" to "Sends a key press to the app, such as Tab, Escape or an arrow.",

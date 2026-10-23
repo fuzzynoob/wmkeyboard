@@ -43,4 +43,14 @@ class SuggestionHoldCallbacks(
      * its strip position, and earlier, later or never.
      */
     val onCandidateAdjust: (candidate: String, index: Int, adjustment: CandidateAdjustment) -> Unit = { _, _, _ -> },
+    /**
+     * A held word was slid and let go (#790): set its rank to [steps], or,
+     * when [block], put it on the never-suggest list.
+     */
+    val onRankSlide: (word: String, steps: Int, block: Boolean) -> Unit = { _, _, _ -> },
+    /**
+     * A recent-bar word's alternative was picked (#787, #842): put
+     * [replacement] where [word] stands, the occurrence that starts at [start].
+     */
+    val onRecentPick: (start: Int, word: String, replacement: String) -> Unit = { _, _, _ -> },
 )

@@ -159,6 +159,8 @@ object BuiltInLayouts {
 
     /**
      * Khipro (ক্ষিপ্র), Bengali composed from lowercase keys (issue #400).
+     * Named Khipro Classic, as the Khipro team has called it since Khipro
+     * Dark came out (#892).
      *
      * The grid follows the Khipro team's own guideline for touchscreens, which
      * HeliBoard and Borno also follow: Khipro never needs shift, so the shift
@@ -172,7 +174,7 @@ object BuiltInLayouts {
      */
     val KHIPRO = LayoutSpec(
         id = KHIPRO_ID,
-        name = "Khipro",
+        name = "Khipro Classic",
         langId = "bn",
         composer = ComposerType.KHIPRO,
         layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(khiproRows)),
@@ -207,7 +209,7 @@ object BuiltInLayouts {
         id = PROBHAT_ID,
         name = "প্রভাত (Probhat)",
         langId = "bn",
-        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(probhatRows)),
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(DigitHints.fill(probhatRows))),
     )
 
     /**
@@ -221,7 +223,7 @@ object BuiltInLayouts {
         id = JATIYA_ID,
         name = "জাতীয় (National)",
         langId = "bn",
-        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(jatiyaRows)),
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(DigitHints.fill(jatiyaRows))),
     )
 
     /** French shares AZERTY's key grid; the modes differ in language, not keys. */
@@ -270,7 +272,7 @@ object BuiltInLayouts {
         name = "한국어 (2-beolsik)",
         langId = "ko",
         composer = ComposerType.HANGUL,
-        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(koreanRows)),
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(DigitHints.fill(koreanRows))),
     )
 
     /** Russian ЙЦУКЕН: the standard Cyrillic phone layout; shift uppercases. */
@@ -290,7 +292,7 @@ object BuiltInLayouts {
         id = ARABIC_ID,
         name = "العربية",
         langId = "ar",
-        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(arabicRows)),
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(DigitHints.fill(arabicRows))),
     )
 
     /** Greek: the national layout; shift uppercases, tonos vowels on long-press. */
@@ -298,7 +300,7 @@ object BuiltInLayouts {
         id = GREEK_ID,
         name = "Ελληνικά",
         langId = "el",
-        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(greekRows)),
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(DigitHints.fill(greekRows))),
     )
 
     /**
@@ -310,7 +312,7 @@ object BuiltInLayouts {
         id = HEBREW_ID,
         name = "עברית",
         langId = "he",
-        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(hebrewRows)),
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(DigitHints.fill(hebrewRows))),
     )
 
     /**
@@ -322,7 +324,7 @@ object BuiltInLayouts {
         id = HINDI_ID,
         name = "हिन्दी",
         langId = "hi",
-        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(hindiRows)),
+        layers = mapOf(LayoutLayer.LETTERS.key to LayerSpec(DigitHints.fill(hindiRows))),
     )
 
     /**
@@ -993,20 +995,33 @@ private val koreanRows = listOf(
 )
 
 // Russian ЙЦУКЕН. Cyrillic has case, so shift uppercases the labels (no
-// per-key shiftLabel needed); ё and ъ ride long-press.
+// per-key shiftLabel needed). Digits ride the top row and symbols the other
+// two, as QWERTY's do, so the corner hints match it; ё and ъ follow the
+// symbol on their keys' long-press, as QWERTY's accents do.
 private val russianRows = listOf(
     listOf(
-        Key("й"), Key("ц"), Key("у"), Key("к"), Key("е", longPress = listOf("ё")),
-        Key("н"), Key("г"), Key("ш"), Key("щ"), Key("з"), Key("х"),
+        Key("й", longPress = listOf("1")), Key("ц", longPress = listOf("2")),
+        Key("у", longPress = listOf("3")), Key("к", longPress = listOf("4")),
+        Key("е", longPress = listOf("5", "ё")), Key("н", longPress = listOf("6")),
+        Key("г", longPress = listOf("7")), Key("ш", longPress = listOf("8")),
+        Key("щ", longPress = listOf("9")), Key("з", longPress = listOf("0")),
+        Key("х", longPress = listOf("ъ")),
     ),
     listOf(
-        Key("ф"), Key("ы"), Key("в"), Key("а"), Key("п"), Key("р"),
-        Key("о"), Key("л"), Key("д"), Key("ж"), Key("э"),
+        Key("ф", longPress = listOf("@")), Key("ы", longPress = listOf("#")),
+        Key("в", longPress = listOf("$", "₽")), Key("а", longPress = listOf("_")),
+        Key("п", longPress = listOf("&")), Key("р", longPress = listOf("-")),
+        Key("о", longPress = listOf("+")), Key("л", longPress = listOf("(")),
+        Key("д", longPress = listOf(")")), Key("ж", longPress = listOf("/")),
+        Key("э", longPress = listOf("=")),
     ),
     listOf(
         Key("⇧", action = KeyAction.Shift, width = 1.5f),
-        Key("я"), Key("ч"), Key("с"), Key("м"), Key("и"), Key("т"),
-        Key("ь", longPress = listOf("ъ")), Key("б"), Key("ю"),
+        Key("я", longPress = listOf("*")), Key("ч", longPress = listOf("\"")),
+        Key("с", longPress = listOf("'")), Key("м", longPress = listOf(":")),
+        Key("и", longPress = listOf(";")), Key("т", longPress = listOf("!")),
+        Key("ь", longPress = listOf("?", "ъ")), Key("б", longPress = listOf("«", "»")),
+        Key("ю", longPress = listOf("»", "«")),
         Key("⌫", action = KeyAction.Delete, width = 1.5f),
     ),
     bottomRow(),

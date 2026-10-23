@@ -39,6 +39,8 @@ Three layers, the same three Hindi and Urdu phonetic use, in this order:
 2. **The language's word list, if you've downloaded it.** What you typed and every word on the list are reduced to a loose key that forgets what roman spelling never says (vowel length, dental against retroflex, aspiration, the letters a script keeps for its loanwords) and keeps those details only to rank the candidates. With the list installed, the right word comes first for most chat spellings: Marathi 90%, Gujarati 82%, Telugu 78%, Punjabi 75%, Kannada 60%, Malayalam 56%, Odia 54%, Tamil 48% (measured on about 200 everyday chat spellings per language).
 3. **The rules alone**, for every word that's in neither. They make the likelier guess, and the strip offers the other readings next to it, such as the same spelling with a vowel read long or with a different closing vowel, so you can tap the one you meant.
 
+Folding a whole word list into those keys is work, and a phone that does it at every keyboard start spends tens of megabytes on it. So the [data repository](https://github.com/wasi-master/wmkeyboard-data) does it once, ahead of time, for every language here and for Hindi and Urdu, and publishes the result beside the word list (`<code>_phonetic_v1r1.wmpi.gz`, 1 to 5&nbsp;MB). The keyboard fetches it right after the word list and reads it in place from storage, so it costs almost no memory. Only lists you imported yourself are still folded on the phone. Until the file is there (no connection, or the build with no internet), the keyboard folds the downloaded list itself, as it always did. You can import the file instead: it is in the language's language pack, and [Offline imports](/privacy/offline/) installs it.
+
 The rules alone get about half of everyday words exactly right: Tamil 66%, Kannada and Malayalam 60%, Marathi 57%, Punjabi 57%, Gujarati 55%, Telugu 53%, Odia 42%, Persian 67%, Arabic 46%. The rest are lexical facts no rule can know, which is what the first two layers are for.
 
 In the first two layers the words before count too: one spelling can stand for several words, and the one or two you typed just before move up the reading that usually follows them, on the strip and for what space writes. The evidence is your own typing (every word pair you commit is remembered) and the language's word-pair data, which all eleven have as a 1 to 2&nbsp;MB download in the language's **Dictionaries** group, next to the word list. Without it, it is your own habits only, and those start empty. A known spelling only ever trades places with another known spelling of the same buffer. <SettingsPath path="Languages & layouts / your language / Spellings / Use the words before" /> turns it off.
@@ -46,6 +48,55 @@ In the first two layers the words before count too: one spelling can stand for s
 :::note
 None of this is part of autocorrect, and the autocorrect toggle doesn't control it. The known-spellings list has its own switch, <SettingsPath path="Languages & layouts / your language / Spellings / Use known spellings" />, and so does a space committing a dictionary word instead of the rules' spelling: **Correct to dictionary words** in the same group.
 :::
+
+## Neural suggestions
+
+<SettingsPath path="Languages & layouts / your language / Suggestion strip / Neural suggestions" />
+
+The three layers above know the words their lists know and the spellings their rules expect. Loose spellings fall between them: `valobashi`, `bhalobasi` and `bhalobaashi` are all ভালোবাসি to anyone who reads Bangla. **Neural suggestions** adds a fourth source for that, IndicXlit, a transliteration model by [AI4Bharat](https://github.com/AI4Bharat/IndicXlit) that learned from millions of romanized words how people write 21 Indic languages in Latin letters. It is off by default, and it is the same switch on every language that has it: Bangla, Hindi, Urdu, Assamese, Marathi, Gujarati, Punjabi, Odia, Tamil, Telugu, Kannada and Malayalam.
+
+Turned on, the strip shows up to three of the model's readings right after the word the space bar writes. Readings that are in the language's word list come first. The word the space bar writes never changes (unless you turn on [Let it choose the word](#let-it-choose-the-word)), and the model never corrects anything by itself: its readings are only offered, and a tap writes one. So it helps most when you scroll or glance past the first word, and costs nothing when the first word was already right.
+
+Measured on held-out words, the right word in the first four places of the strip:
+
+| Language | Without | With |
+|---|---:|---:|
+| Bangla, chat spellings the known-spellings list doesn't have | 52% | 80% |
+| Hindi, chat spellings the known-spellings list doesn't have | 88% | 93% |
+| Bangla, Aksharantar test words | 30% | 80% |
+| Hindi, Aksharantar test words | 55% | 84% |
+| Urdu | 43% | 73% |
+| Marathi | 60% | 86% |
+| Gujarati | 58% | 87% |
+| Punjabi | 55% | 75% |
+| Odia | 33% | 66% |
+| Tamil | 39% | 81% |
+| Telugu | 57% | 90% |
+| Kannada | 51% | 89% |
+| Malayalam | 32% | 77% |
+
+The other languages were measured on 2,000 words of the Aksharantar test set each, with the language's word list installed. Aksharantar spells long vowels doubled (`aa`, `ee`), which Avro reads differently from most of these layouts, so Bangla's Aksharantar row starts low; the chat rows are the fairer picture for Bangla.
+
+The model is one download of 13&nbsp;MB, shared by every language, from the data repository's `models` release on GitHub, checked against a SHA-256 built into the app. It also needs ONNX Runtime, the same part [Offline Sherpa](/tools/sherpa/) runs on, about 33&nbsp;MB, which the Google Play build gets from Play and the other builds from Maven Central. Turning the setting on starts both downloads under one progress bar, runtime first, and the size the switch quotes counts the runtime until it is on the phone, so a first download reads about 46&nbsp;MB rather than 13. The row under it shows how far they are and starts them again after a failure; once the model is here, tapping the row or swiping it offers to delete it. Deleting turns neural suggestions off on every language that had them; the model is also a row of its own under **Downloads** on the storage screen. Everything runs on the phone, on a thread of its own, and nothing you type leaves it. A reading that takes longer than the strip can wait for appears a moment later, while you are still on the word.
+
+### Let it choose the word
+
+<SettingsPath path="Languages & layouts / Bangla or Hindi / Suggestion strip / Let it choose the word" />
+
+Bangla and Hindi have a second switch, under Neural suggestions and off by default. With it on, the model may also pick what the space bar writes, but only in one case: the rules spell something that is not a word in the language's word list or among your own words, and the known-spellings list has nothing for what you typed. Then the model's best reading that is in the word list goes first in the strip, and a space writes it. The rules' spelling moves to second place, one tap away. Whenever the rules spell a known word, or the known-spellings list has the spelling, nothing changes.
+
+The text in the field still shows the rules' spelling while you type, as it does when the space bar is about to write a dictionary word that sounds the same. The strip's first word is what a space writes. If you press space before the model has answered, the keyboard waits up to 30&nbsp;ms for it, so typing fast does not change which word you get.
+
+Measured with the known-spellings list on, how often the space bar writes the right word:
+
+| Words | Without | With | Made worse |
+|---|---:|---:|---:|
+| Bangla, Aksharantar test words (4,000) | 25.0% | 56.4% | 22 |
+| Bangla, chat spellings the known-spellings list doesn't have (2,500) | 41.8% | 52.8% | 31 |
+| Hindi, Aksharantar test words (4,000) | 40.9% | 48.6% | 24 |
+| Hindi, chat spellings the known-spellings list doesn't have (692) | 78.2% | 80.1% | 0 |
+
+What it gives up is Avro's rule that the space bar writes exactly what you spelled. A name or rare word spelled exactly to the rules, but missing from the word list, can turn into a listed word that looks like it: `ananto` আনান্ত becomes অনন্ত, `bharotpur` ভারতপুর becomes ভরতপুর. On words spelled exactly to the rules and missing from the list, that happened to about one in six in Bangla and one in fifteen in Hindi. For words the list has, it happened to 2 of 305 in Bangla and none of 427 in Hindi. Urdu gained one point, too little for that trade, so it does not have the switch. It does nothing while the strip is fixed to the word as typed, or while desktop Avro's candidate list is shown in its own row, since the first word there would then disagree with the space bar.
 
 ## What each language does
 

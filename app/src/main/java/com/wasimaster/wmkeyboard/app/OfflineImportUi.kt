@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CheckCircle
@@ -97,8 +98,16 @@ internal fun OfflineImportRow(
     if (showLinks) OfflineLinksDialog(links) { showLinks = false }
 }
 
-/** The picker, the running import and its report, for any surface that starts one. */
-internal class OfflineImportRunner(val pick: () -> Unit, val running: Boolean)
+/**
+ * The picker, the running import and its report, for any surface that starts
+ * one. [install] skips the picker, for files that are already in hand: one
+ * opened from a file manager or a chat app.
+ */
+internal class OfflineImportRunner(
+    val pick: () -> Unit,
+    val install: (List<Uri>) -> Unit,
+    val running: Boolean,
+)
 
 /** A language the import holds several word lists for, waiting on the user to pick one. */
 private class WordlistChoice(
@@ -111,14 +120,15 @@ private class WordlistChoice(
 internal fun rememberOfflineImport(
     wordlistSize: DictionaryCatalog.DictionarySize = DictionaryCatalog.DictionarySize.LARGE,
     onImported: () -> Unit = {},
+    onReportDismissed: () -> Unit = {},
 ): OfflineImportRunner {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     var working by remember { mutableStateOf<String?>(null) }
     var report by remember { mutableStateOf<List<OfflineImport.Outcome>?>(null) }
     var choice by remember { mutableStateOf<WordlistChoice?>(null) }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments()) { uris ->
-        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+    val install: (List<Uri>) -> Unit = install@{ uris ->
+        if (uris.isEmpty()) return@install
         working = ""
         scope.launch {
             val outcomes = withContext(Dispatchers.IO) {
@@ -138,6 +148,7 @@ internal fun rememberOfflineImport(
             if (outcomes.any { it.ok }) onImported()
         }
     }
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(), install)
     val pending = choice
     if (pending != null) {
         WordlistChoiceDialog(pending) { picked ->
@@ -147,8 +158,17 @@ internal fun rememberOfflineImport(
     } else {
         working?.let { OfflineImportProgress(it) }
     }
-    report?.let { OfflineImportReport(it) { report = null } }
-    return OfflineImportRunner(pick = { launcher.launch(arrayOf("*/*")) }, running = working != null)
+    report?.let {
+        OfflineImportReport(it) {
+            report = null
+            onReportDismissed()
+        }
+    }
+    return OfflineImportRunner(
+        pick = { launcher.launch(arrayOf("*/*")) },
+        install = install,
+        running = working != null,
+    )
 }
 
 /**
@@ -275,10 +295,11 @@ private fun OfflineImportReport(outcomes: List<OfflineImport.Outcome>, onDismiss
  * Where to fetch [links] on another device: each one opens in the browser or
  * copies, and **Share** sends the whole list to wherever the user will do the
  * downloading. The browser does the fetching, so this works in a build that
- * cannot reach the network itself.
+ * cannot reach the network itself. [onImport], when given, adds **Import**
+ * for the files once they are on the phone.
  */
 @Composable
-internal fun OfflineLinksDialog(links: List<OfflineLink>, onDismiss: () -> Unit) {
+internal fun OfflineLinksDialog(links: List<OfflineLink>, onImport: (() -> Unit)? = null, onDismiss: () -> Unit) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -294,13 +315,17 @@ internal fun OfflineLinksDialog(links: List<OfflineLink>, onDismiss: () -> Unit)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {
                             Text(link.label, style = MaterialTheme.typography.bodyLarge)
-                            Text(
-                                link.url.substringAfterLast('/'),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
+                            // The whole address, selectable, so it can be read
+                            // off or copied in part as well as by the button (#665).
+                            SelectionContainer {
+                                Text(
+                                    link.url,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    maxLines = 3,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                         IconButton(onClick = { copyLink(context, link.url) }) {
                             Icon(Icons.Outlined.ContentCopy, stringResource(R.string.offline_import_copy_link_desc))
@@ -317,7 +342,14 @@ internal fun OfflineLinksDialog(links: List<OfflineLink>, onDismiss: () -> Unit)
                 Text(stringResource(R.string.offline_import_share_links_action))
             }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_close)) } },
+        dismissButton = {
+            Row {
+                if (onImport != null) {
+                    TextButton(onClick = onImport) { Text(stringResource(R.string.offline_import_action)) }
+                }
+                TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_close)) }
+            }
+        },
     )
 }
 

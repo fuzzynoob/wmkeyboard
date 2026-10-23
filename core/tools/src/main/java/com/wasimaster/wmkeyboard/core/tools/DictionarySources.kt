@@ -2,9 +2,13 @@ package com.wasimaster.wmkeyboard.core.tools
 
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
+import com.wasimaster.wmkeyboard.core.tools.offlinedict.OfflineDictionaries
+import com.wasimaster.wmkeyboard.core.tools.offlinedict.OfflineDictionaryCatalog
+import com.wasimaster.wmkeyboard.core.tools.yomichan.YomichanDictionaries
 import com.wasimaster.wmkeyboard.core.vocab.KaikkiClient
 import com.wasimaster.wmkeyboard.core.vocab.VocabAccent
 import com.wasimaster.wmkeyboard.core.vocab.VocabIndex
+import com.wasimaster.wmkeyboard.core.vocab.VocabTranslation
 import com.wasimaster.wmkeyboard.core.vocab.VocabWord
 import com.wasimaster.wmkeyboard.core.vocab.WiktionaryRestClient
 import com.wasimaster.wmkeyboard.tools.R
@@ -21,7 +25,12 @@ import kotlinx.coroutines.withContext
  *
  * [id] is what the settings store: never store [name].
  */
-enum class DictionarySource(val id: String, val online: Boolean) {
+enum class DictionarySource(
+    val id: String,
+    val online: Boolean,
+    /** The [OfflineDictionaryCatalog] pack this source reads, for one that is an offline dictionary. */
+    val packId: String? = null,
+) {
     /** The vocabulary packs on the device. Only knows the packs' words, but costs nothing to ask and works offline. */
     VOCAB_PACKS("vocab_packs", online = false),
 
@@ -33,6 +42,24 @@ enum class DictionarySource(val id: String, val online: Boolean) {
 
     /** The free dictionary API (dictionaryapi.dev). Last by default: it is often down. */
     DICTIONARY_API("dictionary_api", online = true),
+
+    /**
+     * Wiktionary's common words as a download (#665): what the no-internet
+     * build and a phone with no signal define ordinary words with. After the
+     * online sources by default, so it answers when they cannot; an update
+     * adds it there too ([DictionarySources.decode]).
+     */
+    OFFLINE_WIKTIONARY("offline_wiktionary", online = false, packId = OfflineDictionaryCatalog.WIKTIONARY.id),
+
+    /** Open English WordNet as a download: every single word, plainer definitions than Wiktionary's. */
+    OFFLINE_WORDNET("offline_wordnet", online = false, packId = OfflineDictionaryCatalog.OEWN.id),
+
+    /**
+     * The Yomichan / Yomitan dictionaries the user imported (#765): any
+     * language pair, with readings and pitch accent. Asks every one that is
+     * on, in the order its own settings list keeps ([YomichanDictionaries]).
+     */
+    IMPORTED("imported_dictionaries", online = false),
     ;
 
     /** The source's name, for the settings list and the panel's "From …" line. */
@@ -43,6 +70,9 @@ enum class DictionarySource(val id: String, val online: Boolean) {
             WIKTIONARY -> R.string.core_tools_dictionary_source_wiktionary
             WIKTIONARY_REST -> R.string.core_tools_dictionary_source_wiktionary_rest
             DICTIONARY_API -> R.string.core_tools_dictionary_source_dictionary_api
+            OFFLINE_WIKTIONARY -> R.string.core_tools_dictionary_source_offline_wiktionary
+            OFFLINE_WORDNET -> R.string.core_tools_dictionary_source_offline_wordnet
+            IMPORTED -> R.string.core_tools_dictionary_source_imported
         }
 
     /** One line on what the source knows, under its name in settings. */
@@ -53,6 +83,9 @@ enum class DictionarySource(val id: String, val online: Boolean) {
             WIKTIONARY -> R.string.core_tools_dictionary_source_wiktionary_desc
             WIKTIONARY_REST -> R.string.core_tools_dictionary_source_wiktionary_rest_desc
             DICTIONARY_API -> R.string.core_tools_dictionary_source_dictionary_api_desc
+            OFFLINE_WIKTIONARY -> R.string.core_tools_dictionary_source_offline_wiktionary_desc
+            OFFLINE_WORDNET -> R.string.core_tools_dictionary_source_offline_wordnet_desc
+            IMPORTED -> R.string.core_tools_dictionary_source_imported_desc
         }
 
     companion object {
@@ -66,7 +99,11 @@ data class DictionarySourceChoice(val source: DictionarySource, val enabled: Boo
 /** The source list as settings store it: ids in order, a `-` in front of one that is off. */
 object DictionarySources {
 
-    /** Every source, on: offline first, then the richest, then the least reliable. */
+    /**
+     * Every source, on: the packs first, then the richest online ones, then
+     * the least reliable, then the offline dictionaries, which only answer
+     * once downloaded and are asked when the network is not there.
+     */
     val DEFAULT: List<DictionarySourceChoice> = DictionarySource.entries.map { DictionarySourceChoice(it) }
 
     fun encode(choices: List<DictionarySourceChoice>): String =
@@ -108,6 +145,14 @@ object DictionaryLookup {
 
         /** No source could be asked (offline, or every one failed). */
         data object Failed : Result
+
+        /**
+         * Only the sources on the device answered, and none knew the word,
+         * while every online one could not be reached (#665). The packs
+         * hold only their own lists' words, so "no entry" would wrongly say
+         * the word does not exist.
+         */
+        data object NotOnDevice : Result
     }
 
     /** One source asked for one word: its entries, empty for none; throws when it could not be asked. */
@@ -119,30 +164,40 @@ object DictionaryLookup {
         val trimmed = word.trim()
         if (trimmed.isEmpty() || sources.isEmpty()) return Result.NotFound
         var answered = false
+        var onlineAnswered = false
+        var onlineFailed = false
         for (source in sources) {
             val entries = try {
                 withContext(Dispatchers.IO) { fetch.entries(source, trimmed) }
             } catch (e: CancellationException) {
                 throw e
             } catch (_: Exception) {
+                if (source.online) onlineFailed = true
                 continue
             }
             answered = true
+            if (source.online) onlineAnswered = true
             if (entries.isNotEmpty()) return Result.Found(entries, source)
         }
-        return if (answered) Result.NotFound else Result.Failed
+        return when {
+            !answered -> Result.Failed
+            onlineFailed && !onlineAnswered -> Result.NotOnDevice
+            else -> Result.NotFound
+        }
     }
 
     /**
      * The real sources. [index] is the vocabulary packs' index, or null when
-     * none is loaded (the packs source then has nothing).
+     * none is loaded (the packs source then has nothing). [translationCodes]
+     * are the languages Wiktionary's entry should bring translations in
+     * (#764); the same page carries them, so they cost no extra request.
      */
-    fun fetcher(index: () -> VocabIndex?): Fetch = Fetch { source, word ->
+    fun fetcher(index: () -> VocabIndex?, translationCodes: List<String> = emptyList()): Fetch = Fetch { source, word ->
         when (source) {
             DictionarySource.VOCAB_PACKS ->
                 index()?.lookupAnyForm(word.lowercase(Locale.ROOT))?.let(::fromVocabWord).orEmpty()
             DictionarySource.WIKTIONARY ->
-                KaikkiClient.lookup(word, emptyList(), NetSource.DICTIONARY)?.let(::fromVocabWord).orEmpty()
+                KaikkiClient.lookup(word, translationCodes, NetSource.DICTIONARY)?.let(::fromVocabWord).orEmpty()
             DictionarySource.WIKTIONARY_REST ->
                 WiktionaryRestClient.lookup(word, NetSource.DICTIONARY)?.let(::fromVocabWord).orEmpty()
             DictionarySource.DICTIONARY_API -> try {
@@ -150,8 +205,32 @@ object DictionaryLookup {
             } catch (_: DictionaryClient.NotFoundException) {
                 emptyList()
             }
+            DictionarySource.OFFLINE_WIKTIONARY, DictionarySource.OFFLINE_WORDNET ->
+                OfflineDictionaries.lookup(source.packId!!, word)
+            DictionarySource.IMPORTED -> YomichanDictionaries.lookup(word)
         }
     }
+
+    /**
+     * [word]'s translations into [codes] from Wiktionary (#764), for an entry
+     * whose source brought none: one more request, to kaikki.org. Empty when
+     * the page lists none of [codes] or could not be fetched. Blocking; call
+     * it on an IO dispatcher.
+     */
+    fun translations(word: String, codes: List<String>): Map<String, VocabTranslation> {
+        if (codes.isEmpty() || word.isBlank()) return emptyMap()
+        return try {
+            KaikkiClient.lookup(word.trim(), codes, NetSource.DICTIONARY)?.translations.orEmpty()
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            emptyMap()
+        }
+    }
+
+    /** The translations worth a row for [entry]: [codes] in their order, each with at least one gloss. */
+    fun translationsFor(entry: DictEntry, codes: List<String>): List<Pair<String, VocabTranslation>> =
+        codes.mapNotNull { code -> entry.translations[code]?.takeIf { it.glosses().isNotEmpty() }?.let { code to it } }
 
     /** A pack's or Wiktionary's record as one entry, its senses grouped by part of speech in the record's order. */
     fun fromVocabWord(record: VocabWord): List<DictEntry> {
@@ -183,6 +262,7 @@ object DictionaryLookup {
                 phonetic = record.ipaFor(VocabAccent.US).orEmpty(),
                 audioUrl = record.audioFor(VocabAccent.US)?.takeIf { it.startsWith("http") },
                 meanings = meanings,
+                translations = record.translations,
             ),
         )
     }

@@ -169,6 +169,8 @@
     <!-- Opens the toolbox, which lists every tool. -->
     <string name="core_tools_shortcut_cheat_all_tools">All tools</string>
     <string name="core_tools_shortcut_cheat_select_suggestion">Select a suggestion</string>
+    <!-- Cheat sheet row for the key that turns pick mode on and off. In pick mode the number keys select suggestions. -->
+    <string name="core_tools_shortcut_cheat_pick_mode">Pick mode on or off</string>
     <string name="core_tools_shortcut_cheat_language_switch">Change the language</string>
     <!-- Brings the on-screen keys up over the toolbar-only view, or puts them away. -->
     <string name="core_tools_shortcut_cheat_toggle_keys">Show or hide the keys</string>
@@ -261,6 +263,8 @@
          rather than as the search being broken. -->
     <string name="core_tools_gif_source_commons">Commons</string>
     <string name="core_tools_photo_source_commons">Wikimedia Commons</string>
+    <!-- The Internet Archive's GeoCities GIF search. A proper name. -->
+    <string name="core_tools_gif_source_gifcities" translatable="false">GifCities</string>
 
     <!-- ================================================================== -->
     <!-- Synonyms (#321): the places a held word's synonyms come from, as   -->
@@ -285,6 +289,12 @@
     <string name="core_tools_dictionary_source_wiktionary_rest_desc">Online, from wiktionary.org. Definitions and examples only.</string>
     <string name="core_tools_dictionary_source_dictionary_api">Free Dictionary API</string>
     <string name="core_tools_dictionary_source_dictionary_api_desc">Online, from dictionaryapi.dev. This service is often down.</string>
+    <string name="core_tools_dictionary_source_offline_wiktionary">Wiktionary, offline</string>
+    <string name="core_tools_dictionary_source_offline_wiktionary_desc">On this device, once downloaded. Common English words from Wiktionary, with pronunciation.</string>
+    <string name="core_tools_dictionary_source_offline_wordnet">Open English WordNet</string>
+    <string name="core_tools_dictionary_source_offline_wordnet_desc">On this device, once downloaded. Every English word in WordNet, with short definitions.</string>
+    <string name="core_tools_dictionary_source_imported">Imported dictionaries</string>
+    <string name="core_tools_dictionary_source_imported_desc">On this device. The Yomichan and Yomitan dictionaries you import, in any language, with readings and pitch accent.</string>
 
     <!-- The Location tool (#350): precision and format names, shared by the panel and the settings page. -->
     <string name="core_tools_location_precision_exact">Exact</string>

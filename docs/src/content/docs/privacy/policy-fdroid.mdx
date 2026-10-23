@@ -1,30 +1,30 @@
 ---
 title: "Privacy policy (F-Droid edition)"
-description: "The formal policy for the lite edition from F-Droid: no Google library compiled in, nothing collected, and every network call named."
+description: "The formal policy for the F-Droid build: no Google library compiled in, nothing collected, and every network call named."
 sidebar:
   label: "Privacy policy (F-Droid)"
   order: 9
 ---
 
-**Effective 11 August 2026.** This policy covers the WM Keyboard Android app
+**Effective 20 October 2026.** This policy covers the WM Keyboard Android app
 (`com.wasimaster.wmkeyboard`) as built and distributed by F-Droid, and this
 documentation site. WM Keyboard is written and published by Wasi Master, an
 individual developer.
 
-:::note[This page covers the lite edition]
-There are two builds of WM Keyboard and they are not the same app underneath,
-so they get one policy each rather than one policy with a page of footnotes.
+:::note[This page covers the F-Droid build]
+The F-Droid build and the others are not the same app underneath, so they get
+one policy each rather than one policy with a page of footnotes.
 
-This page is the lite edition. That is what F-Droid builds from source, and the
-`lite` APK on the GitHub releases page. It is compiled with
-`wmkb.enablePlayStore=false` and `wmkb.enableGms=false` against the `lite`
-product flavour, which means no Google library is on its compile classpath
-at all.
+This page is the F-Droid build, which F-Droid compiles from source. It is
+compiled with `wmkb.enableFdroid=true`, `wmkb.enablePlayStore=false` and
+`wmkb.enableGms=false`, which means no Google library is on its compile
+classpath at all. Up to 0.6.2 this was the `lite` edition, which GitHub
+published too.
 
-If you installed from Google Play, you have the full edition, which does
-carry Google libraries. Read [Privacy policy (Google Play
+If you installed from Google Play or GitHub, you have a build that does carry
+Google libraries. Read [Privacy policy (Google Play
 edition)](/privacy/policy/) instead. The app tells you which one you have
-under About: the version line names the edition.
+under About: the version line says F-Droid on this one.
 :::
 
 ## The summary
@@ -34,7 +34,7 @@ tracking, no analytics, no crash reporting, and no server belonging to this
 project that the app sends anything to. What you type is processed on your
 device and stays there.
 
-In this edition there is no caveat to that. The full edition has to disclose
+In this build there is no caveat to that. The other builds have to disclose
 Google's ML Kit reporting its own diagnostics; this build does not contain
 ML Kit, so there is nothing of that kind to disclose. The one Google-adjacent
 code path that survives is downloadable fonts, and it is inert on a device
@@ -56,11 +56,24 @@ and the source it builds from.
 | **Google ML Kit** | reports device and app information, a per-install identifier, and timing and error data to Google whenever one of its features runs | handwriting input, OCR, QR and barcode scanning, document scanning, sticker background removal |
 | **Google Play in-app updates** | asks the Play Store whether a newer version exists | nothing: F-Droid's own client handles updates |
 | **The self-updater** | downloads an APK from the project's GitHub releases and installs it | nothing, and it could not have worked here anyway: F-Droid signs its builds with its own key, so an APK from GitHub cannot install over an F-Droid install. This build has no `REQUEST_INSTALL_PACKAGES` permission and no installer code. What it has instead is a check that asks F-Droid, described below |
-| **Play Feature Delivery** | downloads the on-device AI runtime as a separate module | nothing: this edition has no on-device AI |
+| **Play Feature Delivery** | downloads a feature's native library as a separate module | nothing: this edition downloads those libraries itself, after you agree to it (see below) |
 | **Google Play services auth** | gets an OAuth token for Google Drive | Drive as a backup destination. Local storage, WebDAV, an S3-compatible bucket, an SFTP, SMB or FTP server, a Git repository, a mail account, Dropbox and OneDrive all still work |
-| **LiteRT-LM** | runs a language model on the device | on-device AI models. Cloud AI providers still work if you supply your own key |
-| **Whisper speech models** | offline dictation | offline voice typing. Android's own recognizer still works |
-| **Harper grammar engine** | grammar checking | the grammar tool |
+| **LiteRT-LM** | runs a language model on the device | the LiteRT-LM models (`.litertlm` and `.task` files). GGUF models still run on the device through llama.cpp, which this edition builds from source, and cloud AI providers still work with your own key |
+| **Qualcomm QNN runtime** | runs an on-device AI model on a Snapdragon phone's NPU, under Qualcomm's own licence | the **NPU** choice under Compute, which this edition could not use anyway without LiteRT-LM |
+| **LiteRT Whisper models** | offline dictation on Google's LiteRT | the older LiteRT Whisper models. Offline Whisper on whisper.cpp and the other offline voice engines still work |
+
+The native libraries for offline voice typing (whisper.cpp, ExecuTorch and
+sherpa-onnx), for grammar and spell checking (Harper and Hunspell), for the
+RIME engine for Chinese (librime), the Mozc engine for Japanese (Mozc),
+on-device translation (Bergamot), neural phonetic suggestions (IndicXlit) and
+GGUF models for on-device AI (llama.cpp) are built from source with the rest of
+this edition, but they are not in the APK. The keyboard downloads one the first time
+its feature needs it, from the project's data repository on GitHub, and only
+after you turn on **Download feature libraries** under Privacy. F-Droid did not
+build or review those downloaded files, which is why the setting is off until
+you turn it on, and why it asks you to confirm. Before the keyboard uses a
+file, it checks the file's SHA-256 against a value built into the app. Until
+you turn the setting on, those features say that they need it.
 
 Only one Google code path is left. The
 keyboard can ask Android's downloadable-font provider for a font: some
@@ -100,8 +113,8 @@ applies the same exclusions to everything for as long as it is on.
 ## What leaves your device, and only when you ask
 
 Typing itself never uses the network. A set of optional tools do, each one
-only while you are actively using it. This is the same list as the full
-edition minus the rows that need code this build does not have.
+only while you are actively using it. This is the same list as the other
+builds minus the rows that need code this build does not have.
 
 | Tool | What it sends | To |
 |---|---|---|
@@ -115,8 +128,9 @@ edition minus the rows that need code this build does not have.
 | Currency and crypto rates | nothing identifying | currency-api (`cdn.jsdelivr.net`) and Frankfurter, or ExchangeRate-API, Coinbase or CoinGecko if you pick one |
 | Photo backgrounds | your search terms | Unsplash, Pexels |
 | AI writing tools | the text you ran an action on | the provider you chose, using your own API key, or a server you run yourself |
+| Grammar check, with LanguageTool switched on | the text in the field, its language, and your LanguageTool username and key if you set them. Never a password field or text typed in incognito. Nothing at all with Harper, the default | `api.languagetool.org` (LanguageTool's public server), `api.languagetoolplus.com` with a Premium account, or a LanguageTool server you run yourself |
 | Voice typing | your speech audio | Android's own speech service |
-| Language data downloads | nothing about you | GitHub |
+| Language and model downloads | nothing about you | GitHub, Hugging Face, and Mozilla for the Firefox Translations models |
 
 Under default settings, typing on its own reaches none of these. A weather or
 currency smart chip waits for your tap before it fetches anything, and language
@@ -137,10 +151,11 @@ tools talk to are not free software. Every one of them is opt-in, and the
 keyboard is fully usable with all of them untouched. Most also have a free,
 self-hostable alternative you can switch to above.
 
-Voice typing is the row to read carefully. This edition has no offline
-Whisper, so dictation goes through Android's own `SpeechRecognizer`. On most
+Voice typing is the row to read carefully. Until you set up one of the
+offline engines (which needs **Download feature libraries** on and a model
+downloaded), dictation goes through Android's own `SpeechRecognizer`. On most
 devices that is a Google component and your audio may leave the device. If
-that matters to you, do not use voice typing on this edition.
+that matters to you, use an offline engine or do not use voice typing.
 
 
 ### The update check
@@ -156,7 +171,7 @@ is one you can actually install from where you installed this.
 
 ## Permissions
 
-This build asks for the same Android permissions as the full one, and every
+This build asks for the same Android permissions as the others, and every
 one belongs to a single optional feature that is off until you turn it on:
 microphone for voice input, camera for the camera tool, contacts for name
 suggestions, calendar for the calendar tool, photos for the clipboard's

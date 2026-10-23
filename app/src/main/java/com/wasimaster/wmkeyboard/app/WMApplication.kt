@@ -10,9 +10,13 @@ import com.wasimaster.wmkeyboard.app.llm.llmSplitCompat
 import com.wasimaster.wmkeyboard.app.modules.installOnDemandDelivery
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.netlog.NetLog
+import com.wasimaster.wmkeyboard.core.providers.ProviderEnvironment
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.sink.BackupClients
 import com.wasimaster.wmkeyboard.core.settings.sync.SyncWatcher
+import com.wasimaster.wmkeyboard.core.translate.BergamotTranslator
+import com.wasimaster.wmkeyboard.core.translate.NllbTranslator
+import com.wasimaster.wmkeyboard.core.translate.OnDeviceTranslator
 
 /**
  * Exists for one reason: to install the crash handler before anything else in
@@ -47,11 +51,26 @@ open class WMApplication : Application() {
         // a failure while showing a crash report would launch another crash
         // report, forever. See CrashReportActivity.
         if (DebugLog.isCrashProcess()) return
-        // Which of the four flavours this is, said here because here is the
+        // Search by meaning's own process runs the model and nothing else: no
+        // sync, no alarms, no second copy of anything the keyboard's process
+        // owns. It needs the log, the network log, and the gate that says
+        // where the LiteRT interpreter is.
+        // The sticker generator's process is the same kind: the model, its
+        // runtime's gate, and the NPU runtime's.
+        if (com.wasimaster.wmkeyboard.core.semantic.EmbeddingService.isServiceProcess() ||
+            com.wasimaster.wmkeyboard.core.imagegen.ImageGenService.isServiceProcess()
+        ) {
+            DebugLog.setBuildTag(BuildConfig.FLAVOR)
+            DebugLog.attach(this)
+            NetLog.attach(this)
+            com.wasimaster.wmkeyboard.core.net.DataSaverDownloadGate.attach(this)
+            installOnDemandDelivery(this)
+            return
+        }
+        // Which of the two flavours this is, said here because here is the
         // only place that knows. The log lives in :core:common and compiles
-        // against :core:config, which carries `capabilities` alone, so left to
-        // itself a crash record says `full` and cannot tell the `intl` build
-        // from the `en` one. Those are separate R8 runs with mappings that do
+        // against :core:config, which has no flavours, so left to itself a
+        // crash record cannot tell the `intl` build from the `en` one. Those are separate R8 runs with mappings that do
         // not interchange, and the retrace bot picks the mapping off this
         // line. Before attach, so the first crash of the process already
         // carries it.
@@ -60,15 +79,28 @@ open class WMApplication : Application() {
         // The network activity log, before anything in this process can make
         // a request. Cheap: it reads two small files, or waits for the unlock.
         NetLog.attach(this)
+        // Data saving's say over a download the connection changes under.
+        com.wasimaster.wmkeyboard.core.net.DataSaverDownloadGate.attach(this)
+        // Lets the keyboard tell whether a screen of this app is up before it
+        // recycles the process the two share. One callback registration.
+        com.wasimaster.wmkeyboard.core.util.StartedActivities.install(this)
+        // Interface language packs (the standard GitHub build, Android 11+):
+        // loaded once here and added to every screen's resources as it is
+        // created, before it inflates a string. A no-op on every other build,
+        // which has no packs on disk.
+        com.wasimaster.wmkeyboard.core.modules.LanguagePackResources.install(this)
+        com.wasimaster.wmkeyboard.core.modules.LanguagePackResources.attach(resources)
+        registerActivityLifecycleCallbacks(LanguagePackAttacher)
+        // The phone's language (or the one picked) arrives by itself, and a
+        // settings screen already open restarts in it.
+        LanguagePackDownloads.fetchWanted(this) { LanguagePackAttacher.recreateStarted() }
         // The Play gates of the LiteRT interpreter (WhisperEngine,
         // LocalSubjectCutout), ML Kit's ink recogniser (HandwritingModels) and
-        // the whisper.cpp, ExecuTorch, Whistle, Harper and Tesseract libraries. Before the spell
-        // checker's sync below, which asks the grammar gate whether this build
-        // has Harper at all.
+        // the whisper.cpp, ExecuTorch, Whistle, Harper and Tesseract libraries.
         installOnDemandDelivery(this)
-        // The spell checker is declared in every edition; off where the
-        // library it needs was left out of the build.
-        com.wasimaster.wmkeyboard.spell.HarperSpellChecker.syncAvailability(this)
+        // Builds without Harper used to switch the spell checker off, and that
+        // state outlives the update; the merged checker answers everywhere.
+        com.wasimaster.wmkeyboard.spell.SpellCheckerComponent.restore(this)
         // Publishes the Drive token provider, if this build has one at all, so
         // the backup job can find it. Here rather than in the activity or the
         // keyboard because either of those may be what started the process, and
@@ -87,16 +119,66 @@ open class WMApplication : Application() {
             dropbox = BuildConfig.DROPBOX_APP_KEY,
             oneDrive = BuildConfig.ONEDRIVE_CLIENT_ID,
         )
+        // Whether the translate list can offer the on-device engines: ML Kit,
+        // Bergamot and NLLB sit above the module that keeps the provider lists.
+        NllbTranslator.checkMemory(this)
+        ProviderEnvironment.install(
+            onDeviceTranslate = OnDeviceTranslator.AVAILABLE,
+            googleHome = com.wasimaster.wmkeyboard.config.BuildConfig.ENABLE_GOOGLE_HOME,
+            bergamot = BergamotTranslator.available,
+            nllb = NllbTranslator.available,
+        )
+        // Where the Dictionary tool's offline dictionaries live, for a
+        // look-up from the keyboard or the AI tool alike. Only a path: before
+        // the unlock nothing is read, and a look-up then finds nothing.
+        com.wasimaster.wmkeyboard.core.tools.offlinedict.OfflineDictionaries.attach(filesDir)
+        // The same for the dictionaries the user imported (#765).
+        com.wasimaster.wmkeyboard.core.tools.yomichan.YomichanDictionaries.attach(filesDir)
+        // Where zinnia's handwriting models are downloaded to, for the
+        // keyboard's panel and the Handwriting settings alike.
+        com.wasimaster.wmkeyboard.core.handwriting.ZinniaModels.attach(filesDir)
+        // Where offline Whisper keeps its GPU verdicts and the kernels the
+        // driver compiled, before the keyboard can dictate. One small read.
+        com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCppGpu.attach(this)
         // Sync between devices: keeps its jobs in step with the settings and
         // pushes shortly after a synced setting changes. Here because the
         // keyboard and the settings app share this process, and either may be
         // the one running. Does nothing while sync is off.
-        SyncWatcher.start(this, SettingsRepository(this))
+        val repository = SettingsRepository(this)
+        SyncWatcher.start(this, repository)
+        // "Ask AI" in other apps' selection menus follows its switch and the
+        // AI tool's, wherever either is changed from (#897).
+        AskAiSelectionMenu.start(this, repository)
         // The clock tool's alarms and timers. Android drops every registered
         // wake-up at a reboot, and the app has no boot receiver on purpose:
         // the keyboard starts at boot anyway, and this puts them back then.
         // Free for anyone who never set one (one file-exists check), and off
         // the main thread for those who did.
         com.wasimaster.wmkeyboard.core.clock.ClockEngine.rearmOnStart(this)
+        // The same for the reminders plugins set, for the same reason. Free
+        // for anyone with no plugin that declares reminders.
+        com.wasimaster.wmkeyboard.core.plugins.PluginReminderAlarms.rearmOnStart(this)
     }
+}
+
+/** Adds the language packs to each activity's resources before it creates anything. */
+private object LanguagePackAttacher : android.app.Application.ActivityLifecycleCallbacks {
+    private val started = java.util.Collections.newSetFromMap(java.util.WeakHashMap<android.app.Activity, Boolean>())
+
+    /** Restarts the screens on show, after a pack arrived in the background, so they draw in it. */
+    fun recreateStarted() {
+        started.toList().forEach { if (!it.isFinishing && !it.isDestroyed) it.recreate() }
+    }
+
+    override fun onActivityPreCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) {
+        com.wasimaster.wmkeyboard.core.modules.LanguagePackResources.attach(activity.resources)
+    }
+
+    override fun onActivityCreated(activity: android.app.Activity, savedInstanceState: android.os.Bundle?) = Unit
+    override fun onActivityStarted(activity: android.app.Activity) { started += activity }
+    override fun onActivityResumed(activity: android.app.Activity) = Unit
+    override fun onActivityPaused(activity: android.app.Activity) = Unit
+    override fun onActivityStopped(activity: android.app.Activity) { started -= activity }
+    override fun onActivitySaveInstanceState(activity: android.app.Activity, outState: android.os.Bundle) = Unit
+    override fun onActivityDestroyed(activity: android.app.Activity) = Unit
 }

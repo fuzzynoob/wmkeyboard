@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
 import androidx.activity.compose.rememberLauncherForActivityResult
+import com.wasimaster.wmkeyboard.core.providers.ProviderTool
 import androidx.activity.result.PickVisualMediaRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -41,7 +42,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
 import com.wasimaster.wmkeyboard.core.settings.stopsBackgroundWork
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -99,38 +99,21 @@ fun PhotoServicesScreen(
         route = PHOTO_HUB_ROUTE,
         icon = { Icon(Icons.Outlined.Wallpaper, contentDescription = null) },
     ) {
-        SettingsGroup(
-            stringResource(R.string.photo_providers_section_title),
+        // Unsplash, Pexels and Commons (or another MediaWiki), all asked at
+        // once for the mixed grid.
+        ProvidersGroup(
+            repository,
+            settings,
+            ProviderTool.PHOTOS,
+            titleRes = R.string.photo_providers_section_title,
             info = listOf(stringResource(R.string.photo_providers_body), stringResource(R.string.photo_licence_body)).joinToString("\n\n"),
-        ) {
-            item {
-                ApiKeyField(
-                    label = stringResource(R.string.photo_unsplash_key_label),
-                    value = settings.watch { it.photoBackground.unsplashApiKey },
-                    builtInAvailable = ToolApiKeys.builtInUnsplash,
-                    emptyHint = stringResource(R.string.photo_unsplash_key_hint),
-                ) { key ->
-                    repository.setUnsplashApiKey(key)
-                    // The old key's budget and its cached pages belong to it,
-                    // not to this one.
-                    PhotoRateLimit.reset()
-                    PhotoCache.clear()
-                }
-            }
-            item {
-                ApiKeyField(
-                    label = stringResource(R.string.photo_pexels_key_label),
-                    value = settings.watch { it.photoBackground.pexelsApiKey },
-                    builtInAvailable = ToolApiKeys.builtInPexels,
-                    emptyHint = stringResource(R.string.photo_pexels_key_hint),
-                ) { key ->
-                    repository.setPexelsApiKey(key)
-                    PhotoRateLimit.reset()
-                    PhotoCache.clear()
-                }
-            }
-            serverItems(repository, settings, endpoints = listOf(ServiceEndpoint.UNSPLASH, ServiceEndpoint.PEXELS))
-        }
+            // The old key's budget and its cached pages belong to it, not to the new one.
+            onChanged = {
+                PhotoRateLimit.reset()
+                PhotoCache.clear()
+            },
+        )
+        // Unsplash's and Pexels' F-Droid server addresses are on their own screens.
         HighContrastNote(settings)
     }
 }

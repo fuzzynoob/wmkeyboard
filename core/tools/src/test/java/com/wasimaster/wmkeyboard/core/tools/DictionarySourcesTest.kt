@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.core.tools
 
 import com.wasimaster.wmkeyboard.core.vocab.VocabSense
+import com.wasimaster.wmkeyboard.core.vocab.VocabTranslation
 import com.wasimaster.wmkeyboard.core.vocab.VocabWord
 import java.io.IOException
 import kotlinx.coroutines.runBlocking
@@ -12,12 +13,17 @@ class DictionarySourcesTest {
 
     @Test
     fun `source list round-trips with order and switches`() {
+        // Every source, so decode has none missing to append: a reordered list with switches off comes back as it was.
         val choices = listOf(
             DictionarySourceChoice(DictionarySource.DICTIONARY_API),
             DictionarySourceChoice(DictionarySource.WIKTIONARY, enabled = false),
+            DictionarySourceChoice(DictionarySource.IMPORTED),
             DictionarySourceChoice(DictionarySource.VOCAB_PACKS),
+            DictionarySourceChoice(DictionarySource.OFFLINE_WORDNET, enabled = false),
             DictionarySourceChoice(DictionarySource.WIKTIONARY_REST, enabled = false),
+            DictionarySourceChoice(DictionarySource.OFFLINE_WIKTIONARY),
         )
+        assertEquals(DictionarySource.entries.size, choices.size)
         assertEquals(choices, DictionarySources.decode(DictionarySources.encode(choices)))
     }
 
@@ -29,17 +35,32 @@ class DictionarySourcesTest {
                 DictionarySourceChoice(DictionarySource.WIKTIONARY, enabled = false),
                 DictionarySourceChoice(DictionarySource.VOCAB_PACKS),
                 DictionarySourceChoice(DictionarySource.WIKTIONARY_REST),
+                DictionarySourceChoice(DictionarySource.OFFLINE_WIKTIONARY),
+                DictionarySourceChoice(DictionarySource.OFFLINE_WORDNET),
+                DictionarySourceChoice(DictionarySource.IMPORTED),
             ),
             DictionarySources.decode("dictionary_api,-bogus,-wiktionary,dictionary_api"),
         )
     }
 
     @Test
-    fun `default asks offline first and the free dictionary API last`() {
+    fun `default asks the packs first, the free dictionary API last online, then the offline and imported dictionaries`() {
         val order = DictionarySources.DEFAULT.map { it.source }
         assertEquals(DictionarySource.VOCAB_PACKS, order.first())
-        assertEquals(DictionarySource.DICTIONARY_API, order.last())
+        assertEquals(DictionarySource.DICTIONARY_API, order.last { it.online })
+        assertEquals(
+            listOf(DictionarySource.OFFLINE_WIKTIONARY, DictionarySource.OFFLINE_WORDNET, DictionarySource.IMPORTED),
+            order.dropWhile { it != DictionarySource.DICTIONARY_API }.drop(1),
+        )
         assertTrue(DictionarySources.DEFAULT.all { it.enabled })
+    }
+
+    @Test
+    fun `every offline dictionary source names a catalogue pack and is not online`() {
+        for (source in DictionarySource.entries.filter { it.packId != null }) {
+            assertTrue(source.name, !source.online)
+            assertTrue(source.name, com.wasimaster.wmkeyboard.core.tools.offlinedict.OfflineDictionaryCatalog.byId(source.packId!!) != null)
+        }
     }
 
     @Test
@@ -111,5 +132,51 @@ class DictionarySourcesTest {
             DictionaryLookup.Result.Failed,
             DictionaryLookup.resolve("word", sources) { _, _ -> throw IOException("offline") },
         )
+    }
+
+    @Test
+    fun `packs without the word and no online source reached is not a verdict`() = runBlocking {
+        val sources = listOf(DictionarySource.VOCAB_PACKS, DictionarySource.WIKTIONARY)
+        assertEquals(
+            DictionaryLookup.Result.NotOnDevice,
+            DictionaryLookup.resolve("word", sources) { source, _ ->
+                if (source.online) throw IOException("offline") else emptyList()
+            },
+        )
+        assertEquals(
+            DictionaryLookup.Result.NotFound,
+            DictionaryLookup.resolve("word", listOf(DictionarySource.VOCAB_PACKS)) { _, _ -> emptyList() },
+        )
+    }
+
+    @Test
+    fun `a record's translations ride on its entry`() {
+        val record = VocabWord(
+            word = "house",
+            senses = listOf(VocabSense(pos = "noun", definition = "A building to live in.")),
+            translations = mapOf("de" to VocabTranslation(w = listOf("Haus"))),
+        )
+        val entry = DictionaryLookup.fromVocabWord(record).single()
+        assertEquals(listOf("Haus"), entry.translations.getValue("de").w)
+    }
+
+    @Test
+    fun `translation rows follow the picked order and skip empty languages`() {
+        val entry = DictEntry(
+            word = "house",
+            phonetic = "",
+            audioUrl = null,
+            meanings = emptyList(),
+            translations = mapOf(
+                "de" to VocabTranslation(w = listOf("Haus")),
+                "bn" to VocabTranslation(w = listOf("বাড়ি"), r = listOf("baṛi")),
+                "fr" to VocabTranslation(w = listOf(" ")),
+            ),
+        )
+        assertEquals(
+            listOf("bn", "de"),
+            DictionaryLookup.translationsFor(entry, listOf("bn", "fr", "es", "de")).map { it.first },
+        )
+        assertTrue(DictionaryLookup.translationsFor(entry, emptyList()).isEmpty())
     }
 }

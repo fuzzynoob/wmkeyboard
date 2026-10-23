@@ -3,6 +3,8 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.content.Context
+import com.wasimaster.wmkeyboard.core.providers.ProviderTool
+import com.wasimaster.wmkeyboard.core.settings.resolveProviders
 import android.net.ConnectivityManager
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -30,6 +32,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeUp
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.OpenInBrowser
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CheckCircle
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
@@ -276,6 +279,10 @@ private fun VocabCardField.titleRes(): Int = when (this) {
 
 // ---- the tool's own page ----
 
+/** Where a word not in the packs is looked up, in the order of the tool's provider list. */
+private fun vocabSources(settings: KeyboardSettings): List<VocabAutofill.Source> =
+    settings.resolveProviders(ProviderTool.VOCAB_AUTOFILL).mapNotNull { VocabAutofill.sourceOf(it.typeId) }
+
 /** The Vocabulary tool's settings page body, called from [ToolDetailSettings]. */
 @Composable
 internal fun VocabularyToolSettings(
@@ -503,6 +510,13 @@ internal fun VocabularyToolSettings(
         }
     }
 
+    // Where a word that no pack knows is looked up when you add it.
+    ProvidersGroup(
+        repository,
+        settings,
+        ProviderTool.VOCAB_AUTOFILL,
+        info = stringResource(R.string.tooldetail_vocab_providers_info),
+    )
     SettingsGroup(stringResource(R.string.tooldetail_vocab_audio_group), info = stringResource(R.string.tooldetail_vocab_audio_info)) {
         item {
             ChoiceSetting(
@@ -645,29 +659,39 @@ internal fun VocabularyToolSettings(
     }
 }
 
+/**
+ * Checkboxes over Wiktionary's language codes: the packs' sidecars, the
+ * keyboard's languages and [extraCodes]. [chosenNow] is the stored pick
+ * list. The Dictionary tool's translations (#764) use it too, with more
+ * languages offered, since Wiktionary's pages carry far more than the packs.
+ */
 @Composable
-private fun TranslationLanguagesDialog(
+internal fun TranslationLanguagesDialog(
     settings: LiveSettings,
     onDismiss: () -> Unit,
     onChange: (List<String>) -> Unit,
+    chosenNow: (KeyboardSettings) -> List<String> = { it.vocabulary.translationLangList },
+    title: String = stringResource(R.string.tooldetail_vocab_translations_title),
+    body: String = stringResource(R.string.tooldetail_vocab_translations_dialog_body),
+    extraCodes: List<String> = emptyList(),
 ) {
     // Sidecar codes only: a keyboard language maps to its code (bn_rom reads
     // bn) so Bangla is one entry, not two, and a pick always matches a file.
     val keyboardCodes = settings.watch { s -> s.enabledLanguages.flatMap { VocabLanguages.codesFor(it.id) } }
     val offered = remember {
-        (VocabCatalog.entries.flatMap { it.translationCodes } + keyboardCodes)
+        (VocabCatalog.entries.flatMap { it.translationCodes } + keyboardCodes + extraCodes)
             .filter { it != "en" }
             .distinct()
             .sortedBy { languageNameFor(it) }
     }
-    val initialChosen = settings.watch { s -> s.vocabulary.translationLangList.flatMap { VocabLanguages.codesFor(it) }.distinct() }
+    val initialChosen = settings.watch { s -> chosenNow(s).flatMap { VocabLanguages.codesFor(it) }.distinct() }
     var chosen by remember { mutableStateOf(initialChosen) }
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.tooldetail_vocab_translations_title)) },
+        title = { Text(title) },
         text = {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                CaptionText(stringResource(R.string.tooldetail_vocab_translations_dialog_body))
+                CaptionText(body)
                 for (code in offered) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(
@@ -738,6 +762,7 @@ internal fun VocabPacksScreen(
     var confirmDelete by remember { mutableStateOf<InstalledVocabPack?>(null) }
     var blocked by remember { mutableStateOf(false) }
     var confirmMetered by remember { mutableStateOf<(() -> Unit)?>(null) }
+    var showLinks by remember { mutableStateOf(false) }
     val states by VocabDownloadManager.states.collectAsState()
     val translationStates by VocabDownloadManager.translationStates.collectAsState()
     val downloadDecision = rememberDownloadDecision(settings)
@@ -804,7 +829,7 @@ internal fun VocabPacksScreen(
             item { CaptionText(stringResource(R.string.vocab_packs_installed_empty)) }
         }
         for (item in known) {
-            item {
+            item(key = item.file.absolutePath) {
                 val packId = VocabPacks.packIdOf(item.file)
                 val catalog = VocabCatalog.byId(packId)
                 HighlightableItem(packId) {
@@ -813,6 +838,11 @@ internal fun VocabPacksScreen(
                             title = item.pack.name,
                             subtitle = stringResource(R.string.vocab_pack_progress_subtitle, item.pack.words.size, item.seen, item.learnt),
                             icon = Icons.Outlined.School,
+                            swipeActions = listOf(
+                                deleteSwipeAction(stringResource(CommonR.string.common_delete)) {
+                                    confirmDelete = item
+                                },
+                            ),
                             trailing = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     IconButton(onClick = { confirmDelete = item }) {
@@ -857,6 +887,20 @@ internal fun VocabPacksScreen(
                 onClick = { importLauncher.launch(arrayOf("*/*")) },
             )
         }
+        // Where each pack is published, to fetch in a browser when the
+        // download here cannot run: the no-internet build, a blocked network
+        // (#665). The file then comes in through Import above.
+        item {
+            WmRow(
+                title = stringResource(R.string.vocab_packs_links_title),
+                subtitle = stringResource(R.string.vocab_packs_links_subtitle),
+                icon = Icons.Outlined.OpenInBrowser,
+                onClick = { showLinks = true },
+            )
+        }
+    }
+    if (showLinks) {
+        OfflineLinksDialog(VocabCatalog.entries.map { OfflineLink(it.name, it.url) }) { showLinks = false }
     }
     if (available.isNotEmpty()) {
         SettingsGroup(stringResource(R.string.vocab_packs_available_title), info = stringResource(R.string.vocab_packs_available_info)) {
@@ -1246,11 +1290,20 @@ internal fun VocabListEditorScreen(
             item { CaptionText(stringResource(R.string.vocab_list_words_empty)) }
         }
         for (word in current.words) {
-            item {
+            item(key = word.word) {
                 val learnt = progress.isLearnt(word.word)
                 WmRow(
                     title = word.word,
                     subtitle = word.definition.ifBlank { stringResource(R.string.vocab_word_needs_details_label) },
+                    swipeActions = listOf(
+                        SwipeAction(Icons.Outlined.Edit, stringResource(CommonR.string.common_edit)) {
+                            adding = word
+                            showSheet = true
+                        },
+                        deleteSwipeAction(stringResource(CommonR.string.common_delete)) {
+                            save(current.copy(words = current.words.filter { it.word != word.word }))
+                        },
+                    ),
                     trailing = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (learnt) Icon(
@@ -1405,7 +1458,13 @@ private fun AddVocabWordSheet(
         lookingUp = true
         status = context.getString(R.string.vocab_add_looking_up)
         scope.launch {
-            val result = VocabAutofill.resolve(VocabIndex.EMPTY, lemma, allowOnline = true, translationCodes = translationCodes)
+            val result = VocabAutofill.resolve(
+                VocabIndex.EMPTY,
+                lemma,
+                allowOnline = true,
+                translationCodes = translationCodes,
+                sources = vocabSources(settings.value),
+            )
             lookingUp = false
             when (result) {
                 is VocabAutofill.Result.Found -> {
@@ -1635,6 +1694,7 @@ private fun BulkAddDialog(
                                         lemma,
                                         allowOnline = true,
                                         translationCodes = translationCodes,
+                                        sources = vocabSources(settings.value),
                                     )
                                     delay(300)
                                     (result as? VocabAutofill.Result.Found)?.word ?: VocabWord(lemma)
@@ -1938,7 +1998,13 @@ private fun VocabLookupSheet(
     val speaker = rememberVocabSpeaker()
     val codes = settings.watch { vocabTranslationCodes(it) }
     val result by produceState<VocabAutofill.Result?>(initialValue = null, key1 = word) {
-        value = VocabAutofill.resolve(VocabIndex.EMPTY, word, allowOnline = true, translationCodes = codes)
+        value = VocabAutofill.resolve(
+            VocabIndex.EMPTY,
+            word,
+            allowOnline = true,
+            translationCodes = codes,
+            sources = vocabSources(settings.value),
+        )
     }
     var saved by remember(word) { mutableStateOf(false) }
     val myWordsName = stringResource(com.wasimaster.wmkeyboard.tools.R.string.core_tools_vocab_my_words)

@@ -1,12 +1,14 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
 import android.content.Context
+import android.graphics.Paint
 import android.graphics.Typeface
 import android.graphics.fonts.Font as PlatformFont
 import android.graphics.fonts.FontFamily as PlatformFontFamily
+import android.graphics.text.TextRunShaper
 import android.os.Build
 import android.os.Handler
-import android.os.Looper
+import android.os.HandlerThread
 import androidx.annotation.RequiresApi
 import androidx.annotation.StringRes
 import androidx.core.provider.FontRequest
@@ -459,13 +461,21 @@ object KeyboardFonts {
         selectedId: String = DEFAULT_ID,
         layoutFontId: String? = null,
         themeScriptId: String? = null,
+        unicodeMyanmar: Boolean = false,
     ): FontFamily? =
-        scriptFontId(context, scriptId, selectedId, layoutFontId, themeScriptId)?.let { family(context, it) }
+        scriptFontId(context, scriptId, selectedId, layoutFontId, themeScriptId, unicodeMyanmar)
+            ?.let { family(context, it) }
 
     /**
      * The font id [scriptFamily] draws with, by the same order, or null where it
      * returns null. The id rather than the family is what [latinFirstFamily]
      * needs: it builds a platform typeface out of the font's file.
+     *
+     * [unicodeMyanmar] is Burmese's Unicode key font: Myanmar then draws in the
+     * keyboard's own Noto Sans Myanmar ([LayoutFonts.NOTO_SANS_MYANMAR]) ahead
+     * of the provider's, because the phones that want it, set up for Zawgyi,
+     * are often the ones without the provider. Until the file lands the order
+     * below goes on as before.
      */
     fun scriptFontId(
         context: Context,
@@ -473,10 +483,16 @@ object KeyboardFonts {
         selectedId: String = DEFAULT_ID,
         layoutFontId: String? = null,
         themeScriptId: String? = null,
+        unicodeMyanmar: Boolean = false,
     ): String? {
         if (selectedId != DEFAULT_ID && family(context, selectedId) != null) return selectedId
         if (layoutFontId != null && family(context, layoutFontId) != null) return layoutFontId
         if (themeScriptId != null && family(context, themeScriptId) != null) return themeScriptId
+        if (unicodeMyanmar && scriptId == ScriptId.MYANMAR) {
+            // Asking for the installed id is what fetches it the first time.
+            val own = FontStore.fontIdFor(LayoutFonts.NOTO_SANS_MYANMAR.name)
+            if (family(context, own) != null) return own
+        }
         // Asked before the provider check below: this one is our own download,
         // not Google's, and works on a phone without Play services.
         fetchedScriptFonts[scriptId]?.let { entry ->
@@ -509,11 +525,18 @@ object KeyboardFonts {
      * most script faces carry a Latin alphabet of their own — the other order
      * would never reach the Latin font at all.
      *
+     * [latinId] may be [DEFAULT_ID], for a user who never picked an English font:
+     * the system's own Latin font then goes first, which a ROM or a font app may
+     * have replaced (#670). Without it, an Avro board on System default drew its
+     * Latin keys in Noto Sans Bengali's Latin, not the phone's.
+     *
      * Null below Android 10, which has no such builder (the board keeps the
-     * script face alone, as before), and when either font has no file to build
+     * script face alone, as before), below Android 12 for [DEFAULT_ID] (see
+     * [systemLatinFont]), and when either font has no file to build
      * from: a Google face that has never been fetched and cannot be now, or an
-     * installed font since deleted. Blocking — a Google face is a provider round
-     * trip — so callers ask off the main thread. Kept for the process per pair.
+     * installed font since deleted. Blocking: two local files ([isLocal]) take
+     * milliseconds, but a Google face is a provider round trip, so a pair with
+     * one is asked for off the main thread. Kept for the process per pair.
      */
     fun latinFirstFamily(context: Context, latinId: String, scriptFontId: String): FontFamily? {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.Q) return null
@@ -531,6 +554,9 @@ object KeyboardFonts {
         return family
     }
 
+    /** Whether [id] is a font on this device, not a Google face the provider has to serve. */
+    fun isLocal(id: String): Boolean = !id.startsWith(GOOGLE_PREFIX)
+
     /** [latinFirstFamily] if it has already been built, without building it. */
     fun cachedLatinFirstFamily(latinId: String, scriptFontId: String): FontFamily? =
         synchronized(chains) { chains["chain:$latinId|$scriptFontId"] }
@@ -544,7 +570,10 @@ object KeyboardFonts {
      */
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun platformFont(context: Context, id: String): PlatformFont? = runCatching {
-        if (id.startsWith(GOOGLE_PREFIX)) {
+        if (id == DEFAULT_ID) {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return null
+            systemLatinFont()
+        } else if (id.startsWith(GOOGLE_PREFIX)) {
             if (!PlayServices.hasFontProvider(context)) return null
             val request = FontRequest(
                 "com.google.android.gms.fonts",
@@ -565,6 +594,19 @@ object KeyboardFonts {
             fontFile(context, id)?.let { PlatformFont.Builder(it).build() }
         }
     }.getOrNull()
+
+    /**
+     * The font the system draws a Latin letter in by default: asked of the
+     * shaper rather than looked up by name, so it is whatever the device really
+     * uses, a ROM's or a font app's replacement for Roboto included. Android 12
+     * is the first to say which font a shaped glyph came from.
+     */
+    @RequiresApi(Build.VERSION_CODES.S)
+    private fun systemLatinFont(): PlatformFont? {
+        val paint = Paint().apply { typeface = Typeface.DEFAULT }
+        val glyphs = TextRunShaper.shapeTextRun("a", 0, 1, 0, 1, 0f, 0f, false, paint)
+        return if (glyphs.glyphCount() > 0) glyphs.getFont(0) else null
+    }
 
     /** The file behind an imported or installed font id, if it is still there. */
     private fun fontFile(context: Context, id: String): File? = when (id) {
@@ -780,10 +822,18 @@ object KeyboardFonts {
                         if (continuation.isActive) continuation.resume(null)
                     }
                 },
-                Handler(Looper.getMainLooper()),
+                // The handler the fetch itself runs on, a provider query over
+                // Binder, not where the callback lands. The main looper here was
+                // an "input dispatching timed out" ANR whenever Play Services
+                // answered slowly.
+                fontFetchHandler,
             )
         }
         return fetched?.also { notoEmoji = it }
+    }
+
+    private val fontFetchHandler: Handler by lazy {
+        Handler(HandlerThread("emoji-font-fetch").apply { start() }.looper)
     }
 
     @Volatile

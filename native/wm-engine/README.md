@@ -27,6 +27,7 @@ The whole of the Kotlin `core/transliteration` package, module for module.
 | `bengali_graphemes` | cluster-aware backspace and vowel-key forms |
 | `bengali_romanizer`, `devanagari_romanizer`, `urdu_romanizer`, `khipro_romanizer` | script back to Latin |
 | `bijoy`, `bijoy_tables` | Unicode Bengali to the three Bijoy ANSI encodings |
+| `zawgyi`, `zawgyi_rules` | Burmese Zawgyi: google/myanmar-tools' detector and its Zawgyi ↔ Unicode converters |
 | `phonetic_index`, `bengali_index`, `hindi_index`, `indic_index`, `urdu_index` | reverse-phonetic lookup over word lists |
 | `phonetic_key_map` | the key maps the settings pages draw, tested against the engines |
 | `unicode` | the letter and mark classes `std` has no table for |
@@ -42,11 +43,17 @@ the two apps share word lists as files, not just engines.
 
 The crate does no I/O. Its tables are compiled in with `include_str!`: the
 Khipro specs and their upstream conformance tables under `data/khipro/`
-(`scripts/update-khipro.sh` refreshes them), and ibus-avro's grammar files from
+(`scripts/update-khipro.sh` refreshes them; `build.rs` deflates the four
+specs into the library, 196 KB of text down to about 30 KB, and `khipro`
+inflates one on first use), and ibus-avro's grammar files from
 the Android app's own `app/src/main/assets/avro/*.json`, which the Kotlin
 dictionary walk still reads too, so the two cannot run different revisions.
 The Bijoy tables in `src/bijoy_tables.rs` were generated from the Kotlin
 `BijoyAnsiTables.kt` at the time of the port and are the only copy now.
+The Zawgyi detector's model and upstream's test corpora live under
+`data/myanmar/`, and `src/zawgyi_rules.rs` is generated from the Java client's
+transliterators; `scripts/update-myanmar-tools.py` refreshes all of it from a
+checkout of google/myanmar-tools at the pinned tag (v1.2.0+java).
 
 ## Tests
 

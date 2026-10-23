@@ -11,26 +11,18 @@ import com.google.android.play.core.splitinstall.model.SplitInstallSessionStatus
 import com.wasimaster.wmkeyboard.core.modules.FeatureModules
 import com.wasimaster.wmkeyboard.core.modules.ModuleGate
 import com.wasimaster.wmkeyboard.core.modules.ModuleState
+import com.wasimaster.wmkeyboard.core.modules.NativeConsent
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
 /**
  * Play-channel delivery of the on-demand modules that share one gate type:
- * `:feature:litert`, `:feature:handwriting`, `:feature:speech` (the
- * whisper.cpp, ExecuTorch and Whistle libraries), `:feature:grammar`
- * (Harper) and `:feature:ocr` (Tesseract).
- * This directory replaces
- * `src/noplay/java` when `wmkb.enablePlayStore` is on, the same seam as
- * LlmDelivery and TranslateDelivery beside it, and each module here is
- * driven exactly the way TranslateDelivery drives its own.
+ * every gate of native/gates.json with a `FeatureModules` property and a Play
+ * module (`FeatureModules.playModules`), each a `:feature:<name>` split. This
+ * directory replaces `src/noplay/java` when `wmkb.enablePlayStore` is on, the
+ * same seam as LlmDelivery and TranslateDelivery beside it, and each module
+ * here is driven exactly the way TranslateDelivery drives its own.
  */
-
-/** The splits' names: the last segment of each `:feature:*` project path. */
-private const val LITERT_MODULE = "litert"
-private const val HANDWRITING_MODULE = "handwriting"
-private const val SPEECH_MODULE = "speech"
-private const val GRAMMAR_MODULE = "grammar"
-private const val OCR_MODULE = "ocr"
 
 /**
  * Publishes a SplitInstall-backed gate for each module into [FeatureModules].
@@ -42,8 +34,12 @@ private const val OCR_MODULE = "ocr"
  */
 fun installOnDemandDelivery(app: Application) {
     val manager = SplitInstallManagerFactory.create(app)
-    val gates = listOf(LITERT_MODULE, HANDWRITING_MODULE, SPEECH_MODULE, GRAMMAR_MODULE, OCR_MODULE)
-        .associateWith { PlayModuleGate(manager, it) }
+    // A module switched off in this build is not in the bundle: :feature:npu
+    // without wmkb.enableNpu, :feature:googlehome unless the build links the
+    // Home APIs. Its gate stays the default; for the NPU, the "installed"
+    // NpuRuntime then finds no assets behind, which reads as no NPU: never
+    // reached anyway, because NpuSupport offers no NPU when ENABLE_NPU is off.
+    val gates = FeatureModules.playModules.associateWith { PlayModuleGate(manager, it) }
     manager.registerListener { session: SplitInstallSessionState ->
         for (name in session.moduleNames()) gates[name]?.onSession(session)
         if (session.status() == SplitInstallSessionStatus.INSTALLED) {
@@ -52,15 +48,24 @@ fun installOnDemandDelivery(app: Application) {
             SplitCompat.install(app)
         }
     }
-    FeatureModules.litert = gates.getValue(LITERT_MODULE)
-    FeatureModules.handwriting = gates.getValue(HANDWRITING_MODULE)
-    FeatureModules.speech = gates.getValue(SPEECH_MODULE)
-    FeatureModules.grammar = gates.getValue(GRAMMAR_MODULE)
-    FeatureModules.ocr = gates.getValue(OCR_MODULE)
-    // The speech, grammar and OCR splits hold bare native libraries for classes in
-    // the base. A split installed after this process started is not on the
-    // class loader's library path; SplitInstallHelper looks there as well.
+    for ((name, gate) in gates) FeatureModules.set(name, gate)
+    // Licence agreements (FUTO Swipe's and NLLB's model weights) persist here too; Play
+    // has no pins, so nothing else in NativeDelivery applies.
+    NativeConsent.attach(app, needOptIn = false)
+    // The library-only splits (`"play": "split"` in native/gates.json) hold
+    // bare native libraries for classes in the base. A split installed after
+    // this process started is not on the class loader's library path;
+    // SplitInstallHelper looks there as well.
     FeatureModules.loadLibrary = { name -> SplitInstallHelper.loadLibrary(app, name) }
+    // The Storage screen's row of modules: every installed one, the Translate
+    // and LLM modules with their own delivery included.
+    PlayModules.installed = { manager.installedModules }
+    // Marked at once, so the rescan that follows the delete already shows
+    // the module as on its way out; a refusal takes the mark back.
+    PlayModules.uninstall = { names ->
+        PlayModules.removing += names
+        manager.deferredUninstall(names).addOnFailureListener { PlayModules.removing -= names.toSet() }
+    }
 }
 
 private class PlayModuleGate(

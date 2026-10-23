@@ -42,12 +42,14 @@ its own switch:
 | Vocabulary | On | Your word lists, imported packs and learning progress. Downloaded packs are left out; they can be downloaded again |
 | Swipe style | Off | Where your finger lands when you swipe, the readings you corrected, and the shape you draw each word in |
 | Notes | On | Your notes, their tags, and what is in the trash. Locked notes stay out unless API keys are included; see [Notes](/tools/notes/#backups) |
+| AI memory | Off | What the AI remembers about you, from <SettingsPath path="AI / Memory" />. See [AI memory](/tools/ai-memory/) |
 
 Sticker packs and icon packs default off because their images make the file
 large, not because there's anything private about them. Turn them on and a
 restore on another phone gets working packs rather than empty shells. The
 personal ones, dictionary, clipboard and swipe style, default off because
-they're your typing history rather than configuration. Emoji history and typing statistics
+they're your typing history rather than configuration. AI memory is off for
+the same reason: its facts come out of your chats. Emoji history and typing statistics
 are personal too but default on, since both are small and neither can be
 downloaded again if you lose it. The statistics are counts only, never
 anything you typed.
@@ -75,7 +77,9 @@ installed theme is in Themes, an installed icon pack is in Icon packs. See
 Tap **Import a file**. A file picker opens, and the app reads your chosen
 file before it touches anything. A confirmation dialog lists exactly what's
 inside, for example "Themes: 3 custom themes". If the file isn't a WM
-Keyboard backup, the app refuses it outright.
+Keyboard backup, the app refuses it outright. A passphrase-protected backup
+(`.wmconfig.enc`) asks for the passphrase first, then shows the same
+confirmation once it opens.
 
 Opening a `.wmconfig.json` file from a file manager works the same way. It
 launches the same confirmation dialog rather than importing silently.
@@ -95,6 +99,7 @@ more than the in-app dialog's one-line summary suggests:
 | Vocabulary | **Replaces.** Your own word lists and progress are rebuilt from the file; packs downloaded from the catalogue are untouched, since the bundle never carried them. |
 | Swipe style | **Replaces.** All three files come from the bundle, and a keyboard already running picks them up rather than saving its own copies back over them. |
 | Notes | **Replaces,** keeping the locked notes already on the phone when the file was made without them. A keyboard already running reloads the file rather than saving its own list over it. |
+| AI memory | **Replaces.** The saved facts on the phone are swapped for the ones in the file, and the chats pick them up at once. |
 
 If the file includes API keys, the dialog warns you before you confirm; see
 [Secrets stay out by default](#secrets-stay-out-by-default) below.
@@ -174,10 +179,12 @@ packs is not, and it goes out every interval, which is why Wi-Fi is the
 default. Turn it off and a backup uploads over mobile data as soon as it's
 due. The Wi-Fi toggle only appears while a ticked location needs a
 connection. A **Folder** is storage on your own device, so it backs up offline
-either way. There is one ceiling you don't set: when the sticker packs, icon
-packs and imported word lists would push the file past 16 MB, an automatic
-run drops those three sections and backs up everything else. A manual export
-never does.
+either way. There is one ceiling you don't set, on how much
+of the phone's memory one backup may take: an eighth of what the app may use,
+and never under 16 MB. When the sticker packs, icon packs and imported word
+lists would push the file past it, an automatic run leaves out the largest of
+them first, one at a time, until the rest fits, and backs up everything else.
+The message after the run names what it left out. A manual export never does.
 
 Turning **Only while charging** off is worth knowing about for the opposite
 reason. A phone that's only ever charged in the car may never be plugged in
@@ -260,7 +267,8 @@ Syncing again replaces a device's counts; it never adds them a second time.
   or **Only when I ask**.
 - **What:** **What syncs** has its own list of the same sections a backup
   has. By default that's settings, themes and snippets. Learned words,
-  clipboard and the rest are there to turn on.
+  clipboard and the rest are there to turn on. AI memory is the one section
+  that isn't on the list: it goes into a backup you choose, or nowhere.
 - **Where:** your devices must share at least one ticked location. Tick more
   and the file goes to each, so sync keeps working while one service is down.
 - **First sync:** a device that joins takes the settings your other devices
@@ -269,6 +277,7 @@ Syncing again replaces a device's counts; it never adds them a second time.
 - **Keep on this device:** tick **Toolbar and toolbox** or **Languages and
   layouts** to keep that part different on this device. It isn't sent, and
   your other devices' changes to it aren't taken.
+- **With a paired computer:** pair WM Keyboard on a computer over [KDE Connect](/tools/kde-connect/#pairing-with-wm-keyboard-on-a-computer) and it becomes a location of its own, **Nearby device**, ticked under **Sync through**, with sync turned on. The two hand each other their sync files directly while both are on the same network and the keyboard is open, so no cloud service is involved. **Sync with paired devices**, on by default, decides whether pairing does this.
 - **Without a cloud account:** any location your devices can all reach works.
   On a Tailscale network, share a folder from a computer with Taildrive and add
   it on each device as a WebDAV location with the **Tailscale Taildrive**

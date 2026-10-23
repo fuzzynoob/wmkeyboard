@@ -40,6 +40,24 @@ While a language swipe is in progress, a preview pops up above the spacebar show
 
 The resting spacebar label follows **The spacebar shows** (also under Typing → Gestures), which offers Language (the default), Layout, or Both. In Language mode, a transliterating layout such as Avro always shows its own name instead of the shared language name. Avro, Probhat and Jatiya all display as বাংলা, so the language name alone wouldn't say which method is under your fingers. In Both mode, a transliterating layout shows the combined form instead, such as বাংলা (Avro phonetic). That's the same as any other layout whose name differs from its language. Otherwise, whenever two enabled layouts share a language, the label adds the layout name alongside it so you can tell them apart. The ◀▶ hint arrows need three things at once: **Arrows on the spacebar** on (the default), one of the two swipe slots set to Language, and more than one layout enabled.
 
+### Naming a layout yourself
+
+Any switched-on layout can go by a name you choose. Open its language under <SettingsPath path="Languages & layouts" />, and under the layout cards there is a **Name for (layout)** row for each layout that is on, subtitled with what the keyboard shows for it now. Tap it, type the name, and tap **Save**. A swipe on the row offers the same **Rename**, plus **Use the automatic name** once you've set one.
+
+Your name replaces the automatic one everywhere the keyboard names the current layout: the resting spacebar, the swipe and <KeyCap>🌐</KeyCap> preview, the hold-drag picker, and the Switch order list in settings. **The spacebar shows** and the same-language rule above no longer apply to that layout, so "Work" stays "Work" whichever mode is set. A custom **Spacebar text** still wraps it, with `%s` standing for your name. Clear the field, or tap **Use the automatic name** in the dialog, to go back. The names are saved with your other settings and come back with a backup.
+
+### Typing speed on the spacebar
+
+Turn on **Typing speed on the spacebar** under <SettingsPath path="Typing / Gestures" /> and the spacebar shows how fast you're typing, as "42 wpm" next to its label. It's off by default.
+
+- The number is your speed over the last few words, up to the last 30 seconds, not your lifetime average. It needs two words and two seconds of typing before it shows anything.
+- It changes each time a word goes in: a word you type and end with a space or a mark, a suggestion you pick, a glided word, or a two-thumb word. Each new reading moves the number half way, so one fast or slow word doesn't make it jump.
+- A pause of more than 5 seconds clears it, and the spacebar goes back to its plain label until you've typed two more words.
+- It counts each word's letters and one space after it, the usual five characters to a word. Over 250 wpm is held at 250.
+- It never shows in a password field or while incognito is on, and nothing you type there is timed. Going into one of those fields, or coming back out, starts the count again from nothing.
+- Each field gets its own count too. Moving to a different field or closing the keyboard clears the number; the same field reloading itself keeps it.
+- Nothing is kept: no number, no text. So it works with [Statistics](/reference/settings/statistics/) turned off, and it starts again from nothing when the keyboard restarts.
+
 ## Holding to drag through the list
 
 <GestureDemo type="space-hold" caption="Hold the spacebar, then drag to pick a language without lifting." />
@@ -101,6 +119,10 @@ Turn this toggle off in <SettingsPath path="Layout & size / Bottom row keys" /> 
 
 - **Tap** cycles to the next enabled *layout* (not language) in your switch order, wrapping from the last back to the first. Three layouts of the same language still count as three separate stops.
 - **Long-press** opens the same picker the spacebar hold-drag uses (the list, or the carousel if you chose it), regardless of how many languages you have enabled.
+
+### Switching from the toolbar
+
+The **Switch language** tool does what a tap on <KeyCap>🌐</KeyCap> does: one tap moves to the next layout in your switch order. Pin it to the toolbar, or leave it in the toolbox, when you want the switch away from the keys, for example so a stray tap beside the comma never changes language. It's off the keys entirely, so it works whatever the bottom row holds and whether **Emoji key instead of 🌐** is on. Find it under <SettingsPath path="Tools / Switch language" />.
 
 ### Going back to the last language
 
@@ -175,7 +197,7 @@ Registering a language with Android and that language being *switchable* are two
 Android 14 added an API that lets a keyboard enable its own subtypes. On Android 14 and newer, WM Keyboard enables all of them for you and the switcher lists the lot with nothing to configure. Below that there is no such API. Open **Select languages in the system settings**. Tick each language you want in the sheet.
 :::
 
-A separate, unrelated toggle, **Remember language per app** (under Per-app language, off by default), has the keyboard remember whichever layout you last explicitly switched to in a given app and restore it the next time you type there. Suggestions and autocorrect switch along with it, to that language's words and its own **Also suggest from** list. Apps you haven't switched languages in yet follow whatever you last used globally, and a field that demands Latin input or advertises its own language still overrides the memory either way.
+A separate, unrelated toggle, **Remember language per app** (under Per-app language, off by default), has the keyboard remember whichever layout you last explicitly switched to in a given app and restore it the next time you type there. Suggestions and autocorrect switch along with it, to that language's words and its own **Also suggest from** list. Apps you haven't switched languages in yet follow whatever you last used globally, and a field that demands Latin input or advertises its own language still overrides the memory either way. Removing a layout from your list also drops it from every app that remembered it; those apps fall back to your last-used layout.
 
 **Forget remembered apps**, further down the Languages screen under Language data, clears that whole map after a confirmation. The row only appears once something is in it, and its subtitle counts how many apps have a language pinned. The feature itself stays on, so apps start being remembered again as you switch language inside them.
 
@@ -209,6 +231,7 @@ Automation apps such as Tasker, and `adb` on a computer, can switch too. They se
 | The spacebar shows | Typing → Gestures | Language |
 | Language picker shape | Typing → Gestures | List |
 | Spacebar text | Typing → Gestures | Blank (live name) |
+| Typing speed on the spacebar | Typing → Gestures | Off |
 | Spacebar long press keys | Typing → Gestures | Blank (the hold opens the picker) |
 | Show the 🌐 key | Layout & size → Bottom row keys | On |
 | 🌐 goes back to the last language | Layout & size → Bottom row keys | Off |

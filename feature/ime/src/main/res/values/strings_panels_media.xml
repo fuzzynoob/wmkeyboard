@@ -137,6 +137,8 @@
     <string name="ime_voice_engine_asr4all" translatable="false">Asr4All</string>
     <string name="ime_voice_engine_parakeet" translatable="false">Parakeet</string>
     <string name="ime_voice_engine_moonshine" translatable="false">Moonshine</string>
+    <string name="ime_voice_engine_sherpa" translatable="false">Sherpa</string>
+    <string name="ime_voice_engine_omnilingual" translatable="false">Omnilingual</string>
     <string name="ime_voice_engine_server">Server</string>
     <!-- The bar's expand button: go back to the surface it replaced. -->
     <string name="ime_voice_bar_expand_panel_desc">Open the voice panel</string>
@@ -170,9 +172,9 @@
     <string name="ime_handwriting_ink_on_desc">Writing. Tap to use the app instead</string>
     <string name="ime_handwriting_ink_off_desc">Using the app. Tap to write</string>
     <string name="ime_handwriting_stylus_hint">Write with your stylus over a text field</string>
-    <!-- Shown in place of the writing area of a handwriting layout in the
-         Lite edition, which does not include the recognizer. -->
-    <string name="ime_handwriting_layout_full_only_info">Handwriting is in the Full edition only. Use the globe key to change to a different layout.</string>
+    <!-- Shown in place of the writing area of a handwriting layout in a
+         build without the recognizer (F-Droid's). -->
+    <string name="ime_handwriting_unsupported_info">This version of the app reads handwriting in Chinese and Japanese only. Add one of them in Languages to write here.</string>
 
     <!-- Camera panel. -->
     <string name="ime_camera_permission_body">The camera tool needs permission to use the camera. The app takes a photo only when you press the shutter.</string>
@@ -182,6 +184,15 @@
     <string name="ime_camera_send_action">Send</string>
     <!-- Confirm step: search the web with this photo instead of sending it (#349). -->
     <string name="ime_camera_search_action">Search</string>
+    <string name="ime_camera_translate_action">Translate</string>
+    <string name="ime_camera_translate_metered_ask">You are on a metered connection. Press Translate again to send the photo.</string>
+    <string name="ime_camera_translate_blocked">Data saver stops photo translation on this connection.</string>
+    <string name="ime_camera_copy_action">Copy</string>
+    <string name="ime_camera_save_action">Save to the gallery</string>
+    <string name="ime_camera_copied_toast">Photo copied</string>
+    <string name="ime_camera_saved_toast">Saved to the gallery</string>
+    <string name="ime_camera_pick_desc">Pick a photo</string>
+    <string name="ime_camera_picture_error">That picture could not be opened.</string>
     <!-- Screen reader labels for the controls over the viewfinder. -->
     <string name="ime_camera_close_desc">Close the camera</string>
     <string name="ime_camera_captured_photo_desc">The photo you took</string>
@@ -249,6 +260,7 @@
     <string name="ime_sticker_pack_all_label">All</string>
     <string name="ime_sticker_manage_packs_action">Manage packs</string>
     <string name="ime_sticker_add_desc">Add stickers</string>
+    <string name="ime_sticker_create_desc">Create a sticker from a prompt</string>
     <string name="ime_sticker_add_to_pack_action">Add to <xliff:g id="pack" example="My stickers">%1$s</xliff:g></string>
     <string name="ime_sticker_save_new_pack_action">Save to a new pack</string>
     <!-- %1$s is the name the user gave the pack. -->
@@ -258,7 +270,7 @@
     <string name="ime_gif_item_desc">GIF</string>
 
     <!-- Web search panel. -->
-    <string name="ime_web_search_idle">Type a search and press enter.\nPress a result to insert its link.</string>
+    <string name="ime_web_search_idle">Type a search and press enter.\nPress a result to open it, insert its link or copy it.</string>
     <string name="ime_web_search_need_key_body">Web search needs an API key from Brave Search. Add a key in the settings for this tool.</string>
     <!-- %1$s is what the user typed in the search box. -->
     <string name="ime_web_search_empty">No results for “<xliff:g id="query" example="weather">%1$s</xliff:g>”</string>
@@ -266,8 +278,19 @@
     <string name="ime_web_search_insert_desc">Insert the link</string>
     <string name="ime_web_search_answer_label">Answer from the search engine</string>
 
+    <!-- The search panel's tabs: web results and images. -->
+    <string name="ime_search_tab_all">All</string>
+    <string name="ime_search_tab_images">Images</string>
+    <!-- At the end of the search results: fetches the next page of the same search. -->
+    <string name="ime_search_more">More results</string>
+    <string name="ime_search_no_more">No more results</string>
+    <!-- A search result's menu, opened by a tap or a long press on it. -->
+    <string name="ime_search_menu_copy_link">Copy the link</string>
+    <string name="ime_search_menu_insert_image">Insert the picture</string>
+    <string name="ime_search_menu_save_image">Save to the gallery</string>
+
     <!-- Image search panel. -->
-    <string name="ime_image_search_idle">Type a search and press enter.\nPress an image to insert it. Press and hold to insert its link.</string>
+    <string name="ime_image_search_idle">Type a search and press enter.\nPress an image to insert it, save it or copy its link.</string>
     <string name="ime_image_search_need_key_body">Image search needs an API key from Brave Search. Add a key in the settings for this tool.</string>
     <!-- %1$s is what the user typed in the search box. -->
     <string name="ime_image_search_empty">No images for “<xliff:g id="query" example="weather">%1$s</xliff:g>”</string>
@@ -291,16 +314,21 @@
     <string name="ime_translate_downloaded_desc">Downloaded</string>
     <string name="ime_translate_all_languages_label">All languages</string>
     <string name="ime_translate_all_languages_info">Also the languages to download</string>
+    <!-- Shown above the download button before the NLLB-200 model's first download; the button then reads ime_translate_nllb_licence_accept_action. -->
+    <string name="ime_translate_nllb_licence_body">NLLB-200 comes from Hugging Face under Meta\'s licence for it, Creative Commons Attribution-NonCommercial 4.0: for non-commercial use only, with no warranty. Press again to accept it and download.</string>
+    <string name="ime_translate_nllb_licence_accept_action">Accept and download</string>
     <string name="ime_translate_need_models_body">To translate on the device, download: <xliff:g id="languages" example="Bengali, German">%1$s</xliff:g>. About <xliff:g id="size" example="60 MB">%2$s</xliff:g>.</string>
+    <!-- Names the Bergamot engine's own library in the download offer, beside model names like "French → English". -->
+    <string name="ime_translate_bergamot_engine_name">Firefox Translations engine</string>
     <string name="ime_translate_downloading_progress">Downloading: <xliff:g id="languages" example="Bengali, German">%1$s</xliff:g>…</string>
     <string name="ime_translate_download_of_total_progress"><xliff:g id="done" example="9.1 MB">%1$s</xliff:g> of <xliff:g id="total" example="30 MB">%2$s</xliff:g></string>
     <string name="ime_translate_download_failed_error">The download did not finish. Check the connection, then try again.</string>
     <string name="ime_translate_offline_unsupported_error"><xliff:g id="language" example="Malayalam">%1$s</xliff:g> is not available on the device. Select the online engine for this language.</string>
     <string name="ime_translate_offline_romanized_error"><xliff:g id="language" example="Hindi">%1$s</xliff:g> in Latin letters is not supported on the device. Select the online engine for this text.</string>
     <string name="ime_translate_offline_undetermined_error">The language is not clear from this text. Select it with the first chip.</string>
-    <string name="ime_translate_module_missing_body">On-device translation is an extra part of the keyboard that comes from Google Play. Download it to translate with no connection.</string>
+    <string name="ime_translate_module_missing_body">On-device translation is an extra part of the keyboard that downloads separately. Download it to translate with no connection.</string>
     <string name="ime_translate_module_installing_action">Downloading…</string>
-    <string name="ime_translate_module_failed_error">Google Play did not deliver the download. Check the connection, then try again. If it fails again, download it from Settings, Tools, Translate.</string>
+    <string name="ime_translate_module_failed_error">The download did not finish. Check the connection, then try again. If it fails again, download it from Settings, Tools, Translate.</string>
     <string name="ime_translate_offline_failed_error">On-device translation did not start. Try again, or select the online engine.</string>
 
     <!-- Plugins panel. -->
@@ -310,4 +338,6 @@
     <!-- Second line of a plugin row when the plugin gives no description. %1$s is its version. -->
     <string name="ime_plugin_version_label">Version <xliff:g id="version" example="1.2.0">%1$s</xliff:g></string>
 
+    <!-- The chooser of providers in a panel, for a list in pick mode (#727) -->
+    <string name="ime_provider_choose_desc">Choose the provider</string>
 </resources>

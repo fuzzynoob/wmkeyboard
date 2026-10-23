@@ -114,6 +114,24 @@ class CaptureFieldTest {
     }
 
     @Test
+    fun `a pick that finishes a word being edited in the middle takes its tail`() {
+        assertEquals(
+            CaretText("say hello there", 10),
+            CaretText("say hello there", caret = 6).replacedWordAtCaret("hello", spaceAfter = true),
+        )
+    }
+
+    @Test
+    fun `a pick typed in front of an existing word keeps that word`() {
+        // "ab" typed at the start of "out of here" (#612).
+        val text = CaretText("about of here", caret = 2)
+        assertEquals(
+            CaretText("absolutely out of here", 11),
+            text.replacedWordAtCaret("absolutely", spaceAfter = true),
+        )
+    }
+
+    @Test
     fun `a pick does not double a space that is already there`() {
         val text = CaretText("hel world", caret = 3)
         val next = text.replacedWordAtCaret("hello", spaceAfter = true)
@@ -147,6 +165,17 @@ class CaptureFieldTest {
         val onGap = CaretText("hello there", caret = 5).glided("big")
         assertEquals("hello big there", onGap.text)
         assertEquals(10, onGap.at)
+    }
+
+    @Test
+    fun `a glide after a mark is spaced off it (#880)`() {
+        assertEquals(CaretText("hello, world", 12), CaretText("hello,").glided("world"))
+        assertEquals(CaretText("(see) there", 11), CaretText("(see)").glided("there"))
+    }
+
+    @Test
+    fun `a glide after an opener stays against it`() {
+        assertEquals(CaretText("(world", 6), CaretText("(").glided("world"))
     }
 
     @Test

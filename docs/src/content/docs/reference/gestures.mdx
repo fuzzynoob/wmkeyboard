@@ -33,7 +33,7 @@ Which action a spacebar swipe runs depends on *when* the drag starts relative to
 | Slot = Language, swipe sideways | Spacebar | Steps through enabled layouts (a flick moves one; a continued swipe steps every 44&nbsp;dp after a 200&nbsp;ms pause, 110&nbsp;dp to wrap past either end) | Either slot set to Language |
 | Slot = Cursor, swipe sideways | Spacebar | Moves the text cursor one character per 16&nbsp;dp of drag | Either slot set to Cursor |
 | Same, dragging vertically | Spacebar | Also steps the cursor a line at a time | 2-D cursor touchpad (Off) |
-| Swipe up at least 24&nbsp;dp, more up than sideways, then keep moving | Spacebar | Opens the 2-D touchpad for that drag: the cursor follows in every direction until you lift | Swipe up for the touchpad (Off) |
+| Swipe up at least 80&nbsp;dp, more up than sideways, then keep moving | Spacebar | Opens the 2-D touchpad for that drag: the cursor follows in every direction until you lift. The cursor holds still for the long-press delay after it opens, and up and down count once the finger pauses or turns, so the opening swipe never jumps a line | Swipe up for the touchpad (Off) |
 | Same, while the drag moves the cursor | Spacebar | Shows the text at the cursor, enlarged, in a bubble over the text | Cursor magnifier (On) |
 | Slot = Numpad, cross the initial slop | Spacebar | Opens the numeric keypad (one-shot, so the rest of the drag does nothing) | Either slot set to Numpad |
 | Straight downward drag, steeper than it is wide | Spacebar | Dismisses the keyboard | Swipe down to hide the keyboard (Off) |
@@ -74,6 +74,7 @@ The full field-by-field list (haptics, sound, popup timing, and every long-press
 | Long-press <KeyCap>Enter</KeyCap> | <KeyCap>Enter</KeyCap> | Opens a popup with emoji first; releasing on it opens the emoji panel. In a Send/Go/Search field the line break is in the popup too | Press and hold enter for emoji (Off) |
 | Long-press <KeyCap>A</KeyCap>/<KeyCap>C</KeyCap>/<KeyCap>X</KeyCap>/<KeyCap>V</KeyCap>/<KeyCap>Z</KeyCap>/<KeyCap>Y</KeyCap> | Those letter keys, or whichever six you rebind them to | Adds select-all / copy / cut / paste / undo / redo as an extra entry in that letter's accent popup | Press and hold A to select all, and its five siblings (all On) |
 | Double-tap <KeyCap>Shift</KeyCap> within the window | Shift key | Turns on caps lock | Caps lock double press (350 ms) |
+| Hold <KeyCap>Shift</KeyCap> past the long press, typing nothing | Shift key | Turns on caps lock, without re-casing the word at the cursor | Long press delay |
 | Hold any key still | Any key | Shows the key preview bubble | Key popup (On) |
 
 ## Flicking a key with arms
@@ -85,11 +86,13 @@ A key with flick directions (the Japanese flick pad, the English flick (3×3) bo
 | Gesture | Where | What it does | Setting |
 | --- | --- | --- | --- |
 | Tap | Flick key | Types the centre character | None |
+| Tap | Swipe-only flick key (no centre) | Types nothing, or shows the key's flick popup for a moment | Tap a swipe-only key to see its swipes (Off) |
 | Swipe past the flick distance in one of eight directions | Flick key | Types the arm at that edge or corner; an arm that runs an action runs it, and a cursor or delete arm repeats while held | Flick distance (22&nbsp;dp) |
 | Swipe towards an edge or corner with no arm | Flick key | Types the centre character | None |
 | Swipe out to a letter arm and more than halfway back | Flick key | Types that arm's capital (or its **with Shift** form) | None; an arm with no capital cancels to the centre instead |
 | Hold still inside the flick distance | Flick key | Opens the press-and-hold alternates, as on any key | Press and hold hints (On) |
-| Any swipe off a flick key | Flick key | Never starts a glide, a handwriting stroke or a hint flick | None |
+| Any swipe off a flick key | Flick key | Never starts a handwriting stroke or a hint flick | None |
+| Swipe off a letter flick key that turns, reaches another letter where no arm points, or travels far | Flick key, glide typing on | Glides a word; anything shorter and straighter types the arm, overshoot included | Flick reach (141%), A flick onto a letter glides a word (Off) |
 
 While the finger is down the cross popup shows every arm with the chosen one lit (Flick popup, On), and the key's face draws its arms small at their edges and corners (Show flick arms on keys, On).
 
@@ -120,6 +123,7 @@ The layer shows for as long as you hold, and the keyboard is back on the layer y
 | Drag onto a layer, mode or tool key and lift | Any of them | Nothing is typed, and the layer goes back | None |
 | Drag off the key grid and lift | Anywhere outside | Cancels, and nothing is typed | None |
 | Tap without moving | <KeyCap>?123</KeyCap> or <KeyCap>ABC</KeyCap> | Switches layer and stays there, as always | None |
+| Hold still, tap a key with another finger | <KeyCap>?123</KeyCap> | Runs that key's chord instead of typing it; <KeyCap>L</KeyCap> switches language out of the box | Chords with ?123 (On); each chord bindable. See [Gestures](/typing/gestures/#chords-with-123) |
 
 ## Using the volume keys as a cursor
 
@@ -167,10 +171,16 @@ A grab-bag of drags that live on their own feature pages, linked below each row.
 | Scroll the results down, then up | [GIF and sticker panels](/emoji/gifs/#hiding-the-search-while-you-scroll) | Folds the search box and the chip rows away, then brings them back | Hide the search when you scroll (Off) |
 | Swipe sideways across the panel, more across than up or down, past 56&nbsp;dp or as a flick | [Clock](/tools/clock/), [Clipboard](/tools/clipboard/#pinned-and-unpinned-tabs), [Location](/tools/location/), [KDE Connect](/tools/kde-connect/#the-tabs), Vocabulary, Wikipedia and Themes panels | Moves to the next tab (leftward) or the previous one (rightward); the ends don't wrap. A list, chip row, card or touchpad that takes the drag itself keeps it | None |
 | Same, across the results | [GIF and sticker panels](/emoji/gifs/) | Moves along the emoji / GIF / sticker switch | None |
+| Hold a photo, then slide across the grid | [Gallery](/tools/gallery/#picking) | Picks every photo the finger passes (or unpicks, when it began on a picked one), scrolling near the edges. A hold without a slide shows the photo big until you lift | None |
+| Pinch the photo grid | [Gallery](/tools/gallery/#the-grid) | Fewer or more columns, two to six | Columns (4) |
+| Hold a pick in the send bar and drag it sideways | [Gallery](/tools/gallery/#the-send-bar) | Moves it in the send order | None |
+| Drag down in the photo viewer | [Gallery](/tools/gallery/#the-viewer) | Closes the viewer; sideways turns the page, a pinch or double tap zooms | None |
+| Drag, pinch or twist a text or sticker on a photo | [Gallery editor](/tools/gallery/#the-editor) | Moves, resizes or turns it; dropped on the bin, deletes it | None |
 | Hold and drag a tool | [Toolbar / toolbox](/tools/overview/) | Pins, unpins, or reorders it | None |
 | Swipe down on the toolbar strip | Toolbar | Dismisses the keyboard | Swipe down to hide, toolbar (Off) |
+| Hold a word on the suggestion strip, then slide up or down | [Suggestion strip](/smart/personal-dictionary/#sliding-a-held-word) | Raises or lowers the word's rank; six steps down never suggests it | None |
 | Drag the seek bar | [Media controls](/tools/media/) | Scrubs playback to that point | None |
-| Swipe across the letters | Letter keys | Glides a word, or draws [handwriting](/tools/handwriting/#handwriting-without-opening-the-panel) instead if reassigned <Flavor edition="full" /> | Glide typing (On) |
+| Swipe across the letters | Letter keys | Glides a word, or draws [handwriting](/tools/handwriting/#handwriting-without-opening-the-panel) instead if reassigned <Flavor edition="google" /> | Glide typing (On) |
 | Drag the floating panel's handle bar | [Floating keyboard](/typing/size-position/#floating-the-keyboard) | Moves the panel | Floating keyboard (Off) |
 | Drag the floating panel's resize grip | Floating keyboard | Resizes width and height together (height clamped 60%–160% of normal) | (same) |
 
@@ -199,6 +209,7 @@ Every default on this page, gathered in one place. "Where" is the settings scree
 | Volume keys move the cursor | Typing → Volume keys | Off |
 | Release the keys while audio plays | Typing → Volume keys | On |
 | Multi-finger swipes | Typing → Gestures | On |
+| Chords with ?123 | Typing → Gestures | On |
 | Press and hold delay | Key press → Timing | 300 ms (100–800 ms) |
 | Time before a key repeats | Key press → Timing | 300 ms (150–800 ms) |
 | Delete repeat interval | Key press → Timing | 50 ms (20–200 ms) |
@@ -206,6 +217,7 @@ Every default on this page, gathered in one place. "Where" is the settings scree
 | Caps lock double press | Key press → Timing | 350 ms (150–600 ms) |
 | Press and hold hints | Key press → Press and hold shortcuts | On |
 | All accents on press and hold | Key press → Press and hold shortcuts | Off |
+| No accents on press and hold | Key press → Press and hold shortcuts | Off |
 | Your language's letters first | Key press → Press and hold shortcuts | On |
 | Shifted letter on press and hold | Key press → Press and hold shortcuts | Off |
 | Press and hold ?123 for the number pad | Key press → Press and hold shortcuts | On |

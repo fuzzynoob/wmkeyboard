@@ -22,6 +22,7 @@ import androidx.core.net.toUri
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.app.updates.UpdateChannel
 import com.wasimaster.wmkeyboard.core.accessibility.KeyboardPassthrough
+import com.wasimaster.wmkeyboard.core.accessibility.ScreenContextService
 import com.wasimaster.wmkeyboard.core.location.LocationAccess
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 
@@ -85,6 +86,21 @@ internal fun PermissionsSettings() {
                 R.string.privacy_permissions_calendar_title,
                 R.string.privacy_permissions_calendar_subtitle,
                 PermissionDisclosures.CALENDAR,
+            )
+        }
+        item {
+            RuntimePermissionRow(
+                R.string.privacy_permissions_calendar_write_title,
+                R.string.privacy_permissions_calendar_write_subtitle,
+                PermissionDisclosures.CALENDAR_WRITE,
+            )
+        }
+        // Nearby devices from Android 13; before that the row above (location) is the grant.
+        item(visible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            RuntimePermissionRow(
+                R.string.privacy_permissions_nearby_title,
+                R.string.privacy_permissions_nearby_subtitle,
+                PermissionDisclosures.NEARBY_WIFI,
             )
         }
         // Not declared in the Play build at all; see [ChannelFeatures].
@@ -153,6 +169,14 @@ internal fun PermissionsSettings() {
                 R.string.privacy_permissions_accessibility_subtitle,
                 SpecialAccess.ACCESSIBILITY,
                 KeyboardPassthrough::isServiceEnabled,
+            )
+        }
+        item(visible = ChannelFeatures.SCREEN_CONTEXT) {
+            SpecialAccessRow(
+                R.string.privacy_permissions_screen_content_title,
+                R.string.privacy_permissions_screen_content_subtitle,
+                SpecialAccess.SCREEN_CONTENT,
+                { ScreenContextService.isEnabled(it) },
             )
         }
         // Only where the app can install a new version of itself, and only

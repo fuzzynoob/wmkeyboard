@@ -8,6 +8,8 @@ import java.util.zip.ZipFile
 
 plugins {
     alias(libs.plugins.android.application)
+    // native/gates.json: the Play splits in dynamicFeatures, the JNI keep rules.
+    id("wmkeyboard.native-gates")
     alias(libs.plugins.kotlin.compose)
     id("wmkeyboard.compose-metrics")
     // Offline handwriting model imports (#666): rewrites three calls inside
@@ -23,10 +25,10 @@ plugins {
 }
 
 // Coverage for the root's merged report (`./gradlew koverHtmlReportUnit`):
-// :app's own full-flavour unit tests, which are most of the project's.
+// :app's own unit tests, which are most of the project's.
 kover {
     currentProject {
-        createVariant("unit") { add("fullIntlDebug") }
+        createVariant("unit") { add("intlDebug") }
     }
 }
 
@@ -34,7 +36,7 @@ kover {
 // carry. A new dependency under anything else fails the build until someone
 // has read its licence and added it here, with the reason.
 //
-//   ./gradlew :app:licenseeAndroidFullIntlRelease   (and any other variant)
+//   ./gradlew :app:licenseeAndroidIntlRelease   (and any other variant)
 //
 // Reports, including a JSON inventory of every artifact and its licence, are
 // written to build/reports/licensee/android<Variant>/.
@@ -64,7 +66,7 @@ licensee {
     // scanner finds it.
     if (!fdroidChannel) {
         allowUrl("https://developers.google.com/ml-kit/terms") {
-            because("ML Kit, full flavour; bundled or through Play services")
+            because("ML Kit, every build but F-Droid's; bundled or through Play services")
         }
         allowUrl("https://developer.android.com/studio/terms.html") {
             because("Play services (Drive sign-in, ML Kit's unbundled models) outside F-Droid")
@@ -90,11 +92,11 @@ fun apiKey(propertyName: String, envName: String): String =
         ?: System.getenv(envName)?.trim()
         ?: ""
 
-fun flag(propertyName: String, envName: String): Boolean =
+fun flag(propertyName: String, envName: String, default: String = "false"): Boolean =
     (providers.gradleProperty(propertyName).orNull
         ?: localProperties.getProperty(propertyName)
         ?: System.getenv(envName)
-        ?: "false").toBoolean()
+        ?: default).toBoolean()
 
 // Which store this build is going to. It decides more than a label: each
 // channel gets a different updater, and each updater is a liability in the
@@ -133,12 +135,23 @@ val githubChannel = updaterSourceDir == "src/github/java"
 val gmsChannel = flag("wmkb.enableGms", "WMKB_ENABLE_GMS")
 val gmsSourceDir = if (gmsChannel) "src/gms/java" else "src/nogms/java"
 
-val channelSourceDirs = listOfNotNull(playServicesSourceDir, updaterSourceDir, gmsSourceDir)
+// Whether Google's SDKs (ML Kit, LiteRT, LiteRT-LM) are in the build: in
+// every channel but F-Droid, whose build may carry no Google artifact. The
+// library modules read the same flag to pick their src/google or src/nogoogle
+// sources; here src/google adds the application class that starts WorkManager
+// on demand for ML Kit's model downloads, and the manifest that names it.
+val googleSdks = !fdroidChannel
+val googleSourceDir = "src/google/java".takeIf { googleSdks }
 
-// A build with no internet permission at all (#292), for anyone who wants one:
-// `-Pwmkb.noInternet=true`. Not a release variant, there are enough of those.
-// Everything on the device keeps working; each feature that fetches something
-// fails the way it does offline.
+val channelSourceDirs = listOfNotNull(playServicesSourceDir, updaterSourceDir, gmsSourceDir, googleSourceDir)
+
+// A build with no internet permission at all (#292): `-Pwmkb.noInternet=true`,
+// GitHub's offline build. Everything on the device keeps working; each feature
+// that fetches something fails the way it does offline. From 0.6.4 it is as
+// slim as the standard build: native delivery stays on, so its feature
+// libraries are pinned rather than bundled, and the `en` flavour keeps its
+// language packs. Neither can be fetched without the permission; both come in
+// as imports of the files the release and the data repository publish.
 val noInternet = flag("wmkb.noInternet", "WMKB_NO_INTERNET")
 
 // A build that cannot ask for location at all (#350): `-Pwmkb.noLocation=true`.
@@ -146,11 +159,24 @@ val noInternet = flag("wmkb.noInternet", "WMKB_NO_INTERNET")
 // compass tools fall back to a typed or searched place, as before.
 val noLocation = flag("wmkb.noLocation", "WMKB_NO_LOCATION")
 
+// Native delivery (wmkeyboard.native-pins): the GitHub and F-Droid builds
+// leave the native libraries behind optional features out of the APK and
+// fetch each one the first time its feature asks, the way Play's on-demand
+// modules do for a Play install. On by default; off on Play, which has its own
+// modules and whose policy forbids downloading code anywhere else. On in the
+// no-internet build too, which cannot fetch a library but imports the same
+// pinned file fetched elsewhere (NativeDelivery.import).
+// `-Pwmkb.nativeDelivery=false` bundles everything as before.
+val nativeDelivery = flag("wmkb.nativeDelivery", "WMKB_NATIVE_DELIVERY", default = "true") &&
+    !playStoreChannel
+if (nativeDelivery) apply(plugin = "wmkeyboard.native-pins")
+
 // Manifest entries that belong to exactly one channel. REQUEST_INSTALL_PACKAGES
 // and the install-result receiver must not exist in a Play or F-Droid APK, and
 // the Play Store package query is pointless anywhere but Play.
 val channelManifests = listOfNotNull(
     "src/play/AndroidManifest.xml".takeIf { playStoreChannel },
+    "src/google/AndroidManifest.xml".takeIf { googleSdks },
     "src/github/AndroidManifest.xml".takeIf { githubChannel },
     "src/nointernet/AndroidManifest.xml".takeIf { noInternet },
     "src/nolocation/AndroidManifest.xml".takeIf { noLocation },
@@ -180,6 +206,29 @@ val translatedLocales: String = run {
 // splits as conflicting ways of saying the same thing.
 val splitApks = flag("wmkb.splitApks", "WMKB_SPLIT_APKS")
 
+// The ABIs a release ships, and the last digit each gives the versionCode.
+// Every APK and bundle carries `wmkb.versionCode * 10 + digit` in its manifest
+// (from 0.6.2): 0 for one that holds every ABI (the universal APK, the Play
+// bundle, a build with no split), then one per ABI. A phone that runs two of
+// them installs the highest it can, so arm64-v8a sits above armeabi-v7a, and
+// x86_64 above both for the x86 Chromebooks that also translate ARM code.
+// F-Droid builds one APK per ABI and serves each phone the right one by these
+// numbers (VercodeOperation in fdroid/com.wasimaster.wmkeyboard.yml), and the
+// GitHub splits carry the same digits, so a GitHub APK and an F-Droid APK of
+// one version still install over each other.
+//
+// Only the manifest gets the digit. BuildConfig.RELEASE_VERSION_CODE, the
+// release asset names and the changelog files keep the plain number, which
+// is what the update checks compare.
+val abiDigits = linkedMapOf("armeabi-v7a" to 1, "arm64-v8a" to 2, "x86_64" to 3)
+val baseVersionCode = providers.gradleProperty("wmkb.versionCode").get().toInt()
+
+// `-Pwmkb.abi=arm64-v8a`: a release with that ABI's native code alone and that
+// ABI's versionCode, without the ABI split. F-Droid's recipe sets it, one
+// build entry per ABI, because fdroidserver takes one APK from each build.
+val singleAbi = providers.gradleProperty("wmkb.abi").orNull?.trim()?.takeIf { it.isNotEmpty() }
+    ?.also { require(it in abiDigits) { "wmkb.abi=$it is not one of ${abiDigits.keys}" } }
+
 // Macrobenchmarks and baseline profile generation (:benchmark). Off by default,
 // for the reasons settings.gradle.kts gives; the flag has to match there.
 val benchmarkBuild = flag("wmkb.benchmark", "WMKB_BENCHMARK")
@@ -187,7 +236,7 @@ val benchmarkBuild = flag("wmkb.benchmark", "WMKB_BENCHMARK")
 
 // Where the generated baseline profile lives: AGP's own default directory for
 // the one variant that generates it (see the benchmark block near the end).
-val generatedProfileDir = "src/fullIntlRelease/baselineProfiles"
+val generatedProfileDir = "src/intlRelease/baselineProfiles"
 
 android {
     // The unit-test worker dies with an EOFException on the default 512m: the
@@ -198,9 +247,7 @@ android {
 
     namespace = "com.wasimaster.wmkeyboard"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
     }
 
     defaultConfig {
@@ -209,7 +256,9 @@ android {
         targetSdk = 36
         // Both from gradle.properties so :core:config stamps the same numbers on
         // crash reports as the manifest carries. Never hardcode them here again.
-        versionCode = providers.gradleProperty("wmkb.versionCode").get().toInt()
+        // The plain number. Each output's manifest gets `* 10 + ABI digit`
+        // (see abiDigits), set per output in androidComponents below.
+        versionCode = baseVersionCode
         versionName = providers.gradleProperty("wmkb.versionName").get()
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -222,6 +271,10 @@ android {
         buildConfigField("String", "TRANSLATE_API_KEY", "\"${apiKey("wmkb.translateApiKey", "WMKB_TRANSLATE_API_KEY")}\"")
         buildConfigField("String", "UNSPLASH_API_KEY", "\"${apiKey("wmkb.unsplashApiKey", "WMKB_UNSPLASH_API_KEY")}\"")
         buildConfigField("String", "PEXELS_API_KEY", "\"${apiKey("wmkb.pexelsApiKey", "WMKB_PEXELS_API_KEY")}\"")
+        // The versionCode without its ABI digit, the same in every APK of a
+        // release. The update checks compare this, never the manifest's
+        // number: F-Droid's index and the GitHub asset names speak in it.
+        buildConfigField("int", "RELEASE_VERSION_CODE", "$baseVersionCode")
         buildConfigField("Boolean", "ENABLE_PLAY_STORE", "$playStoreChannel")
         buildConfigField("Boolean", "ENABLE_FDROID", "$fdroidChannel")
         // The third channel is the absence of the other two, which is a fact
@@ -229,6 +282,19 @@ android {
         // once here so they cannot disagree about the boolean algebra.
         buildConfigField("Boolean", "ENABLE_GITHUB_UPDATES", "$githubChannel")
         buildConfigField("Boolean", "ENABLE_GMS", "$gmsChannel")
+        // What About calls this build: the standard one, or the one with no
+        // internet permission. Shown as is, like a version name.
+        buildConfigField("String", "EDITION", "\"${if (noInternet) "Offline" else "Standard"}\"")
+        // This module's copies of :core:config's feature flags, for the
+        // app-package screens: off in F-Droid's build, which has none of
+        // Google's SDKs. Grammar is Harper, in every build.
+        buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "$googleSdks")
+        buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "$googleSdks")
+        buildConfigField("Boolean", "ENABLE_GRAMMAR", "true")
+        // On-device AI everywhere (llama.cpp, GGUF); LiteRT-LM only with Google's SDKs.
+        buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "true")
+        buildConfigField("Boolean", "ENABLE_LITERT_LM", "$googleSdks")
+        buildConfigField("Boolean", "ENABLE_WHISPER", "$googleSdks")
         // OAuth client ids for the Dropbox and OneDrive backup destinations.
         // Not secrets: the sign-in uses PKCE so no client secret ships. A
         // build without them simply leaves those two destinations out.
@@ -242,15 +308,10 @@ android {
         buildConfigField("int", "TRANSLATED_LANGUAGE_COUNT", "${translatedLocales.split(',').size - 1}")
     }
 
-    // Build flavors for storage-constrained devices.
-    // - full: all features (handwriting, OCR, QR scan, doc scan, grammar checker).
-    // - lite: removes ~100 MB of ML Kit + Harper native libraries for low-storage devices.
-    flavorDimensions += "capabilities"
-
     // Interface languages, the words the app shows rather than the ones it
     // types. The translations recovered from Play weigh ~39 MB, and because
     // resources.arsc is stored uncompressed that lands on every APK whole,
-    // which roughly quadruples the lite build. So on GitHub the choice is the
+    // which roughly doubles the English build. So on GitHub the choice is the
     // downloader's:
     // - intl: English plus the 48 translated languages.
     // - en:   English only, which is what every build before 0.5.10 was.
@@ -268,40 +329,27 @@ android {
     flavorDimensions += "languages"
 
     productFlavors {
-        create("full") {
-            dimension = "capabilities"
-            buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "true")
-            buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "true")
-            buildConfigField("Boolean", "ENABLE_GRAMMAR", "true")
-            buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "true")
-            buildConfigField("Boolean", "ENABLE_WHISPER", "true")
-        }
-        create("lite") {
-            dimension = "capabilities"
-            buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "false")
-            buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "false")
-            // Harper is open source and needs no Play services, so lite has it
-            // too; only the ML Kit and LiteRT features stay full-only.
-            buildConfigField("Boolean", "ENABLE_GRAMMAR", "true")
-            buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "false")
-            buildConfigField("Boolean", "ENABLE_WHISPER", "false")
-        }
-
         // Declared first, so it is what the IDE and a bare `assemble` pick.
         //
         // APP_LOCALES is what the in-app language picker (About, and the first
         // wizard page) offers, so it must name only languages this install can
         // actually show. `en` on Play still gets the full list: Play injects
         // its translations into the bundle at upload, and Android 13+ fetches
-        // the language split when the app language changes.
+        // the language split when the app language changes. So does `en` on
+        // GitHub, the standard build: it fetches each language as a pack from
+        // its release (LANGUAGE_PACKS), on Android 11 and up. The offline
+        // build's `en` takes the same packs, imported from a file.
         create("intl") {
             dimension = "languages"
             buildConfigField("String", "APP_LOCALES", "\"$translatedLocales\"")
+            buildConfigField("Boolean", "LANGUAGE_PACKS", "false")
         }
         create("en") {
             dimension = "languages"
-            val shipped = if (playStoreChannel) translatedLocales else "en"
+            val packs = githubChannel
+            val shipped = if (playStoreChannel || packs) translatedLocales else "en"
             buildConfigField("String", "APP_LOCALES", "\"$shipped\"")
+            buildConfigField("Boolean", "LANGUAGE_PACKS", "$packs")
         }
     }
 
@@ -328,7 +376,7 @@ android {
         }
         release {
             ndk {
-                if (!splitApks) abiFilters += setOf("arm64-v8a", "armeabi-v7a", "x86_64")
+                if (!splitApks) abiFilters += singleAbi?.let(::setOf) ?: abiDigits.keys
                 debugSymbolLevel = "FULL"
             }
             // No debug-key fallback. A debug-signed "release" build looks
@@ -370,7 +418,7 @@ android {
         // enough to release to judge typing latency by hand, and it builds in
         // roughly the time the Kotlin compile alone takes.
         //
-        //     ./gradlew :app:installFullFast
+        //     ./gradlew :app:installIntlFast
         //
         // What it deliberately does not test: anything R8 does. Keep rules
         // (the luaj ones especially) are never exercised here, so a build that
@@ -407,31 +455,18 @@ android {
             }
         }
     }
-    // Play builds carry the LiteRT-LM runtime as an on-demand module instead
-    // of ~20 MB per ABI in every install; LocalLlmEngine requests it on first
-    // AI use. Channel-gated because Play Feature Delivery only exists on
-    // Play: sideload and F-Droid builds compile the same runtime code into
-    // :core:intelligence instead (see playStoreChannel there), so for them
-    // the module is not even part of the build graph.
-    if (playStoreChannel) {
-        dynamicFeatures += ":feature:llm"
-        // ML Kit's translator, the same way: ~16 MB per ABI that only the
-        // people who turn on-device translation on ever download.
-        dynamicFeatures += ":feature:translate"
-        // The LiteRT interpreter (~4 MB per ABI) behind offline Whisper and
-        // the sticker editor's own background remover, and ML Kit's ink
-        // recogniser (~6.5 MB per ABI) behind the handwriting tool.
-        dynamicFeatures += ":feature:litert"
-        dynamicFeatures += ":feature:handwriting"
-        // The whisper.cpp, ExecuTorch and Whistle libraries behind the
-        // offline voice engines other than LiteRT Whisper, Harper's behind
-        // the grammar tool and the spell checker, and Tesseract's behind the
-        // scanner's offline reader. Library files only: their Kotlin stays
-        // in the base.
-        dynamicFeatures += ":feature:speech"
-        dynamicFeatures += ":feature:grammar"
-        dynamicFeatures += ":feature:ocr"
-    }
+    // Play builds carry the native runtimes behind optional features as
+    // on-demand modules instead of in every install: LiteRT-LM (~20 MB per
+    // ABI), ML Kit's translator (~16 MB) and ink recogniser, the LiteRT
+    // interpreter, ONNX Runtime (~33 MB on arm64), the Qualcomm NPU runtime,
+    // the Google Home APIs, and the project's own libraries (whisper.cpp,
+    // ExecuTorch, Harper, Hunspell, Tesseract, librime, Mozc, Bergamot,
+    // CTranslate2, zinnia, llama.cpp, OpenCV), each fetched the first time its
+    // feature asks. Channel-gated because Play Feature Delivery only exists on
+    // Play: every other build compiles the same code into the base, so for
+    // them the modules are not even part of the build graph. The list is
+    // native/gates.json: the wmkeyboard.native-gates convention adds every
+    // `:feature:<gate>` module settings.gradle.kts included.
 
     // See the splitApks flag at the top of this file. Splits shape APK
     // assembly only — bundle<Variant> ignores this block entirely.
@@ -439,7 +474,7 @@ android {
         abi {
             isEnable = splitApks
             reset()
-            include("arm64-v8a", "armeabi-v7a", "x86_64")
+            include(*abiDigits.keys.toTypedArray())
             isUniversalApk = true
         }
     }
@@ -482,6 +517,15 @@ android {
         // could only ever follow the system language. Generated rather than
         // hand-written so the list cannot drift from the locales that shipped.
         generateLocaleConfig = true
+        // Language packs (.github/scripts/language-packs.sh): the release
+        // compiles the all-languages build with
+        // -Pwmkb.stableResourceIds=<the English build's IDs>, so the strings
+        // cut out of it carry the IDs the English APK looks them up by. The
+        // IDs are the stableIds.txt AGP already writes for every link
+        // (intermediates/stable_resource_ids_file): AGP passes aapt its own
+        // --emit-ids, and aapt keeps only one, so a second one here never
+        // wrote anything.
+        providers.gradleProperty("wmkb.stableResourceIds").orNull?.let { additionalParameters += listOf("--stable-ids", it) }
     }
 
     // Android Lint. Severities live in config/lint/lint.xml — this block only
@@ -512,7 +556,7 @@ android {
         // moment. Off by default so building a release APK for the phone is a
         // build and not an audit; CI turns it back on:
         //
-        //     ./gradlew lintFullRelease -Pwmkb.lintRelease=true
+        //     ./gradlew lintIntlRelease -Pwmkb.lintRelease=true
         //
         // Every other lint setting in this block is untouched, so the explicit
         // `lint*` tasks still analyse exactly as much as they always did.
@@ -650,7 +694,7 @@ abstract class GenerateLayoutIndexTask : DefaultTask() {
 // a ceiling it has not outgrown — and a method belongs there only if it runs
 // rarely: a class initialiser, a settings screen, a one-off decode.
 //
-//     ./gradlew :app:checkDexMethodsFullEnFast
+//     ./gradlew :app:checkDexMethodsEnFast
 abstract class CheckDexMethodsTask : DefaultTask() {
     @get:InputFiles
     @get:PathSensitive(PathSensitivity.NONE)
@@ -814,6 +858,37 @@ val generateLayoutIndex =
         layoutsDir.set(layout.projectDirectory.dir("src/main/assets/layouts"))
     }
 
+// Copies release-notes/<versionName>.md to assets/release-notes.md, so the
+// "Updated to" notification and the About screen can show what changed in the
+// installed version without the network. A version whose notes are not written
+// yet ships without the asset, and the app falls back to fetching them from
+// the tag (InstalledReleaseNotes).
+abstract class BundleReleaseNotesTask : DefaultTask() {
+    @get:InputFiles
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val notes: ConfigurableFileCollection
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        val out = outputDir.get().asFile
+        out.deleteRecursively()
+        out.mkdirs()
+        notes.files.firstOrNull { it.isFile }?.copyTo(out.resolve("release-notes.md"), overwrite = true)
+    }
+}
+
+val bundleReleaseNotes =
+    tasks.register<BundleReleaseNotesTask>("bundleReleaseNotes") {
+        notes.from(
+            rootProject.layout.projectDirectory.file(
+                "release-notes/${providers.gradleProperty("wmkb.versionName").get()}.md",
+            ),
+        )
+    }
+
 // Rewrites the merged assets with every bundled layout's JSON compacted. The
 // files under src/main/assets/layouts are indented for people and for diffs:
 // 44 MB across ~1,700 layouts, 14.5 MB without the whitespace, which in the
@@ -883,6 +958,20 @@ androidComponents {
     }
 }
 
+// The ABI digit on every output's versionCode (see abiDigits). An ABI split
+// names its ABI; the universal APK and the bundle name none and take 0,
+// unless the whole build is one ABI's (wmkb.abi).
+androidComponents {
+    onVariants { variant ->
+        variant.outputs.forEach { output ->
+            val abi = output.filters.firstOrNull {
+                it.filterType == com.android.build.api.variant.FilterConfiguration.FilterType.ABI
+            }?.identifier ?: singleAbi
+            output.versionCode.set(baseVersionCode * 10 + (abi?.let(abiDigits::getValue) ?: 0))
+        }
+    }
+}
+
 // Only the `fast` build: release-mode d8 like the shipped APK, but no R8, so
 // the dex still carries the source's names. See [CheckDexMethodsTask].
 androidComponents {
@@ -908,6 +997,10 @@ androidComponents {
             generateLayoutIndex,
             GenerateLayoutIndexTask::outputDir,
         )
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            bundleReleaseNotes,
+            BundleReleaseNotesTask::outputDir,
+        )
         // The update-channel driver picked at the top of this file, added to
         // every production variant. This is the Variant API rather than the
         // `android.sourceSets` or `kotlin.sourceSets` DSL because neither of
@@ -916,9 +1009,9 @@ androidComponents {
         // not mirrored into the Kotlin task, so a directory added that way
         // compiles nothing and every reference into it fails to resolve.
         //
-        // The store channel is not a flavour of its own on purpose: it is
-        // orthogonal to full/lite, and a second dimension would double every
-        // variant and every Gradle task name in the project for one file.
+        // The store channel is not a flavour of its own on purpose: a second
+        // dimension would double every variant and every Gradle task name in
+        // the project for one file.
         channelSourceDirs.forEach { variant.sources.kotlin?.addStaticSourceDirectory(it) }
         // The GitHub channel also needs two permissions and a receiver that
         // must not appear in any other APK, so its manifest is added the same
@@ -946,25 +1039,21 @@ androidComponents {
     }
 }
 
-// The two task names the stores' pipelines were written against, from before
-// the `languages` flavour split every :app variant in two. AGP registers no
-// `assembleLiteRelease` once a second dimension exists, only the ambiguity
-// error, and one of the callers cannot simply be told the new name: F-Droid's
-// bot writes each new `Builds:` entry by copying the last one, `gradle: [lite]`
-// included, and nobody reviews what it writes.
+// The task name F-Droid's recipe was written against. Up to 0.6.x :app had a
+// `capabilities` flavour (full, lite) beside `languages`, and F-Droid built
+// `lite`. fdroiddata's bot writes each new `Builds:` entry by copying the last
+// one, `gradle: [lite]` included, and nobody reviews what it writes, so the
+// old name has to keep working until a merge request there switches the
+// recipe to `gradle: [intl]` (fdroid/README.md). It means what F-Droid takes:
 //
-// So each old name is kept, and means the language build its store takes:
-//
-//     bundleFullRelease    -> bundleFullEnRelease       (Play)
-//     assembleLiteRelease  -> assembleLiteIntlRelease   (F-Droid)
+//     assembleLiteRelease  -> assembleIntlRelease
 //
 // The name alone is not enough. fdroidserver looks for the APK in the
 // directory under build/outputs/apk/ whose name matches its flavour list,
-// which is `lite` and never `liteIntl`, and gives up with "Failed to find any
-// output apks" otherwise. So the alias also mirrors the artifact to the path
-// the single-dimension build used to write. Sync rather than Copy: fdroidserver
-// refuses a directory holding more than one APK, and a Sync cannot leave a
-// stale one behind from an earlier run.
+// which is `lite`, and gives up with "Failed to find any output apks"
+// otherwise. So the alias also mirrors the artifact to that path. Sync rather
+// than Copy: fdroidserver refuses a directory holding more than one APK, and
+// a Sync cannot leave a stale one behind from an earlier run.
 fun registerStoreAlias(
     taskName: String,
     variantTaskName: String,
@@ -981,16 +1070,9 @@ fun registerStoreAlias(
 }
 
 registerStoreAlias(
-    taskName = "bundleFullRelease",
-    variantTaskName = "bundleFullEnRelease",
-    variantOutputs = "outputs/bundle/fullEnRelease",
-    legacyOutputs = "outputs/bundle/fullRelease",
-)
-
-registerStoreAlias(
     taskName = "assembleLiteRelease",
-    variantTaskName = "assembleLiteIntlRelease",
-    variantOutputs = "outputs/apk/liteIntl/release",
+    variantTaskName = "assembleIntlRelease",
+    variantOutputs = "outputs/apk/intl/release",
     legacyOutputs = "outputs/apk/lite/release",
 )
 
@@ -1026,7 +1108,7 @@ kotlin {
 // ---------------------------------------------------------------------------
 // detekt: rule-based static analysis over the Kotlin sources.
 //
-// The `detekt<Variant>` tasks (detektFullDebug, ...) run *with type
+// The `detekt<Variant>` tasks (detektDebug, ...) run *with type
 // resolution* — they get the variant's compile classpath, which is what the
 // high-value rules need: nullability, unreachable code, ignored return values
 // and exhaustive-`when` checks are all impossible without resolved types.
@@ -1043,7 +1125,7 @@ kotlin {
 val moduleTestSrc = listOf(
     "../core/language", "../core/tools", "../core/emoji",
     "../core/intelligence", "../feature/tools", "../feature/ime",
-).map { "$it/src/test/java" } + listOf("../core/intelligence/src/testFull/java")
+).map { "$it/src/test/java" }
 
 detekt {
     toolVersion = libs.versions.detekt.get()
@@ -1060,13 +1142,10 @@ detekt {
     source.setFrom(
         files(
             "src/main/java",
-            "src/full/java",
-            "src/lite/java",
             // Only the channels this build compiles: the other directories
             // name types that are not on any classpath here.
             channelSourceDirs,
             "src/test/java",
-            "src/testFull/java",
             "src/androidTest/java",
         ),
     )
@@ -1093,8 +1172,8 @@ tasks.withType<DetektCreateBaselineTask>().configureEach {
 // types. So the type-resolution tasks are registered here by hand: same Detekt
 // task type, classpath taken from the variant's own Kotlin compilation.
 //
-//   ./gradlew detektFullDebug            # main + flavour sources
-//   ./gradlew detektFullDebugUnitTest    # unit tests, with main on the classpath
+//   ./gradlew detektDebug            # main + channel sources
+//   ./gradlew detektDebugUnitTest    # unit tests, with main on the classpath
 fun registerTypeResolvedDetekt(
     taskName: String,
     description: String,
@@ -1140,42 +1219,37 @@ fun registerTypeResolvedDetekt(
 // The detekt task names deliberately do not carry the `languages` flavour.
 // That flavour changes which res/values-xx are packaged and nothing else, so
 // there is no second set of Kotlin sources for it to analyse and a
-// detektFullIntlDebug/detektFullEnDebug pair would run the same files twice.
-// Only the compile task these borrow their classpath from has to name a real
-// variant, and they take the `intl` one.
+// detektIntlDebug/detektEnDebug pair would run the same files twice. Only the
+// compile task these borrow their classpath from has to name a real variant,
+// and they take the `intl` one. F-Droid's stand-ins are analysed by a run
+// with -Pwmkb.enableFdroid=true, which swaps them into channelSourceDirs and
+// the library modules' sources.
 registerTypeResolvedDetekt(
-    taskName = "detektFullDebug",
-    description = "Runs detekt with type resolution over the fullDebug variant's sources.",
-    sourceDirs = listOf("src/main/java", "src/full/java") + channelSourceDirs,
-    compileTaskName = "compileFullIntlDebugKotlin",
+    taskName = "detektDebug",
+    description = "Runs detekt with type resolution over the debug variant's sources.",
+    sourceDirs = listOf("src/main/java") + channelSourceDirs,
+    compileTaskName = "compileIntlDebugKotlin",
 )
 
 registerTypeResolvedDetekt(
-    taskName = "detektLiteDebug",
-    description = "Runs detekt with type resolution over the liteDebug variant's sources.",
-    sourceDirs = listOf("src/main/java", "src/lite/java") + channelSourceDirs,
-    compileTaskName = "compileLiteIntlDebugKotlin",
-)
-
-registerTypeResolvedDetekt(
-    taskName = "detektFullDebugUnitTest",
+    taskName = "detektDebugUnitTest",
     description = "Runs detekt with type resolution over the unit tests, including the library modules'.",
-    sourceDirs = listOf("src/test/java", "src/testFull/java") + moduleTestSrc,
-    compileTaskName = "compileFullIntlDebugUnitTestKotlin",
-    extraClasspath = listOf("tmp/kotlin-classes/fullIntlDebug"),
+    sourceDirs = listOf("src/test/java") + moduleTestSrc,
+    compileTaskName = "compileIntlDebugUnitTestKotlin",
+    extraClasspath = listOf("tmp/kotlin-classes/intlDebug"),
 )
 
 registerTypeResolvedDetekt(
-    taskName = "detektFullDebugAndroidTest",
+    taskName = "detektDebugAndroidTest",
     description = "Runs detekt with type resolution over the instrumentation tests.",
     sourceDirs = listOf("src/androidTest/java"),
-    compileTaskName = "compileFullIntlDebugAndroidTestKotlin",
-    extraClasspath = listOf("tmp/kotlin-classes/fullIntlDebug"),
+    compileTaskName = "compileIntlDebugAndroidTestKotlin",
+    extraClasspath = listOf("tmp/kotlin-classes/intlDebug"),
 )
 
 // `./gradlew check` should mean "everything the analysers know how to check".
 tasks.named("check") {
-    dependsOn("detektFullDebug", "detektLiteDebug", "detektFullDebugUnitTest")
+    dependsOn("detektDebug", "detektDebugUnitTest")
 }
 
 dependencies {
@@ -1248,25 +1322,28 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.coil.compose)
-    // Compiled against by src/full's WMFullApplication, which starts
-    // WorkManager on demand. Already in every full APK at runtime (ML Kit's
+    // Compiled against by src/google's WMFullApplication, which starts
+    // WorkManager on demand. Already in every such APK at runtime (ML Kit's
     // digital-ink brings it), so this adds nothing to what ships.
-    "fullImplementation"(libs.androidx.work.runtime)
+    if (googleSdks) implementation(libs.androidx.work.runtime)
 
     // Play In-App Updates, for Play-channel builds only. Compiled against by
     // src/play/java; src/noplay/java is what every other channel gets, so no
     // Google binary is linked into an F-Droid or direct-download APK.
     if (playStoreChannel) {
-        implementation(libs.play.app.update)
-        // SplitInstall + SplitCompat for the on-demand :feature:llm,
-        // :feature:translate, :feature:litert, :feature:handwriting,
-        // :feature:speech, :feature:grammar and :feature:ocr modules.
+        // Play Billing rides on the app-update line on purpose: F-Droid's
+        // recipe deletes every line naming libs.play.app.update before its
+        // scanner runs, and the scanner knows the billing artifact by name.
+        // Its own line would need a new sed in the recipe, and so an
+        // fdroiddata MR, before the next F-Droid build could pass.
+        implementation(libs.play.app.update); implementation(libs.play.billing)
+        // SplitInstall + SplitCompat for the on-demand :feature:* modules
+        // (every gate of native/gates.json with a Play module).
         implementation(libs.play.feature.delivery)
         // ML Kit's own half of running from an on-demand module. It has to be
         // in the base: it is what lets the ML Kit context that started with
-        // the process find a library that arrived after it. Full flavour only,
-        // since lite has no ML Kit for it to serve.
-        "fullImplementation"(libs.mlkit.dynamic.feature.support) {
+        // the process find a library that arrived after it.
+        implementation(libs.mlkit.dynamic.feature.support) {
             // 16.0.0-beta2 still depends on the monolithic play:core 1.10.0,
             // which the two split artifacts above replaced: its classes
             // duplicate theirs (checkDuplicateClasses fails the bundle), and
@@ -1285,7 +1362,7 @@ dependencies {
         // resources, which the base's resource link needs to resolve once
         // AGP merges the split's components into the base manifest. Outside
         // Play it comes with digital-ink itself.
-        "fullImplementation"(libs.androidx.work.runtime)
+        implementation(libs.androidx.work.runtime)
     }
     // Only for the Drive backup destination's OAuth token. The Drive calls
     // themselves are plain HTTP and need nothing from Google.
@@ -1297,8 +1374,14 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.kotlinx.coroutines.test)
+    // GalleryCoreTest builds ExifInterface tag lists; :core:content keeps the
+    // library to itself (implementation), so the tests here need their own.
+    testImplementation(libs.androidx.exifinterface)
     // The plugin tests drive the Lua sandbox through luaj types directly.
     testImplementation(libs.luaj.jse)
+    // WordKeyParityTest holds the Rust word key to ART's fold, answered by
+    // ICU4J at the Unicode version ICU4X carries (`android.icu` is a stub here).
+    testImplementation(libs.icu4j)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
@@ -1329,11 +1412,11 @@ if (providers.gradleProperty("wmkb.skipBenchmarks").map(String::toBoolean).getOr
 // ---------------------------------------------------------------------------
 // Baseline profile generation: `-Pwmkb.benchmark=true`
 //
-//   ./gradlew :app:generateFullIntlReleaseBaselineProfile -Pwmkb.benchmark=true
+//   ./gradlew :app:generateIntlReleaseBaselineProfile -Pwmkb.benchmark=true
 //
 // Runs :benchmark's BaselineProfileGenerator on the connected device against a
-// non-minified fullIntl release build and writes what it recorded to
-// src/fullIntlRelease/baselineProfiles/. Commit the result. Every variant
+// non-minified intl release build and writes what it recorded to
+// src/intlRelease/baselineProfiles/. Commit the result. Every variant
 // packages it (the block below this one), flag or not, next to the
 // hand-written src/main/baseline-prof.txt.
 //
@@ -1368,12 +1451,12 @@ if (benchmarkBuild) {
     }
 }
 
-// The generated profile, for every variant rather than only the fullIntl
+// The generated profile, for every variant rather than only the intl
 // release one it was recorded from. That one already reads the directory as
 // its own source set's default.
 androidComponents {
     onVariants { variant ->
-        if (variant.name != "fullIntlRelease") {
+        if (variant.name != "intlRelease") {
             variant.sources.baselineProfiles?.addStaticSourceDirectory(generatedProfileDir)
         }
     }
@@ -1382,7 +1465,7 @@ androidComponents {
 // ---------------------------------------------------------------------------
 // Docs screenshots: `-Pwmkb.docShots=true`
 //
-//   ./gradlew :app:testFullEnDebugUnitTest -Pwmkb.docShots=true
+//   ./gradlew :app:testEnDebugUnitTest -Pwmkb.docShots=true
 //
 // Renders settings screens on the JVM (Robolectric native graphics +
 // Roborazzi) and writes PNGs to build/docshots/. Everything below exists only
@@ -1415,8 +1498,8 @@ if (docShots) {
             // AGP 9 no longer mirrors an extra Java directory into Kotlin.
             variant.hostTests[com.android.build.api.variant.HostTestBuilder.UNIT_TEST_TYPE]?.sources?.let {
                 it.kotlin?.addStaticSourceDirectory("src/docShots/java")
-                // robolectric.properties pins sdk=34: compileSdk is the minor
-                // level 36.1 and Robolectric has no android-all jar for it.
+                // robolectric.properties pins sdk=34, a level with a
+                // long-settled android-all jar.
                 it.resources?.addStaticSourceDirectory("src/docShots/resources")
             }
         }

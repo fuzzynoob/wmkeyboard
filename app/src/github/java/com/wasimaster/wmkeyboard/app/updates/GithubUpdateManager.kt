@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import android.os.SystemClock
+import com.wasimaster.wmkeyboard.core.download.FileDownloader
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import kotlinx.coroutines.CancellationException
@@ -87,18 +88,18 @@ internal object GithubUpdateManager {
         // screen that started it, which is the whole reason to notify at all.
         scope.launch { _state.collect { UpdateNotifications.render(app, it) } }
         scope.launch {
-            ApkStaging.sweep(app, BuildConfig.VERSION_CODE, BuildConfig.FLAVOR_languages)
+            ApkStaging.sweep(app, BuildConfig.RELEASE_VERSION_CODE, BuildConfig.FLAVOR)
             ApkInstall.abandonStale(app, keepSessionId = prefs.sessionId)
             val known = GithubUpdateChecker.decodeCandidate(prefs.knownCandidate)
             // A move to every language is still on only while this is the
             // English-only build and the offer really is the other one. Once
             // the new build runs, the same record reads as finished.
             val switchingNow = prefs.languageSwitch &&
-                BuildConfig.FLAVOR_languages == ReleaseAssets.LANGUAGES_EN &&
+                BuildConfig.FLAVOR == ReleaseAssets.LANGUAGES_EN &&
                 known != null && isAllLanguages(known)
             val stale = known == null ||
-                known.versionCode < BuildConfig.VERSION_CODE ||
-                (known.versionCode == BuildConfig.VERSION_CODE && !switchingNow)
+                known.versionCode < BuildConfig.RELEASE_VERSION_CODE ||
+                (known.versionCode == BuildConfig.RELEASE_VERSION_CODE && !switchingNow)
             if (stale) {
                 prefs.clearCandidate()
                 return@launch
@@ -122,7 +123,7 @@ internal object GithubUpdateManager {
             // who walked away from it is not left without updates.
             if (userAsked || _state.value !is UpdateState.Failed) return
             candidate?.takeIf(::isAllLanguages)?.let { target ->
-                ApkStaging.partFile(app, target).delete()
+                FileDownloader.discard(ApkStaging.partFile(app, target))
                 ApkStaging.apkFile(app, target).delete()
             }
             candidate = null
@@ -153,15 +154,15 @@ internal object GithubUpdateManager {
         allowPrompt: Boolean,
     ) {
         val outcome = newChecker(context).check(
-            installedVersionCode = BuildConfig.VERSION_CODE,
-            // The two flavour names on their own. BuildConfig.FLAVOR is the
-            // pair run together ("fullIntl"), which no asset name contains.
-            flavor = BuildConfig.FLAVOR_capabilities,
+            installedVersionCode = BuildConfig.RELEASE_VERSION_CODE,
+            // The edition token every published name still carries, and the
+            // languages flavour on its own (see ReleaseAssets.STANDARD_FLAVOR).
+            flavor = ReleaseAssets.STANDARD_FLAVOR,
             supportedAbis = Build.SUPPORTED_ABIS?.toList().orEmpty(),
             includePrereleases = prefs.includePrereleases,
             storedEtag = prefs.etag,
             onEtag = { prefs.etag = it },
-            languages = BuildConfig.FLAVOR_languages,
+            languages = BuildConfig.FLAVOR,
         )
         prefs.lastCheckAt = System.currentTimeMillis()
         when (outcome) {
@@ -222,8 +223,8 @@ internal object GithubUpdateManager {
 
     private fun runSwitchCheck(context: Context, prefs: UpdatePrefs) {
         val outcome = newChecker(context).check(
-            installedVersionCode = BuildConfig.VERSION_CODE,
-            flavor = BuildConfig.FLAVOR_capabilities,
+            installedVersionCode = BuildConfig.RELEASE_VERSION_CODE,
+            flavor = ReleaseAssets.STANDARD_FLAVOR,
             supportedAbis = Build.SUPPORTED_ABIS?.toList().orEmpty(),
             includePrereleases = prefs.includePrereleases,
             storedEtag = prefs.etag,
@@ -260,7 +261,7 @@ internal object GithubUpdateManager {
         running = scope.launch {
             previous?.cancelAndJoin()
             candidate?.takeIf(::isAllLanguages)?.let { target ->
-                ApkStaging.partFile(app, target).delete()
+                FileDownloader.discard(ApkStaging.partFile(app, target))
                 ApkStaging.apkFile(app, target).delete()
             }
             candidate = null
@@ -286,10 +287,10 @@ internal object GithubUpdateManager {
             ApkDownload.requireSpace(
                 dir = ApkStaging.dir(context),
                 sizeBytes = target.sizeBytes,
-                alreadyHave = if (part.exists()) part.length() else 0L,
+                alreadyHave = FileDownloader.bytesDone(part),
             )
             _state.value = UpdateState.Downloading(
-                bytesDownloaded = if (part.exists()) part.length() else 0L,
+                bytesDownloaded = FileDownloader.bytesDone(part),
                 totalBytes = target.sizeBytes,
             )
             ApkDownload.transfer(target, part) { written, total ->
@@ -301,12 +302,12 @@ internal object GithubUpdateManager {
                 // one download in this app that replaces the app itself, so
                 // "we could not check it" has to mean "we do not install it".
                 DebugLog.w(TAG, "release published no checksum for ${target.assetName}")
-                part.delete()
+                FileDownloader.discard(part)
                 _state.value = UpdateState.Failed(false, UpdateFailure.CORRUPT)
                 return
             }
             if (!ApkDownload.verify(part, target, expected)) {
-                part.delete()
+                FileDownloader.discard(part)
                 _state.value = UpdateState.Failed(false, UpdateFailure.CORRUPT)
                 return
             }
@@ -315,6 +316,7 @@ internal object GithubUpdateManager {
                 _state.value = UpdateState.Failed(false, UpdateFailure.NO_SPACE)
                 return
             }
+            stageDexMetadata(context, target)
             _state.value = UpdateState.Downloaded
         } catch (cancelled: CancellationException) {
             // The part file stays: cancelling is "not now", and the next press
@@ -322,11 +324,50 @@ internal object GithubUpdateManager {
             backToAvailable(context, target)
             throw cancelled
         } catch (failure: DownloadFailure) {
-            if (!failure.keepPartial) part.delete()
+            if (!failure.keepPartial) FileDownloader.discard(part)
             _state.value = UpdateState.Failed(false, failure.reason)
         } catch (error: Exception) {
             DebugLog.w(TAG, "update download failed: ${error.message.orEmpty()}")
             _state.value = UpdateState.Failed(false, UpdateFailure.NETWORK)
+        }
+    }
+
+    /**
+     * Fetches the dex metadata that goes with [target], best effort.
+     *
+     * A few tens of kilobytes, and nothing depends on it: without it the
+     * update installs exactly as before and Android compiles the keyboard
+     * later, on its own schedule. So any failure (an older release that never
+     * published one, a network blip, a checksum that does not match) leaves
+     * nothing staged and says nothing. The checksum is still required: the
+     * file goes into the same install session as the APK.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    private suspend fun stageDexMetadata(context: Context, target: UpdateCandidate) {
+        val file = ApkStaging.dexMetadataFile(context, target) ?: return
+        val part = File(file.path + ".part")
+        val asset = target.copy(
+            assetName = file.name,
+            url = target.url.substringBeforeLast('/') + "/" + file.name,
+            sizeBytes = 0L,
+            sha256 = null,
+        )
+        try {
+            FileDownloader.discard(part)
+            ApkDownload.transfer(asset, part) { _, _ -> }
+            val expected = fetchChecksum(asset)
+            if (expected == null || !ApkDownload.verify(part, asset, expected)) {
+                FileDownloader.discard(part)
+                return
+            }
+            file.delete()
+            if (!part.renameTo(file)) FileDownloader.discard(part)
+        } catch (cancelled: CancellationException) {
+            FileDownloader.discard(part)
+            throw cancelled
+        } catch (error: Exception) {
+            FileDownloader.discard(part)
+            DebugLog.d(TAG, "no dex metadata for ${target.assetName}: ${error.message.orEmpty()}")
         }
     }
 
@@ -387,7 +428,11 @@ internal object GithubUpdateManager {
                         System.currentTimeMillis(),
                         languageSwitch = _switching.value,
                     )
-                    val session = ApkInstall.commit(context, apk)
+                    val session = ApkInstall.commit(
+                        context,
+                        apk,
+                        ApkStaging.dexMetadataFile(context, target),
+                    )
                     if (session == null) {
                         _state.value = UpdateState.Failed(false, UpdateFailure.INSTALL_FAILED)
                     } else {
@@ -431,17 +476,24 @@ internal object GithubUpdateManager {
         if (outcome.state is UpdateState.Failed) {
             DebugLog.w(TAG, "install failed with status $status: ${message.orEmpty()}")
         }
+        val target = candidate ?: GithubUpdateChecker.decodeCandidate(prefs.knownCandidate)
         if (outcome.disposition == FileDisposition.DELETE) {
-            val target = candidate
-                ?: GithubUpdateChecker.decodeCandidate(prefs.knownCandidate)
             target?.let { ApkStaging.apkFile(app, it).delete() }
+        }
+        if (status != android.content.pm.PackageInstaller.STATUS_SUCCESS &&
+            status != android.content.pm.PackageInstaller.STATUS_PENDING_USER_ACTION
+        ) {
+            // A failed install goes again without the dex metadata: it is the
+            // one optional thing in the session, so it is never the reason an
+            // update cannot be retried.
+            target?.let { ApkStaging.dexMetadataFile(app, it)?.delete() }
         }
         if (status == android.content.pm.PackageInstaller.STATUS_SUCCESS) {
             // The new version is running. Nothing staged belongs to it, and
             // the offer it came from is finished with.
             candidate = null
             prefs.clearCandidate()
-            ApkStaging.sweep(app, BuildConfig.VERSION_CODE, BuildConfig.FLAVOR_languages)
+            ApkStaging.sweep(app, BuildConfig.RELEASE_VERSION_CODE, BuildConfig.FLAVOR)
         }
         _state.value = outcome.state
     }

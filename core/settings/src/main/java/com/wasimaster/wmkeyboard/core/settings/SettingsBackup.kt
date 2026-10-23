@@ -69,6 +69,14 @@ object SettingsBackup {
      */
     const val AUTO_BACKUP_LOCATIONS = "auto_backup_locations"
 
+    /**
+     * The credentials every tool's provider list shares: API keys, server
+     * addresses, tokens; see [ProviderSettings]. A secret for the same
+     * reasons as [AUTO_BACKUP_LOCATIONS]. The lists themselves
+     * (`provider_chains`) hold no secret and travel as usual.
+     */
+    const val PROVIDER_CREDENTIALS = "provider_credentials"
+
     /** How the last run went at each location; see [LocationStatus]. */
     const val AUTO_BACKUP_LOCATION_STATUS = "auto_backup_location_status"
 
@@ -86,6 +94,7 @@ object SettingsBackup {
     const val SYNC_LOCATION_IDS = "sync_location_ids"
     const val SYNC_SECTIONS = "sync_sections"
     const val SYNC_INCLUDE_SECRETS = "sync_include_secrets"
+    const val SYNC_WITH_PAIRED_DEVICES = "sync_with_paired_devices"
     const val SYNC_KEEP_LOCAL = "sync_keep_local"
     const val SYNC_LAST_RUN_AT = "sync_last_run_at"
     const val SYNC_LAST_ERROR = "sync_last_error"
@@ -154,6 +163,8 @@ object SettingsBackup {
         // fingerprint on the new phone; see AppLockSettings.secret.
         APP_LOCK_SECRET,
         AUTO_BACKUP_LOCATIONS,
+        PROVIDER_CREDENTIALS,
+        "self_hosted_libretranslate_key",
     )
 
     /** The app lock's stored PIN, password or pattern hash. */
@@ -201,6 +212,7 @@ object SettingsBackup {
         SYNC_LOCATION_IDS,
         SYNC_SECTIONS,
         SYNC_INCLUDE_SECRETS,
+        SYNC_WITH_PAIRED_DEVICES,
         SYNC_KEEP_LOCAL,
         SYNC_LAST_RUN_AT,
         SYNC_LAST_ERROR,

@@ -3,7 +3,7 @@
 # ExecuTorch (only the operators in ops.txt, optimized kernels where they
 # exist, the XNNPACK delegate, the Module extension), then executorch_jni.cpp
 # over it; copies the results into
-# core/voice/src/main/jniLibs/. See README.md.
+# core/voice/src/executorch/jniLibs/. See README.md.
 #
 #   ANDROID_NDK=/path/to/ndk native/executorch-jni/build.sh
 #
@@ -29,7 +29,7 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 REPO=$(cd "$HERE/../.." && pwd)
 # Where the libraries go: the jniLibs directory of the module that packages
 # them for the non-Play builds. F-Droid's recipe scandeletes the same path.
-OUT=${ET_OUT:-$REPO/core/voice/src/main/jniLibs}
+OUT=${ET_OUT:-$REPO/core/voice/src/executorch/jniLibs}
 NDK=${ANDROID_NDK:-${ANDROID_NDK_HOME:-}}
 [ -n "$NDK" ] && [ -f "$NDK/build/cmake/android.toolchain.cmake" ] || {
     echo "Set ANDROID_NDK to an NDK install (r27 or newer)" >&2; exit 1; }
@@ -38,6 +38,10 @@ BIN=$(ls -d "$NDK"/toolchains/llvm/prebuilt/*/bin)
 WORK=${ET_WORK:-$(mktemp -d)}
 mkdir -p "$WORK"
 WORK=$(cd "$WORK" && pwd -P)
+# A scratch directory of our own is about 4.7 GB after three ABIs; remove it
+# on exit like the other build scripts. An ET_WORK the caller named is kept,
+# since reusing it is the point of naming one.
+[ -n "${ET_WORK:-}" ] || trap 'rm -rf "$WORK"' EXIT
 PY=$(command -v python3)
 
 # Network fetches retry: F-Droid's builders share GitHub and GitLab with
@@ -141,7 +145,7 @@ SRC=$(cd "$SRC" && pwd -P)
 OPS=$(grep -v '^\s*$' "$HERE/ops.txt" | paste -sd, -)
 MAP="-ffile-prefix-map=$SRC=executorch -ffile-prefix-map=$STUB/torch/include=torch -ffile-prefix-map=$WORK=build -ffile-prefix-map=$HERE=. -ffile-prefix-map=$NDK=ndk"
 
-for abi in ${ET_ABIS:-arm64-v8a armeabi-v7a x86_64}; do
+for abi in ${ET_ABIS:-${WMKB_ABIS:-arm64-v8a armeabi-v7a x86_64}}; do
     et=$WORK/et-$abi
     prefix=$WORK/et-install-$abi
     common=(

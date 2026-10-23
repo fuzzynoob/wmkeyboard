@@ -38,6 +38,10 @@ class SettingsSearchRankingTest {
     private fun first(query: String, name: String) = Case(query, name) { it.named(name) }
     private fun screen(query: String, route: String) = Case(query, "screen $route") { it.at(route) }
 
+    /** A provider's own screen, by the kind it names. */
+    private fun provider(query: String, route: String) =
+        Case(query, "provider $route") { it.route == route && it.weight == EntryWeight.TOOL }
+
     /** The meant row must be first. */
     private val top1 = listOf(
         // The switch that is the feature, by its own name or by a synonym.
@@ -106,6 +110,11 @@ class SettingsSearchRankingTest {
         // The tool's page, when only a tool is called that.
         first("translate", "ime_tool_translate"),
         first("calculator", "ime_tool_calculator"),
+        // A provider by its own name: its screen, over the rows that mention it.
+        provider("deepl", "provider/translate/deepl"),
+        provider("whisper", "provider/voice/whisper"),
+        provider("ollama", "provider/ai/ollama"),
+        provider("google translate", "provider/translate/google_translate"),
     )
 
     /** The meant row must be in the first three: two rows are equally good answers. */
@@ -125,7 +134,9 @@ class SettingsSearchRankingTest {
         first("volume", "hardware_sound_volume_title"),
         first("keyboard height", "layout_key_height_title"),
         first("backspace", "typing_backspace_swipe_title"),
-        first("shift", "typing_shift_enter_title"),
+        // Four rows start with Shift now; the recase ones (#662) sit on a
+        // deeper screen and lead, Shift and Enter after them.
+        first("shift", "typing_shift_recase_title"),
         // The screen is "App lock" now, so "fingerprint" reaches it through its
         // search words only, and the permission row named exactly "Fingerprint"
         // keeps its own name (see SettingsSearchKeywords). "Offer the fingerprint

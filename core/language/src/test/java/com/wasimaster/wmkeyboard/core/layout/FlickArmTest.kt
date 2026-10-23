@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.layout
 import com.wasimaster.wmkeyboard.core.settings.TextEditAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -44,7 +45,8 @@ class FlickArmTest {
     }
 
     @Test
-    fun `an action key flicks its action arms and never its text`() {
+    fun `an action key flicks both its action arms and its text arms`() {
+        // #789: a special key takes text arms too, typed through a plain text key.
         val key = Key(
             "",
             action = KeyAction.Edit(TextEditAction.SELECT),
@@ -52,17 +54,43 @@ class FlickArmTest {
             flickActions = mapOf(FlickDirection.LEFT to left),
         )
         assertTrue(key.hasFlicks())
-        assertNull(key.flickArm(FlickDirection.UP))
+        assertNotNull(key.flickArm(FlickDirection.UP))
         assertTrue(key.flickKey(FlickDirection.LEFT)!!.flickArmRepeats())
     }
 
     @Test
     fun `keys whose drag or hold is already the gesture take no action arms`() {
         val arms = mapOf(FlickDirection.LEFT to left)
-        assertFalse(Key(" ", action = KeyAction.Space, flickActions = arms).hasFlicks())
-        assertFalse(Key("", action = KeyAction.Delete, flickActions = arms).hasFlicks())
         assertFalse(Key("x", repeatOnHold = true, flickActions = arms).hasFlicks())
         assertTrue(Key("", action = KeyAction.Shift, flickActions = arms).hasFlicks())
+    }
+
+    @Test
+    fun `the delete keys take arms although their hold repeats`() {
+        // Issue #769: forward delete on a flick of backspace.
+        val arms = mapOf(FlickDirection.UP to KeyAlternate(KeyAction.ForwardDelete))
+        assertTrue(Key("", action = KeyAction.Delete, flickActions = arms).hasFlicks())
+        assertTrue(Key("", action = KeyAction.ForwardDelete, flickActions = arms).hasFlicks())
+        assertTrue(Key("", action = KeyAction.Delete, flick = mapOf(FlickDirection.UP to "x")).hasFlicks())
+    }
+
+    @Test
+    fun `the space bar takes arms beside its swipes`() {
+        // Issue #863: No space on a flick of the space bar.
+        val arms = mapOf(FlickDirection.UP to KeyAlternate(KeyAction.Edit(TextEditAction.NO_SPACE)))
+        val space = Key(" ", action = KeyAction.Space, flickActions = arms)
+        assertTrue(space.hasFlicks())
+        assertTrue(space.flickArm(FlickDirection.UP) is FlickArm.Action)
+        assertNull(space.flickArm(FlickDirection.LEFT))
+    }
+
+    @Test
+    fun `the arrow keys take arms although their hold repeats`() {
+        // Issue #865: word left on a flick of ←.
+        val arms = mapOf(FlickDirection.LEFT to KeyAlternate(KeyAction.Edit(TextEditAction.WORD_LEFT)))
+        val arrow = Key("", action = KeyAction.Edit(TextEditAction.LEFT), flickActions = arms)
+        assertTrue(arrow.hasFlicks())
+        assertTrue(arrow.flickArm(FlickDirection.LEFT) is FlickArm.Action)
     }
 
     @Test

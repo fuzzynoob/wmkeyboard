@@ -9,29 +9,39 @@ import { Steps } from '@astrojs/starlight/components';
 
 WM Keyboard ships through three channels, and they are not the same build. The
 differences are real: a Play build carries Google libraries that an F-Droid
-build must not have. But a handful of boolean flags and one flavor drive all
-of it, so nothing here needs a branch or a patched source tree.
+build must not have. But a handful of boolean flags and the `languages`
+flavor drive all of it, so nothing here needs a branch or a patched source tree.
 
 ## What the channels actually differ on
 
 | | GitHub release | F-Droid | Play Store |
 |---|---|---|---|
-| Flavor | `full` and `lite`, each in `intl` and `en` | `lite`, `intl` | `full`, `en` |
-| Gradle task | the four `assemble*Release` | `assembleLiteRelease`, an alias for `assembleLiteIntlRelease` | `bundleFullEnRelease` |
+| Flavor | standard: `en`; offline: `en`, and `intl` for its all-languages build (`intl` is also built to cut the language packs from) | `intl` | `en` |
+| Gradle task | `assembleEnRelease` and `assembleIntlRelease` | `assembleLiteRelease`, an alias for `assembleIntlRelease` | `bundleEnRelease` |
 | `wmkb.enablePlayStore` | `false` | `false` | `true` |
 | `wmkb.enableGms` | `true` | `false` | `true` |
 | `wmkb.enableFdroid` | `false` | `true` | `false` |
 | `wmkb.splitApks` | `true` | not used | ignored by `bundle*` |
 | `wmkb.enableCrashScreen` | not set | not set | `false`, forced by the Fastfile over `local.properties` |
 | Automation `TYPE_TEXT` | offered | offered | left out |
-| Artifact | one APK per ABI, for all four flavor combinations, plus R8 mappings, native symbols and `SHA256SUMS.txt`; the `offline` job adds `full-intl-nointernet` and `lite-en-nointernet` in `arm64-v8a` and `universal` | one APK, built by F-Droid, carrying our signature once it matches the release's `-fdroid.apk` | one AAB, with its R8 mapping and native symbols inside |
+| Artifact | the standard build (`full-en`), one APK per ABI, plus one signed language pack per interface language (`-lang-<locale>.apk`), R8 mappings, native symbols, the baseline profile as dex metadata (`*-api31.dm` and `*-api28.dm`, which the in-app updater installs with the APK; the standard build's only); the `offline` job adds `full-en-nointernet` in `arm64-v8a` and `universal` and `full-intl-nointernet` in `universal`. The feature libraries go to the data repository's `natives` release | one APK per ABI from 0.6.2, built by F-Droid, each carrying our signature once it matches the release's `-vc<code>-fdroid.apk` for that ABI | one AAB, with its R8 mapping and native symbols inside |
+| Manifest `versionCode` (from 0.6.2) | `wmkb.versionCode × 10` plus 1 for `armeabi-v7a`, 2 for `arm64-v8a`, 3 for `x86_64`, 0 for `universal` | the same three digits, one APK each | `× 10`, digit 0 |
 | ML Kit | bundled in the APK | absent | unbundled, fetched from Play services |
 | Local LLM | bundled | absent | on-demand `:feature:llm` module |
 | On-device translation (ML Kit) | bundled | absent | on-demand `:feature:translate` module |
 | LiteRT interpreter (offline Whisper, the sticker editor's own background remover) | bundled | absent | on-demand `:feature:litert` module |
 | Handwriting recognition (ML Kit) | bundled | absent | on-demand `:feature:handwriting` module |
 | Text engines (Avro, Khipro, Bijoy, Hindi, Urdu, the Indic languages) | committed prebuilt library | compiled from source by the recipe | the same prebuilt library, in the base module |
-| Harper, whisper.cpp, ExecuTorch (grammar, Offline Whisper, Asr4All, Parakeet, Moonshine) | committed prebuilt libraries | compiled from source by the recipe | the same prebuilt libraries, in the on-demand `:feature:speech` (whisper.cpp, ExecuTorch) and `:feature:grammar` (Harper) modules |
+| Harper, whisper.cpp, ExecuTorch (grammar, Offline Whisper, Asr4All, Parakeet, Moonshine, the FUTO Swipe glide engine) | committed prebuilt libraries | compiled from source by the recipe | the same prebuilt libraries, in the on-demand `:feature:speech` (whisper.cpp), `:feature:executorch` (ExecuTorch) and `:feature:grammar` (Harper) modules |
+| Hunspell (spell checking against an imported `.aff`/`.dic`) | committed prebuilt library, pinned and downloaded on demand | compiled from source by the recipe | the same prebuilt library, in the on-demand `:feature:spell` module |
+| divvunspell (GiellaLT spellers, beside Hunspell) | committed prebuilt library, pinned and downloaded on demand with Hunspell's | compiled from source by the recipe | the same prebuilt library, in the `:feature:spell` module with Hunspell's |
+| Voikko (Finnish spell checking) | committed prebuilt library outside every module, pinned and downloaded on demand with Hunspell's; never in the APK | compiled from source by the recipe, pinned the same way | the same prebuilt library, in the `:feature:spell` module with Hunspell's |
+| Bergamot (on-device translation without Google, 64-bit Android 9 and later; armeabi-v7a gets a stub that refuses to load) | committed prebuilt library, pinned and downloaded on demand | compiled from source by the recipe | the same prebuilt library, in the on-demand `:feature:bergamot` module |
+| CTranslate2 (the NLLB-200 translation engine, 64-bit phones; armeabi-v7a gets a stub that refuses to load) | committed prebuilt library, pinned and downloaded on demand | compiled from source by the recipe | the same prebuilt library, in the on-demand `:feature:ct2` module |
+| llama.cpp (GGUF models for on-device AI) | committed prebuilt libraries, pinned and downloaded on demand | compiled from source by the recipe | the same prebuilt libraries, in the on-demand `:feature:llama` module |
+| zinnia (Chinese and Japanese handwriting without ML Kit) | committed prebuilt library, pinned and downloaded on demand | compiled from source by the recipe | the same prebuilt library, in the on-demand `:feature:zinnia` module |
+| OpenCV (the built-in document scanner) | committed prebuilt library, pinned and downloaded on demand | compiled from source by the recipe | the same prebuilt library, in the on-demand `:feature:docscan` module |
+| MNN (the sticker generator) and its NPU runner | committed prebuilt libraries, pinned and downloaded on demand | MNN compiled from source by the recipe; no NPU runner | the same prebuilt libraries, in the on-demand `:feature:imagegen` module |
 | Whistle, Tesseract (Whistle dictation, the scanner's offline reader) | committed prebuilt libraries, full only | absent | the same prebuilt libraries, in the on-demand `:feature:speech` (Whistle, arm64 only) and `:feature:ocr` (Tesseract) modules |
 | In-app updates | GitHub releases, downloads and installs | checks F-Droid, links out | Play In-App Updates |
 | Native libraries in the APK | uncompressed and page-aligned | uncompressed and page-aligned | uncompressed and page-aligned; Play compresses the download itself |
@@ -103,9 +113,9 @@ build file:
 
 ```bash
 rm -rf app/build/intermediates/merged_manifest
-./gradlew :app:processFullDebugMainManifest -Pwmkb.enablePlayStore=true
+./gradlew :app:processIntlDebugMainManifest -Pwmkb.enablePlayStore=true
 grep -c REQUEST_INSTALL_PACKAGES \
-  app/build/intermediates/merged_manifest/fullDebug/processFullDebugMainManifest/AndroidManifest.xml
+  app/build/intermediates/merged_manifest/intlDebug/processIntlDebugMainManifest/AndroidManifest.xml
 ```
 
 That has to print `0` for a Play build and `1` for a GitHub one.
@@ -120,11 +130,34 @@ predates the property (`v0.1.0` and `v0.2.0` kept the version in
 comparing the tag against an empty string, and that release is written by hand.
 Neither of those two tags carries this workflow, so pushing them starts no run
 at all; the guard is for a tag that does reach it without a version to check. It signs with your release key, then
-attaches one APK per ABI for each of the four flavor combinations, plus a
-`SHA256SUMS.txt`, to the release.
+attaches the standard build, one APK per ABI, to the
+release.
 
-The `offline` job adds the [no-internet build](/development/building/#a-build-with-no-internet-permission):
-`full-intl` and `lite-en` with `wmkb.noInternet=true`, `arm64-v8a` and `universal` only. It
+The standard build fetches its feature libraries and its interface languages
+on demand. The `apks` job also builds `full-intl` with the English build's
+resource IDs (the `stableIds.txt` AGP writes for the first build, passed
+to the second as `-Pwmkb.stableResourceIds`) and cuts it into one signed
+resource-only APK per language with `.github/scripts/language-packs.sh`. It
+collects the project's own libraries that the standard APK pins
+(`.github/scripts/collect-natives.sh`, which searches every jniLibs directory
+`native/gates.json` names), and the `fdroid` job does the same for the ones
+F-Droid's build compiled from source, after checking that the APK pins, and
+does not package, every library the table has F-Droid build. Before the release goes public,
+the publish job uploads every one of them to the `natives` release of
+`wasi-master/wmkeyboard-data`, named `<sha256>-<library>` and never replaced.
+That upload needs a `DATA_REPO_TOKEN` secret with `contents: write` on the data
+repository, and the release fails without it rather than pointing phones at
+files that are not there.
+
+The `offline` job adds the [no-internet builds](/development/building/#a-build-with-no-internet-permission):
+`full-en` with `wmkb.noInternet=true` in `arm64-v8a` and `universal`, and
+`full-intl` the same way in `universal` only, for Android 7 to 10. From 0.6.4
+both keep native delivery, so neither carries a feature library, and both
+take the libraries and language packs the standard build downloads as imports.
+The English one takes this release's language packs, so the `pack-ids` job
+compares its resource IDs with the standard build's and fails the release if
+they differ; the two jobs compile on separate runners and only the manifest
+should tell them apart. The `offline` job
 runs on its own runner because the flag applies to the whole Gradle
 invocation, and it fails the release if `aapt2 dump permissions` still finds
 `INTERNET`, since ML Kit's manifest would put the permission back without a
@@ -135,13 +168,13 @@ same way as its regular build; the publish job attaches a mapping only when the
 two differ, and warns when they do.
 
 The release also carries the files you need to read a crash report from those
-APKs. The `*-mapping.txt.gz` files are the R8 mappings, one per flavor
-combination (`full-intl`, `full-en`, `lite-intl`, `lite-en`) plus a fifth,
-`*-play-mapping.txt.gz`. The files `*-full-intl-native-symbols.zip` and
-`*-full-en-native-symbols.zip` hold the native debug symbols. The two language
+APKs. The `*-mapping.txt.gz` files are the R8 mappings: `full-en` for the
+standard and offline builds, `full-intl` for the all-languages ones, and
+`*-play-mapping.txt.gz`. The file `*-full-en-native-symbols.zip` holds the
+native debug symbols. The two language
 builds are separate R8 runs, so their mappings are not interchangeable even
 though the Kotlin that went in was identical. Retrace a stack trace with the
-mapping from the same flavor and version:
+mapping from the same language build and version:
 
 ```sh
 gunzip -k wmkeyboard-0.5.9-vc24-full-intl-mapping.txt.gz
@@ -150,7 +183,7 @@ retrace wmkeyboard-0.5.9-vc24-full-intl-mapping.txt stacktrace.txt
 
 The fifth one comes from the `bundle` job rather than the `apks` job, and it is
 there because the Play build is compiled with different channel flags, so R8
-renames it differently and none of the other four fit a crash from a Play
+renames it differently and neither of the other two fits a crash from a Play
 install. Play Console reads the copy inside the AAB and needs no upload; a
 reporter on GitHub cannot reach that copy, and neither can the retrace
 workflow below, so it is published like the rest.
@@ -165,11 +198,11 @@ fetches the matching mapping off that release, runs R8's `retrace` over the
 whole body, and comments the result.
 
 What makes the lookup deterministic rather than a guess is that the record
-names its build. `DebugLog` writes `version: 0.5.9 (24) fullEn (Play Store)`,
-and the flavor there is the whole two-dimension name, which `:app` hands the
-log on startup. `:core:common` compiles against `:core:config`, whose
-`BuildConfig.FLAVOR` carries the `capabilities` dimension alone and would say
-only `full`. A record from an F-Droid install is refused with a note instead: the
+names its build. `DebugLog` writes `version: 0.6.3 (370) en (Play Store)`,
+and the flavor there is `:app`'s `languages` one, which `:app` hands the log
+on startup: `:core:common` compiles against `:core:config`, which has no
+flavors and could not tell `intl` from `en`. Records from 0.6.2 and earlier say
+`fullEn`, `liteIntl` and so on, and the bot still reads those. A record from an F-Droid install is refused with a note instead: the
 F-Droid build's mapping is not published. From 0.5.10 that build is
 identical to the release's `-fdroid.apk`, so its mapping could be.
 
@@ -246,6 +279,16 @@ inside a fence long enough that no backtick run in it can escape.
    file. 0.5.10 does this, because its F-Droid notes open with the one-time
    reinstall for [reproducible builds](#reproducible-builds).
 
+   Then run `scripts/changelog-abi-copies.sh` and commit what it writes. From
+   0.6.2 every manifest's `versionCode` is `wmkb.versionCode × 10` plus a digit
+   for the ABI (`abiDigits` in `app/build.gradle.kts`), and both stores look
+   the notes up by that number: F-Droid wants `351.txt`, `352.txt` and
+   `353.txt` beside its three APKs, Play wants `350.txt` beside the bundle,
+   and neither falls back to `35.txt`. The script copies the file you wrote
+   to those names. The release workflow's first job and the Fastfile's
+   `preflight` both stop when a copy is missing or stale, since F-Droid reads
+   them from the tagged commit.
+
 3. **Write the release notes.** `release-notes/<versionName>.md`, in the repo
    root. This is the prose at the top of the GitHub release: what changed, in
    sections, with issue links. Leave it out and the release falls back to the
@@ -264,6 +307,11 @@ inside a fence long enough that no backtick run in it can escape.
    the Play *internal* track through fastlane instead, or skips itself with a
    warning if the `PLAY_SERVICE_ACCOUNT_JSON` secret is not set. Promoting to
    production stays a decision you make by hand.
+
+   The release is announced on the Telegram community only by the run that
+   publishes it. Re-running the workflow, or moving the tag onto a fixed
+   commit and pushing it again, rebuilds and re-uploads every file into the
+   same release and posts nothing.
 
    To release to GitHub and F-Droid alone, put `[skip play]` in the message of
    the commit the tag points at. The `play` job then stands down, and the
@@ -337,7 +385,7 @@ APKs have been downloaded back from the `apks` job. Three parts:
 1. **What's new**: `release-notes/<versionName>.md` verbatim, inside a
    `<details open>` so it can be folded away, or the store changelog if that
    file is absent.
-2. **Download**: a grid of architecture against flavour, starred on
+2. **Download**: a grid of architecture against build, starred on
    `arm64-v8a`, every cell carrying the file's real size. The sizes are measured
    from the artifacts that were actually built, so a cell whose file is missing
    shows an em dash rather than a link to a 404. Checksums, R8 mappings and
@@ -400,44 +448,40 @@ builds and uploads as workflow artifacts, and no release is created.
 F-Droid does not take your APK as it is. It builds from source on its own
 machines, and publishes our signature only after its build turns out
 identical to ours (see [Reproducible builds](#reproducible-builds) below).
-Building from source is why the `lite` flavor exists. Every
-proprietary dependency in the tree (ML Kit, LiteRT, Play's update and feature
-delivery libraries, `play-services-auth`) is declared `fullImplementation` or
-sits behind a channel flag, so `lite` has no Google artifact on its compile
-classpath at all.
+Building from source is why `wmkb.enableFdroid` exists. Every proprietary
+dependency in the tree (ML Kit, LiteRT, LiteRT-LM, Play's update and feature
+delivery libraries, `play-services-auth`) is declared only when that flag is
+off or sits behind another channel flag, and the few classes that call ML Kit
+directly have stand-ins in `src/nogoogle`, so the F-Droid build has no Google
+artifact on its compile classpath at all. Up to 0.6.2 the same job was done by
+a `lite` product flavor, which is gone.
 
-The recipe's `gradle:` list names one flavour, `lite`, as it has since before
-`:app` had a second dimension. fdroidserver joins that list into a task name,
-so what it runs is `assembleLiteRelease`. AGP stopped registering a task by
-that name when the `languages` dimension arrived in 0.5.10: with two dimensions
-it offers `assembleLiteIntlRelease` and `assembleLiteEnRelease`, and answers
-the old name with an ambiguity error.
+The recipe's `gradle:` list still names that flavour, `lite`. fdroidserver
+joins the list into a task name, so what it runs is `assembleLiteRelease`,
+which AGP does not register: `:app`'s only flavor dimension is `languages`.
 
 So `app/build.gradle.kts` registers `assembleLiteRelease` itself, as an alias
-for `assembleLiteIntlRelease`. The alias is there because the recipe cannot be
+for `assembleIntlRelease`. The alias is there because the recipe cannot be
 counted on to change. `AutoUpdateMode: Version` writes each new `Builds:` entry
 by copying the last one, `gradle: [lite]` included, and nobody reviews what
 the bot writes.
 
 The alias does one thing besides run the build. fdroidserver looks for the APK
 in the directory under `app/build/outputs/apk/` whose name matches its flavour
-list, which is `lite`, and a two-dimension build writes to `liteIntl/`. Without
+list, which is `lite`, and the build writes to `intl/`. Without
 help that ends in `Failed to find any output apks` after a build that
 succeeded. The alias therefore mirrors the APK into `apk/lite/release/`, where
-the single-dimension build used to put it. It is a `Sync` and not a `Copy`,
+a `lite` build used to put it. It is a `Sync` and not a `Copy`,
 because fdroidserver also refuses a directory that holds more than one APK.
 
-`bundleFullRelease` is kept the same way, as an alias for `bundleFullEnRelease`
-that mirrors the AAB to `bundle/fullRelease/`. Nothing in this repo calls it
-any more: the release workflow and the `bundle_play` lane both name the real
-task.
+A merge request to fdroiddata that switches the recipe to `gradle: [intl]`
+retires the alias; until then it stays.
 
 F-Droid gets `intl` on purpose. It ships one APK to everybody and nothing
 downstream of the build adds a language, so the APK is the only place an
-F-Droid user can get the translations from. That is worth about 41 MB on a
-`lite` build that is otherwise around 12 MB. The small `lite-en` APK is on the
-GitHub release, and from 0.5.10 it installs over an F-Droid install like any
-update, because both carry the same key.
+F-Droid user can get the translations from. That is worth about 41 MB. The
+standard English APK is on the GitHub release, and from 0.5.10 it installs
+over an F-Droid install like any update, because both carry the same key.
 
 The build recipe is staged in the repo at `fdroid/com.wasimaster.wmkeyboard.yml`.
 F-Droid never reads it from there; it is versioned next to the code so the
@@ -457,14 +501,16 @@ instead.
    rather than built at all. No binary dictionary is committed. Apart from
    `gradle/wrapper/gradle-wrapper.jar`, which F-Droid checks against its own
    known-good list, the only prebuilt binaries in the tree are native
-   libraries. Some belong to variants a `lite` build never assembles
-   (Tesseract, Whistle, the LLM module's placeholders). The rest, the text
-   engines, Harper, whisper.cpp and ExecuTorch under the `src/main/jniLibs`
-   of `:core:language`, `:core:intelligence` and `:core:voice`, ship in
-   `lite` itself. The recipe
-   deletes all of them before the source scan, then its `build:` step runs
-   `native/build-lite-libs.sh`, which compiles the `lite` ones from source with
-   the NDK the recipe names, Rust and CMake.
+   libraries. Some are ones F-Droid cannot build from source and its build
+   goes without (Tesseract in `:core:intelligence`'s `src/tesseract/jniLibs`,
+   Whistle in `:core:voice`'s `src/whistle/jniLibs`, the LLM module's
+   placeholders). The rest, the text engines, Harper, whisper.cpp, ExecuTorch
+   and every other library `native/gates.json` gives an `fdroidBuild`
+   script, ship in its build too.
+   The recipe deletes all of them before the source scan, then its `build:`
+   step runs `native/build-fdroid-libs.sh` (or `build-lite-libs.sh`, its old
+   name, which the copied recipe entries still call), which compiles them from
+   source with the NDK the recipe names, Rust and CMake.
 
 2. **Test the exact build** before you submit, because a failed build on
    their side means a round trip. The release workflow's `fdroid` job runs
@@ -478,7 +524,7 @@ instead.
    The Gradle half alone is quicker to check on your own machine:
 
    ```sh
-   ./gradlew clean assembleLiteRelease -Pwmkb.enablePlayStore=false -Pwmkb.enableGms=false
+   ./gradlew clean assembleLiteRelease -Pwmkb.enablePlayStore=false -Pwmkb.enableGms=false -Pwmkb.enableFdroid=true
    ```
 
    That is the task name fdroidserver runs. Afterwards
@@ -549,11 +595,24 @@ this repo with one entry for the commit being released, and runs `fdroid
 build`, the same steps as the `fdroid build` job in fdroiddata's CI. The job
 then signs the unsigned APK with `apksigner sign --alignment-preserved`,
 checks with `apksigcopier compare` that the signature carries back onto it,
-and checks the `lite` engines are inside. Until 0.5.14 the job ran
+and checks the engines F-Droid compiles are inside. Until 0.5.14 the job ran
 `assembleLiteRelease` with the recipe's flags instead, which was enough while
 the recipe was Gradle alone. From 0.6.0 the recipe compiles Harper, whisper.cpp
 and ExecuTorch with the NDK and Rust, and only fdroidserver itself reproduces
 that faithfully.
+
+From 0.6.2 there are three of everything. Up to 0.6.1 F-Droid built one APK
+with all three ABIs' native code in it, which made 0.6.0's 98 MB where the
+arm64 build alone is 82 MB ([#801](https://github.com/wasi-master/wmkeyboard/issues/801)).
+The recipe now has one `Builds:` entry per ABI, each setting `wmkb.abi`
+(Gradle packages that ABI alone and gives it its digit) and `WMKB_ABIS`
+(`native/build-fdroid-libs.sh` compiles that ABI alone), and
+`VercodeOperation` tells their bot to write three entries per tag. F-Droid
+serves each phone the highest `versionCode` it can run. `%c` in `Binaries:`
+is each entry's full code, so the reference APKs are
+`wmkeyboard-<version>-vc<code × 10 + digit>-fdroid.apk`, and the `fdroid`
+job is a matrix over the three ABIs, each running `fdroid-build.sh` with its
+ABI and checking that no other ABI's code is in its APK.
 
 The rules that follow from this:
 
@@ -570,7 +629,8 @@ The rules that follow from this:
   `native/` map every such path away and pin every tool: the NDK in the
   recipe, Rust and `cargo-ndk` in `harper-jni/build.sh`, and the commits of
   whisper.cpp, ExecuTorch and PyTorch in theirs. A new native library joins
-  `native/build-lite-libs.sh` the same way, or stays out of `lite`.
+  the F-Droid build the same way, through the `fdroidBuild` script of its entry
+  in `native/gates.json`, or has none and stays out of it.
 - **Build it from a real clone.** AGP writes the commit hash into
   `META-INF/version-control-info.textproto`. From a git worktree or a
   tarball it cannot read the repository and writes `NO_VALID_GIT_FOUND`
@@ -606,8 +666,8 @@ The two editions are not the same app, so they do not share a description.
 
 | Tree | Read by | Holds |
 |---|---|---|
-| `fastlane/metadata/android/en-US/` | **F-Droid**, and the shared source for images and changelogs | the lite edition's `title.txt`, `short_description.txt` and `full_description.txt`, plus `images/` and `changelogs/` |
-| `fastlane/play/metadata/android/en-US/` | **Play**, via supply's `metadata_path` | the same three text files, written for the full edition, and nothing else |
+| `fastlane/metadata/android/en-US/` | **F-Droid**, and the shared source for images and changelogs | the F-Droid build's `title.txt`, `short_description.txt` and `full_description.txt`, plus `images/` and `changelogs/` |
+| `fastlane/play/metadata/android/en-US/` | **Play**, via supply's `metadata_path` | the same three text files, written for the standard build, and nothing else |
 
 F-Droid scans a fixed set of paths inside the source repo and there is no way
 to point it somewhere else, so the default tree has to be the F-Droid one.
@@ -619,8 +679,8 @@ copy of each, nothing to keep in step. The exception is a changelog placed
 under the Play tree for a version whose Play notes must differ, which
 `internal` prefers when it exists.
 
-:::caution[The lite description must not promise what lite does not ship]
-The lite flavour has no ML Kit, no LiteRT and no Whistle, so it has no
+:::caution[The F-Droid description must not promise what that build does not ship]
+The F-Droid build has no ML Kit, no LiteRT and no Whistle, so it has no
 handwriting, no text or QR scanning, no LiteRT Whisper, no Whistle dictation
 and no on-device AI chat models. It does have the Harper grammar checker and
 offline dictation through whisper.cpp and ExecuTorch, built from source. `fastlane/metadata/android/en-US/full_description.txt` names those as
@@ -647,19 +707,19 @@ non-UTF-8 locale otherwise raises rather than counting.
    them:
 
    - **Privacy policy URL**: `https://wmkeyboard.pages.dev/privacy/policy/`,
-     the *Play* one. There are two, one per edition, because the two builds
-     are not the same app underneath: the full edition carries ML Kit and the
-     Play libraries and has to disclose what they report, and the lite edition
-     F-Droid builds carries neither. F-Droid's own policy is at
+     the *Play* one. There are two, because the F-Droid build and the others
+     are not the same app underneath: the Play and GitHub builds carry ML Kit
+     and the Play build its libraries, and have to disclose what they report,
+     and the build F-Droid makes carries neither. F-Droid's own policy is at
      [`/privacy/policy-fdroid/`](/privacy/policy-fdroid/). Never point the Play
      listing at that one, because it would under-disclose. The About screen picks the
-     right page from `BuildConfig.FLAVOR`, so a user always reads the policy
+     right page from `BuildConfig.GOOGLE_SDKS`, so a user always reads the policy
      for the APK they actually installed.
    - **Data safety**: this project collects nothing and shares nothing. The
      optional network tools send what you typed into that tool to the service
      you chose, which belongs under that tool's own disclosure rather than as
      app-wide collection. But the form covers bundled SDKs as well as your
-     own code, and the full edition bundles ML Kit. Google
+     own code, and the Play build bundles ML Kit. Google
      [documents](https://developers.google.com/ml-kit/android-data-disclosure)
      that its SDKs send device and app information, a per-installation
      identifier, and performance and error data to Google for diagnostics and
@@ -707,7 +767,7 @@ non-UTF-8 locale otherwise raises rather than counting.
    Go to internal first, always. Play's own device catalogue tells you within
    minutes if an on-demand module (`:feature:llm`, `:feature:translate`,
    `:feature:litert`, `:feature:handwriting`, `:feature:speech`,
-   `:feature:grammar`, `:feature:ocr`) or the unbundled ML Kit path
+   `:feature:grammar`, `:feature:spell`, `:feature:ocr`, `:feature:bergamot`, `:feature:ct2`, `:feature:zinnia`, `:feature:llama`, `:feature:docscan`, `:feature:imagegen`) or the unbundled ML Kit path
    is misconfigured, and that is far cheaper to learn there than in
    production.
 
@@ -739,8 +799,8 @@ bundle install
 | Lane | What it does |
 |---|---|
 | `preflight` | checks the changelog for the current `versionCode` exists, signing is configured, and both listing trees are within Play's character limits |
-| `bundle_play` | `bundleFullEnRelease` with the Play channel flags. Play always gets `en`: it translates the app strings itself and injects them into the bundle at upload, and the translations in the repo were recovered from Play to begin with, so an `intl` bundle would only hand them back |
-| `apks` | sideload APKs, full and lite in both language builds, one per ABI |
+| `bundle_play` | `bundleEnRelease` with the Play channel flags. Play always gets `en`: it translates the app strings itself and injects them into the bundle at upload, and the translations in the repo were recovered from Play to begin with, so an `intl` bundle would only hand them back |
+| `apks` | sideload APKs in both language builds, one per ABI |
 | `internal` | checks the changelog, builds the AAB (or takes `aab:path`), uploads to the internal track. Only the build path checks signing, since a prebuilt `aab:` is assumed already signed |
 | `promote` | move the internal release to production (`to:`, `from:`, `rollout:` options) |
 | `listing` | push the Play store-listing text, from `fastlane/play/metadata/`, nothing else |

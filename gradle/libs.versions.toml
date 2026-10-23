@@ -1,17 +1,16 @@
 [versions]
-agp = "9.3.0"
-kotlin = "2.2.20"
-coreKtx = "1.16.0"
+agp = "9.4.1"
+kotlin = "2.4.21"
+coreKtx = "1.19.1"
 profileinstaller = "1.4.1"
 junit = "4.13.2"
 # Robolectric runs an Android runtime on the JVM, so a unit test can drive the
-# real IME service instead of only its pure helpers. Latest stable; 4.17 is
-# still beta, same rule as luaj and detekt.
-robolectric = "4.16.1"
-roborazzi = "1.75.0"
-junitVersion = "1.2.1"
-espressoCore = "3.6.1"
-appcompat = "1.7.0"
+# real IME service instead of only its pure helpers. Latest stable.
+robolectric = "4.17"
+roborazzi = "1.76.0"
+junitVersion = "1.3.0"
+espressoCore = "3.7.0"
+appcompat = "1.8.0"
 # BiometricPrompt for the settings app's optional fingerprint lock. GMS-free
 # and with no native code, so it needs no flavour or channel handling and is
 # fine for F-Droid. 1.1.0 is the last stable line; 1.2.0 has been alpha since
@@ -23,26 +22,21 @@ appcompat = "1.7.0"
 # around one Task, here the library's retained BiometricFragment *is* the
 # mechanism that carries a prompt across a configuration change.
 biometric = "1.1.0"
-activityCompose = "1.10.1"
-# Compose UI 1.11.4 / Material3 1.4.0. Not the newest BOM: 2026.08.00 and up
-# carry compose-ui 1.12, whose aar metadata demands compileSdk 37 and would
-# drag every module's compileSdk with it. 2026.06.01 is the last BOM that
-# still builds against the 36 we compile with.
-composeBom = "2026.06.01"
-lifecycle = "2.9.0"
-datastore = "1.1.7"
-serializationJson = "1.8.1"
-coroutines = "1.10.2"
-emoji2 = "1.5.0"
-autofill = "1.1.0"
-navigationCompose = "2.9.0"
+activityCompose = "1.13.0"
+# Compose UI 1.12.1 / Material3 1.4.0. Its aar metadata asks for compileSdk 37,
+# which every module compiles against.
+composeBom = "2026.09.00"
+lifecycle = "2.11.0"
+datastore = "1.2.1"
+serializationJson = "1.12.0"
+coroutines = "1.11.0"
+emoji2 = "1.7.0"
+autofill = "1.3.0"
+navigationCompose = "2.10.2"
 # material3-adaptive, for the settings app's two-pane layout on a tablet.
-# Held at 1.1.0 for a year because 1.2 and up declare compose-ui 1.9.0, which
-# Gradle would have resolved *up* from the 1.8.2 the BOM pinned then. The BOM
-# above is past that now, so that pin is spent — but 1.3.0 is out for the same
-# reason the newest BOM is: its aar metadata demands compileSdk 37. 1.2.0 asks
-# for 35, so it is as far as this line goes until compileSdk moves.
-composeAdaptive = "1.2.0"
+# Keep it on a line whose compose-ui does not exceed the BOM's, or Gradle
+# resolves the whole Compose stack up past the BOM.
+composeAdaptive = "1.3.0"
 mlkitDigitalInk = "19.0.0"
 # What digital-ink 19.0.0 and translate 17.0.3 resolve to; named on its own
 # because on Play neither of those is in the base APK any more.
@@ -59,14 +53,22 @@ mlkitBarcode = "17.3.0"
 # work without GMS. The version lines differ because Google numbers the
 # unbundled artifacts independently of the bundled ones.
 mlkitTextRecognitionUnbundled = "19.0.1"
+# The Chinese, Japanese, Korean and Devanagari recognizers (#757), unbundled on
+# every channel: Play services fetches each model on first use, and the code
+# is about 3 KB each (bundled, they would cost about 4 MB per script per ABI).
+mlkitTextRecognitionScriptsUnbundled = "16.0.1"
 mlkitBarcodeUnbundled = "18.3.1"
 mlkitDocScanner = "16.0.0"
 # Unbundled: the model is downloaded from Play services on first use, so
 # nothing ships in the APK. Still beta upstream; there is no stable line.
 mlkitSubjectSegmentation = "16.0.0-beta1"
-camerax = "1.4.2"
-# 3.5.x ships Kotlin 2.4 metadata, unreadable by this project's Kotlin 2.2.
-coil = "3.2.0"
+camerax = "1.6.2"
+# EXIF reading and rewriting for the gallery tool (#708): orientation on
+# decode, and the location and camera tags cleared from a photo sent at its
+# original size. CameraX already brings it in for :feature:ime; :core:content
+# names it itself.
+exifinterface = "1.4.2"
+coil = "3.6.3"
 # Already in the APK as Coil's network engine; declared here so the WebDAV
 # backup sink can use it directly. HttpURLConnection cannot: it validates the
 # request method against a fixed list and rejects PROPFIND and MOVE outright.
@@ -76,7 +78,7 @@ okhttp = "4.12.0"
 # ChannelSftp builds a java.time formatter in a static initializer and dies
 # on Android 7. JSch picks algorithm classes by name, so app/proguard-rules.pro
 # keeps exactly the ones SftpAlgorithms turns on and R8 drops the rest.
-jsch = "2.28.7"
+jsch = "2.28.8"
 # Lightweight crypto only, never registered as a JCE provider. JSch uses it for
 # the algorithms Android's own providers lack (curve25519, ML-KEM, sntrup761,
 # ed25519, chacha20-poly1305), and the SMB sink for MD4, AES-CMAC and AES-CCM.
@@ -89,17 +91,31 @@ apng4android = "3.0.5"
 # Animatable2Compat, and the compiler has to see a supertype to let the
 # drawable be used at all. At run time it arrives with appcompat, at whatever
 # version appcompat asks for, which is why this one is never packaged.
-vectordrawableAnimated = "1.1.0"
+vectordrawableAnimated = "1.2.0"
 # Draws Telegram's animated stickers (.tgs, gzipped Lottie JSON) frame by
 # frame, so they can become animated WebP. Apache-2.0. Its one runtime
 # dependency is appcompat, which the app already carries.
 lottie = "6.7.1"
-zxing = "3.5.3"
+zxing = "3.5.4"
 litertlm = "0.14.0"
+# The NPU runtime behind Compute = NPU (#804), packaged as assets by the
+# wmkeyboard.npu-runtime convention, never as dependencies. Dispatch 2.3.0
+# accepts the LiteRT API that litertlm 0.14.0 reports (it asks for <= 0.1.0
+# and warns on an older one), and litertlm takes any 0.x dispatch API from
+# 0.1 on: checked in both binaries' version checks, 2026-10-20.
+litertNpu = "2.3.0"
+# Qualcomm's own licence, so full Play and sideload builds only.
+qnnRuntime = "2.51.0"
 # 2.x splits into litert + litert-api sharing one namespace, which AGP's
 # manifest merger rejects; 1.4.2 is the last single-artifact classic runtime
 # (org.tensorflow.lite.Interpreter + signature runners).
 litert = "1.4.2"
+# Microsoft's ONNX Runtime behind Offline Sherpa, never a dependency: its
+# libonnxruntime.so is pinned and read out of the AAR on Maven Central
+# (wmkeyboard.native-pins), or copied into the APK or :feature:onnx by the
+# wmkeyboard.onnxruntime convention. libwmsherpa is built against this
+# version's headers (native/sherpa-onnx-jni/build.sh ORT_TAG): keep in step.
+onnxruntime = "1.30.0"
 # Lua interpreter for the plugin sandbox. Pure JVM, MIT, no transitive deps.
 # 3.0.1 is the LAST version published to Maven Central — the 3.0.2 git tag was
 # never released as an artifact. Do not bump without re-auditing PluginSandbox:
@@ -107,6 +123,9 @@ litert = "1.4.2"
 # DebugLib.onInstruction hook path, the process-global LuaString.s_metatable)
 # that no public API pins down.
 luaj = "3.0.1"
+# Test only: the ART fold reference in WordKeyParityTest. Robolectric 4.17 pins
+# the same version, so it is already in every cache that runs the doc shots.
+icu4j = "78.3"
 # Play In-App Updates, the only piece of Play Core this app links. It reaches
 # the APK *only* when the build is a Play-channel build
 # (-Pwmkb.enablePlayStore=true) — see app/build.gradle.kts, which swaps the
@@ -120,7 +139,12 @@ playAppUpdate = "2.1.0"
 # Play-channel builds only, same rule as app-update: a Google Play binary
 # that must never reach the F-Droid or direct-download APKs.
 playFeatureDelivery = "2.1.0"
-playServicesAuth = "21.3.0"
+playServicesAuth = "22.0.0"
+# Play Billing, for the Supporters screen's tips. Play-channel builds only, same
+# rule as app-update: Play's Payments policy is why the Play build needs it
+# (no SupportKori link allowed there), and F-Droid's scanner is why no other
+# build may carry it. billing-ktx is not used; the callbacks are enough.
+playBilling = "9.1.0"
 # YAML, read-only, for the Espanso importer in :core:content. Espanso match
 # files are real YAML — comments, block scalars, quoting rules, the occasional
 # anchor — and they come from strangers on the Espanso Hub, so a hand-rolled
@@ -132,13 +156,13 @@ playServicesAuth = "21.3.0"
 # CVE-2022-1471; 2.x removed that, and this app additionally never goes near
 # the unsafe entry points. Writing YAML is hand-rolled in EspansoFile, so the
 # emitter half shrinks away and the output keeps its block scalars and comments.
-snakeyaml = "2.4"
+snakeyaml = "2.7"
 # Static analysis. detekt 2.x is still alpha; 1.23.8 is the last stable line and
 # parses this project's Kotlin fine (no context receivers / `when` guards here).
 detekt = "1.23.8"
 # Slack's Compose lint checks: Android Lint rules for @Composable correctness
 # (unstable parameters, unremembered mutable state, modifier misuse, ...).
-composeLints = "1.5.3"
+composeLints = "1.6.1"
 # The baselineprofile Gradle plugin and the macrobenchmark library share a
 # version line. 1.5.0 is the first to support AGP 9 with the new DSL: 1.4.x
 # wants android.newDsl=false, which this build does not set.
@@ -157,10 +181,10 @@ licensee = "1.14.1"
 # classpath, which the root build.gradle.kts pins back; see the note there.
 dependencyAnalysis = "3.19.2"
 # Coverage. 0.9.5 is the first release that understands AGP 9.
-kover = "0.9.9"
-# Architecture rules as tests (:tools:architecture). 0.17.3 is the latest; it
-# bundles its own Kotlin 2.0 parser, which reads this project's 2.2 sources.
-konsist = "0.17.3"
+kover = "0.9.11"
+# Architecture rules as tests (:tools:architecture). Latest stable; it bundles
+# its own Kotlin parser, which reads this project's sources.
+konsist = "0.18.1"
 # Flow assertions in tests: every emission accounted for.
 turbine = "1.2.1"
 
@@ -192,7 +216,8 @@ androidx-compose-material-icons = { group = "androidx.compose.material", name = 
 androidx-lifecycle-runtime-ktx = { group = "androidx.lifecycle", name = "lifecycle-runtime-ktx", version.ref = "lifecycle" }
 androidx-lifecycle-viewmodel-compose = { group = "androidx.lifecycle", name = "lifecycle-viewmodel-compose", version.ref = "lifecycle" }
 androidx-lifecycle-runtime-compose = { group = "androidx.lifecycle", name = "lifecycle-runtime-compose", version.ref = "lifecycle" }
-androidx-savedstate = { group = "androidx.savedstate", name = "savedstate-ktx", version = "1.3.0" }
+androidx-savedstate = { group = "androidx.savedstate", name = "savedstate-ktx", version = "1.5.0" }
+androidx-exifinterface = { group = "androidx.exifinterface", name = "exifinterface", version.ref = "exifinterface" }
 androidx-datastore-preferences = { group = "androidx.datastore", name = "datastore-preferences", version.ref = "datastore" }
 androidx-emoji2 = { group = "androidx.emoji2", name = "emoji2", version.ref = "emoji2" }
 # Inline autofill: UiVersions / InlineSuggestionUi for the presentation spec.
@@ -215,6 +240,10 @@ mlkit-language-id = { group = "com.google.mlkit", name = "language-id", version.
 mlkit-dynamic-feature-support = { group = "com.google.mlkit", name = "playstore-dynamic-feature-support", version.ref = "mlkitDynamicFeatureSupport" }
 mlkit-text-recognition = { group = "com.google.mlkit", name = "text-recognition", version.ref = "mlkitTextRecognition" }
 mlkit-barcode-scanning = { group = "com.google.mlkit", name = "barcode-scanning", version.ref = "mlkitBarcode" }
+mlkit-text-recognition-chinese-unbundled = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-chinese", version.ref = "mlkitTextRecognitionScriptsUnbundled" }
+mlkit-text-recognition-japanese-unbundled = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-japanese", version.ref = "mlkitTextRecognitionScriptsUnbundled" }
+mlkit-text-recognition-korean-unbundled = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-korean", version.ref = "mlkitTextRecognitionScriptsUnbundled" }
+mlkit-text-recognition-devanagari-unbundled = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition-devanagari", version.ref = "mlkitTextRecognitionScriptsUnbundled" }
 mlkit-text-recognition-unbundled = { group = "com.google.android.gms", name = "play-services-mlkit-text-recognition", version.ref = "mlkitTextRecognitionUnbundled" }
 mlkit-barcode-scanning-unbundled = { group = "com.google.android.gms", name = "play-services-mlkit-barcode-scanning", version.ref = "mlkitBarcodeUnbundled" }
 mlkit-document-scanner = { group = "com.google.android.gms", name = "play-services-mlkit-document-scanner", version.ref = "mlkitDocScanner" }
@@ -223,6 +252,7 @@ coil-compose = { group = "io.coil-kt.coil3", name = "coil-compose", version.ref 
 coil-gif = { group = "io.coil-kt.coil3", name = "coil-gif", version.ref = "coil" }
 coil-network-okhttp = { group = "io.coil-kt.coil3", name = "coil-network-okhttp", version.ref = "coil" }
 okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhttp" }
+okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 jsch = { group = "com.github.mwiede", name = "jsch", version.ref = "jsch" }
 bouncycastle-prov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
 apng4android-apng = { group = "com.github.penfeizhou.android.animation", name = "apng", version.ref = "apng4android" }
@@ -230,11 +260,16 @@ androidx-vectordrawable-animated = { group = "androidx.vectordrawable", name = "
 lottie = { group = "com.airbnb.android", name = "lottie", version.ref = "lottie" }
 zxing-core = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-android", version.ref = "litertlm" }
+litert-npu-runtime-qualcomm = { group = "com.google.ai.edge.litert", name = "litert-npu-runtime-qualcomm", version.ref = "litertNpu" }
+qnn-runtime = { group = "com.qualcomm.qti", name = "qnn-runtime", version.ref = "qnnRuntime" }
 litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
+onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }
 luaj-jse = { group = "org.luaj", name = "luaj-jse", version.ref = "luaj" }
+icu4j = { group = "com.ibm.icu", name = "icu4j", version.ref = "icu4j" }
 snakeyaml = { group = "org.yaml", name = "snakeyaml", version.ref = "snakeyaml" }
 play-app-update = { group = "com.google.android.play", name = "app-update", version.ref = "playAppUpdate" }
 play-feature-delivery = { group = "com.google.android.play", name = "feature-delivery", version.ref = "playFeatureDelivery" }
+play-billing = { group = "com.android.billingclient", name = "billing", version.ref = "playBilling" }
 # Only the AuthorizationClient half is used, to get an OAuth token for the
 # Drive backup destination. Behind the wmkb.enableGms seam; never on F-Droid.
 play-services-auth = { group = "com.google.android.gms", name = "play-services-auth", version.ref = "playServicesAuth" }

@@ -1,0 +1,164 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- A tool's provider list (ProviderScreens.kt) -->
+    <string name="providers_group_title">Providers</string>
+    <string name="providers_group_info">The services this tool asks, in order. Drag a provider to move it, switch one off to skip it, or add your own server. Some providers can be added twice, with a second key or account. A provider that cannot be reached is skipped for a minute, so the next one answers at once.</string>
+    <string name="providers_mode_label">How to use them</string>
+    <string name="providers_same_kind_label">Two of the same provider</string>
+    <string name="providers_empty">No providers yet. Add one below.</string>
+    <string name="providers_add">Add a provider</string>
+    <string name="providers_add_subtitle">A service, your own server, or files on the phone</string>
+    <string name="providers_reset">Reset to default</string>
+    <string name="providers_reset_subtitle">Go back to the list this build starts with</string>
+    <!-- The heading over the providers that are switched off, when they are all of one kind. -->
+    <string name="providers_section_off">Turned off</string>
+    <!-- The headings over the providers that are switched off, sorted by where they run. -->
+    <string name="providers_section_on_device">Turned off: on the phone</string>
+    <string name="providers_section_online">Turned off: online services</string>
+    <string name="providers_section_servers">Turned off: your own servers</string>
+    <string name="providers_none_on">All providers are off. Turn one on below, or add one.</string>
+    <!-- The fold under a provider list that holds how the list is used, and Reset. -->
+    <string name="providers_options_title">List settings</string>
+    <!-- Accessibility label for what a press on a provider row does. -->
+    <string name="providers_open">Open settings</string>
+    <!-- A provider's own screen (ProviderPage.kt). -->
+    <string name="providers_page_on_title">Use this provider</string>
+    <!-- %1$s is the tool, such as Translate. -->
+    <string name="providers_page_on_subtitle">%1$s asks it in its place on the list</string>
+    <!-- %1$s is the tool, such as Translate. -->
+    <string name="providers_page_off_subtitle">%1$s skips it</string>
+    <string name="providers_page_setup_title">Setup</string>
+    <string name="providers_page_setup_none">Nothing to set up</string>
+    <!-- %1$s is the tool, such as Voice typing. -->
+    <string name="providers_page_not_listed">This provider is not on the %1$s list.</string>
+    <string name="providers_page_add_action">Add</string>
+    <string name="providers_page_fix_action">Set up</string>
+    <string name="providers_page_used_by_title">Shared with</string>
+    <!-- %1$s is the tool, such as Translate. -->
+    <string name="providers_page_remove_subtitle">Take it off the %1$s list</string>
+
+    <string name="providers_status_needs_key">Needs an API key</string>
+    <string name="providers_status_needs_sign_in">Not signed in. Edit to sign in.</string>
+    <string name="providers_status_needs_pairing">Not paired. Edit to pair with the bridge.</string>
+    <string name="providers_status_needs_grant">No home chosen. Edit to choose one.</string>
+    <string name="providers_status_signed_in">Signed in</string>
+    <string name="providers_status_needs_server">Needs a server address</string>
+    <string name="providers_status_needs_model">Needs a model name</string>
+    <string name="providers_status_needs_packs">Import a GIF pack first</string>
+    <string name="providers_status_unavailable">Not available in this build</string>
+    <string name="providers_status_unknown">Added by a newer version of the app</string>
+    <string name="providers_status_off">Off</string>
+    <!-- A LanguageTool row in the grammar tool's list. %1$s is the server's host. -->
+    <string name="providers_status_sends_text">Sends your text to %1$s</string>
+
+    <!-- The one line under a provider on its list (ProviderSummary.kt). The parts are joined with a middle dot, for example "Server: my.example.org · Model: llama3". -->
+    <!-- %1$s is a server's host name, such as translate.example.org. -->
+    <string name="providers_summary_server">Server: %1$s</string>
+    <!-- %1$s is a model's name, such as Base (English) or gpt-4o. -->
+    <string name="providers_summary_model">Model: %1$s</string>
+    <!-- An AI service with no model named: the service picks its own. -->
+    <string name="providers_summary_default_model">Default model</string>
+    <string name="providers_summary_key_set">Key set</string>
+    <!-- %1$s is the last four characters of the key, which tell two keys apart. -->
+    <string name="providers_summary_key_ending">Key ending %1$s</string>
+    <string name="providers_summary_key_builtin">Key in this build</string>
+    <!-- A service whose key is optional, used without one. -->
+    <string name="providers_summary_no_key">No key</string>
+    <string name="providers_summary_no_key_needed">No key needed</string>
+    <string name="providers_summary_on_device">On the phone</string>
+    <!-- A provider with one model, which is downloaded. -->
+    <string name="providers_summary_model_ready">Model on the phone</string>
+    <string name="providers_summary_not_downloaded">Not downloaded</string>
+    <!-- A voice engine or an on-device AI with no model on the phone. -->
+    <string name="providers_summary_no_model">No model downloaded</string>
+    <!-- %1$d is how much of the download is done, 0 to 100. -->
+    <string name="providers_summary_downloading">Downloading, %1$d%%</string>
+    <!-- A download whose size is not known yet. -->
+    <string name="providers_summary_downloading_wait">Downloading</string>
+    <string name="providers_summary_paused">Download paused</string>
+    <!-- The other models on the phone besides the one named before it. -->
+    <plurals name="providers_summary_more_models">
+        <item quantity="one">%1$d more model</item>
+        <item quantity="other">%1$d more models</item>
+    </plurals>
+    <!-- Languages an on-device translator has downloaded, English not counted. -->
+    <plurals name="providers_summary_languages">
+        <item quantity="one">%1$d language on the phone</item>
+        <item quantity="other">%1$d languages on the phone</item>
+    </plurals>
+    <string name="providers_summary_no_languages">No languages downloaded</string>
+    <plurals name="providers_summary_packs">
+        <item quantity="one">%1$d pack on the phone</item>
+        <item quantity="other">%1$d packs on the phone</item>
+    </plurals>
+    <string name="providers_summary_no_packs">No packs on the phone</string>
+    <plurals name="providers_summary_dictionaries">
+        <item quantity="one">%1$d dictionary imported</item>
+        <item quantity="other">%1$d dictionaries imported</item>
+    </plurals>
+    <string name="providers_summary_no_dictionaries">No dictionaries imported</string>
+    <!-- The phone's speech recognizer, set to use the model on the phone when it has one. -->
+    <string name="providers_summary_system_on_device">Model on the phone first</string>
+    <!-- The phone's speech recognizer, set to always use the recognizer service. -->
+    <string name="providers_summary_system_online">Always the recognizer service</string>
+    <string name="providers_summary_deepl_write">DeepL Write on</string>
+
+    <string name="providers_move_up">Move up</string>
+    <string name="providers_move_down">Move down</string>
+    <string name="providers_edit">Edit</string>
+    <string name="providers_remove">Remove</string>
+    <string name="providers_remove_title">Remove %1$s?</string>
+    <string name="providers_remove_body">%1$s stops asking it. You can add it again later.</string>
+    <string name="providers_remove_body_credential">%1$s stops asking it, and its key and address are deleted from this phone.</string>
+
+    <string name="providers_type_title">Add a provider</string>
+    <string name="providers_type_subtitle">Choose what %1$s asks.</string>
+    <string name="providers_type_use_existing">Use %1$s</string>
+    <string name="providers_type_existing_key">%1$s, key ending %2$s</string>
+    <string name="providers_type_new_server">Add another server</string>
+    <string name="providers_tag_free">Free software</string>
+    <string name="providers_tag_on_device">On the phone</string>
+    <string name="providers_tag_self_hosted">Your own server</string>
+    <string name="providers_tag_builtin">Key included</string>
+    <string name="providers_tag_needs_key">Needs your key</string>
+    <string name="providers_tag_no_key">No key</string>
+    <string name="providers_tag_separator" translatable="false">" · "</string>
+
+    <string name="providers_field_name">Nickname</string>
+    <string name="providers_field_name_hint">Optional. Tells two of the same provider apart, here and in the keyboard.</string>
+    <string name="providers_field_url">Server address</string>
+    <string name="providers_field_url_hint">For example https://translate.example.org</string>
+    <string name="providers_field_url_optional_hint">Optional. Leave it empty for the default.</string>
+    <string name="providers_field_url_languagetool_hint">Optional. Leave it empty for the public server, api.languagetool.org, or enter the address of your own LanguageTool server, such as http://192.168.1.20:8081.</string>
+    <string name="providers_field_key">API key</string>
+    <string name="providers_field_key_builtin_hint">Optional. Leave it empty to use the key in this build.</string>
+    <string name="providers_field_key_optional_hint">Optional.</string>
+    <string name="providers_field_key_languagetool_hint">Optional. The API key of a LanguageTool Premium account, from your account page, together with its username.</string>
+    <string name="providers_field_username">Username</string>
+    <string name="providers_field_username_hint">Optional. The email address of your Premium account. Give it with the API key or leave both empty.</string>
+    <string name="providers_languagetool_picky_title">Picky mode</string>
+    <string name="providers_languagetool_picky_subtitle">Also report style and typography issues that the server leaves out by default</string>
+    <string name="providers_languagetool_mother_tongue_label">Your first language</string>
+    <string name="providers_languagetool_mother_tongue_hint">Optional. A language code such as de or fr. LanguageTool then also looks for false friends from that language.</string>
+    <string name="providers_field_key_another_hint">Required. This is a second one, so it needs a key of its own.</string>
+    <string name="providers_field_key_required_hint">Required.</string>
+    <string name="providers_field_model">Model</string>
+    <string name="providers_field_model_hint">Optional. Leave it empty if the server runs one model.</string>
+    <string name="providers_field_path">Endpoint path</string>
+    <string name="providers_field_path_hint">Optional. For a server with its own route, such as /v1/transcribe. It is added to the address as typed. Leave it empty to use /audio/transcriptions</string>
+    <string name="providers_field_model_required_hint">Required. A model that can read images, for example qwen2.5vl:7b.</string>
+    <string name="providers_field_engine">Engine</string>
+    <string name="providers_field_engine_hint">The service that this server sends your text to. If the server does not have it, the next provider is asked.</string>
+    <string name="providers_used_by">Also used by %1$s. A change here changes it there too.</string>
+    <string name="providers_test">Test</string>
+    <string name="providers_testing">Testing</string>
+    <string name="providers_test_ok">It works.</string>
+    <string name="providers_test_failed">It did not work: %1$s</string>
+
+    <!-- Tool pages that use the list -->
+    <string name="tooldetail_media_providers_info">GIFs and stickers keep separate lists but share keys: a KLIPY or GIPHY key set up on one page works on the other. GIPHY never shares a grid with another provider, because its terms do not allow it. The content filter below applies to KLIPY and GIPHY.</string>
+    <string name="tooldetail_translate_providers_info">The services that translate, in order. The first one that answers is used, and if it fails the next one is asked. A provider that is off is never asked, so your text goes only to the ones that are on. The engine above decides which part of the list is used: On device asks only the phone, Online only the services, Automatic the whole list.</string>
+    <string name="tooldetail_deepl_write_group_info">DeepL Write rewrites text in the grammar panel and the selection bar. It uses the DeepL key from the provider list above, so add DeepL there first. Write needs an API Pro key.</string>
+    <string name="tooldetail_vocab_providers_info">When you add a word that no vocabulary pack knows, the tool looks it up online to fill in the meaning, the examples and the pronunciation. It asks these services in order, and the next one only if the first has nothing.</string>
+    <string name="tooldetail_search_providers_info">Web search and image search share this list. The first provider that answers is used, and if it fails the next one is asked. A SearXNG instance must allow JSON results. Tavily and Brave need an API key, unless this build has a Brave key.</string>
+</resources>

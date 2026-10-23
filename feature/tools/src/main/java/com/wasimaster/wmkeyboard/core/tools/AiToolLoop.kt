@@ -100,9 +100,19 @@ object AiToolLoop {
             append(answered, text)
 
             onPhase(AiPhase.USING_TOOL)
+            // Only a tool this round offered runs (#825). A model can name any
+            // tool it has heard of, in a sentinel above all, and an executor
+            // that also knows a tool left out on purpose (the one that needs
+            // the network, for an on-device run) would otherwise run it.
+            val names = offered.mapTo(HashSet()) { it.name }
             val results = calls.map { call ->
                 onToolCall(call)
-                executor.run(call).also(onToolResult)
+                val result = if (call.name in names) {
+                    executor.run(call)
+                } else {
+                    AiToolResult(call, "", error = "No tool named ${call.name}.")
+                }
+                result.also(onToolResult)
             }
             record(conversation, completion, calls, results, native)
             used++
@@ -126,8 +136,14 @@ object AiToolLoop {
         native: Boolean,
     ) {
         if (native) {
+            // The replay carries what some providers refuse to do without —
+            // Gemini's thought signatures, DeepSeek's reasoning — so the turn
+            // goes back as the provider wrote it, not as rebuilt from text.
             conversation.add(
-                AiClient.ChatTurn(AiClient.ChatRole.ASSISTANT, completion.text, toolCalls = calls),
+                AiClient.ChatTurn(
+                    AiClient.ChatRole.ASSISTANT, completion.text,
+                    toolCalls = calls, replay = completion.replay,
+                ),
             )
             for (result in results) {
                 conversation.add(

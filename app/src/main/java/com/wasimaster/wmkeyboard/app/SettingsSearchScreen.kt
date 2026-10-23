@@ -1,6 +1,14 @@
 package com.wasimaster.wmkeyboard.app
 
 import androidx.annotation.StringRes
+import com.wasimaster.wmkeyboard.app.assistant.SettingsAssistantGate
+import com.wasimaster.wmkeyboard.core.providers.ProviderCatalog
+import com.wasimaster.wmkeyboard.core.providers.ProviderEnv
+import com.wasimaster.wmkeyboard.core.providers.ProviderEnvironment
+import com.wasimaster.wmkeyboard.core.providers.ProviderTypes
+import com.wasimaster.wmkeyboard.core.settings.availableVoiceEngines
+import com.wasimaster.wmkeyboard.core.settings.providerChain
+import com.wasimaster.wmkeyboard.core.settings.resolveProviders
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
@@ -22,12 +30,16 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Devices
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Assistant
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Dns
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VolunteerActivism
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Devices
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Adjust
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Notifications
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoStories
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.DeleteSweep
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Label
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SentimentSatisfied
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.StickyNote2
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowBack
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Article
@@ -39,6 +51,9 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Autorenew
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HighlightAlt
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.History
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Psychology
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Home
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Handyman
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Hub
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Collections
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Phone
@@ -77,6 +92,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tune
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ViewAgenda
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tag
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VisibilityOff
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VolunteerActivism
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Widgets
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MusicNote
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VerticalSplit
@@ -517,13 +533,20 @@ internal object SettingsRouteIcons {
         "keymaps" to { Icons.Outlined.GridOn },
         "rows" to { Icons.Outlined.ViewAgenda },
         "rows/symbol" to { Icons.Outlined.Tag },
+        "ai" to { Icons.Outlined.AutoAwesome },
         "ai_actions" to { Icons.Outlined.AutoAwesome },
         "ai_history" to { Icons.Outlined.History },
+        "ai_memory" to { Icons.Outlined.Psychology },
         "ai_chat" to { Icons.AutoMirrored.Outlined.Chat },
+        "settings_assistant" to { Icons.Outlined.Assistant },
         "ai_mcp" to { Icons.Outlined.Hub },
+        "ai_tools" to { Icons.Outlined.Handyman },
         "modes" to { Icons.Outlined.Tune },
         "emoji" to { Icons.Outlined.EmojiEmotions },
         "emoji/panel" to { Icons.Outlined.GridView },
+        "kaomoji" to { Icons.Outlined.SentimentSatisfied },
+        "kaomoji/faces" to { Icons.Outlined.SentimentSatisfied },
+        "kaomoji/tags" to { Icons.Outlined.Label },
         "emojicategories" to { Icons.Outlined.Sort },
         "emojikeywords" to { Icons.Outlined.EmojiEmotions },
         "clipboard" to { Icons.Outlined.ContentPaste },
@@ -536,6 +559,7 @@ internal object SettingsRouteIcons {
         "vocab/review" to { Icons.Outlined.AutoStories },
         "vocab/browse" to { Icons.Outlined.AutoStories },
         "clock" to { Icons.Outlined.Schedule },
+        "homeassistant/entities" to { Icons.Outlined.Home },
         "notes" to { Icons.Outlined.StickyNote2 },
         "notes/tags" to { Icons.Outlined.Label },
         "notes/trash" to { Icons.Outlined.DeleteSweep },
@@ -555,11 +579,13 @@ internal object SettingsRouteIcons {
         "selection_macros/ai" to { Icons.Outlined.AutoAwesome },
         "selection_macros/zones" to { Icons.Outlined.Public },
         "advanced" to { Icons.Outlined.Tune },
+        FloatingButtonRoute to { Icons.Outlined.Adjust },
         "backup" to { Icons.Outlined.Save },
         "backup/auto" to { Icons.Outlined.Schedule },
         "backup/sync" to { Icons.Outlined.Sync },
         "backup/contents" to { Icons.Outlined.Checklist },
         "about" to { Icons.Outlined.Info },
+        "supporters" to { Icons.Outlined.VolunteerActivism },
         "storage" to { Icons.Outlined.PieChart },
         "statistics" to { Icons.Outlined.QueryStats },
         "licenses" to { Icons.Outlined.Gavel },
@@ -574,6 +600,9 @@ internal object SettingsRouteIcons {
         "musicapps" to { Icons.Outlined.MusicNote },
         "launchercombos" to { Icons.Outlined.VerticalSplit },
         "kdeconnect/devices" to { Icons.Outlined.Devices },
+        "send/instances" to { Icons.Outlined.Dns },
+        "send/history" to { Icons.Outlined.History },
+        "supporters" to { Icons.Outlined.VolunteerActivism },
     )
 
     operator fun get(route: String): ImageVector? = map[route]?.invoke()
@@ -586,10 +615,7 @@ internal object SettingsRouteIcons {
 private class SettingsSearchCorpus(
     val index: List<SettingsSearchEntry>,
     val vocabulary: SettingsSearchVocabulary,
-) {
-    /** The entries by [SettingsSearchEntry.key], for the picks the history remembers. */
-    val byKey: Map<String, SettingsSearchEntry> = index.associateBy { it.key }
-}
+)
 
 /**
  * The last corpus built, kept for the life of the process and keyed by the
@@ -634,6 +660,8 @@ internal fun SettingsSearchScreen(
     settings: LiveSettings,
     onBack: () -> Unit,
     onOpen: (SettingsSearchEntry) -> Unit,
+    /** Opens the Settings assistant (#788) with what is typed so far. */
+    onAsk: ((String) -> Unit)? = null,
 ) {
     // Saveable, so the results are still there when the user backs out of a
     // setting that was not the one they were after (#92).
@@ -653,6 +681,36 @@ internal fun SettingsSearchScreen(
                 .also { SearchCorpusCache.put(locales, it) }
         }
     }
+    // What a provider list can hold on this phone. Finding out loads the
+    // voice engines' libraries, so it is read once, off the main thread;
+    // until then every kind is offered.
+    val providerEnv by produceState<ProviderEnv?>(null) {
+        value = withContext(Dispatchers.Default) {
+            ProviderEnvironment.current().copy(voiceEngines = availableVoiceEngines())
+        }
+    }
+    val providerLists = settings.watch { it.providers }
+    // The index as this phone can open it: no provider it cannot run unless
+    // a list has it, and the rows the user added twice or gave a nickname.
+    val searchIndex = remember(corpus, providerEnv, providerLists) {
+        corpus?.let { c ->
+            val current = settings.value
+            val env = providerEnv ?: return@let c.index
+            val instances = ResourceSearchStrings(context.resources).providerInstanceRows(
+                rows = { tool -> current.resolveProviders(tool, env, all = true) },
+                subtitle = { _, row -> providerSetupSummary(row).resolve(context) },
+            )
+            searchableProviderEntries(
+                c.index,
+                instances,
+                runnable = { _, type -> ProviderCatalog.runnable(type, env) },
+                listed = { tool, typeId -> current.providerChain(tool, env).entries.any { it.typeId == typeId } },
+            )
+        }
+    }
+    // By key, for the picks the history remembers: a provider row picked
+    // last time is found again while the user still has it.
+    val searchByKey = remember(searchIndex) { searchIndex?.associateBy { it.key }.orEmpty() }
     val picks = remember(context) { SearchPicks(context) }
     // The history this visit ranks by: read when the screen is first opened
     // and held, saved with the screen, through every trip out to a result and
@@ -663,14 +721,21 @@ internal fun SettingsSearchScreen(
     // they left (#92 is about coming back to the *same* results).
     var historyText by rememberSaveable { mutableStateOf(picks.history.encode()) }
     val history = remember(historyText) { SearchHistory.decode(historyText) }
-    val results = remember(query, corpus, history) {
-        corpus?.let { rankSettings(query, it.index, it.vocabulary, history) } ?: SearchResults.EMPTY
+    // With the Settings assistant turned off (#830), its result would lead
+    // to a row that is not there, and its button to nothing.
+    val assistant = settings.watch { SettingsAssistantGate.offered(it) }
+    val results = remember(query, corpus, searchIndex, history, assistant) {
+        corpus?.let { c ->
+            val index = SettingsAssistantGate.searchable(searchIndex ?: c.index, assistant)
+            rankSettings(query, index, c.vocabulary, history)
+        } ?: SearchResults.EMPTY
     }
     val tokens = remember(query, corpus) {
         corpus?.let { searchTokens(query, it.vocabulary) }.orEmpty()
     }
-    val recent = remember(corpus, history) {
-        corpus?.let { c -> history.recent(RECENT_PICKS_SHOWN).mapNotNull(c.byKey::get) }.orEmpty()
+    val recent = remember(searchByKey, history) {
+        history.recent(RECENT_PICKS_SHOWN).mapNotNull(searchByKey::get)
+            .filter { assistant || !SettingsAssistantGate.opensAssistant(it) }
     }
     // Whether this is the screen being come back to from a result rather than
     // opened. A plain array rather than state: it is read once, here, and its
@@ -696,7 +761,7 @@ internal fun SettingsSearchScreen(
     fun open(entry: SettingsSearchEntry) {
         keyboard?.hide()
         picks.record(query, entry.key)
-        corpus?.let { trail?.seed(settingsCrumbSeed(entry, it.index, homeTitle)) }
+        (searchIndex ?: corpus?.index)?.let { trail?.seed(settingsCrumbSeed(entry, it, homeTitle)) }
         onOpen(entry)
     }
 
@@ -746,6 +811,19 @@ internal fun SettingsSearchScreen(
                             Icons.AutoMirrored.Outlined.ArrowBack,
                             contentDescription = stringResource(CommonR.string.common_back),
                         )
+                    }
+                },
+                actions = {
+                    if (onAsk != null && assistant) {
+                        IconButton(onClick = {
+                            keyboard?.hide()
+                            onAsk(query)
+                        }) {
+                            Icon(
+                                Icons.Outlined.Assistant,
+                                contentDescription = stringResource(R.string.settings_assistant_ask),
+                            )
+                        }
                     }
                 },
             )
@@ -1071,11 +1149,22 @@ private const val HIGHLIGHT_MIN_LENGTH = 3
  * magnifier is the fallback for a route with no icon of its own.
  */
 @Composable
-private fun ResultIcon(
+internal fun ResultIcon(
     entry: SettingsSearchEntry,
     settings: LiveSettings,
     modifier: Modifier = Modifier,
 ) {
+    // A provider itself, rather than a row on its screen, wears its own
+    // tile: the logo its list row and its screen show.
+    if (entry.weight == EntryWeight.TOOL) {
+        val provider = remember(entry.route) {
+            providerOfRoute(entry.route)?.let { (_, key) -> ProviderTypes.of(providerKindOf(key)) }
+        }
+        if (provider != null) {
+            ProviderTile(provider, modifier = modifier)
+            return
+        }
+    }
     val tool = entry.tool
     if (tool != null) {
         // The tile's own wash keeps the raw accent; only the glyph inside is

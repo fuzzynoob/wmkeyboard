@@ -33,7 +33,7 @@ Two more toggles replace a bottom-row key outright with an emoji key, so opening
 
 ### Tabs, pages and the long list
 
-Each category has a tab in the strip across the top. With few enough tabs they share the strip's width. When there are too many to fit at a comfortable size (the history tab, the categories, and Kaomoji and Emoticons if you turned them on), every tab keeps that size and the strip scrolls sideways under your finger instead of squeezing them. The tab you're in is kept in view as you move through the panel.
+Each category has a tab in the strip across the top. With few enough tabs they share the strip's width. When there are too many to fit at a comfortable size (the history tab, the categories, and the Kaomoji tab if you turned it on), every tab keeps that size and the strip scrolls sideways under your finger instead of squeezing them. The tab you're in is kept in view as you move through the panel.
 
 By default each category is a page, and you swipe left or right to go to the next. <SettingsPath path="Emoji / Emoji panel / One long list" /> makes the panel one list instead, with each category's name as a heading, so one long swipe up runs through every emoji. The tabs jump to a heading and follow the list as you scroll.
 
@@ -43,7 +43,7 @@ By default each category is a page, and you swipe left or right to go to the nex
 
 <SettingsPath path="Emoji / Emoji panel / Switch to GIFs and stickers" />
 
-The bottom row of the panel carries a switch with three buttons: emoji, [GIFs](/emoji/gifs/) and [stickers](/emoji/stickers/). Tap GIF or sticker and that panel takes the emoji panel's place, with the same bottom row and the same switch under its results, so you can go back and forth without the toolbar. The setting above moves the switch to the top row, next to the category tabs (next to the search box on the other two), or turns it off. The GIF and sticker panels keep the emoji panel's <KeyCap>ABC</KeyCap>, space and backspace in every case. A button shows only while its tool is on.
+The bottom row of the panel carries a switch with three buttons: emoji, [GIFs](/emoji/gifs/) and [stickers](/emoji/stickers/). Tap GIF or sticker and that panel takes the emoji panel's place, with the same bottom row and the same switch under its results, so you can go back and forth without the toolbar. The setting above moves the switch to the top row, next to the category tabs (next to the search box on the other two), or turns it off. The GIF and sticker panels keep the emoji panel's <KeyCap>ABC</KeyCap>, space and backspace in every case. A button shows only while its tool is on. With both the GIF and the Sticker tool off there is nowhere to switch to, so the switch is not drawn at all; if your panel layout places it, the layout editor says so and links to the GIF tool, where you can turn it on.
 
 With <SettingsPath path="Emoji / Emoji panel / Open the last used panel" /> on, the emoji key reopens whichever of the three you left open, the way most keyboards treat emoji, GIFs and stickers as one panel.
 
@@ -71,6 +71,8 @@ Search understands more than an exact keyword match, layered in this order, wher
 6. **A one-typo fuzzy match.** `hapy` still finds 😀, for query words of four letters or more.
 
 Turn on **Find any character by its Unicode name** under <SettingsPath path="Emoji / Emoji style" /> (off by default) and the same search also reaches every character of the Basic Multilingual Plane by the words of its official name: `em dash` finds —, `copyright` finds ©, `lambda` finds λ and Λ, `ogonek` finds ą, ę and the rest. Those come after the emoji results, and a character the catalogue already knows as an emoji is listed once. Tapping one inserts it like an emoji; a hold shows its name.
+
+With [Search by meaning](/smart/search-by-meaning/) on, the emoji whose names mean what you typed come after all of these, in any language: "gato", "猫" and "rocket launch" find 🐈 and 🚀 with no keyword pack for Spanish or Chinese and no keyword that says "launch".
 
 English and Bangla keywords are merged into the same index, so a query never needs to name a language. বিড়াল and "cat" surface the same set of cat emoji, and that holds for every cat-family emoji in the catalog, not only the smiley ones. Typing in a language you haven't installed a keyword pack for still works for anything carrying English or Bangla tags. To download a pack for another language, see [Emoji search in your language](/emoji/customization/#emoji-search-in-your-language).
 
@@ -134,7 +136,7 @@ The panel ships its category tabs in Unicode's own order. **Emoji categories** i
 
 Hiding a category hides only its tab. Those emoji are still found by search and still offered in the suggestion strip.
 
-The history tab is not in that list: it orders itself, with your favourites pinned first as above. The Kaomoji and Emoticons tabs are not either. They are switched on and off by their own toggle, and always sit at the end.
+The history tab is not in that list: it orders itself, with your favourites pinned first as above. The Kaomoji tab is not either. It is switched on and off by its own toggle, always sits at the end, and sorts its tags on its own page.
 
 Full reference: [Emoji categories](/reference/settings/emoji/#emoji-categories).
 
@@ -189,9 +191,9 @@ The animations are **Noto Animated Emoji** by Google, licensed [CC BY 4.0](https
 - **Inserting doesn't close the panel by default.** <SettingsPath path="Emoji / Emoji panel / Return to the keyboard after you insert" /> is off, so you can tap several emoji in a row (including several results from the same search) without the panel folding away after each one. Turn it on to jump straight back to the keys after a single insert. The same setting also governs the clipboard panel.
 - **Full-screen panel is the default, not an opt-in.** <SettingsPath path="Emoji / Access / Full-screen emoji panel" /> is on out of the box: the toolbar, emoji row, and symbol row all step aside, a slim back header takes their row, and the panel's layout fills the rest. Turn it off to keep the toolbar within reach while picking emoji.
 - **Search and the panel grid both respect "Hide emoji that your device cannot show."** An emoji neither your chosen font nor the phone's system font can draw is filtered out everywhere: panel, search, and suggestions alike. See [Fixing emoji that won't display](/emoji/customization/#fixing-emoji-that-wont-display).
-- **Kaomoji and emoticons are a separate, unsearched system.** If you've turned on their two extra tabs, they sit after the last Unicode category, but the panel's search field never indexes them, since it only searches the Unicode emoji catalog. See [Kaomoji & text art](/emoji/kaomoji/).
+- **Kaomoji are a separate system.** With the Kaomoji tab on, the panel's search lists matching faces under a Kaomoji heading after the emoji, matched by tag or by the face's characters. They never join the emoji history. See [Kaomoji & text art](/emoji/kaomoji/).
 - **The panel is a layout.** Its category tabs, search box and grid are cells of a [panel layout](/languages/custom-layouts/#panel-layouts), with an abc, [GIF and sticker switch](#switching-to-gifs-and-stickers), space and hold-to-repeat backspace row along the bottom so you can type a word, drop in an emoji, and keep typing without leaving the panel. Open <SettingsPath path="Emoji / Access / Panel layout" /> to move the tabs, drop the search box, give the grid the whole height, or add keys of your own.
-- **Both editions.** Search, skin tones, and favourites aren't gated to one edition: the same emoji panel ships in both.
+- **Every build.** Search, skin tones, and favourites aren't gated by build: the same emoji panel ships everywhere.
 
 ### Coverage
 

@@ -12,9 +12,6 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import com.wasimaster.wmkeyboard.ime.KeyboardControls
-import androidx.compose.runtime.LaunchedEffect
-import android.provider.Settings
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +20,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -40,6 +38,7 @@ import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.ime.ui.KeyboardFonts
 import com.wasimaster.wmkeyboard.ime.ui.arrowRowKey
 import com.wasimaster.wmkeyboard.ime.ui.gestureBarAtBottom
+import com.wasimaster.wmkeyboard.ime.ui.keyboardCanHideSystemKeyboardBar
 import com.wasimaster.wmkeyboard.core.settings.autoBottomPaddingDp
 import com.wasimaster.wmkeyboard.core.settings.KeyboardAlignment
 import com.wasimaster.wmkeyboard.core.settings.FloatingHandlePosition
@@ -406,6 +405,28 @@ internal fun AppearanceToolbarSettings(
                     default = SettingsDefaults.toolbarBehavior.dragToRearrange,
                 ) { scope.launch { repository.setToolbarDragToRearrange(it) } }
             }
+            // One wait for every hold on a tool (#665): the bound action, the
+            // settings page and the pick-up all start from it. The bottom of
+            // the track is the system's own delay, which is the default.
+            item {
+                val context = LocalContext.current
+                SliderSetting(
+                    R.string.appearance_toolbar_hold_delay_title,
+                    subtitle = stringResource(R.string.appearance_toolbar_hold_delay_subtitle),
+                    value = settings.watch { it.toolbarBehavior.holdDelayMs }.toFloat(),
+                    range = 0f..1500f,
+                    display = {
+                        val ms = toolbarHoldDelayStep(it)
+                        if (ms == 0) {
+                            context.getString(R.string.appearance_toolbar_hold_delay_system)
+                        } else {
+                            context.getString(R.string.keypress_value_ms, ms)
+                        }
+                    },
+                    info = stringResource(R.string.appearance_toolbar_hold_delay_info),
+                    default = SettingsDefaults.toolbarBehavior.holdDelayMs.toFloat(),
+                ) { scope.launch { repository.setToolbarHoldDelayMs(toolbarHoldDelayStep(it)) } }
+            }
         }
         item {
             ToggleSetting(
@@ -628,6 +649,7 @@ internal fun AppearanceToolboxSettings(
     val orderMoved = settings.watch { it.toolboxOrder != SettingsDefaults.toolboxOrder }
     val toolboxLayout = settings.watch { it.toolbox.layout }
     val paginate = settings.watch { it.toolbox.paginate }
+    val searchButtonOn = settings.watch { it.toolbox.searchButton }
     val toolboxMoved = settings.watch { s ->
         val d = SettingsDefaults
         s.toolbox != d.toolbox || s.toolboxColumns != d.toolboxColumns
@@ -732,6 +754,24 @@ internal fun AppearanceToolboxSettings(
                 default = SettingsDefaults.toolbox.labelSizeSp.toFloat(),
             ) { scope.launch { repository.setToolboxLabelSize(it.roundToInt()) } }
         }
+        item {
+            ToggleSetting(
+                R.string.appearance_toolbox_search_button_title,
+                stringResource(R.string.appearance_toolbox_search_button_subtitle),
+                settings.watch { it.toolbox.searchButton },
+                info = stringResource(R.string.appearance_toolbox_search_button_info),
+                default = SettingsDefaults.toolbox.searchButton,
+            ) { scope.launch { repository.setToolboxSearchButton(it) } }
+        }
+        item(visible = searchButtonOn) {
+            ToggleSetting(
+                R.string.appearance_toolbox_search_at_end_title,
+                stringResource(R.string.appearance_toolbox_search_at_end_subtitle),
+                settings.watch { it.toolbox.searchAtEnd },
+                info = stringResource(R.string.appearance_toolbox_search_at_end_info),
+                default = SettingsDefaults.toolbox.searchAtEnd,
+            ) { scope.launch { repository.setToolboxSearchAtEnd(it) } }
+        }
         // Drawn only once something has actually moved, like the group reset on
         // Layout & size. The order of the tools has its own reset above.
         item(visible = toolboxMoved) {
@@ -769,16 +809,9 @@ internal fun LayoutSettings(
     // What decides which rows the groups hold; each row reads its own value.
     val numberRow = settings.watch { it.numberRow }
     val symbolsReturn = settings.watch { it.layoutBehavior.symbolsReturnToLetters }
-    // The keyboard's shape as the rows below set it, pinned so it stays in
-    // view while they change (#43).
-    RegisterPinned {
-        MiniKeyboardPreview(
-            numberRow = settings.watch { it.numberRow },
-            globeAsEmoji = settings.watch { it.globeAsEmoji },
-            showGlobeKey = settings.watch { it.showGlobeKey },
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-        )
-    }
+    // No pinned sketch of the keyboard here any more (issue #769): it took a
+    // band of the screen and drew a board that was not the user's, and the
+    // keyboard test button on every screen (#412) shows the real one.
     // The grids themselves, first: which layout the keyboard draws is a bigger
     // question than how tall its keys are, and every row below this one is an
     // adjustment to whatever is chosen here. The whole group came off the
@@ -1299,15 +1332,22 @@ internal fun LayoutSizeSettings(
             ) { scope.launch { repository.setBottomPaddingDp(it.toInt()) } }
         }
         item {
-            // Android has no way for a keyboard to ask for this before 16 (#582).
-            val supported = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.BAKLAVA
+            // Android has no way for a keyboard to ask for this before 16
+            // (#582), and none at all where the bar is part of the system's
+            // own navigation bar: three buttons, or a build that draws it
+            // there (#681).
+            val newEnough = android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.BAKLAVA
+            val resources = LocalContext.current.resources
+            val supported = remember(resources, LocalConfiguration.current) {
+                keyboardCanHideSystemKeyboardBar(resources)
+            }
             ToggleSetting(
                 R.string.layout_hide_system_keyboard_bar_title,
                 stringResource(
-                    if (supported) {
-                        R.string.layout_hide_system_keyboard_bar_subtitle
-                    } else {
-                        R.string.layout_hide_system_keyboard_bar_unsupported
+                    when {
+                        supported -> R.string.layout_hide_system_keyboard_bar_subtitle
+                        newEnough -> R.string.layout_hide_system_keyboard_bar_system_drawn
+                        else -> R.string.layout_hide_system_keyboard_bar_unsupported
                     },
                 ),
                 settings.watch { it.layoutBehavior.hideSystemKeyboardBar },
@@ -1593,15 +1633,6 @@ internal fun LayoutOneHandedSettings(
     val split = settings.watch { it.splitKeyboard }
     // Either orientation floating (#584) shows the panel's own rows.
     val floating = settings.watch { it.floatingFor(false) || it.floatingFor(true) }
-    // The floating keyboard button (#374) and the grant it cannot draw without.
-    val summonButton = settings.watch { it.summonButton.enabled }
-    val overlayGranted = rememberGrantState { Settings.canDrawOverlays(it) }
-    val askOverlay = rememberDisclosedSpecialAccess(SpecialAccess.OVERLAY)
-    // The keyboard only re-checks the grant when it next closes; coming back
-    // from the system screen with it is worth showing the button at once.
-    LaunchedEffect(summonButton, overlayGranted) {
-        KeyboardControls.host?.syncSummonButton()
-    }
     SettingsGroup(
         stringResource(R.string.layout_one_handed_group_title),
         info = stringResource(R.string.layout_one_handed_caption),
@@ -1744,6 +1775,16 @@ internal fun LayoutOneHandedSettings(
                 default = SettingsDefaults.floatingFor(true),
             ) { scope.launch { repository.setFloatingKeyboard(true, it) } }
         }
+        // The platform's sideways text box over the app (#883).
+        item {
+            ToggleSetting(
+                R.string.layout_landscape_fullscreen_title,
+                stringResource(R.string.layout_landscape_fullscreen_subtitle),
+                settings.watch { it.layoutBehavior.landscapeFullscreen },
+                info = stringResource(R.string.layout_landscape_fullscreen_info),
+                default = SettingsDefaults.layoutBehavior.landscapeFullscreen,
+            ) { scope.launch { repository.setLandscapeFullscreen(it) } }
+        }
         item(visible = floating) {
             ChoiceSetting(
                 title = R.string.layout_floating_handle_title,
@@ -1802,26 +1843,6 @@ internal fun LayoutOneHandedSettings(
                 info = stringResource(R.string.layout_persistent_info),
                 default = SettingsDefaults.persistentKeyboard,
             ) { scope.launch { repository.setPersistentKeyboard(it) } }
-        }
-        item {
-            ToggleSetting(
-                R.string.layout_summon_button_title,
-                stringResource(R.string.layout_summon_button_subtitle),
-                summonButton,
-                info = stringResource(R.string.layout_summon_button_info),
-                default = SettingsDefaults.summonButton.enabled,
-            ) { on ->
-                scope.launch { repository.setSummonButton(on) }
-                // The disclosure, then Android's own switch. The setting is
-                // kept either way, so granting later is all it takes.
-                if (on && !overlayGranted) askOverlay()
-            }
-        }
-        item(visible = summonButton && !overlayGranted) {
-            NavRow(
-                R.string.layout_summon_button_permission_title,
-                subtitle = stringResource(R.string.layout_summon_button_permission_subtitle),
-            ) { askOverlay() }
         }
     }
 }
@@ -1894,3 +1915,11 @@ private val DefaultToolbarFit = when {
     SettingsDefaults.toolbarBehavior.greedy -> ToolbarFit.SPREAD
     else -> ToolbarFit.FIXED
 }
+
+/**
+ * The toolbar hold delay a slider position stands for: 50 ms steps, with the
+ * first stretch of the track kept for the system's own delay (0), since a
+ * hold shorter than a tenth of a second is a tap.
+ */
+private fun toolbarHoldDelayStep(value: Float): Int =
+    if (value < 100f) 0 else ((value / 50f).roundToInt() * 50).coerceAtMost(1500)

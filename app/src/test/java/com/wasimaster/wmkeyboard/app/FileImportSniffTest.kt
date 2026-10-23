@@ -19,7 +19,8 @@ import org.junit.Test
  *
  * The ordering inside `WMFileTypes.identify` is a safety property, not a
  * convenience: every format it recognises carries a tag except the theme, which
- * is told apart by its file name alone and is documented as a known compromise.
+ * is told apart by its file name or the keys every export writes, a known
+ * compromise.
  * The tests that matter here are therefore the negative ones — a file that is
  * *not* ours has to come back unrecognised rather than falling into that last
  * branch and being imported as an all-defaults theme.
@@ -39,16 +40,19 @@ class FileImportSniffTest {
     }
 
     @Test
-    fun `a theme is recognised only by its name`() {
+    fun `a theme is recognised by its name or by the keys every export writes`() {
         val theme = ThemeCodec.encode(
             com.wasimaster.wmkeyboard.core.theme.ThemeSpec(id = "x", name = "X"),
         )
         assertTrue(WMFileTypes.textKindFor(theme, "x.wmtheme.json") is WMFileTypes.Opened.Theme)
-        // The same bytes under another name are not a theme, because there is
-        // nothing in them that says they are one.
+        // A chat app's cache or a `msf:` URI loses the name; the export's own
+        // keys still say what it is.
+        assertTrue(WMFileTypes.textKindFor(theme, "file_1234.json") is WMFileTypes.Opened.Theme)
+        assertTrue(WMFileTypes.textKindFor(theme, "") is WMFileTypes.Opened.Theme)
+        // Any other JSON object under another name is still nobody's theme.
         assertEquals(
             WMFileTypes.Opened.Unrecognized,
-            WMFileTypes.textKindFor(theme, "x.json"),
+            WMFileTypes.textKindFor("""{"id":"x","name":"X"}""", "x.json"),
         )
     }
 
@@ -59,20 +63,15 @@ class FileImportSniffTest {
         // .wmtheme.json name it would decode to an all-defaults theme and the
         // user would have imported a black keyboard instead of their grid.
         val foreign = """[[{"${'$'}":"text_key","code":113,"label":"q"}]]"""
-        assertEquals(
-            WMFileTypes.Opened.Unrecognized,
-            WMFileTypes.textKindFor(foreign, "qwerty.json"),
-        )
-        assertEquals(
-            WMFileTypes.Opened.Unrecognized,
-            WMFileTypes.textKindFor(foreign, "qwerty.txt"),
-        )
+        // It is recognised as what it is: a FlorisBoard layout.
+        assertTrue(WMFileTypes.textKindFor(foreign, "qwerty.json") is WMFileTypes.Opened.ForeignLayout)
+        assertTrue(WMFileTypes.textKindFor(foreign, "qwerty.txt") is WMFileTypes.Opened.ForeignLayout)
         // Even renamed, it is refused: it decodes to a theme that sets nothing,
         // and importing that is worse than importing nothing.
         val renamed = WMFileTypes.textKindFor(foreign, "qwerty.wmtheme.json")
         assertTrue(
             "a foreign layout was read as a theme",
-            renamed !is WMFileTypes.Opened.Layout,
+            renamed !is WMFileTypes.Opened.Theme,
         )
     }
 

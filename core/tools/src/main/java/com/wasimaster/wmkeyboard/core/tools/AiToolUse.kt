@@ -28,8 +28,8 @@ data class AiToolSpec(
  * One call a model asked for.
  *
  * [id] is the provider's own handle for the call, which the result has to
- * quote back. Gemini matches results by tool name instead and the prompt
- * fallback has no ids at all, so it is blank for both.
+ * quote back. Older Gemini models send none and match results by tool name,
+ * and the prompt fallback has no ids at all, so it is blank for those.
  *
  * [arguments] stays the raw JSON object text rather than a parsed map: a model
  * that writes a number where a string belongs, or an extra field nobody asked
@@ -47,6 +47,21 @@ data class AiToolCall(
             (Json.parseToJsonElement(arguments).jsonObject[key] as? JsonPrimitive)
                 ?.content?.trim()?.takeIf { it.isNotEmpty() }
         }.getOrNull()
+
+    /**
+     * One numeric argument. Read through [argument], so a model that quotes
+     * its number ("12.5") is understood as well as one that does not, and a
+     * thousands separator it wrote out of habit does not sink the call.
+     */
+    fun number(key: String): Double? =
+        argument(key)?.replace(",", "")?.replace("_", "")?.toDoubleOrNull()?.takeIf { it.isFinite() }
+
+    /** One yes/no argument; anything but a recognisable answer is null. */
+    fun flag(key: String): Boolean? = when (argument(key)?.lowercase()) {
+        "true", "yes", "1" -> true
+        "false", "no", "0" -> false
+        else -> null
+    }
 }
 
 /**
@@ -77,6 +92,8 @@ data class AiToolResult(
             error = error,
             awaitingApproval = false,
             details = "",
+            arguments = call.arguments.trim().take(AiToolActivity.KEPT_CHARS),
+            output = content.trim().take(AiToolActivity.KEPT_CHARS),
         )
 }
 
@@ -150,6 +167,21 @@ data class AiToolActivity(
     val awaitingApproval: Boolean = false,
     /** The call's arguments in full, for the approval card. Empty once it has run. */
     val details: String = "",
+    /**
+     * What a [AiTools.REMEMBER] call kept, for the chat's "Saved to memory"
+     * line and its Undo. Null for every other call, and for a save that
+     * changed nothing. Defaulted, so a stored message from before memory
+     * still decodes.
+     */
+    val memory: AiMemoryNote? = null,
+    /**
+     * The arguments the model wrote, as it wrote them, and what the call
+     * handed back to it, each cut to [KEPT_CHARS] (#882): what the chat's
+     * chain of steps shows when a call is tapped open. Empty while it runs,
+     * and in a message stored before they were kept.
+     */
+    val arguments: String = "",
+    val output: String = "",
 ) {
     val failed: Boolean get() = error.isNotEmpty()
 
@@ -157,14 +189,13 @@ data class AiToolActivity(
     val isMcp: Boolean get() = server.isNotEmpty()
 
     companion object {
+        /** How much of [arguments] and [output] is kept with a message. */
+        const val KEPT_CHARS = 4000
+
         /** A call the model just asked for, before it has run. */
         fun started(call: AiToolCall): AiToolActivity = AiToolActivity(
             tool = call.name,
-            target = when (call.name) {
-                AiTools.WEB_SEARCH -> call.argument("query")
-                AiTools.WEB_FETCH -> call.argument("url")
-                else -> null
-            }.orEmpty(),
+            target = AiTools.targetOf(call),
             running = true,
         )
 
@@ -224,15 +255,110 @@ data class AiToolActivity(
 }
 
 /**
+ * One memory a `remember` call added or changed, as the chat keeps it under
+ * the answer: enough to show the fact and to take the save back.
+ *
+ * [before] and [beforeCategory] are the memory as it was when the call
+ * changed one already kept; both empty, and [added] true, when the call made
+ * a new one, which Undo then deletes. [undone] is set once the user pressed
+ * Undo, so the line stops offering it.
+ */
+@Serializable
+data class AiMemoryNote(
+    val id: Long,
+    val text: String,
+    val added: Boolean = true,
+    val before: String = "",
+    val beforeCategory: String = "",
+    val undone: Boolean = false,
+)
+
+/**
+ * Where one of the keyboard's own tools sits on the settings screen, which is
+ * also a rough measure of what it touches: [INFO] reads the outside world,
+ * [DATA] reads the user's own, [PICTURE] works on a picture the user sent, and
+ * [ACTION] changes something on the phone (#698).
+ */
+enum class AiToolGroup { INFO, DATA, PICTURE, ACTION }
+
+/**
+ * How `add_calendar_event` adds an event (#698). [OPEN_APP] fills in the
+ * calendar app's own editor and leaves Save to the user, which needs no
+ * permission; [DIRECT] writes the event itself, which needs WRITE_CALENDAR.
+ */
+enum class AiCalendarMode { OPEN_APP, DIRECT }
+
+/**
+ * One of the keyboard's own tools a model may call beyond search and fetch
+ * (#698), with the Run / Ask / Off policy it starts on.
+ *
+ * The policy enum is the MCP one on purpose. To the user a tool is a tool,
+ * wherever it runs, and "this one asks first" should look and behave the same
+ * for a server's tool and for ours: one choice row, one approval card.
+ */
+data class AiBuiltInTool(
+    val spec: AiToolSpec,
+    val group: AiToolGroup,
+    val defaultPolicy: McpToolPolicy,
+) {
+    val name: String get() = spec.name
+}
+
+/**
  * The tools the AI tool can offer, and the catalogue the settings rows switch
- * on. Deliberately a very short list: every tool costs tokens in the system
- * prompt of every single run, whether it is ever called or not, and a small
- * on-device model reading a long catalogue answers worse than one reading none.
+ * on.
+ *
+ * Every tool costs tokens in the system prompt of every single run, whether it
+ * is ever called or not, and a small on-device model reading a long catalogue
+ * answers worse than one reading a short one. So each has its own Off, and the
+ * descriptions are one sentence where one sentence will do.
  */
 object AiTools {
 
     const val WEB_SEARCH = "web_search"
     const val WEB_FETCH = "web_fetch"
+    const val WM_DOCS = "search_wm_docs"
+    const val IMAGE_SEARCH = "image_search"
+    const val WEATHER = "weather"
+    const val WIKIPEDIA = "wikipedia"
+    const val DEFINE_WORD = "define_word"
+    const val TRANSLATE = "translate"
+    const val CONVERT_CURRENCY = "convert_currency"
+    const val CONVERT_UNITS = "convert_units"
+    const val CALCULATE = "calculate"
+    const val CALENDAR_EVENTS = "calendar_events"
+    const val SEARCH_NOTES = "search_notes"
+    const val SEARCH_CLIPBOARD = "search_clipboard"
+    const val SEARCH_SNIPPETS = "search_snippets"
+    const val CURRENT_LOCATION = "current_location"
+    const val ADD_CALENDAR_EVENT = "add_calendar_event"
+    const val ADD_NOTE = "add_note"
+    const val SET_ALARM = "set_alarm"
+    const val START_TIMER = "start_timer"
+    const val OPEN_APP = "open_app"
+    const val MEDIA_CONTROL = "media_control"
+    const val SEND_TO_PC = "send_to_pc"
+    const val HOME_ASSISTANT = "home_assistant"
+    const val HOME_ASSISTANT_STATES = "home_assistant_states"
+    const val READ_IMAGE_TEXT = "read_image_text"
+    const val REVERSE_IMAGE_SEARCH = "reverse_image_search"
+    const val REMEMBER = "remember"
+    const val FORGET = "forget"
+
+    /**
+     * Renames the chat the model is in (#882). Offered only by a chat, and
+     * always asks the user first, showing the name.
+     */
+    const val RENAME_CHAT = "rename_chat"
+
+    /**
+     * The tools whose description ends with today's date, since a model has
+     * no clock of its own and "tomorrow at five" means nothing without one.
+     * The day only: the description is part of the prompt an on-device chat
+     * session is keyed by, and a clock in it would rebuild the session every
+     * minute.
+     */
+    val DATED: Set<String> = setOf(CALENDAR_EVENTS, ADD_CALENDAR_EVENT, SET_ALARM)
 
     /** Rounds of tool calls one run may take before the model has to answer. */
     const val DEFAULT_MAX_ROUNDS = 3
@@ -265,24 +391,365 @@ object AiTools {
         ),
     )
 
+    /**
+     * Keep one fact about the user in the AI's memory. Not one of [builtIns]:
+     * it has no Run / Ask / Off of its own, since the memory switches on
+     * Settings › AI › Memory decide whether a chat has it at all, and a save
+     * is shown in the chat with an Undo rather than asked about first.
+     */
+    val remember = AiToolSpec(
+        name = REMEMBER,
+        description = "Save one short fact about the user to your memory, which lasts between conversations. " +
+            "Only for what will still be true and useful later. Never a password, code, card number or key.",
+        parameters = schema(
+            param(
+                "fact",
+                "The fact, about the user in the third person, such as 'Lives in Dhaka' or 'Prefers short answers'.",
+            ),
+            param("id", "The number of a saved memory this fact replaces, when that fact has changed.", type = "integer", required = false),
+            param("category", "One word for the kind of fact, such as work, family, food or preference.", required = false),
+        ),
+    )
+
+    /** Rename this chat; see [RENAME_CHAT]. */
+    val renameChat = AiToolSpec(
+        name = RENAME_CHAT,
+        description = "Rename this chat, when the user asks you to. The user sees the name and accepts or declines it.",
+        parameters = schema(
+            param("title", "The new name: two to six words, in the language the user writes in."),
+        ),
+    )
+
+    /** Delete memories the user wants gone; see [remember]. */
+    val forget = AiToolSpec(
+        name = FORGET,
+        description = "Delete memories the user asks you to forget. Give the memory's number, or words from it.",
+        parameters = schema(
+            param("id", "The number of the memory to delete.", type = "integer", required = false),
+            param("match", "Words from the memory to delete, when you do not have its number.", required = false),
+        ),
+    )
+
+    /**
+     * The keyboard's own tools beyond search and fetch, in the order the
+     * settings screen lists them and a model reads them.
+     *
+     * The information tools start on Run: they read the outside world, and an
+     * answer built on a real exchange rate beats one remembered from training.
+     */
+    val builtIns: List<AiBuiltInTool> = listOf(
+        // First, because the question a user most often asks the keyboard's own
+        // AI is about the keyboard, and a model's training data describes some
+        // other one, or this one a year ago.
+        info(
+            WM_DOCS,
+            "Search WM Keyboard's own documentation. Use it for any question about this keyboard: " +
+                "how to do something in it, what a setting does, which files it can import.",
+            param("query", "What to look for, in English, such as 'import Rime dictionary Chinese'."),
+        ),
+        info(
+            IMAGE_SEARCH,
+            "Search the web for images. Returns each image's address and the page it is on.",
+            param("query", "What to search for."),
+        ),
+        info(
+            WEATHER,
+            "Current weather, and today's and tomorrow's forecast, for a place.",
+            param("place", "A city or place name. Leave it out for the user's own place.", required = false),
+        ),
+        info(
+            WIKIPEDIA,
+            "Look a topic up on Wikipedia and read the summary of the best-matching article.",
+            param("query", "The topic or article title."),
+        ),
+        info(
+            DEFINE_WORD,
+            "Look a word up in the dictionary: its meanings, part of speech and examples.",
+            param("word", "The word to look up."),
+        ),
+        info(
+            TRANSLATE,
+            "Translate text with the keyboard's translator.",
+            param("text", "The text to translate."),
+            param(
+                "to",
+                "The language to translate into, as a code such as en, bn or fr. " +
+                    "Leave it out for the user's usual target language.",
+                required = false,
+            ),
+            param("from", "The language of the text, as a code. Leave it out to detect it.", required = false),
+        ),
+        info(
+            CONVERT_CURRENCY,
+            "Convert an amount of money between currencies at live exchange rates.",
+            param("amount", "The amount to convert.", type = "number"),
+            param("from", "The currency it is in, as a code such as USD, EUR or BTC."),
+            param("to", "The currency to convert to, as a code."),
+        ),
+        info(
+            CONVERT_UNITS,
+            "Convert a measurement between units of length, mass, temperature, volume, area, speed, time or data.",
+            param("value", "The number to convert.", type = "number"),
+            param("from", "The unit it is in, such as km, lb, °F or GB."),
+            param("to", "The unit to convert to."),
+        ),
+        info(
+            CALCULATE,
+            "Work out an arithmetic expression exactly, instead of in your head. " +
+                "Supports + - * / ^ %, brackets, sqrt, sin, cos, tan, log, ln, pi and e.",
+            param("expression", "The expression, such as (12.5 * 4) / 3 or 18% of 2450."),
+        ),
+        // What the user keeps on the phone. These ask first: a page the model
+        // read could carry instructions, and the user should see a request
+        // for their calendar before it is answered.
+        data(
+            CALENDAR_EVENTS,
+            "List the events in the user's calendar from one date to another.",
+            param("from", "The first day, as YYYY-MM-DD."),
+            param("to", "The last day, as YYYY-MM-DD. Leave it out for one day.", required = false),
+        ),
+        data(
+            SEARCH_NOTES,
+            "Search the user's notes for words in their title, tags or text, and read the ones that match. " +
+                "When search by meaning is on, notes that mean the same thing in other words follow.",
+            param("query", "Words to look for. Leave it out for the most recent notes.", required = false),
+        ),
+        data(
+            SEARCH_SNIPPETS,
+            "Search the user's text snippets, the saved texts they insert by typing a short trigger, " +
+                "for words in their name, trigger, tags or text. Each match gives its name, its trigger and its text. " +
+                "When search by meaning is on, snippets that mean the same thing in other words follow.",
+            param("query", "Words to look for. Leave it out for the newest snippets.", required = false),
+        ),
+        // Search by meaning over the clipboard history: offered only once
+        // its model is on the phone and the feature is on (see AiToolRunner).
+        data(
+            SEARCH_CLIPBOARD,
+            "Search the user's clipboard history, the text they copied, by what it means, not only by its words. " +
+                "Returns the closest clips. Passwords and one-time codes are never among them.",
+            param("query", "What to look for, in any language, such as 'the dentist's address' or 'the flight number'."),
+        ),
+        data(
+            CURRENT_LOCATION,
+            "Where the user's phone is now: its coordinates and, when it can be found, the address.",
+        ),
+        data(
+            HOME_ASSISTANT_STATES,
+            "Read the state of the user's smart-home devices and sensors, from every home they connected: " +
+                "which lights are on, the temperature a sensor reads, whether a door is open. " +
+                "Each line ends with the device's id in brackets, which $HOME_ASSISTANT takes as entity_id.",
+            param("query", "A room, device or sensor name to look for. Leave it out for everything that is on or open.", required = false),
+        ),
+        // The pictures the user sent in the chat. Reading one's text happens on
+        // the phone; searching by one uploads it to a search site, which is
+        // why that one starts off.
+        AiBuiltInTool(
+            AiToolSpec(
+                READ_IMAGE_TEXT,
+                "Read the text in a picture the user sent, when you cannot see pictures yourself.",
+                schema(param("image", "The picture's number, from its <image n=\"…\"/> mark.", type = "integer")),
+            ),
+            AiToolGroup.PICTURE,
+            McpToolPolicy.ALLOW,
+        ),
+        AiBuiltInTool(
+            AiToolSpec(
+                REVERSE_IMAGE_SEARCH,
+                "Search the web by a picture the user sent, to find where it comes from or what it shows. " +
+                    "Returns a link to the results for the user to open.",
+                schema(param("image", "The picture's number, from its <image n=\"…\"/> mark.", type = "integer")),
+            ),
+            AiToolGroup.PICTURE,
+            McpToolPolicy.OFF,
+        ),
+        // Things that change something. None of them deletes anything, and
+        // none edits what is already there: they only add or start.
+        action(
+            ADD_CALENDAR_EVENT,
+            "Add an event to the user's calendar. Times are the user's local time.",
+            param("title", "What the event is called."),
+            param("start", "When it starts: YYYY-MM-DD for an all-day event, or YYYY-MM-DDTHH:MM."),
+            param("end", "When it ends, in the same form. Leave it out for an hour, or one day.", required = false),
+            param("location", "Where it is.", required = false),
+            param("notes", "A description to keep with it.", required = false),
+        ),
+        action(
+            ADD_NOTE,
+            "Save a new note in the user's notes.",
+            param("text", "What the note says."),
+            param("title", "A short title.", required = false),
+        ),
+        action(
+            SET_ALARM,
+            "Set an alarm in the keyboard's clock.",
+            param("time", "When it rings, as HH:MM on a 24-hour clock."),
+            param("label", "A label to show when it rings.", required = false),
+            param(
+                "days",
+                "The days it repeats on, such as mon,wed,fri, weekdays, weekends or every day. Leave it out to ring once.",
+                required = false,
+            ),
+        ),
+        action(
+            START_TIMER,
+            "Start a countdown timer in the keyboard's clock.",
+            param("duration", "How long, such as 10m, 1h30m or 90s."),
+            param("label", "A label to show when it ends.", required = false),
+        ),
+        action(
+            OPEN_APP,
+            "Open an app installed on the user's phone.",
+            param("name", "The app's name, as the user calls it."),
+        ),
+        action(
+            MEDIA_CONTROL,
+            "Control the music or video playing on the phone, or read what is playing.",
+            param(
+                "action",
+                "What to do.",
+                choices = listOf("play", "pause", "next", "previous", "now_playing"),
+            ),
+        ),
+        action(
+            SEND_TO_PC,
+            "Send text or a link to the user's computer through KDE Connect.",
+            param("text", "The text or the link to send."),
+        ),
+        action(
+            HOME_ASSISTANT,
+            "Control the user's smart home: turn things on or off, set brightness, " +
+                "temperature or position, run a scene, lock a door. Either name one device by entity_id with an action, " +
+                "taking the id from $HOME_ASSISTANT_STATES, or say it in one plain sentence as request, " +
+                "which only a Home Assistant with Assist understands. Prefer entity_id and action.",
+            param("entity_id", "The device's id from $HOME_ASSISTANT_STATES, such as 'fan.bedroom'.", required = false),
+            param(
+                "action",
+                "What to do to it: turn_on, turn_off or toggle, or a service such as set_temperature, " +
+                    "set_percentage, open_cover, lock or unlock.",
+                required = false,
+            ),
+            param(
+                "data",
+                "The service's settings as a JSON object, such as {\"brightness_pct\": 40} or {\"temperature\": 21}. " +
+                    "For a fan the states list with speeds, set_percentage takes {\"speed\": 1} for its first speed. " +
+                    "Leave it out for a plain on or off.",
+                required = false,
+            ),
+            param("request", "What to do, as one sentence, such as 'turn off the kitchen lights'. Home Assistant only.", required = false),
+        ),
+    )
+
+    /** One of [builtIns] by its name, or null for search, fetch or a name nobody gave out. */
+    fun builtIn(name: String): AiBuiltInTool? = builtIns.firstOrNull { it.name == name }
+
+    /** The policy in force for [tool]: what the user set, or what it starts on. */
+    fun policyOf(tool: AiBuiltInTool, policies: Map<String, McpToolPolicy>): McpToolPolicy =
+        policies[tool.name] ?: tool.defaultPolicy
+
+    /** Every name the keyboard's own tools answer to, which no MCP tool may take. */
+    val reservedNames: Set<String> by lazy {
+        setOf(WEB_SEARCH, WEB_FETCH, REMEMBER, FORGET, RENAME_CHAT) + builtIns.map { it.name }
+    }
+
     /** The enabled tools, in the order a model sees them. */
     fun enabled(search: Boolean, fetch: Boolean): List<AiToolSpec> = buildList {
         if (search) add(webSearch)
         if (fetch) add(webFetch)
     }
 
+    /**
+     * What one call is about, in a few words: the query searched for, the page
+     * read, the place whose weather was asked for. Blank when the model left
+     * the argument out, or for a tool with nothing short to say.
+     */
+    fun targetOf(call: AiToolCall): String = when (call.name) {
+        WEB_SEARCH, IMAGE_SEARCH, WIKIPEDIA, WM_DOCS -> call.argument("query")
+        WEB_FETCH -> call.argument("url")
+        WEATHER -> call.argument("place")
+        DEFINE_WORD -> call.argument("word")
+        TRANSLATE -> call.argument("to")
+        CONVERT_CURRENCY -> conversion(call, "amount")
+        CONVERT_UNITS -> conversion(call, "value")
+        CALCULATE -> call.argument("expression")
+        CALENDAR_EVENTS -> call.argument("from")?.let { from -> call.argument("to")?.let { "$from – $it" } ?: from }
+        SEARCH_NOTES, SEARCH_SNIPPETS, SEARCH_CLIPBOARD -> call.argument("query")
+        ADD_NOTE -> call.argument("title")
+        ADD_CALENDAR_EVENT -> call.argument("title")
+        SET_ALARM -> call.argument("time")
+        START_TIMER -> call.argument("duration")
+        OPEN_APP -> call.argument("name")
+        MEDIA_CONTROL -> call.argument("action")
+        READ_IMAGE_TEXT, REVERSE_IMAGE_SEARCH -> call.argument("image")
+        SEND_TO_PC -> call.argument("text")?.let { if (it.length > TARGET_CHARS) it.take(TARGET_CHARS - 1) + "…" else it }
+        HOME_ASSISTANT -> (call.argument("request") ?: listOfNotNull(call.argument("action"), call.argument("entity_id")).joinToString(" ").ifEmpty { null })
+            ?.let { if (it.length > TARGET_CHARS) it.take(TARGET_CHARS - 1) + "…" else it }
+        HOME_ASSISTANT_STATES -> call.argument("query")
+        REMEMBER -> call.argument("fact")?.let { if (it.length > TARGET_CHARS) it.take(TARGET_CHARS - 1) + "…" else it }
+        FORGET -> call.argument("match") ?: call.argument("id")
+        RENAME_CHAT -> call.argument("title")
+        else -> null
+    }.orEmpty()
+
+    /** Longest bit of free text a one-line record repeats. */
+    private const val TARGET_CHARS = 48
+
+    /** "12 USD → EUR", or null when the model left out either end. */
+    private fun conversion(call: AiToolCall, amountKey: String): String? {
+        val from = call.argument("from") ?: return null
+        val to = call.argument("to") ?: return null
+        val amount = call.argument(amountKey)
+        return listOfNotNull(amount, from).joinToString(" ") + " → " + to
+    }
+
+    private fun info(name: String, description: String, vararg params: Param) =
+        AiBuiltInTool(AiToolSpec(name, description, schema(*params)), AiToolGroup.INFO, McpToolPolicy.ALLOW)
+
+    private fun data(name: String, description: String, vararg params: Param) =
+        AiBuiltInTool(AiToolSpec(name, description, schema(*params)), AiToolGroup.DATA, McpToolPolicy.ASK)
+
+    private fun action(name: String, description: String, vararg params: Param) =
+        AiBuiltInTool(AiToolSpec(name, description, schema(*params)), AiToolGroup.ACTION, McpToolPolicy.ASK)
+
+    /** One argument of a tool, as the schema describes it to a model. */
+    private class Param(
+        val name: String,
+        val description: String,
+        val type: String,
+        val required: Boolean,
+        val choices: List<String>,
+    )
+
+    private fun param(
+        name: String,
+        description: String,
+        type: String = "string",
+        required: Boolean = true,
+        choices: List<String> = emptyList(),
+    ) = Param(name, description, type, required, choices)
+
     /** A one-object schema whose every named property is a required string. */
-    private fun schema(vararg properties: Pair<String, String>): JsonObject = buildJsonObject {
+    private fun schema(vararg properties: Pair<String, String>): JsonObject =
+        schema(*properties.map { (name, description) -> param(name, description) }.toTypedArray())
+
+    /**
+     * A one-object schema. Optional arguments stay out of `required`, which is
+     * how every provider tells a model it may leave one out; a fixed set of
+     * answers becomes an `enum`.
+     */
+    private fun schema(vararg params: Param): JsonObject = buildJsonObject {
         put("type", "object")
         putJsonObject("properties") {
-            for ((name, description) in properties) {
-                putJsonObject(name) {
-                    put("type", "string")
-                    put("description", description)
+            for (param in params) {
+                putJsonObject(param.name) {
+                    put("type", param.type)
+                    put("description", param.description)
+                    if (param.choices.isNotEmpty()) {
+                        put("enum", buildJsonArray { param.choices.forEach { add(JsonPrimitive(it)) } })
+                    }
                 }
             }
         }
-        put("required", buildJsonArray { for ((name, _) in properties) add(JsonPrimitive(name)) })
+        put("required", buildJsonArray { params.filter { it.required }.forEach { add(JsonPrimitive(it.name)) } })
     }
 }
 

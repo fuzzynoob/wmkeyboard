@@ -56,10 +56,14 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
+import com.wasimaster.wmkeyboard.core.modules.FeatureModules
+import com.wasimaster.wmkeyboard.core.modules.ModuleGate
 import com.wasimaster.wmkeyboard.core.modules.ModuleState
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.voice.sherpa.SherpaNative
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCatalog
-import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCpp
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCompute
+import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCppGpu
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperDownloadManager
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperDownloadManager.DownloadStatus
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperEngine
@@ -73,6 +77,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoMode
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Memory
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Speed
 import com.wasimaster.wmkeyboard.core.ui.ScrollRail
 import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
 
@@ -89,8 +94,8 @@ private const val WHISPER_METERED_CONFIRM_BYTES = 150_000_000L
  * language, and that is what [WhisperRoutingCard] edits.
  *
  * Download state lives in [WhisperDownloadManager], so navigating away or
- * rotating never loses an in-flight download. Shown only in the full flavor
- * (gated by the caller).
+ * rotating never loses an in-flight download. Shown only where Whisper can
+ * run (gated by the caller).
  */
 @Composable
 internal fun WhisperModelManager(repository: SettingsRepository, settings: LiveSettings) {
@@ -283,6 +288,10 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: LiveS
         }
     }
 
+    // Where the GGML models run. Only once one is on the phone: the LiteRT
+    // graphs always run on the CPU.
+    if (onDisk.any { it.ggml }) WhisperComputeGroup(repository, settings)
+
     if (suggestions.isNotEmpty()) {
         SettingsGroup(stringResource(R.string.models_whisper_suggested_title)) {
             for (model in suggestions) item { modelRow(model) }
@@ -394,6 +403,54 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: LiveS
  * for — that produces confident wrong words rather than an error, so a language
  * its model cannot handle is called out in the error colour.
  */
+/**
+ * Compute for the GGML models: Automatic, CPU or GPU. The subtitle says what
+ * this phone's GPU amounts to; choosing GPU forgets an earlier failure there,
+ * so the next dictation tries it again.
+ */
+@Composable
+private fun WhisperComputeGroup(repository: SettingsRepository, settings: LiveSettings) {
+    val scope = rememberCoroutineScope()
+    val selected = settings.watch { it.whisper.compute }
+    // Read again whenever the choice changes: choosing GPU clears a failure.
+    val support = remember(selected) { WhisperCppGpu.support }
+    val subtitle = when (support) {
+        WhisperCppGpu.Support.NO_GPU -> stringResource(R.string.models_whisper_compute_no_gpu)
+        WhisperCppGpu.Support.FAILED -> stringResource(R.string.models_whisper_compute_failed)
+        WhisperCppGpu.Support.READY -> WhisperCppGpu.deviceName
+            ?.let { stringResource(R.string.models_whisper_compute_subtitle_named, it) }
+            ?: stringResource(R.string.models_whisper_compute_subtitle)
+    }
+    SettingsGroup(stringResource(R.string.models_whisper_compute_title)) {
+        item {
+            ChoiceSetting(
+                title = R.string.models_whisper_compute_title,
+                subtitle = subtitle,
+                options = listOf(
+                    WhisperCompute.AUTO to stringResource(R.string.models_whisper_compute_auto),
+                    WhisperCompute.CPU to stringResource(R.string.models_whisper_compute_cpu),
+                    WhisperCompute.GPU to stringResource(R.string.models_whisper_compute_gpu),
+                ),
+                selected = selected,
+                info = stringResource(R.string.models_whisper_compute_info),
+                default = SettingsDefaults.whisper.compute,
+                detail = { choice ->
+                    ChoiceDetail(
+                        icon = when (choice) {
+                            WhisperCompute.CPU -> Icons.Outlined.Memory
+                            WhisperCompute.GPU -> Icons.Outlined.Speed
+                            else -> Icons.Outlined.AutoMode
+                        },
+                    )
+                },
+            ) { choice ->
+                if (choice == WhisperCompute.GPU) WhisperCppGpu.forgetFailures()
+                scope.launch { repository.setWhisperCompute(choice) }
+            }
+        }
+    }
+}
+
 @Composable
 private fun WhisperRoutingCard(
     languages: List<LanguageDef>,
@@ -707,6 +764,16 @@ private fun WhisperModelRow(
             titleContent = {
                 Text(model.displayName, fontWeight = if (inUse) FontWeight.SemiBold else null)
             },
+            swipeActions = if (status is DownloadStatus.Downloaded) {
+                listOf(
+                    deleteSwipeAction(
+                        stringResource(R.string.models_delete_model_desc, model.displayName),
+                        onDelete,
+                    ),
+                )
+            } else {
+                emptyList()
+            },
             supporting = {
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -903,20 +970,22 @@ private fun WhisperDownloadProgress(bytes: Long, total: Long) {
 }
 
 /**
- * The whisper.cpp, ExecuTorch and Whistle libraries' own download (`:feature:speech`),
- * on a Play install that has not fetched them. Nothing anywhere else, where
- * the libraries are in the APK. Asks the way the interpreter's banner does.
+ * A native library part's own download, on a build that fetches it rather than
+ * carrying it: [gate] is `:feature:speech` (whisper.cpp and Whistle) by
+ * default, or `:feature:executorch` (the ExecuTorch runtime) for Asr4All,
+ * Parakeet, Moonshine and the FUTO Swipe glide engine. Nothing where the
+ * libraries are in the APK. Asks the way the interpreter's banner does.
  */
 @Composable
-internal fun SpeechModuleBanner(settings: LiveSettings) {
+internal fun SpeechModuleBanner(settings: LiveSettings, gate: ModuleGate = FeatureModules.speech) {
     val context = LocalContext.current
-    val module by WhisperCpp.moduleState.collectAsState()
+    val module by gate.state.collectAsState()
     if (module == ModuleState.Installed) return
     var metered by remember { mutableStateOf(false) }
     var blocked by remember { mutableStateOf(false) }
     WhisperModuleBanner(module) {
         when (downloadDecisionNow(context, settings.value)) {
-            MeteredDecision.ALLOWED -> WhisperCpp.requestModule()
+            MeteredDecision.ALLOWED -> gate.requestInstall()
             MeteredDecision.ASK -> metered = true
             MeteredDecision.BLOCKED -> blocked = true
         }
@@ -926,7 +995,39 @@ internal fun SpeechModuleBanner(settings: LiveSettings) {
             detail = stringResource(R.string.models_whisper_module_metered_body),
             onConfirm = {
                 metered = false
-                WhisperCpp.requestModule()
+                gate.requestInstall()
+            },
+            onDismiss = { metered = false },
+        )
+    }
+    if (blocked) MeteredBlockedDialog(onDismiss = { blocked = false })
+}
+
+/**
+ * ONNX Runtime and the sherpa-onnx bridge (`:feature:onnx` on Play, the `onnx`
+ * gate elsewhere), on an install that has not fetched them. Nothing where the
+ * APK carries them. The same banner and questions as [SpeechModuleBanner].
+ */
+@Composable
+internal fun OnnxModuleBanner(settings: LiveSettings) {
+    val context = LocalContext.current
+    val module by SherpaNative.moduleState.collectAsState()
+    if (module == ModuleState.Installed) return
+    var metered by remember { mutableStateOf(false) }
+    var blocked by remember { mutableStateOf(false) }
+    WhisperModuleBanner(module) {
+        when (downloadDecisionNow(context, settings.value)) {
+            MeteredDecision.ALLOWED -> SherpaNative.requestModule()
+            MeteredDecision.ASK -> metered = true
+            MeteredDecision.BLOCKED -> blocked = true
+        }
+    }
+    if (metered) {
+        MeteredDownloadDialog(
+            detail = stringResource(R.string.models_whisper_module_metered_body),
+            onConfirm = {
+                metered = false
+                SherpaNative.requestModule()
             },
             onDismiss = { metered = false },
         )
@@ -954,6 +1055,9 @@ private fun WhisperModuleBanner(module: ModuleState, onDownload: () -> Unit) {
                 stringResource(R.string.models_whisper_module_installing_info)
             },
         )
+        // F-Droid, before the user has opted in to library downloads: a
+        // retry would only stop at the same place, so say where to turn it on.
+        is ModuleState.Missing if module.consent != null -> NativeConsentBanner(module.consent.orEmpty(), "litert")
         is ModuleState.Missing -> StateBanner(
             stringResource(
                 if (module.failed) {

@@ -44,7 +44,7 @@ Importing this way both adds the theme and switches the keyboard to it immediate
 Tapping a `.wmtheme.json` file in a file manager, or choosing "open with" on one from a chat app, hands it to a small confirmation dialog rather than dropping you into the settings app. It asks "Import *theme name*?" with the note that the theme is added to your themes and applied to the keyboard, then **Import** and **Cancel**. Confirming has the same immediate-apply effect as the in-app Import button: added to Your themes and switched on right away.
 
 :::caution
-This file association is matched by filename, since a theme file carries no internal tag to identify it: a `.wmtheme.json` extension is the only signal. WM Keyboard is still offered for a file renamed to plain `.json`, because it accepts JSON files by type as well as by name, but it will no longer recognize the contents as a theme, and will offer to open the file in its editor instead. The in-app Import button above isn't affected, since it doesn't check the filename.
+A theme file carries no format tag, so the app recognizes one in two ways: by its `.wmtheme.json` name, or by the color fields every export writes. The second is what catches a theme whose name got lost on the way, as happens with files opened from Telegram and other chat apps or downloaded in a browser. A hand-written JSON file that leaves those fields out and isn't named `.wmtheme.json` won't be read as a theme; WM Keyboard offers to open it in its editor instead. The in-app Import button above isn't affected, since it doesn't check either.
 :::
 
 <PhoneFrame side caption="Opening a theme file from a file manager shows a one-tap import confirmation.">
@@ -84,5 +84,5 @@ Publishing requires no extra packaging. A repository serves the exact `.wmtheme.
 - **No limit on custom themes.** Unlike sticker packs or plugins, there's no cap on how many themes you can import or create.
 - **Re-importing a file always creates a new theme.** Because the ID inside the file is discarded on import, editing a file externally and re-importing it adds another entry rather than replacing the original; delete the old one yourself if you don't want both.
 - **Deleting the active theme falls back to Default.** If you delete a custom theme that's currently applied, the keyboard falls back to the Default (system) theme. Its background image files stay on disk for now: two themes can share an image file, so only a later housekeeping pass removes the ones nothing points at any more, and only once they've gone a full day unreferenced.
-- **Import and export work the same in both editions.** There's no feature gap between the full and lite builds for exporting, importing, or installing themes from a repository.
+- **Import and export work the same in every build.** There's no feature gap between builds for exporting, importing, or installing themes from a repository.
 - **A background image travels with every export**, portrait and landscape both, so restoring a theme on a new device doesn't require re-picking either photo. See [Image backgrounds](/themes/backgrounds/) for how those images are set in the first place.

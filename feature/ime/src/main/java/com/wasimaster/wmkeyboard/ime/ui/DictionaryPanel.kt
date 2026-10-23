@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import com.wasimaster.wmkeyboard.core.providers.ProviderTool
 import android.media.AudioAttributes
 import android.media.MediaPlayer
 import androidx.compose.foundation.background
@@ -44,6 +45,8 @@ import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.tools.DictEntry
 import com.wasimaster.wmkeyboard.core.tools.DictMeaning
 import com.wasimaster.wmkeyboard.core.tools.DictionarySource
+import com.wasimaster.wmkeyboard.core.tools.yomichan.PitchNotation
+import com.wasimaster.wmkeyboard.core.vocab.VocabLanguages
 import com.wasimaster.wmkeyboard.ime.DictionaryUi
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
@@ -117,6 +120,10 @@ internal fun RowScope.DictionaryHeaderSearchBar(
             }
         }
     }
+    // Pick mode (#727): which dictionary answers.
+    if (!state.dictionarySearchActive) {
+        ProviderChooser(ProviderTool.DICTIONARY, state.settings, Modifier.padding(end = 6.dp))
+    }
     // Ask AI about everything the lookup found (#352), or copy it (#348); a
     // long press on a definition does either for just that.
     val ready = state.dictionary as? DictionaryUi.Ready
@@ -152,6 +159,9 @@ internal fun DictionaryPanel(
             is DictionaryUi.Error -> DictionaryMessage(stringResource(R.string.ime_dict_error))
             is DictionaryUi.NotFound -> DictionaryMessage(
                 stringResource(R.string.ime_dict_not_found_empty, dict.word),
+            )
+            is DictionaryUi.NotOnDevice -> DictionaryMessage(
+                stringResource(R.string.ime_dict_not_on_device, dict.word),
             )
             DictionaryUi.NoSources -> DictionaryMessage(stringResource(R.string.ime_dict_no_sources))
             is DictionaryUi.Ready -> DictionaryEntries(state, dict, onLookup, onInsert, onAddToVocab)
@@ -224,15 +234,27 @@ private fun DictionaryEntries(
                             .padding(top = if (entryIndex == 0) 2.dp else 14.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        Text(
-                            entry.word,
-                            color = kb.modifierKeyText,
-                            fontSize = 22.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = serif,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
+                        Column {
+                            // The kana over a Japanese headword (#765), furigana-style.
+                            if (entry.reading.isNotEmpty()) {
+                                Text(
+                                    entry.reading,
+                                    color = kb.toolbarIcon,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
+                            Text(
+                                entry.word,
+                                color = kb.modifierKeyText,
+                                fontSize = 22.sp,
+                                fontWeight = FontWeight.Bold,
+                                fontFamily = serif,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
                         if (entry.phonetic.isNotEmpty()) {
                             Spacer(Modifier.width(10.dp))
                             Text(
@@ -273,11 +295,14 @@ private fun DictionaryEntries(
                             ) { onAddToVocab(entry.word) }
                         }
                     }
+                    // Pitch accent and frequency, from an imported dictionary (#765).
+                    DictionaryPitchLine(entry)
                     // The word in the user's language, from a vocabulary pack's
                     // translations (#651). Inside the headword's item, so the
                     // focus scroll's item count is unchanged.
+                    // The translations below (#764) say the same and more.
                     val meaning = ready.meaning
-                    if (entryIndex == 0 && meaning != null) VocabMeaningText(meaning)
+                    if (entryIndex == 0 && meaning != null && ready.translations.isEmpty()) VocabMeaningText(meaning)
                 }
             }
             entry.meanings.forEachIndexed { meaningIndex, meaning ->
@@ -286,11 +311,23 @@ private fun DictionaryEntries(
                 }
             }
         }
+        // The first entry's word in the user's languages (#764), after every
+        // entry so the focus scroll's item count is unchanged.
+        if (ready.translations.isNotEmpty() || ready.translationsLoading) {
+            item(key = "translations") {
+                DictionaryTranslations(ready, serif, onInsert)
+            }
+        }
         // Which source answered: the user's order decides, and Wiktionary's
         // licence asks for the credit.
         item(key = "source") {
+            // An imported dictionary names itself; the rest name the source.
+            val origins = entries.map { it.origin }.filter { it.isNotEmpty() }.distinct()
             Text(
-                stringResource(R.string.ime_dict_from, stringResource(source.labelRes)),
+                stringResource(
+                    R.string.ime_dict_from,
+                    if (origins.isEmpty()) stringResource(source.labelRes) else origins.joinToString(", "),
+                ),
                 color = kb.toolbarIcon,
                 fontSize = 11.sp,
                 modifier = Modifier.padding(top = 12.dp),
@@ -364,6 +401,87 @@ private fun DictionaryMeaning(
             )
         }
     }
+}
+
+/**
+ * The word in other languages (#764): one row per language, its name and a
+ * scrolling row of chips. A chip types its translation at the cursor; the
+ * romanisation, when the script has one, rides in the chip after a dot.
+ */
+@Composable
+private fun DictionaryTranslations(
+    ready: DictionaryUi.Ready,
+    serif: FontFamily,
+    onInsert: (String) -> Unit,
+) {
+    val kb = LocalKbTheme.current
+    Column(modifier = Modifier.padding(top = 10.dp)) {
+        Text(
+            stringResource(R.string.ime_dict_translations_label),
+            color = kb.accent,
+            fontSize = 14.sp,
+            fontStyle = FontStyle.Italic,
+            fontFamily = serif,
+            fontWeight = FontWeight.SemiBold,
+        )
+        if (ready.translations.isEmpty()) {
+            Text(
+                stringResource(R.string.ime_dict_translations_loading),
+                color = kb.toolbarIcon,
+                fontSize = 12.sp,
+                modifier = Modifier.padding(top = 3.dp),
+            )
+        }
+        for ((code, translation) in ready.translations) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    VocabLanguages.displayName(code),
+                    color = kb.toolbarIcon,
+                    fontSize = 11.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.width(66.dp),
+                )
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(5.dp),
+                ) {
+                    for (gloss in translation.glosses()) {
+                        val label = gloss.roman?.let { "${gloss.word} · $it" } ?: gloss.word
+                        DictionaryChip(label = label, filled = false) { onInsert(gloss.word) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/**
+ * The pitch accent and frequency an imported dictionary gives (#765), on one
+ * quiet line under the headword: たべꜜる [2] · Frequency 1234. Nothing for
+ * an entry with neither.
+ */
+@Composable
+private fun DictionaryPitchLine(entry: DictEntry) {
+    val reading = entry.reading.ifEmpty { entry.word }
+    val parts = entry.pitch.map { PitchNotation.format(reading, it) } +
+        listOfNotNull(entry.frequency.takeIf { it.isNotEmpty() }?.let { stringResource(R.string.ime_dict_frequency, it) })
+    if (parts.isEmpty()) return
+    Text(
+        parts.joinToString(" · "),
+        color = LocalKbTheme.current.toolbarIcon,
+        fontSize = 12.sp,
+        maxLines = 2,
+        overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.padding(top = 2.dp),
+    )
 }
 
 /** Label plus a scrolling row of tappable related words (tap = look up). */

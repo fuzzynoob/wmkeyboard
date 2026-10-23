@@ -49,6 +49,8 @@ Every override here defaults to **Inherit** (unset, so the mode falls through to
 | Automatic capitals | Inherit / On / Off |
 | Suggestions | Inherit / On / Off |
 | Automatic spaces | Inherit / On / Off |
+| Glide typing | Inherit / On / Off |
+| Two-thumb typing | Inherit / On / Off |
 | Layout | Inherit, or any layout you currently have switched on |
 | Theme | Inherit, or any built-in or custom theme |
 | Custom pinned tools | Off, or a toolbar tool list of its own |
@@ -59,11 +61,13 @@ Every override here defaults to **Inherit** (unset, so the mode falls through to
   <Shot id="reference/settings/mode-editor-custom-tools" alt="A mode's Custom pinned tools turned on, with its own tool chips and reorder option." />
 </PhoneFrame>
 
-**Autocorrect**, **Automatic capitals**, **Suggestions** and **Automatic spaces** are the four typing overrides, and they're why a Coding mode is worth having: a mode that only redressed the keyboard would still correct your identifiers into English words.
+**Autocorrect**, **Automatic capitals**, **Suggestions**, **Automatic spaces**, **Glide typing** and **Two-thumb typing** are the six typing overrides, and they're why a Coding mode is worth having: a mode that only redressed the keyboard would still correct your identifiers into English words.
 
 **Automatic spaces** is one switch over every space the keyboard puts in that you didn't press for: the space [after punctuation](/reference/settings/typing/), the one [after a suggestion](/reference/settings/typing/) you pick from the strip, and the ones before and [after a glided word](/typing/glide-typing/) (the one in front has no switch of its own; only a mode turns it off). Off means every space in the field is one you typed, which is what you want when you're renaming a file extension, typing a command, or filling a structured field. On turns all three on, including the space after punctuation, which is off by default everywhere else.
 
-**Layout** pins the mode to one layout while it's on, whichever layout you were typing on before. Only layouts you've switched on are offered, and the spacebar swipe order is left alone. Switch that layout off later and the mode falls back to Inherit, since the keyboard won't pin itself to something it can't draw.
+**Glide typing** off keeps a drifting tap from starting a swipe, and **Two-thumb typing** off stops a pause from ending a tapped word with a space. Turn glide, autocorrect, suggestions and automatic spaces off together and you have a peck mode, where every tap types exactly its key. Switching to such a mode in the middle of a two-thumb word types that word as it stands first.
+
+**Layout** pins the mode to one layout while it's on, whichever layout you were typing on before. Set the Passwords mode to QWERTY and a password box opens on QWERTY even while you're typing Bangla. The layout goes on when a field the mode matches opens, and the next field outside the mode opens on the layout you were using. A globe tap or spacebar swipe still takes you off it for that field. Only layouts you've switched on are offered, and the spacebar swipe order is left alone. A field that only takes English letters still gets a Latin layout if the mode names another script. Switch that layout off later and the mode falls back to Inherit, since the keyboard won't pin itself to something it can't draw.
 
 **Theme** opens a picker: Inherit, Default (system), the built-in themes (a theme with variants gets a heading and its variants under it), then your own custom themes alphabetically. A **Clear** button appears once a theme is set. Picking one adds a note about what that means. While the mode is active the keyboard wears that theme whatever is set elsewhere, and an auto light/dark pair stands down for the mode's lifetime. Your own choice comes back unchanged the moment the mode ends.
 
@@ -166,6 +170,8 @@ Tool order can differ per app: whichever mode an app resolves to decides the arr
 | Automatic capitals | Inherit, on every built-in too |
 | Suggestions | Inherit, on every built-in too |
 | Automatic spaces | Inherit, on every built-in too |
+| Glide typing | Inherit, on every built-in too |
+| Two-thumb typing | Inherit, on every built-in too |
 | Layout | Inherit, on every built-in too |
 | Theme | Inherit, on every built-in too |
 | Custom pinned tools | Off, except Passwords/Chat/Writing |
@@ -205,7 +211,7 @@ A mode you made has an ID of its own that only your install knows, so a link to 
 - **Off is not deleted.** A mode whose **Use this mode** switch is off keeps every binding and override and never reaches the keyboard. Resetting a built-in mode turns it back on, since the shipped copy is on.
 - **Both delete paths ask first.** The bin icon on a list row and **Delete mode** at the bottom of the editor open the same "Delete *name*?" dialog. Resetting a built-in mode confirms too.
 - **Hints beat field types beat apps when modes collide.** If two modes could both apply, the one that names a hint is preferred over one that names a field type, and that over one that only names apps: a password field inside a coding app still gets the Passwords mode, and a rename box whose hint reads "Extension" gets the mode bound to that word over one bound to every single-line field.
-- **The tool and symbol-set pickers only offer what's currently available.** A tool disabled globally, or unsupported in your build, is missing from a mode's own pinned-tools and toolbox-order chip lists too. A lite build, for instance, has no tools that need ML Kit or the grammar engine.
+- **The tool and symbol-set pickers only offer what's currently available.** A tool disabled globally, or unsupported in your build, is missing from a mode's own pinned-tools and toolbox-order chip lists too. The F-Droid build, for instance, has no tools that need ML Kit.
 - **Legacy installs migrate quietly.** Older Browser and Email modes that still carried hard-coded app lists from before they became field-only are migrated to app-less bindings automatically when their settings are next read.
 
 ## Related pages

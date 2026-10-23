@@ -1,5 +1,8 @@
+
 plugins {
     alias(libs.plugins.android.library)
+    // This module's jniLibs of on-demand gates, per channel (native/gates.json).
+    id("wmkeyboard.native-libs")
     id("wmkeyboard.detekt")
     alias(libs.plugins.kotlin.compose)
     id("wmkeyboard.compose-metrics")
@@ -10,29 +13,22 @@ plugins {
 }
 
 // Coverage for the root's merged report (`./gradlew koverHtmlReportUnit`):
-// this module's full-flavour debug unit tests.
+// this module's debug unit tests.
 kover {
     currentProject {
-        createVariant("unit") { add("fullDebug") }
+        createVariant("unit") { add("debug") }
     }
 }
 
 android {
     namespace = "com.wasimaster.wmkeyboard.input"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
     }
     defaultConfig {
         minSdk = 24
     }
 
-    flavorDimensions += "capabilities"
-    productFlavors {
-        create("full") { dimension = "capabilities" }
-        create("lite") { dimension = "capabilities" }
-    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -72,3 +68,7 @@ dependencies {
     testImplementation(libs.junit)
     testImplementation(libs.robolectric)
 }
+
+// Tests that reach the Rust text engines load libwm_engine_jni for this
+// machine, which :core:language builds; see the comment on its task.
+tasks.withType<Test>().configureEach { dependsOn(":core:language:buildHostEngine") }

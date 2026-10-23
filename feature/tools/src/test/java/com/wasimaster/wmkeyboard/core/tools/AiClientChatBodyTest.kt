@@ -4,6 +4,7 @@ import com.wasimaster.wmkeyboard.core.settings.AiProvider
 import com.wasimaster.wmkeyboard.core.tools.AiClient.ChatRole
 import com.wasimaster.wmkeyboard.core.tools.AiClient.ChatTurn
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -130,5 +131,62 @@ class AiClientChatBodyTest {
         val normalized = AiClient.normalizedTurns(turns)
         assertEquals(1, normalized.size)
         assertEquals("question\n\nagain", normalized.single().text)
+    }
+
+    @Test
+    fun `the reasoning switch reaches each provider's own field`() {
+        fun parse(text: String) = json.parseToJsonElement(text).jsonObject
+        val claudeOn = parse(AiClient.anthropicBody(config(AiProvider.ANTHROPIC).copy(reasoning = true), "s", chat, 1000))
+        assertEquals("adaptive", claudeOn["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        val claudeOff = parse(AiClient.anthropicBody(config(AiProvider.ANTHROPIC).copy(reasoning = false), "s", chat, 1000))
+        assertEquals("disabled", claudeOff["thinking"]!!.jsonObject["type"]!!.jsonPrimitive.content)
+        assertNull(parse(AiClient.anthropicBody(config(AiProvider.ANTHROPIC), "s", chat, 1000))["thinking"])
+        val oldClaude = AiClient.Config(AiProvider.ANTHROPIC, "k", "claude-3-5-haiku-latest", "", reasoning = true)
+        assertNull(parse(AiClient.anthropicBody(oldClaude, "s", chat, 1000))["thinking"])
+
+        fun claude(model: String, on: Boolean, maxTokens: Int = 8000) = parse(
+            AiClient.anthropicBody(AiClient.Config(AiProvider.ANTHROPIC, "k", model, "", reasoning = on), "s", chat, maxTokens),
+        )
+        fun JsonObject.thinking(key: String) = this["thinking"]?.jsonObject?.get(key)?.jsonPrimitive?.content
+        // Sonnet 5.5 rejects "disabled"; between_tools is its off.
+        assertEquals("between_tools", claude("claude-sonnet-5-5", false).thinking("type"))
+        assertEquals("summarized", claude("claude-sonnet-5-5", true).thinking("display"))
+        // Opus 5.5 and Fable cannot stop thinking: off is the lowest effort.
+        for (model in listOf("claude-opus-5-5", "claude-fable-5-1")) {
+            val off = claude(model, false)
+            assertNull(off["thinking"])
+            assertEquals("low", off["output_config"]!!.jsonObject["effort"]!!.jsonPrimitive.content)
+        }
+        assertEquals("disabled", claude("claude-opus-5", false).thinking("type"))
+        assertEquals("disabled", claude("claude-haiku-5-5", false).thinking("type"))
+        assertNull(claude("claude-sonnet-4-6", true).thinking("display"))
+        // Before 4.6 there is no adaptive thinking, only a budget below max_tokens.
+        val haiku45 = claude("claude-haiku-4-5", true)
+        assertEquals("enabled", haiku45.thinking("type"))
+        assertEquals("4000", haiku45.thinking("budget_tokens"))
+        assertEquals("enabled", claude("claude-sonnet-4-20250514", true).thinking("type"))
+        assertNull(claude("claude-haiku-4-5", true, maxTokens = 1024)["thinking"])
+        assertNull(claude("claude-3-7-sonnet-latest", false)["thinking"])
+
+        val flashOff = parse(AiClient.geminiBody("s", chat, null, reasoning = false, model = "gemini-2.5-flash"))
+        assertEquals(
+            0,
+            flashOff["generationConfig"]!!.jsonObject["thinkingConfig"]!!.jsonObject["thinkingBudget"]!!.jsonPrimitive.content.toInt(),
+        )
+        val threeOff = parse(AiClient.geminiBody("s", chat, null, reasoning = false, model = "gemini-3.5-flash"))
+        assertEquals(
+            "minimal",
+            threeOff["generationConfig"]!!.jsonObject["thinkingConfig"]!!.jsonObject["thinkingLevel"]!!.jsonPrimitive.content,
+        )
+        assertNull(parse(AiClient.geminiBody("s", chat, null))["generationConfig"])
+
+        val ollamaOff = parse(AiClient.ollamaBody(config(AiProvider.OLLAMA).copy(reasoning = false), "s", chat, null))
+        assertEquals("false", ollamaOff["think"]!!.jsonPrimitive.content)
+        assertNull(parse(AiClient.ollamaBody(config(AiProvider.OLLAMA).copy(reasoning = true), "s", chat, null))["think"])
+
+        val gptOff = AiClient.Config(AiProvider.OPENAI, "k", "gpt-5.6-luna", "", reasoning = false)
+        assertEquals("low", parse(AiClient.openAiCompatibleBody(gptOff, "s", chat, null))["reasoning_effort"]!!.jsonPrimitive.content)
+        val plainOff = config(AiProvider.OPENAI).copy(reasoning = false)
+        assertNull(parse(AiClient.openAiCompatibleBody(plainOff, "s", chat, null))["reasoning_effort"])
     }
 }

@@ -1,0 +1,116 @@
+---
+title: "Providers"
+description: "How tools that can ask more than one service keep a list of providers you add, order, switch off and set up, with fallback between them."
+sidebar:
+  order: 30
+---
+
+import SettingsPath from '@components/SettingsPath.astro';
+
+Some tools can get the same thing from more than one service. GIFs can come from KLIPY, GIPHY, Wikimedia Commons, GifCities or packs on your phone. Each of these tools keeps a **Providers** list near the top of its settings page, and every list works the same way, much like the locations of [backups](/privacy/backup/).
+
+## The list
+
+The providers that are **on** come first, in the order the tool asks them. Each row shows its place in the order, its logo, its name, one line saying what it is set up with, a chevron, and its switch behind a thin rule.
+
+The line comes from the provider's own settings, so it changes as soon as you change them on the provider's screen:
+
+| Provider | The line says, for example |
+|---|---|
+| A voice engine or the on-device AI | *Model:* and the model it uses, then its size. The engines that pick their own model name the biggest one on the phone and count the rest. While a model downloads, how far it is; with no model, *No model downloaded*. |
+| The phone's speech recognizer | *Model on the phone first* or *Always the recognizer service* |
+| An on-device translator | How many languages are on the phone, English not counted |
+| Your own server, or a front end | *Server:* and its address, then its engine or model |
+| An AI service | Its model, or *Default model*, and its key |
+| A service with a key | *Key set*, *Key ending* and the last four characters, *Key in this build*, *No key*, or *No key needed* |
+| DeepL, Tavily | Their key, then *DeepL Write on*, or Tavily's search depth when it isn't Basic |
+| Harper | The kind of English it checks |
+| Offline GIF packs, vocabulary packs, imported or offline dictionaries | How many are on the phone, or whether the dictionary is downloaded |
+
+- **Drag the number** at the start of a row (the grip under it) to change the order. Only the providers that are on move, since the tool asks no other. With TalkBack, the row's actions include **Move up** and **Move down**.
+- **Press a row** to open that provider's own screen. Everything the provider has is there, see below.
+- **Switch a row off** to skip it without losing its setup. It moves down to the providers that are off.
+- **Add a provider**, under the list, opens a sheet of every kind this build can use, in the same order on every build. A kind that needs nothing typed in is added at once. The rest open the setup first.
+
+The providers that are **off** sit under the list, each folded to its name, a short description and a switch. When they run in more than one kind of place they are sorted under **On the phone**, **Online services** and **Your own servers**. Press one to set it up before you switch it on.
+
+**List settings**, a fold at the end, holds how the tool uses its list (see below), **Two of the same provider** when a kind is on the list twice, and **Reset to default** once you have changed the list.
+
+A row with a problem says what it needs in red: an API key, a server address, a model name, an imported GIF pack, or a model to download. Such a row is skipped until it is fixed.
+
+## A provider's own screen
+
+Pressing a row opens a screen for that one provider, with its description and tags at the top:
+
+- **Use this provider**: the same switch as on the row.
+- **Setup**: its key, its server address, a model, an engine, a nickname, or a sign-in. The line under it says what is set now, and a press opens the setup sheet with its **Test** button. A provider with nothing to set up has no such row.
+- The provider's **own settings**, where it has any: a voice engine's models, the on-device AI model, the translation models, the offline GIF packs, the offline dictionaries, DeepL Write, Tavily's search depth. On the F-Droid build the provider's server address is here too.
+- **Shared with**: the other tools that list the same provider and use its setup.
+- **Remove** takes the provider out of this tool's list. If no other tool uses its key or server, the key and address are deleted too, and the dialog says so first.
+
+A problem shows as a banner at the top with a **Set up** button. A search result or a link can open a provider's screen before it is on the list; the banner then offers to **Add** it.
+
+## Finding a provider in search
+
+Every provider is a result in the settings search under its own name: search for *DeepL*, *Whisper* or *Ollama* and the result opens that provider's screen, with the path of the list it is on (*Tools › Translate*) under it. A provider that can join several lists, such as Wiktionary, has a result for each. A second server or key, and any provider you gave a nickname, is a result of its own, found by that nickname and showing its server or key under it. Providers this phone cannot run are left out, unless one of your lists has them.
+
+Rows show the service's own logo where the app carries one. The logos are small vector drawings from [Simple Icons](https://simpleicons.org/) or from each project's own repository, and are in the app itself, so drawing them never reaches the network. A one-colour logo is lightened on a dark theme when the brand's colour is close to black, and a logo whose colours would vanish on one theme (KLIPY, Lingva, Tavily) sits on a small plate of its own.
+
+## Shared keys and servers
+
+A provider is set up once, and every tool that lists it uses the same setup. A KLIPY key added on the GIF page also works for stickers. The provider's screen says which other tools use it, under **Shared with**. Edit it on either page and both change.
+
+Server kinds can be added more than once, each with its own address and nickname: two Wikimedia wikis, say. When you add one on another tool's page, the add sheet offers the servers you already set up, under **Use**, so you don't type the address twice.
+
+## Two of the same provider
+
+A service you set up with a key can also be added a second time, with another key or another account: two KLIPY keys, two DeepL accounts, a Brave key of your own beside the one in the build. Tap the kind again in **Add a provider**. The second one always needs its own key, since the key in the build already belongs to the first. Give each a **Nickname** so the list and the keyboard can tell them apart; a row without one shows the last four characters of its key.
+
+This works on the GIF, sticker, translate, web and image search, online text scanning, photo translation and AI lists. Background photos, currency rates and the word sources ask a service by its name, so they keep one of each.
+
+When a list asks **One at a time**, the second one is simply the next provider down. On the GIF and sticker lists in **Tabs** or **Mixed**, and on any list set to **Choose in the panel**, a setting called **Two of the same provider** appears in **List settings** as soon as one kind is on the list twice:
+
+- **As backups** (the default for a second key): they act as one provider, with one chip and one entry in the panel. The first is asked, and the next only when it fails, for example when a key runs out of quota.
+- **Separately**: each one is its own provider, with its own chip, its own entry in the panel, and its own share of a mixed grid. Two servers of one kind, like two Wikimedia wikis, start out this way.
+
+## How a tool uses its list
+
+Most tools ask **One at a time**: the first provider that is on, and the next one only if the first fails or has nothing. The GIF and sticker panels can also show their providers as **Tabs** (a chip for each) or **Mixed** (all of them at once, in one grid). The smart home list is always mixed: every home on it is connected, and the order is the order their rooms appear in. Packs on your phone always get a chip of their own, and GIPHY keeps its own chip in Mixed mode, because its terms do not allow mixing its results with another service's.
+
+The AI list is always **Choose in the panel**: one service answers at a time, the one picked under **In use** on the AI page or with the AI panel's model picker, and that pick is kept. The voice typing list is always one at a time: dictation uses the first engine that is on and can run, and a language can be given another engine of its own.
+
+Translate, the dictionary, web and image search, online text scanning and photo translation can instead **Choose in the panel**. The panel then shows a chip with the provider in use, and tapping it lists the providers that are on. Only the one you pick is asked, with no fallback to the next. Picking another one runs the same request again with it. The choice lasts until the keyboard restarts, and then the first provider in the list is the one in use again. With only one provider on, there is nothing to choose and the chip stays hidden. The AI's own tools always use the list in order, whatever the mode.
+
+A provider that can't be reached (no answer, a server error, too many requests) is skipped for a minute, so the next one answers at once instead of after a timeout. If every provider is in that state, they are all asked anyway. Editing a provider clears this, so a fixed key is tried straight away.
+
+## What each build offers
+
+Every build offers every kind it can run, your own servers included, in the same order and with none put first. The tags under each kind (free software, on the phone, your own server, needs your key) say what it is. What changes between builds is the list a fresh install starts with.
+
+| Build | Starts with |
+|---|---|
+| Google Play and GitHub | The services this build has keys for |
+| F-Droid | Services that need no proprietary key |
+| No internet | Only what runs on the phone; nothing else can be added |
+
+Updating the app does not change your lists. Until you edit a list, it is worked out from your earlier settings, so the same providers are asked in the same order with the same keys. When an update adds a word source that needs no setup (a new dictionary, say), it joins the end of the dictionary, synonym or vocabulary list, switched on. One you removed stays removed.
+
+## Tools with a provider list
+
+| Tool | Kinds | Settings |
+|---|---|---|
+| [GIFs](/emoji/gifs/) | KLIPY, GIPHY, Wikimedia Commons or another MediaWiki, GifCities, offline GIF packs | <SettingsPath path="Tools / GIFs / Providers" /> |
+| [Stickers](/emoji/stickers/) | KLIPY, GIPHY, your sticker packs | <SettingsPath path="Tools / Stickers / Providers" /> |
+| [Translate](/tools/translate/#providers) | On device (ML Kit not on F-Droid), Google Translate, DeepL, LibreTranslate, Mozhi, SimplyTranslate, Lingva, Translite, your own translation server | <SettingsPath path="Tools / Translate / Providers" /> |
+| [Dictionary](/tools/search/#dictionary-sources) | Vocabulary packs, Wiktionary, Wiktionary definitions, Free Dictionary API, the offline dictionaries, imported dictionaries | <SettingsPath path="Tools / Dictionary / Dictionary sources" /> |
+| [Synonyms](/smart/personal-dictionary/#from-the-suggestion-strip) | Vocabulary packs, Datamuse, Wiktionary, Free Dictionary API, Similar words | <SettingsPath path="Typing / Suggestions / Synonym sources" /> |
+| [Web and image search](/tools/search/) | SearXNG, Tavily, Brave Search | <SettingsPath path="Tools / Web search / Providers" /> |
+| [Background photos](/themes/online-photos/) | Unsplash, Pexels, Wikimedia Commons or another MediaWiki | <SettingsPath path="Themes / Photo services" /> |
+| [Currency converter](/tools/utilities/) | ExchangeRate-API, Frankfurter, Coinbase, currency-api; for coins Coinbase, currency-api, CoinGecko | <SettingsPath path="Tools / Currency converter / Currency rates from" /> |
+| [Text scan, online](/tools/scanner/#reading-text-online) | Your vision model, Rens | <SettingsPath path="Tools / Text scan (OCR) / Online text reader" /> |
+| [Camera, Translate](/tools/camera/#translating-a-photo) | Rens | <SettingsPath path="Tools / Camera / Translate photos" /> |
+| [Vocabulary](/tools/vocabulary/) | Wiktionary, Wiktionary definitions, Free Dictionary API, for words no pack knows | <SettingsPath path="Tools / Vocabulary / Providers" /> |
+| [AI](/tools/ai/#choosing-where-it-runs) | Anthropic (Claude), OpenAI, Google Gemini, xAI (Grok), DeepSeek, Brave Answers, Ollama, LM Studio, an OpenAI-compatible service, On your device (not on F-Droid) | <SettingsPath path="Tools / AI writing tools / AI providers" /> |
+| [Grammar check](/smart/grammar/#checkers-harper-and-languagetool) | Harper (on the phone, English), LanguageTool (the public server, a Premium account, or your own server); LanguageTool starts switched off | <SettingsPath path="Tools / Grammar check / Checkers" /> |
+| [Voice typing](/tools/voice/#options) | Phone's recognizer, Whistle, Whisper, Asr4All, Parakeet, Moonshine, Sherpa, Omnilingual, transcription servers | <SettingsPath path="Voice typing / Recognition engine" /> |
+| [Smart home](/tools/home-assistant/) | Home Assistant, Google Home, SmartThings, a Philips Hue bridge, openHAB, Smart Life (Tuya), SwitchBot; every home on the list is connected at once, and its sign-in or pairing lives in the row's setup | <SettingsPath path="Tools / Smart home / Homes" /> |

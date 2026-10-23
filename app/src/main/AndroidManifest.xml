@@ -24,10 +24,10 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Read by the model downloaders to ask "is this connection metered?"
          before pulling hundreds of megabytes. Declared here rather than
-         inherited from a dependency: the full flavour picks it up transitively
-         from ML Kit, but the lite flavour ships without those libraries, so
-         without this line ConnectivityManager.isActiveNetworkMetered throws a
-         SecurityException on lite builds. -->
+         inherited from a dependency: most builds pick it up transitively
+         from ML Kit, but F-Droid's ships without those libraries, so without
+         this line ConnectivityManager.isActiveNetworkMetered throws a
+         SecurityException there. -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <!-- KDE Connect (issue #285) finds computers by broadcast and mDNS, and
          most phones silently drop both for an app that does not hold a
@@ -50,8 +50,9 @@
     <uses-permission
         android:name="android.permission.MODIFY_AUDIO_SETTINGS"
         android:maxSdkVersion="30" />
-    <!-- Only used by the optional contact-name suggestions setting; names
-         are read into memory for the suggestion strip, never stored. -->
+    <!-- Used by the optional contact-name and contact-email suggestions, and
+         by the calendar tool's guest suggestions; read into memory, never
+         stored. -->
     <uses-permission android:name="android.permission.READ_CONTACTS" />
 
     <!-- Only used by the optional location tool (#350), and by "Use my
@@ -64,9 +65,27 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
 
-    <!-- Only used by the optional calendar tool to list the day's events;
-         read-only, never written, and only queried while the tool is open. -->
+    <!-- The Send files tool's direct link (#729): a Wi-Fi Direct group or a
+         local-only hotspot one phone opens for the other to join. From Android
+         13 that is the Nearby devices permission, declared never for location;
+         before it the same calls sit behind the location permission above.
+         The two normal permissions let the app open the group and ask for the
+         per-app network it joins. -->
+    <uses-permission
+        android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="s" />
+    <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
+    <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
+
+    <!-- Used by the optional calendar tool to list the day's events while it
+         is open, and by the AI's calendar tool (#698) when the user allows it. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
+
+    <!-- Used by the calendar tool's Save, Edit and Delete, asked for on the
+         first save, and by the AI's "add it directly" for calendar events
+         (#698). Every write is one the user made or approved. -->
+    <uses-permission android:name="android.permission.WRITE_CALENDAR" />
 
     <!-- Only used by the optional "Add words to the system dictionary" setting.
          Since API 23 the provider grants the active IME access without a
@@ -92,11 +111,17 @@
         android:name="android.permission.WRITE_EXTERNAL_STORAGE"
         android:maxSdkVersion="28" />
 
-    <!-- Only used by the optional "User screenshots" clipboard setting. -->
+    <!-- The optional "User screenshots" clipboard setting, and the gallery
+         tool's grid of photos and videos (#708). Photos and videos are two
+         grants from Android 13; from 14 the dialog can grant only the photos
+         the user picks, which READ_MEDIA_VISUAL_USER_SELECTED is. All asked
+         for only after the in-app disclosure, never at install. -->
     <uses-permission
         android:name="android.permission.READ_EXTERNAL_STORAGE"
         android:maxSdkVersion="32" />
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VIDEO" />
+    <uses-permission android:name="android.permission.READ_MEDIA_VISUAL_USER_SELECTED" />
 
     <!-- Only used by the optional fingerprint lock in Privacy, which puts a
          BiometricPrompt in front of the settings screens and destructive
@@ -124,6 +149,8 @@
 
     <!-- The clock tool's alarms and timers. All of it only after the user
          sets an alarm or starts a timer; none of it does anything otherwise.
+         SCHEDULE_EXACT_ALARM also lets a reminder that a plugin set (a to-do
+         item that is due) show at its minute; the same grant, asked once. 
          - SCHEDULE_EXACT_ALARM: an alarm set for 6:30 rings at 6:30, not at
            whatever minute Doze lets through. From Android 12 a special grant
            the user gives on a system screen, asked after a disclosure; without
@@ -181,14 +208,28 @@
     <uses-feature android:name="android.hardware.screen.portrait" android:required="false" />
     <uses-feature android:name="android.hardware.screen.landscape" android:required="false" />
 
+    <!-- AnkiDroid's own permission (#765): the Look up card adds a word to a
+         deck through AnkiDroid's content provider. A runtime permission that
+         AnkiDroid defines; asked for only when the user sends a word, behind
+         PermissionDisclosures.ANKIDROID. -->
+    <uses-permission android:name="com.ichi2.anki.permission.READ_WRITE_DATABASE" />
+
     <!-- The keyboard-mode editor lists installed apps (launcher activities)
          so a mode can be bound to specific apps; Android 11+ hides the app
          list without this. -->
     <queries>
+        <!-- AnkiDroid, its provider and its note editor, for the Look up card's
+             Add to Anki (#765). -->
+        <package android:name="com.ichi2.anki" />
+        <provider android:authorities="com.ichi2.anki.flashcards" />
         <intent>
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- The Google Home app, which the Home APIs run through; without this
+             entry API 30+ hides it from PackageManager and the smart home tool
+             would offer a Google Home row on a phone that cannot use one. -->
+        <package android:name="com.google.android.apps.chromecast.app" />
         <!-- Speech synthesisers, for the vocabulary card's speaker button when
              Wiktionary has no recording (or the network is not to be used). -->
         <intent>
@@ -269,8 +310,8 @@
              This line asks Play to fetch the OCR and barcode models at
              install time instead, so the scanner tools work on first open.
              Harmless everywhere else: the bundled artifacts in sideload
-             builds carry their models and nothing reads this entry, and lite
-             builds ship no ML Kit at all.
+             builds carry their models and nothing reads this entry, and
+             F-Droid's ships no ML Kit at all.
         -->
         <meta-data
             android:name="com.google.mlkit.vision.DEPENDENCIES"
@@ -308,6 +349,7 @@
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.MainActivity"
+            android:enableOnBackInvokedCallback="true"
             android:exported="true"
             android:launchMode="singleTop">
             <!--
@@ -325,6 +367,12 @@
                 <data android:scheme="wmkeyboard" android:host="addons" />
                 <data android:scheme="wmkeyboard" android:host="repo" />
                 <data android:scheme="wmkeyboard" android:host="addon" />
+                <!-- A computer's pairing code (WMK Desktop): KdeConnectHub.pairByCode. -->
+                <data android:scheme="wmkeyboard" android:host="pair" />
+                <!-- Home Assistant's browser sign-in coming back with its code: HaAuth.REDIRECT_URI. -->
+                <data android:scheme="wmkeyboard" android:host="ha-auth" />
+                <!-- SmartThings' sign-in, through the hosted /st/ page: SmartThingsAuth.REDIRECT_URI. -->
+                <data android:scheme="wmkeyboard" android:host="st-auth" />
             </intent-filter>
 
             <!--
@@ -333,8 +381,11 @@
                  and the screen it names opens with nothing to press. The page
                  still exists for everyone else, and still works.
 
+                 Claimed on both of the site's hosts, wmkeyboard.pages.dev and
+                 wmkeyboard.app, which serve the same pages.
+
                  autoVerify means Android fetches
-                 https://wmkeyboard.pages.dev/.well-known/assetlinks.json at
+                 /.well-known/assetlinks.json from each host at
                  install time and checks that it names this package and the
                  key this very build was signed with. Every key that ships has
                  to be in that file: release, debug and F-Droid's today, plus
@@ -349,7 +400,7 @@
                  so /open/?link=… and /open/#wmkeyboard://… both arrive.
                  WebOpenLink turns what arrives back into a wmkeyboard://
                  address and hands it to the same two parsers as any other
-                 link. The host is DOCS_URL in AboutScreens.kt; change both.
+                 link. The hosts are WebOpenLink.HOSTS; change both.
             -->
             <intent-filter android:autoVerify="true">
                 <action android:name="android.intent.action.VIEW" />
@@ -357,6 +408,8 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="https" android:host="wmkeyboard.pages.dev" android:path="/open" />
                 <data android:scheme="https" android:host="wmkeyboard.pages.dev" android:path="/open/" />
+                <data android:scheme="https" android:host="wmkeyboard.app" android:path="/open" />
+                <data android:scheme="https" android:host="wmkeyboard.app" android:path="/open/" />
             </intent-filter>
 
             <!--
@@ -477,6 +530,7 @@
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.ImportFileActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="true"
             android:label="@string/import_file_label"
@@ -743,6 +797,7 @@
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.ImportLinkActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="true"
             android:label="@string/import_link_label"
@@ -813,6 +868,7 @@
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.FileEditorActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="false"
             android:label="@string/file_editor_label"
@@ -842,6 +898,7 @@
              both live in. No noHistory: the picker's result has to come back. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.kdeconnect.KdeFilePickerActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="false"
             android:taskAffinity=""
@@ -873,9 +930,39 @@
             </intent-filter>
         </activity-alias>
 
+        <!-- "Send with WM Keyboard" from another app's share sheet (#729): an
+             encrypted link through a Send instance, or a device nearby. The
+             alias is switched on by the keyboard while the tool and its share
+             sheet setting are on; never rename it, share targets remember
+             component names. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.send.SendShareActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity-alias
+            android:name="com.wasimaster.wmkeyboard.app.SendShareAlias"
+            android:enabled="false"
+            android:exported="true"
+            android:label="@string/send_share_label"
+            android:targetActivity="com.wasimaster.wmkeyboard.app.send.SendShareActivity">
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="*/*" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- Accept / Reject on a pair-request notification. -->
         <receiver
             android:name="com.wasimaster.wmkeyboard.ime.kdeconnect.KdeActionReceiver"
+            android:exported="false" />
+
+        <!-- Copy link / Open on the Send files tool's notifications (#729). -->
+        <receiver
+            android:name="com.wasimaster.wmkeyboard.ime.send.SendActionReceiver"
             android:exported="false" />
 
         <!-- Same trampoline pattern for the voice input tool's
@@ -918,6 +1005,82 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- The calendar tool's WRITE_CALENDAR, asked on the first Save. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.CalendarWritePermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The calendar tool's guest suggestions: READ_CONTACTS. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.ContactGuestsPermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!--
+             The AI chat as a sheet over the app the user was in (#697). Opened
+             by the floating AI button with the screen's text, and by "Ask AI"
+             in the text selection menu with the selected text. Either way the
+             text rides along as the first message's attachment, shown before
+             anything is sent. From the button it starts its own task afresh
+             each time, so closing it lands back in the app it was opened over.
+        -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.AskAiActivity"
+            android:enableOnBackInvokedCallback="true"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="@string/ask_ai_label"
+            android:taskAffinity="com.wasimaster.wmkeyboard.askai"
+            android:theme="@style/Theme.WMKeyboard.Sheet" />
+        <!--
+             "Ask AI" in the text selection menu, which the AI tool's settings
+             can switch off (#897), and which goes with the AI tool itself.
+        -->
+        <activity-alias
+            android:name="com.wasimaster.wmkeyboard.app.AskAiSelectionMenu"
+            android:exported="true"
+            android:label="@string/ask_ai_label"
+            android:targetActivity="com.wasimaster.wmkeyboard.app.AskAiActivity">
+            <intent-filter android:label="@string/ask_ai_label">
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
+
+        <!--
+             The Look up card (#765): a word from another app, defined over it.
+             Opened by the floating button's Look up with the text around a
+             tapped word, and by "Look up" in the text selection menu (the alias
+             below, which the Look up settings can switch off).
+        -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.LookupActivity"
+            android:enableOnBackInvokedCallback="true"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:label="@string/lookup_label"
+            android:taskAffinity="com.wasimaster.wmkeyboard.lookup"
+            android:theme="@style/Theme.WMKeyboard.Sheet" />
+        <activity-alias
+            android:name="com.wasimaster.wmkeyboard.app.LookupSelectionMenu"
+            android:exported="true"
+            android:label="@string/lookup_label"
+            android:targetActivity="com.wasimaster.wmkeyboard.app.LookupActivity">
+            <intent-filter android:label="@string/lookup_label">
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity-alias>
+
         <!-- Same trampoline pattern for the screenshot setting's
              android.permission.READ_MEDIA_IMAGES (or READ_EXTERNAL_STORAGE). -->
         <activity
@@ -925,6 +1088,68 @@
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The gallery tool's photos and videos (#708), same trampoline. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.GalleryPermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The Send files tool's Nearby devices (or location) grant for a direct link (#729), same trampoline. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.SendNearbyPermissionActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:noHistory="true"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The gallery tool's system pickers (#708): Android's photo picker
+             (the whole tool in a Play build) and the document picker. No
+             noHistory, for the scanner's reason below: the picker's result
+             comes back to this activity. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.GalleryPickActivity"
+            android:enableOnBackInvokedCallback="true"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The keyboard chat's "+" menu (#882): the photo picker, the document
+             picker and the camera, the same shape. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.AiChatPickActivity"
+            android:enableOnBackInvokedCallback="true"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The Send files tool's document picker (#729), the same shape. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.SendPickActivity"
+            android:enableOnBackInvokedCallback="true"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The gallery editor's "Replace the original" (#708): Android's consent
+             dialog for changing a photo another app made, which only an
+             activity can ask for. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.GalleryWriteActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
@@ -949,6 +1174,7 @@
              and back returns to the field rather than to the settings app. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.ClipImageViewerActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="false"
             android:noHistory="true"
@@ -975,11 +1201,28 @@
              because this activity is the *caller*, not the callee. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.DocScanActivity"
+            android:enableOnBackInvokedCallback="true"
             android:excludeFromRecents="true"
             android:exported="false"
             android:launchMode="singleTask"
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
+        <!-- The built-in document scanner (OpenCV): full screen, used where
+             Google's scanner is missing or switched off. Hands its pages to
+             the keyboard the same way, so the same launch shape: its own
+             task affinity, out of recents. configChanges because the scan in
+             progress (photo, corners, kept pages) lives in Compose state and
+             a turn of the phone must not drop it. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.PageScanActivity"
+            android:enableOnBackInvokedCallback="true"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
 
         <!--
              The crash report screen, shown instead of Android's "app has
@@ -994,6 +1237,7 @@
         -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.CrashReportActivity"
+            android:enableOnBackInvokedCallback="true"
             android:process=":crash"
             android:exported="false"
             android:excludeFromRecents="true"
@@ -1038,26 +1282,6 @@
         </service>
 
         <!--
-             The keyboard's word lists as Android's spell checker (#511). Only
-             runs once the user picks it under the system's spell checker
-             setting. Its metadata file must not be named spellchecker.xml:
-             the full flavour's Harper service owns that name, and a flavour
-             resource replaces main's by name.
-        -->
-        <service
-            android:name="com.wasimaster.wmkeyboard.app.spell.WMSpellCheckerService"
-            android:exported="true"
-            android:label="@string/spell_checker_name"
-            android:permission="android.permission.BIND_TEXT_SERVICE">
-            <intent-filter>
-                <action android:name="android.service.textservice.SpellCheckerService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.view.textservice.scs"
-                android:resource="@xml/spellchecker_words" />
-        </service>
-
-        <!--
              Carves the keyboard's own window out of TalkBack's touch handling
              so the keyboard's gestures (spacebar cursor slide, backspace word
              swipe, glide typing, handwriting) still work while a screen reader
@@ -1080,6 +1304,27 @@
             <meta-data
                 android:name="android.accessibilityservice"
                 android:resource="@xml/passthrough_service" />
+        </service>
+
+        <!--
+             The floating AI button's screen reading (#697). Reads the text of
+             the app on screen once per press of that button, and at no other
+             time, so the AI chat it opens can be about what the user is
+             looking at. Off until the user enables it in Settings ›
+             Accessibility, behind its own disclosure. Same process as the
+             keyboard, which calls it directly. See ScreenContextService.
+        -->
+        <service
+            android:name="com.wasimaster.wmkeyboard.core.accessibility.ScreenContextService"
+            android:exported="true"
+            android:label="@string/screen_context_service_label"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter>
+                <action android:name="android.accessibilityservice.AccessibilityService" />
+            </intent-filter>
+            <meta-data
+                android:name="android.accessibilityservice"
+                android:resource="@xml/screen_context_service" />
         </service>
 
         <!-- Notification listener with two jobs, both user-visible. The
@@ -1153,6 +1398,14 @@
             </intent-filter>
         </receiver>
 
+        <!-- The wake-up for reminders that plugins set (wm.reminders). Not
+             exported: only the app's own alarm sends it. Not direct-boot aware:
+             plugins live in storage that stays locked until the first unlock,
+             and the unlock re-arms (PluginReminderAlarms.rearmOnStart). -->
+        <receiver
+            android:name="com.wasimaster.wmkeyboard.core.plugins.PluginReminderReceiver"
+            android:exported="false" />
+
         <!-- Plays an alarm or a timer while it rings, and only then. -->
         <service
             android:name="com.wasimaster.wmkeyboard.core.clock.ClockRingService"
@@ -1164,6 +1417,7 @@
              recents so an answered alarm leaves nothing behind. -->
         <activity
             android:name="com.wasimaster.wmkeyboard.app.clock.ClockRingActivity"
+            android:enableOnBackInvokedCallback="true"
             android:directBootAware="true"
             android:excludeFromRecents="true"
             android:exported="false"
@@ -1247,6 +1501,23 @@
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
+        <!-- Search by meaning: EmbeddingGemma 2 in a process of its own, so the
+             few hundred megabytes a loaded model takes never count against
+             the keyboard's process. Bound by Embeddings in :core:intelligence;
+             WMApplication does nothing else in this process. -->
+        <service
+            android:name="com.wasimaster.wmkeyboard.core.semantic.EmbeddingService"
+            android:process=":semantic"
+            android:exported="false" />
+
+        <!-- The sticker generator: a diffusion model in a process of its own,
+             one to two gigabytes while loaded, let go after a few idle
+             minutes. Bound by ImageGen in :core:intelligence. -->
+        <service
+            android:name="com.wasimaster.wmkeyboard.core.imagegen.ImageGenService"
+            android:process=":imagegen"
+            android:exported="false" />
+
         <!-- Runs a sync pass between devices. Scheduled by SyncScheduler in
              :core:settings, which names this class as a string for the same
              reason as the backup job above. -->
@@ -1255,10 +1526,11 @@
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 
-        <!-- The Harper spell checker, in every edition. A build made without
-             libharper_jni.so (F-Droid) has it switched off at startup by
-             HarperSpellChecker.syncAvailability, so Android's settings never
-             list one that cannot answer. -->
+        <!-- The spell checker, in every edition: the keyboard's word lists for
+             spelling in each language (#511), Harper for English grammar where
+             the build carries it. Keeps the Harper component's name, because
+             Android remembers the chosen checker by component and a rename
+             would switch spell checking off for everyone who picked it. -->
         <service
             android:name="com.wasimaster.wmkeyboard.spell.HarperSpellCheckerService"
             android:exported="true"
@@ -1269,7 +1541,7 @@
             </intent-filter>
             <meta-data
                 android:name="android.view.textservice.scs"
-                android:resource="@xml/spellchecker" />
+                android:resource="@xml/spellchecker_words" />
         </service>
     </application>
 

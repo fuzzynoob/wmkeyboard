@@ -62,8 +62,14 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.BuildConfig
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.voice.OpusEncoder
+import com.wasimaster.wmkeyboard.core.voice.VoiceDenoise
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtNative
+import com.wasimaster.wmkeyboard.core.input.mozc.MozcRuntime
+import com.wasimaster.wmkeyboard.core.input.rime.RimeRuntime
+import com.wasimaster.wmkeyboard.core.voice.sherpa.SherpaNative
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCatalog
+import com.wasimaster.wmkeyboard.app.updates.InstalledReleaseNotesDialog
 import com.wasimaster.wmkeyboard.app.updates.AllLanguagesRow
 import com.wasimaster.wmkeyboard.app.updates.KeepEnglishOnlyRow
 import com.wasimaster.wmkeyboard.app.updates.UpdateSettings
@@ -99,19 +105,17 @@ internal const val DOCS_URL = "https://wmkeyboard.pages.dev"
 /**
  * The privacy policy for *this* build, not for the project in general.
  *
- * The two editions are different apps underneath — lite has no ML Kit, no Play
- * libraries and no Google sign-in compiled into it — so they carry one policy
- * each, and this row has to open the one that is true of the APK the reader is
- * holding. Opening the wrong one would disclose collection that does not
+ * F-Droid's build is a different app underneath — no ML Kit, no Play
+ * libraries and no Google sign-in compiled into it — so it carries a policy of
+ * its own, and this row has to open the one that is true of the APK the reader
+ * is holding. Opening the wrong one would disclose collection that does not
  * happen, or worse, fail to disclose collection that does.
  *
- * Keyed on the flavour rather than on `BuildConfig.ENABLE_FDROID`, which the
- * F-Droid recipe does set. The flavour is the more honest key: a lite APK
- * downloaded from GitHub wants exactly the same page as an F-Droid install,
- * because it is the same binary, and the page is about what the binary can do
- * rather than about where it came from.
+ * Keyed on what was compiled in (`GOOGLE_SDKS`, false only when the build was
+ * made with wmkb.enableFdroid) rather than on where the APK came from: the
+ * page is about what the binary can do.
  */
-private val PRIVACY_POLICY_URL = if (BuildConfig.FLAVOR_capabilities == "lite") {
+private val PRIVACY_POLICY_URL = if (!com.wasimaster.wmkeyboard.config.BuildConfig.GOOGLE_SDKS) {
     "$DOCS_URL/privacy/policy-fdroid/"
 } else {
     "$DOCS_URL/privacy/policy/"
@@ -157,8 +161,8 @@ private data class Attribution(
 )
 
 /**
- * Components whose code or data is bundled into the APK. Flavour-gated
- * entries are absent from lite builds, where their libraries are not linked.
+ * Components whose code or data is bundled into the APK. Gated entries are
+ * absent from F-Droid's build, where their libraries are not linked.
  */
 private val bundledAttributions: List<Attribution> = buildList {
     add(
@@ -251,6 +255,51 @@ private val bundledAttributions: List<Attribution> = buildList {
             "https://github.com/luaj/luaj",
         ),
     )
+    // Spell checking against an imported Hunspell dictionary, in every build:
+    // packaged, pinned for download, or a Play split. See native/hunspell-jni.
+    add(
+        Attribution(
+            "Hunspell",
+            R.string.about_bundled_hunspell_used,
+            "Copyright (C) 2002-2022 Németh László and Hunspell contributors",
+            "MPL-1.1", "mpl-1.1.txt",
+            "https://github.com/hunspell/hunspell",
+        ),
+    )
+    // Chinese and Japanese handwriting without ML Kit, in every build:
+    // packaged, pinned for download, or a Play split. See native/zinnia-jni.
+    add(
+        Attribution(
+            "zinnia",
+            R.string.about_bundled_zinnia_used,
+            "Copyright (c) 2005-2007, Taku Kudo",
+            "BSD-3-Clause", "bsd-zinnia.txt",
+            "https://github.com/taku910/zinnia",
+        ),
+    )
+    // GiellaLT spellers, in the same library module as Hunspell. See
+    // native/divvunspell-jni; the spellers are fetched, never shipped.
+    add(
+        Attribution(
+            "divvunspell",
+            R.string.about_bundled_divvunspell_used,
+            "Copyright UiT The Arctic University of Norway and divvunspell contributors",
+            "MIT OR Apache-2.0", "divvunspell-third-party.txt",
+            "https://github.com/divvun/divvunspell",
+        ),
+    )
+    // Finnish spell checking, beside Hunspell in the same library module but
+    // never in an APK: downloaded or Play's split. See native/voikko-jni; the
+    // dictionary (voikko-fi, GPL 2+) is fetched, never shipped.
+    add(
+        Attribution(
+            "Voikko",
+            R.string.about_bundled_voikko_used,
+            "Copyright Harri Pitkänen, Hannu Väisänen, Teemu Likonen and Voikko contributors",
+            "MPL-1.1 OR GPL-2.0-or-later OR LGPL-2.1-or-later", "voikko.txt",
+            "https://github.com/voikko/corevoikko",
+        ),
+    )
     if (BuildConfig.ENABLE_GRAMMAR) {
         add(
             Attribution(
@@ -271,6 +320,104 @@ private val bundledAttributions: List<Attribution> = buildList {
             ),
         )
     }
+    // GGUF models for on-device AI, in every build that has the On-device
+    // provider: packaged, pinned for download, or a Play split. See
+    // native/llamacpp-jni.
+    if (BuildConfig.ENABLE_LOCAL_LLM) {
+        add(
+            Attribution(
+                "llama.cpp and ggml",
+                R.string.about_bundled_llama_cpp_used,
+                "Copyright (c) 2023-2026 The ggml authors; nlohmann/json Copyright (c) 2013-2025 Niels Lohmann",
+                "MIT", "mit-llama-cpp.txt",
+                "https://github.com/ggml-org/llama.cpp",
+            ),
+        )
+    }
+    // The sticker generator's runtime, in every build: packaged, pinned for
+    // download, or a Play split. See native/imagegen-jni.
+    add(
+        Attribution(
+            "MNN",
+            R.string.about_bundled_mnn_used,
+            "Copyright (C) 2018 Alibaba Group Holding Limited",
+            "Apache-2.0", "apache-2.0.txt",
+            "https://github.com/alibaba/MNN",
+        ),
+    )
+    // On-device translation without Google, in every build: packaged, pinned
+    // for download, or a Play split. See native/bergamot-jni.
+    add(
+        Attribution(
+            "Bergamot translator",
+            R.string.about_bundled_bergamot_used,
+            "Copyright Mozilla Foundation, the University of Edinburgh and the Bergamot contributors",
+            "MPL-2.0", "mpl-2.0.txt",
+            "https://github.com/mozilla/translations",
+        ),
+    )
+    add(
+        Attribution(
+            "Marian NMT, ruy, SentencePiece, PCRE2, Zstandard and others",
+            R.string.about_bundled_bergamot_libs_used,
+            "Copyright the respective authors",
+            "MIT / Apache-2.0 / BSD / zlib", "bergamot-third-party.txt",
+            "https://github.com/mozilla/translations/tree/main/inference",
+        ),
+    )
+    // The NLLB-200 engine's runtime, in every build: packaged, pinned for
+    // download, or a Play split. See native/ctranslate2-jni.
+    add(
+        Attribution(
+            "CTranslate2",
+            R.string.about_bundled_ct2_used,
+            "Copyright (c) 2018- SYSTRAN; Copyright (c) 2019- The OpenNMT Authors",
+            "MIT", "ct2-third-party.txt",
+            "https://github.com/OpenNMT/CTranslate2",
+        ),
+    )
+    add(
+        Attribution(
+            "SentencePiece, ruy, Abseil, spdlog and others",
+            R.string.about_bundled_ct2_libs_used,
+            "Copyright the respective authors",
+            "Apache-2.0 / MIT / BSD / zlib", "ct2-third-party.txt",
+            "https://github.com/google/sentencepiece",
+        ),
+    )
+    // The built-in document scanner, in every build: packaged, pinned for
+    // download, or a Play split. Only OpenCV's core and imgproc modules, with
+    // Android's cpufeatures; see native/docscan-jni.
+    add(
+        Attribution(
+            "OpenCV",
+            R.string.about_bundled_opencv_used,
+            "Copyright (C) 2000-2022 Intel Corporation, 2009-2011 Willow Garage Inc., 2015-2023 OpenCV Foundation and others",
+            "Apache-2.0", "apache-2.0.txt",
+            "https://github.com/opencv/opencv",
+        ),
+    )
+    // The QR scanner's reader without ML Kit, in every build: packaged,
+    // pinned for download, or a Play split. Readers only, with the libzueci
+    // copy upstream carries; see native/zxingcpp-jni.
+    add(
+        Attribution(
+            "zxing-cpp",
+            R.string.about_bundled_zxingcpp_used,
+            "Copyright 2016 ZXing authors, Nu-book Inc., Axel Waggershauser and zxing-cpp contributors",
+            "Apache-2.0", "apache-2.0.txt",
+            "https://github.com/zxing-cpp/zxing-cpp",
+        ),
+    )
+    add(
+        Attribution(
+            "libzueci",
+            R.string.about_bundled_zueci_used,
+            "Copyright (C) 2022 gitlost; Copyright (c) 2008-2009 Bjoern Hoehrmann",
+            "BSD-3-Clause / MIT", "bsd-3-clause-zueci.txt",
+            "https://sourceforge.net/projects/libzueci/",
+        ),
+    )
     if (BuildConfig.ENABLE_ML_KIT_SCANNERS) {
         // Compiled into one native library for the text scanner; see
         // native/tesseract-jni.
@@ -319,7 +466,7 @@ private val bundledAttributions: List<Attribution> = buildList {
             ),
         )
     }
-    if (BuildConfig.ENABLE_LOCAL_LLM) {
+    if (BuildConfig.ENABLE_LITERT_LM) {
         add(
             Attribution(
                 "LiteRT-LM",
@@ -360,8 +507,8 @@ private val bundledAttributions: List<Attribution> = buildList {
             ),
         )
     }
-    // OpenAI's weights reach both runtimes: LiteRT's graphs in full builds,
-    // whisper.cpp's models in every edition that has its library (#440).
+    // OpenAI's weights reach both runtimes: LiteRT's graphs in every build but
+    // F-Droid's, whisper.cpp's models in every build that has its library (#440).
     if (BuildConfig.ENABLE_WHISPER || WhisperCatalog.cppAvailable) {
         add(
             Attribution(
@@ -386,6 +533,34 @@ private val bundledAttributions: List<Attribution> = buildList {
             ),
         )
     }
+    if (RimeRuntime.libraryShipped) {
+        // The optional RIME engine for Chinese: librime and the libraries it
+        // is built with, in one library of its own. The schema packs it
+        // downloads carry their own licences inside each pack.
+        add(
+            Attribution(
+                "librime",
+                R.string.about_bundled_rime_used,
+                "Copyright RIME Developers",
+                "BSD-3-Clause", "rime-third-party.txt",
+                "https://github.com/rime/librime",
+            ),
+        )
+    }
+    if (MozcRuntime.libraryShipped) {
+        // The optional Mozc engine for Japanese: Mozc with Abseil and
+        // Protocol Buffers in one library, and the notices of the dictionary
+        // it downloads, which come from Mozc's sources at the same release.
+        add(
+            Attribution(
+                "Mozc",
+                R.string.about_bundled_mozc_used,
+                "Copyright 2010-2026 Google Inc.",
+                "BSD-3-Clause", "mozc-third-party.txt",
+                "https://github.com/google/mozc",
+            ),
+        )
+    }
     if (EtNative.shipped) {
         // Offline Asr4All (#289): the runtime built into the app, and the
         // models it downloads, which carry their own restricted-use licence.
@@ -396,6 +571,17 @@ private val bundledAttributions: List<Attribution> = buildList {
                 "Copyright (c) Meta Platforms, Inc. and affiliates",
                 "BSD-3-Clause", "bsd-executorch.txt",
                 "https://github.com/pytorch/executorch",
+            ),
+        )
+        // The glide engine's models, on the same runtime. The weights licence
+        // asks for this notice wherever the product says what it is built on.
+        add(
+            Attribution(
+                "FUTO Swipe",
+                R.string.about_bundled_futo_swipe_used,
+                "FUTO Swipe Model weights, FUTO Holdings, Inc.",
+                "FUTO Model Weights License 1.0", "futo-swipe-weights.txt",
+                "https://huggingface.co/futo-org/futo-swipe",
             ),
         )
         add(
@@ -428,6 +614,122 @@ private val bundledAttributions: List<Attribution> = buildList {
             ),
         )
     }
+    if (VoiceDenoise.shipped) {
+        add(
+            Attribution(
+                "RNNoise",
+                R.string.about_bundled_rnnoise_used,
+                "Copyright (c) 2017 Mozilla, (c) 2007-2017 Jean-Marc Valin, (c) 2005-2017 Xiph.Org Foundation",
+                "BSD-3-Clause", "bsd-rnnoise.txt",
+                "https://github.com/xiph/rnnoise",
+            ),
+        )
+    }
+    if (OpusEncoder.shipped) {
+        add(
+            Attribution(
+                "Opus",
+                R.string.about_bundled_opus_used,
+                "Copyright (c) 2001-2023 Xiph.Org, Skype Limited, Octasic, Jean-Marc Valin, Timothy B. Terriberry, " +
+                    "CSIRO, Gregory Maxwell, Mark Borgerding, Erik de Castro Lopo, Mozilla, Amazon",
+                "BSD-3-Clause", "bsd-opus.txt",
+                "https://opus-codec.org",
+            ),
+        )
+    }
+    if (SherpaNative.shipped) {
+        // Offline Sherpa: Microsoft's runtime, fetched from Maven Central,
+        // k2-fsa's toolkit built into the bridge, and the weights it
+        // downloads, each under its own licence.
+        add(
+            Attribution(
+                "ONNX Runtime",
+                R.string.about_bundled_onnxruntime_used,
+                "Copyright (c) Microsoft Corporation",
+                "MIT", "mit-onnxruntime.txt",
+                "https://github.com/microsoft/onnxruntime",
+            ),
+        )
+        add(
+            Attribution(
+                "sherpa-onnx",
+                R.string.about_bundled_sherpa_used,
+                "Copyright (c) 2022-2026 Xiaomi Corporation",
+                "Apache-2.0", "apache-2.0.txt",
+                "https://github.com/k2-fsa/sherpa-onnx",
+            ),
+        )
+        add(
+            Attribution(
+                "Vosk models",
+                R.string.about_bundled_vosk_used,
+                "Copyright Alpha Cephei Inc.",
+                "Apache-2.0", "apache-2.0.txt",
+                "https://alphacephei.com/vosk/models",
+            ),
+        )
+        add(
+            Attribution(
+                "Kroko ASR community models",
+                R.string.about_bundled_kroko_used,
+                "Copyright Banafo",
+                "CC-BY-SA-4.0", "cc-by-sa-4.0.txt",
+                "https://huggingface.co/Banafo/Kroko-ASR",
+            ),
+        )
+        // Speech out (Read back, the speaker buttons) on the same runtime:
+        // Meta's MMS voices, which the phone fetches after the user accepts
+        // their non-commercial licence.
+        add(
+            Attribution(
+                "MMS-TTS voices",
+                R.string.about_bundled_mms_used,
+                "Copyright Meta Platforms, Inc.; ONNX conversion by Will Wade",
+                "CC-BY-NC-4.0", "cc-by-nc-4.0.txt",
+                "https://huggingface.co/facebook/mms-tts",
+            ),
+        )
+        // Reduce background noise at Strong: the model the phone downloads
+        // on request, run by sherpa-onnx's streaming denoiser.
+        add(
+            Attribution(
+                "DPDFNet",
+                R.string.about_bundled_dpdfnet_used,
+                "Daniel Rika, Nino Sapir and Ido Gus, Ceva",
+                "Apache-2.0", "apache-2.0.txt",
+                "https://github.com/ceva-ip/DPDFNet",
+            ),
+        )
+        // Add punctuation and capitals: the model the phone downloads on
+        // request, run by libwmsherpa's token classifier.
+        add(
+            Attribution(
+                "punctuation-restoration-small",
+                R.string.about_bundled_punctuation_used,
+                "Horizon Labs, on mmBERT by Johns Hopkins University (MIT)",
+                "Apache-2.0", "apache-2.0.txt",
+                "https://huggingface.co/Horizon-Labs/punctuation-restoration-small",
+            ),
+        )
+        add(
+            Attribution(
+                "Omnilingual ASR",
+                R.string.about_bundled_omnilingual_used,
+                "Copyright 2025 (c) Meta Platforms, Inc. and affiliates",
+                "Apache-2.0", "apache-2.0.txt",
+                "https://github.com/facebookresearch/omnilingual-asr",
+            ),
+        )
+        add(
+            Attribution(
+                "Silero VAD",
+                R.string.about_bundled_silero_used,
+                "Copyright (c) 2020-present Silero Team",
+                "MIT", "mit-silero-vad.txt",
+                "https://github.com/snakers4/silero-vad",
+            ),
+        )
+    }
     add(
         Attribution(
             "Unicode CLDR, emoji & Han data",
@@ -435,6 +737,15 @@ private val bundledAttributions: List<Attribution> = buildList {
             "Copyright Unicode, Inc.",
             "Unicode License v3", "unicode-3.0.txt",
             "https://www.unicode.org/license.txt",
+        ),
+    )
+    add(
+        Attribution(
+            "ICU4X",
+            R.string.about_bundled_icu4x_used,
+            "Copyright © 2020-2024 Unicode, Inc.",
+            "Unicode License v3", "unicode-3.0.txt",
+            "https://github.com/unicode-org/icu4x",
         ),
     )
     add(
@@ -493,11 +804,40 @@ private val bundledAttributions: List<Attribution> = buildList {
     )
     add(
         Attribution(
+            "myanmar-tools",
+            R.string.about_bundled_myanmar_tools_used,
+            "Copyright 2017 Google LLC",
+            "Apache-2.0", "apache-2.0.txt",
+            "https://github.com/google/myanmar-tools",
+        ),
+    )
+    // myanmar-tools compiles its converters from CLDR's transform, whose
+    // notice travels with the rules.
+    add(
+        Attribution(
+            "CLDR Zawgyi transform",
+            R.string.about_bundled_cldr_zawgyi_used,
+            "Copyright © 1991-2013 Unicode, Inc.",
+            "Unicode License v3", "unicode-3.0.txt",
+            "https://github.com/unicode-org/cldr",
+        ),
+    )
+    add(
+        Attribution(
             "Khipro",
             R.string.about_bundled_khipro_used,
             "Copyright (c) 2024 rank_coder, (c) 2026 KhiproTeam",
             "MIT", "mit-khipro.txt",
             "https://khipro.khiproteam.com/",
+        ),
+    )
+    add(
+        Attribution(
+            "IndicXlit",
+            R.string.about_bundled_indicxlit_used,
+            "Copyright (c) 2022 AI4Bhārat",
+            "MIT", "mit-indicxlit.txt",
+            "https://github.com/AI4Bharat/IndicXlit",
         ),
     )
     add(
@@ -569,6 +909,64 @@ private val bundledAttributions: List<Attribution> = buildList {
  */
 private val dataPackAttributions: List<Attribution> = buildList {
     add(Attribution(
+        "Firefox Translations models",
+        R.string.about_pack_firefox_translations_used,
+        "Copyright Mozilla Foundation",
+        "MPL-2.0", "mpl-2.0.txt",
+        "https://github.com/mozilla/translations",
+    ))
+    // The sticker generator's models, fetched only after the user accepts
+    // their licences (NativeConsent.OPENRAIL_PP / OPENRAIL_M). SDXS is our MNN
+    // conversion in the data repository; the NPU build is Qualcomm's own,
+    // fetched from Qualcomm.
+    add(Attribution(
+        "SDXS-512-DreamShaper",
+        R.string.about_pack_sdxs_used,
+        "Copyright IDKiro (Yuda Song, Zehao Sun, Xuanwu Yin); distilled from DreamShaper 8 by Lykon; MNN conversion by WM Keyboard",
+        "CreativeML Open RAIL++-M", "creativeml-openrail-plus-plus-m.txt",
+        "https://huggingface.co/IDKiro/sdxs-512-dreamshaper",
+    ))
+    add(Attribution(
+        "TAESD",
+        R.string.about_pack_taesd_used,
+        "Copyright (c) 2023 Ollin Boer Bohan",
+        "MIT", "mit-taesd.txt",
+        "https://github.com/madebyollin/taesd",
+    ))
+    add(Attribution(
+        "Stable Diffusion v1.5 (Qualcomm AI Hub, w8a16)",
+        R.string.about_pack_sd15_npu_used,
+        "Copyright (c) 2022 Robin Rombach, Patrick Esser and contributors; compiled for Snapdragon by Qualcomm AI Hub",
+        "CreativeML Open RAIL-M", "creativeml-openrail-m.txt",
+        "https://huggingface.co/qualcomm/Stable-Diffusion-v1.5",
+    ))
+    // The upscaler's two networks (sticker editor, photo editor, small
+    // stickers sent as a 512 square): nagadomi's own weights, exported to MNN
+    // by the data repository's export_upscalers_mnn.py.
+    add(Attribution(
+        "waifu2x UpConv7 (art and photo)",
+        R.string.about_pack_waifu2x_used,
+        "Copyright (C) 2015 nagadomi; MNN conversion by WM Keyboard",
+        "MIT", "mit-waifu2x.txt",
+        "https://github.com/nagadomi/waifu2x",
+    ))
+    add(Attribution(
+        "NSFW image detection (Falconsai)",
+        R.string.about_pack_nsfw_used,
+        "Copyright Falconsai; ViT-Base by Google; MNN conversion by WM Keyboard",
+        "Apache-2.0", "apache-2.0.txt",
+        "https://huggingface.co/Falconsai/nsfw_image_detection",
+    ))
+    // Fetched from Hugging Face only after the user accepts this licence
+    // (NativeConsent.NLLB); the converted copy keeps Meta's terms.
+    add(Attribution(
+        "NLLB-200 (distilled 600M)",
+        R.string.about_pack_nllb_used,
+        "Copyright (c) Meta Platforms, Inc. and affiliates; CTranslate2 conversion by JustFrederik",
+        "CC BY-NC 4.0", "cc-by-nc-4.0.txt",
+        "https://huggingface.co/facebook/nllb-200-distilled-600M",
+    ))
+    add(Attribution(
         "Frequency wordlists",
         R.string.about_pack_wordlists_used,
         "Copyright the respective corpus authors",
@@ -597,6 +995,13 @@ private val dataPackAttributions: List<Attribution> = buildList {
         "https://github.com/KDE/kemoji",
     ))
     add(Attribution(
+        "Noto Sans Myanmar",
+        R.string.about_pack_noto_myanmar_used,
+        "Copyright 2022 The Noto Project Authors",
+        "SIL Open Font License 1.1", "ofl-1.1.txt",
+        "https://github.com/notofonts/myanmar",
+    ))
+    add(Attribution(
         "Noto Animated Emoji",
         R.string.about_pack_animated_emoji_used,
         "Copyright Google LLC",
@@ -616,6 +1021,13 @@ private val dataPackAttributions: List<Attribution> = buildList {
         "Copyright 2010-2021 Google Inc.",
         "BSD-3-Clause", "bsd-3-clause.txt",
         "https://github.com/google/mozc",
+    ))
+    add(Attribution(
+        "Tegaki handwriting models",
+        R.string.about_pack_tegaki_used,
+        "Copyright the Tegaki and Tomoe project contributors",
+        "LGPL-2.1", "lgpl-2.1-tegaki.txt",
+        "https://github.com/tegaki/tegaki",
     ))
     add(Attribution(
         "rime-cantonese & CC-Canto",
@@ -638,8 +1050,8 @@ private val dataPackAttributions: List<Attribution> = buildList {
         "Unicode License v3", "unicode-3.0.txt",
         "https://www.unicode.org/",
     ))
-    // The two below are downloaded by full-edition features only, so a lite
-    // build does not list what it cannot fetch.
+    // The three below are downloaded by features F-Droid's build lacks, so it
+    // does not list what it cannot fetch.
     if (com.wasimaster.wmkeyboard.core.stickers.SubjectCutout.supported) {
         add(Attribution(
             "U\u00b2-Net-P background remover",
@@ -649,7 +1061,20 @@ private val dataPackAttributions: List<Attribution> = buildList {
             "https://github.com/xuebinqin/U-2-Net",
         ))
     }
-    if (BuildConfig.ENABLE_LOCAL_LLM) {
+    // Every build: the LiteRT conversion where LiteRT is, our MNN export of
+    // the same weights in F-Droid's (the data repository's export_ppocrv5_mnn.py).
+    add(Attribution(
+        "PaddleOCR PP-OCRv5 models",
+        R.string.about_pack_paddle_used,
+        if (BuildConfig.ENABLE_WHISPER) {
+            "Copyright PaddlePaddle Authors; LiteRT conversion by iFleey (PPOCRv5-Android)"
+        } else {
+            "Copyright PaddlePaddle Authors"
+        },
+        "Apache-2.0", "apache-2.0.txt",
+        "https://github.com/PaddlePaddle/PaddleOCR",
+    ))
+    if (BuildConfig.ENABLE_LITERT_LM) {
         add(Attribution(
             "On-device AI models (Gemma, Qwen, SmolLM2)",
             R.string.about_pack_llm_used,
@@ -714,6 +1139,12 @@ private val serviceAttributions: List<Attribution> = listOf(
         "Wiktionary & kaikki.org", R.string.about_service_wiktionary_used, "",
         "CC BY-SA 4.0 and GFDL", null,
         "https://en.wiktionary.org/wiki/Wiktionary:Copyrights",
+    ),
+    // Downloaded, not called: the Dictionary tool's offline dictionary (#665).
+    Attribution(
+        "Open English WordNet", R.string.about_service_oewn_used, "",
+        "CC BY 4.0", null,
+        "https://en-word.net/",
     ),
     Attribution(
         "Datamuse", R.string.about_service_synonyms_used, "",
@@ -839,6 +1270,7 @@ internal fun AboutSettings(
     repository: SettingsRepository,
     persona: OnboardingSettings,
     onOpenLicenses: () -> Unit,
+    onOpenSupporters: () -> Unit = {},
     onOpenLicenseText: (String) -> Unit,
     onOpenDebugLog: () -> Unit = {},
     onOpenStorage: () -> Unit = {},
@@ -849,7 +1281,7 @@ internal fun AboutSettings(
     val uriHandler = LocalUriHandler.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-    val flavor = BuildConfig.FLAVOR_capabilities.replaceFirstChar { it.uppercase() }
+    val flavor = BuildConfig.EDITION
     val channel = when {
         BuildConfig.ENABLE_PLAY_STORE -> " · Play Store"
         BuildConfig.ENABLE_FDROID -> " · F-Droid"
@@ -859,29 +1291,43 @@ internal fun AboutSettings(
     // Read outside the click handlers: they are plain lambdas, not composables.
     val bugReportSubject = stringResource(R.string.about_bug_report_email_subject)
 
-    SettingsGroup(stringResource(CommonR.string.common_share)) {
-        item(visible = !BuildConfig.ENABLE_FDROID) {
+    SettingsGroup(
+        stringResource(R.string.about_community_title),
+        info = stringResource(R.string.about_community_body),
+    ) {
+        item { TelegramRow { uriHandler.openUri(Support.TELEGRAM_URL) } }
+        item { SocialStrip() }
+        item {
             NavRow(
-                R.string.about_share_play_link,
-                PLAY_STORE_URL.removePrefix("https://"),
+                R.string.about_supporters_title,
+                stringResource(R.string.about_supporters_subtitle),
+                route = "supporters",
+                onClick = onOpenSupporters,
+            )
+        }
+    }
+
+    SettingsGroup(
+        stringResource(R.string.about_feedback_title),
+        info = stringResource(R.string.about_feedback_body),
+    ) {
+        item {
+            NavRow(
+                R.string.about_report_bug_title,
+                stringResource(R.string.about_report_bug_subtitle),
             ) {
-                shareLink(context, PLAY_STORE_URL)
+                uriHandler.openUri(Support.ISSUES_URL)
             }
         }
-        item(visible = !BuildConfig.ENABLE_PLAY_STORE) {
-            NavRow(
-                R.string.about_share_fdroid_link,
-                FDROID_URL.removePrefix("https://"),
-            ) {
-                shareLink(context, FDROID_URL)
-            }
-        }
-        item(visible = !BuildConfig.ENABLE_PLAY_STORE) {
-            NavRow(
-                R.string.about_share_github_link,
-                SOURCE_URL.removePrefix("https://"),
-            ) {
-                shareLink(context, SOURCE_URL)
+        item {
+            NavRow(R.string.about_email_developer_title, Support.EMAIL) {
+                if (!Support.email(context, bugReportSubject, Support.bugReport())) {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.about_no_email_app_error, Support.EMAIL),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
             }
         }
     }
@@ -939,6 +1385,17 @@ internal fun AboutSettings(
                     }
                 }
             }
+        }
+        item {
+            // The installed version's notes, from the APK (see
+            // InstalledReleaseNotes), so a changelog is one tap away on every
+            // channel and not only while an update is on offer.
+            var showNotes by remember { mutableStateOf(false) }
+            if (showNotes) InstalledReleaseNotesDialog { showNotes = false }
+            NavRow(
+                R.string.update_action_notes,
+                stringResource(R.string.about_whats_new_subtitle, BuildConfig.VERSION_NAME),
+            ) { showNotes = true }
         }
         item {
             // The licence identifier and the copyright line travel verbatim.
@@ -1049,39 +1506,6 @@ internal fun AboutSettings(
     // "unsupported" and this draws nothing.
     UpdateSettings(settings)
 
-    SettingsGroup(
-        stringResource(R.string.about_feedback_title),
-        info = stringResource(R.string.about_feedback_body),
-    ) {
-        item {
-            NavRow(
-                R.string.about_report_bug_title,
-                stringResource(R.string.about_report_bug_subtitle),
-            ) {
-                uriHandler.openUri(Support.ISSUES_URL)
-            }
-        }
-        item {
-            NavRow(R.string.about_email_developer_title, Support.EMAIL) {
-                if (!Support.email(context, bugReportSubject, Support.bugReport())) {
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.about_no_email_app_error, Support.EMAIL),
-                        Toast.LENGTH_LONG,
-                    ).show()
-                }
-            }
-        }
-    }
-
-    SettingsGroup(
-        stringResource(R.string.about_community_title),
-        info = stringResource(R.string.about_community_body),
-    ) {
-        item { TelegramRow { uriHandler.openUri(Support.TELEGRAM_URL) } }
-        item { SocialStrip() }
-    }
-
     SettingsGroup(stringResource(R.string.about_documentation_title)) {
         item {
             NavRow(
@@ -1115,6 +1539,33 @@ internal fun AboutSettings(
                 selected = settings.watch { it.appUi.settingLinks },
                 default = SettingsDefaults.appUi.settingLinks,
             ) { scope.launch { repository.setSettingLinks(it) } }
+        }
+    }
+
+    SettingsGroup(stringResource(CommonR.string.common_share)) {
+        item(visible = !BuildConfig.ENABLE_FDROID) {
+            NavRow(
+                R.string.about_share_play_link,
+                PLAY_STORE_URL.removePrefix("https://"),
+            ) {
+                shareLink(context, PLAY_STORE_URL)
+            }
+        }
+        item(visible = !BuildConfig.ENABLE_PLAY_STORE) {
+            NavRow(
+                R.string.about_share_fdroid_link,
+                FDROID_URL.removePrefix("https://"),
+            ) {
+                shareLink(context, FDROID_URL)
+            }
+        }
+        item(visible = !BuildConfig.ENABLE_PLAY_STORE) {
+            NavRow(
+                R.string.about_share_github_link,
+                SOURCE_URL.removePrefix("https://"),
+            ) {
+                shareLink(context, SOURCE_URL)
+            }
         }
     }
 

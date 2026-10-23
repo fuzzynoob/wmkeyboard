@@ -108,6 +108,8 @@ object LanguageRegistry {
                 AssetLayouts.EN_CLEARFLOW_ID,
                 AssetLayouts.EN_KASROZ_ID,
                 AssetLayouts.EN_COLEMAK_DH_ANSI_ID,
+                AssetLayouts.EN_GBOARD_PLUS_ID,
+                AssetLayouts.EN_GBOARD_PLUS_SWIPE_SAFE_ID,
             ),
             bundledDictionary = true,
         ),
@@ -126,6 +128,8 @@ object LanguageRegistry {
                 AssetLayouts.BN_BAISHAKHI_ID,
                 AssetLayouts.BN_BORNONA_ID,
                 AssetLayouts.BN_INSCRIPT_ID,
+                AssetLayouts.BN_MAYABI_ID,
+                AssetLayouts.BN_SAMSUNG_ID,
                 AssetLayouts.BN_AKKHOR_ID,
                 AssetLayouts.BN_UNIJOY_ID,
                 AssetLayouts.BN_OLD_ID,
@@ -244,6 +248,8 @@ object LanguageRegistry {
             layoutIds = listOf(
                 BuiltInLayouts.HEBREW_ID,
                 AssetLayouts.HE_SI1452_ID,
+                AssetLayouts.HE_GBOARD_PLUS_ID,
+                AssetLayouts.HE_GBOARD_PLUS_SWIPE_SAFE_ID,
                 AssetLayouts.HE_T9_ID,
             ),
         ),
@@ -2077,7 +2083,7 @@ object LanguageRegistry {
             englishName = "Bangla (Romanized)",
             script = ScriptId.LATIN,
             localeTag = "bn-Latn",
-            layoutIds = listOf(AssetLayouts.BN_ROM_ID, AssetLayouts.BN_ROM_T9_ID),
+            layoutIds = listOf(AssetLayouts.BN_ROM_ID, AssetLayouts.BN_ROM_SHOROLIPI_ID, AssetLayouts.BN_ROM_T9_ID),
         ),
         LanguageDef(
             id = "gu_rom",
@@ -3725,8 +3731,8 @@ object LanguageRegistry {
     )
 
     /**
-     * Every language the keyboard knows: the hand-maintained ones above, then
-     * the generated Keyman ones.
+     * Every language the keyboard knows: the hand-maintained ones above and
+     * [CorpusLanguages], then the generated Keyman ones.
      *
      * Declared after [handWritten] because an object's properties initialize in
      * declaration order, and reading one above its own declaration yields null
@@ -3745,7 +3751,7 @@ object LanguageRegistry {
      * them instead would leave 290 layouts that no language names — which is to
      * say, that the user cannot reach.
      */
-    private val handWrittenAll: List<LanguageDef> = (handWritten + handWrittenMore).map { lang ->
+    private val handWrittenAll: List<LanguageDef> = (handWritten + handWrittenMore + CorpusLanguages.all).map { lang ->
         val extra = KeymanLanguages.extraLayoutIds[lang.id]
         if (extra.isNullOrEmpty()) lang else lang.copy(layoutIds = lang.layoutIds + extra)
     }

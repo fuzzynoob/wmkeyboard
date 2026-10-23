@@ -9,7 +9,7 @@ sidebar:
 import PhoneFrame from '@components/PhoneFrame.astro';
 import Shot from '@components/Shot.astro';
 
-WM Keyboard's settings app opens on a Home screen: sixteen rows, sorted into six groups. Tap a row to open its screen. Tap the magnifier at the top to search across almost everything in one field.
+WM Keyboard's settings app opens on a Home screen: seventeen rows, sorted into six groups. Tap a row to open its screen. Tap the magnifier at the top to search across almost everything in one field.
 
 <PhoneFrame caption="The Home screen: Typing, Keyboard, Features, Accessibility, Data and About, each its own card.">
   <Shot id="reference/settings/home-screen" alt="The Home screen: Typing, Keyboard, Features, Accessibility, Data and About, each its own card." />
@@ -39,6 +39,7 @@ Home has no toggles of its own. It's pure navigation, plus the [setup card](/sta
 - [Clipboard](/tools/clipboard/#options): history, the paste chip, screenshots, sensitive clips. A Home row whose settings are documented on the Clipboard guide page, since they describe the panel they drive
 - [Voice typing](/tools/voice/#options): the recognition engine, the microphone view, spoken punctuation, and the offline models. Documented on the Voice typing guide page for the same reason
 - [Text expansion](/tools/snippets/#options): your snippets, their triggers and patterns, and the template variables. Documented on the Snippets guide page for the same reason
+- AI: the two AI tools with their switches, [Search by meaning](/smart/search-by-meaning/), the chat, the settings assistant, [Memory](/tools/ai-memory/) and the history, all in one place. Each row opens the same screen it opens from Tools, so the [AI tools](/tools/ai/) and [AI chat](/tools/ai-chat/) guide pages document them. The provider, key and model stay on the AI writing tools screen, because AI reply, the chat and the settings assistant use the same ones
 - [Tools](/reference/settings/tools/): the master tool list. Each tool's own screen is documented on its guide page, not here
   - [Phone number formats](/reference/settings/phone-formats/): the clipboard's phone-number masks, reached from the Clipboard screen. It's the one per-tool sub-screen with a page here, because the mask syntax needs the room
 
@@ -56,12 +57,13 @@ Home has no toggles of its own. It's pure navigation, plus the [setup card](/sta
   - [Servers](/reference/settings/servers/): F-Droid edition only. Where each online service and each download repository is called
   - Notifications: what the keyboard may post, toggled by kind: downloads, app updates, backup problems, and a persistent Keyboard controls entry for bringing it back
   - [Selection actions](/reference/settings/selection-actions/): the bar of actions the keyboard offers for the text you select, with its Actions list, AI buttons and Time zones screens
+  - [Floating button](/reference/settings/floating-button/): the button over other apps whose tap, double tap and press and hold open the keyboard, voice typing, the AI or any tool, with its quick menu
 
 **About**
 - [About & diagnostics](/reference/settings/about/): version, licence, open-source notices, updates, storage, diagnostics
   - [Statistics](/reference/settings/statistics/): how much you type, and the switch that stops the counting
 
-That's 30 screens in total: the 16 Home rows, plus fourteen sub-screens (Dictionaries, Themes, Fonts, Icons, Key layouts, Phone number formats, Permissions, Keyboard modes, Addons, Data saver, Servers, Notifications, Selection actions, Statistics). Every one of them has its own page in this section except Notifications, which is covered above instead.
+That's 31 screens in total: the 17 Home rows, plus fourteen sub-screens (Dictionaries, Themes, Fonts, Icons, Key layouts, Phone number formats, Permissions, Keyboard modes, Addons, Data saver, Servers, Notifications, Selection actions, Statistics). Every one of them has its own page in this section except Notifications, which is covered above instead.
 
 ## Searching instead of browsing
 
@@ -100,6 +102,18 @@ A few rows work differently, because "the default" means something else there:
 - Lists you built (pinned tools, enabled languages, sticker packs) have their own reset actions where one exists, like **Reset pinned tools** on the Tools screen.
 - The whole app goes back at once from [Backup & restore](/reference/settings/backup/).
 
+## Swiping a row for its actions
+
+Rows in the lists you build up yourself slide sideways to show buttons behind them. Swipe one toward the left (toward the right when the app is in a right-to-left language) and it stops with its actions showing at its end: delete in red last, and before it whatever else that row offers, such as edit, share, duplicate, move up or down, pin or archive. Tap a button and the row slides back and the action runs. A tap on the open row, a swipe back, or opening another row closes it.
+
+Most lists of things you added or downloaded work this way: your languages, dictionary words and the blacklist, learnt corrections, custom word lists and emoji keyword packs, phone formats and copy rules, snippets and snippet folders, notes and note tags, the notes trash, keyboard modes and their hints and apps, symbol sets, custom layouts, theme decals, key overrides and textures, sound packs, fonts, icon and sticker packs, downloaded models and language packs, backup locations, addon sources, providers, AI actions and reply tones, MCP servers, AI chats, AI memories and the AI history, Send history, KDE Connect hosts, smart home devices, world clocks and countdowns, the files on a Storage page, and any list with drag handles and a bin, such as your kaomoji and their tags. Removing a language this way asks about its downloaded files first, as **Remove** on its own page does.
+
+The keyboard's own AI chat list and Notes panel take the same swipe. The Clock panel's lists don't, because a sideways swipe there changes tab.
+
+Snippets and notes also delete on a long swipe. Drag the row past about half its width, the gap behind it turns red, and letting go deletes it. Both offer the row back from the Undo bar at the foot of the screen, which is why only they take the long swipe.
+
+Every action behind a row is also on the row itself, on its menu, or on the screen it opens, so nothing depends on finding the swipe. TalkBack users reach the same actions through those buttons.
+
 ## Typing an exact value
 
 A slider is quick but it can't be landed on one exact number by thumb. Every slider's number sits in a small pill beside its name. Tap the pill and a box opens with the current number already selected, so you can type over it. The unit the slider uses (ms, %, dp) sits beside the box, and the line under it gives the slider's two ends.
@@ -112,10 +126,11 @@ A slider whose ends are a word rather than a number (**Off**, **Automatic**, **N
 
 Every settings screen has a small keyboard button in its bottom corner. Tap it and a text field opens at the bottom of the screen with the real keyboard under it, so you can try a change, such as a new press and hold delay or a taller number row, on the screen where you made it. The keyboard picks up each change as you make it, while the field stays open. Scroll the screen above the field to reach the rest of the settings.
 
-- The field stays open, with what you typed in it, when you move to another settings screen.
+- The field stays open, with what you typed in it, when you move to another settings screen. The cursor stays where you left it, so typing on the new screen carries on from there.
 - Tap the button again, or hide the keyboard, to close the field. The text stays until you clear it with the **×** in the field or close the app.
 - If another keyboard is the active one, a keyboard icon beside the field opens the system's keyboard picker, so you can switch to WM Keyboard before you try anything.
 - On a screen that has its own button, such as **Add**, the keyboard button sits above it.
+- The field also opens by itself when the keyboard comes up over the settings with nothing to type into: kept on screen by [Keep the keyboard on screen](/typing/size-position/#keeping-the-keyboard-on-screen), or opened by the [floating keyboard button](/typing/size-position/#opening-the-keyboard-without-a-text-field) or the shade's **Show**. That way the keys type somewhere and the screen moves up clear of them, rather than hiding its last rows behind the keyboard.
 - The theme editor has no keyboard button while its keyboard preview is docked, and neither do the code editors, search, or AI chat, which have their own text fields. Going to one of those closes the field.
 - On Android 14 and older, hiding the keyboard leaves the field open. Tap the button to close it.
 - Turn the button off at [Accessibility › Settings app › Keyboard test button](/reference/settings/accessibility/#settings-app).

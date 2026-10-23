@@ -10,6 +10,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Layers
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Mail
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.OpenInNew
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.OutlinedFlag
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Phonelink
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.RecordVoiceOver
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.School
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
@@ -123,6 +124,7 @@ import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
 import com.wasimaster.wmkeyboard.core.settings.AppSortOrder
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.BackspaceSwipeUnit
+import com.wasimaster.wmkeyboard.core.settings.TopRowHolds
 import com.wasimaster.wmkeyboard.core.settings.CopiedCodeChip
 import com.wasimaster.wmkeyboard.core.settings.DataSaverTrigger
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
@@ -176,9 +178,12 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.InvertColors
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.LocationCity
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Lock
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Numbers
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Tag
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Place
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Storage
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Translate
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ToggleOn
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Functions
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.script.NumeralSystem
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
@@ -191,6 +196,8 @@ import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.LanguageDetectionStrength
 import com.wasimaster.wmkeyboard.core.settings.MeteredPolicy
 import com.wasimaster.wmkeyboard.core.settings.QrEccLevel
+import com.wasimaster.wmkeyboard.core.settings.FunctionKeyToolbarMode
+import com.wasimaster.wmkeyboard.core.prediction.SlipFixes
 import com.wasimaster.wmkeyboard.core.prediction.UndoMemory
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.script.ComposerType
@@ -365,6 +372,11 @@ internal object ChoiceOptionIcons {
         put(BackspaceSwipeUnit.WORD) { Icons.AutoMirrored.Outlined.ShortText }
         put(BackspaceSwipeUnit.CHARACTER) { Icons.Outlined.Abc }
 
+        put(TopRowHolds.AUTO) { Icons.Outlined.AutoAwesome }
+        put(TopRowHolds.DIGITS) { Icons.Outlined.Numbers }
+        put(TopRowHolds.SYMBOLS) { Icons.Outlined.Tag }
+        put(TopRowHolds.NONE) { Icons.Outlined.Block }
+
         put(LetterSwipeAction.TYPE_WORDS) { Icons.Outlined.Gesture }
         put(LetterSwipeAction.HANDWRITE) { Icons.Outlined.Draw }
         put(LetterSwipeAction.SELECT_KEY) { Icons.Outlined.Abc }
@@ -375,6 +387,10 @@ internal object ChoiceOptionIcons {
         put(SuggestionHotkeyMode.OFF) { Icons.Outlined.Block }
         put(SuggestionHotkeyMode.LEADER_DIGIT) { Icons.Outlined.KeyboardCommandKey }
         put(SuggestionHotkeyMode.ALT_DIGIT) { Icons.Outlined.KeyboardAlt }
+
+        put(FunctionKeyToolbarMode.OFF) { Icons.Outlined.Block }
+        put(FunctionKeyToolbarMode.PICK_MODE) { Icons.Outlined.ToggleOn }
+        put(FunctionKeyToolbarMode.ALWAYS) { Icons.Outlined.Functions }
 
         // ---- Languages ----
         put(NumeralCommitScope.TEXT_ONLY) { Icons.Outlined.TextFields }
@@ -488,6 +504,7 @@ internal object ChoiceOptionIcons {
         put(BackupDestination.SMB) { Icons.Outlined.Lan }
         put(BackupDestination.GIT) { Icons.Outlined.AccountTree }
         put(BackupDestination.IMAP) { Icons.Outlined.Mail }
+        put(BackupDestination.NEARBY) { Icons.Outlined.Phonelink }
 
         put(MeteredPolicy.ALLOW) { Icons.Outlined.AllInclusive }
         put(MeteredPolicy.ASK) { Icons.Outlined.HelpOutline }
@@ -543,6 +560,9 @@ internal object ChoiceOptionIcons {
         for (level in UndoMemory.entries.filter { it != UndoMemory.OFF }) {
             put(level) { Icons.Outlined.History }
         }
+        put(SlipFixes.OFF) { Icons.Outlined.Block }
+        put(SlipFixes.CAREFUL) { Icons.Outlined.TouchApp }
+        put(SlipFixes.EAGER) { Icons.Outlined.TouchApp }
 
         // ---- Accessibility: colour vision ----
         // The three deficiencies share a glyph because they are the same kind

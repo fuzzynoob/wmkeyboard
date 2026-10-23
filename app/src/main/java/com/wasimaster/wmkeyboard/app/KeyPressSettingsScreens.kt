@@ -19,6 +19,7 @@ import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.settings.AlternateGroup
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.BackspaceSwipeUnit
+import com.wasimaster.wmkeyboard.core.settings.TopRowHolds
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.material3.AlertDialog
@@ -33,6 +34,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.annotation.StringRes
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -48,6 +50,8 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.feedback.R as FeedbackR
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wasimaster.wmkeyboard.core.feedback.HapticPlayer
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPlayer
@@ -354,12 +358,26 @@ private fun InstalledSoundSection(
         if (sounds.isEmpty()) {
             CaptionText(stringResource(R.string.hardware_sound_empty))
         }
-        for (sound in sounds) {
+        for (sound in sounds) key(sound.id) {
             val selected = selectedId == sound.id
+            val deleteSound = {
+                scope.launch {
+                    if (selected) repository.setKeySoundStyle(KeySoundStyle.CLICK)
+                    withContext(Dispatchers.IO) { store.delete(sound.id) }
+                    KeySoundPlayer.forgetCustom(sound.id)
+                }
+                Unit
+            }
             HighlightableItem(sound.id) {
                 WmRow(
                     title = sound.name,
                     supporting = sound.author.takeIf { it.isNotBlank() }?.let { { Text(it) } },
+                    swipeActions = listOf(
+                        deleteSwipeAction(
+                            stringResource(R.string.hardware_sound_delete_desc, sound.name),
+                            deleteSound,
+                        ),
+                    ),
                     trailing = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (selected) {
@@ -509,8 +527,16 @@ private fun InstalledSoundPackSection(
         if (packs.isEmpty()) {
             CaptionText(stringResource(R.string.hardware_sound_pack_empty))
         }
-        for (pack in packs) {
+        for (pack in packs) key(pack.id) {
             val selected = selectedId == pack.id
+            val deletePack = {
+                scope.launch {
+                    if (selected) repository.setKeySoundStyle(KeySoundStyle.CLICK)
+                    withContext(Dispatchers.IO) { store.delete(pack.id) }
+                    KeySoundPlayer.forgetPack(pack.id)
+                }
+                Unit
+            }
             HighlightableItem(pack.id) {
                 WmRow(
                     title = pack.name,
@@ -557,6 +583,12 @@ private fun InstalledSoundPackSection(
                             },
                         )
                     },
+                    swipeActions = listOf(
+                        deleteSwipeAction(
+                            stringResource(R.string.hardware_sound_delete_desc, pack.name),
+                            deletePack,
+                        ),
+                    ),
                     trailing = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             if (selected) {
@@ -1049,6 +1081,14 @@ internal fun KeyPressSettings(
                 default = SettingsDefaults.textEditing.deleteWordStopsAtCapitals,
             ) { scope.launch { repository.setDeleteWordStopsAtCapitals(it) } }
         }
+        item(visible = holdDeletesWords || (swipeDelete && swipeUnit == BackspaceSwipeUnit.WORD)) {
+            ToggleSetting(
+                R.string.keypress_word_stops_digits_title,
+                stringResource(R.string.keypress_word_stops_digits_subtitle),
+                settings.watch { it.textEditing.deleteWordStopsAtDigits },
+                default = SettingsDefaults.textEditing.deleteWordStopsAtDigits,
+            ) { scope.launch { repository.setDeleteWordStopsAtDigits(it) } }
+        }
         item(visible = holdDeletesWords) {
             SliderSetting(
                 R.string.keypress_word_delete_repeat_title,
@@ -1110,6 +1150,14 @@ internal fun KeyPressHapticsSettings(
     val hapticsOn = settings.watch { it.haptics.enabled }
     val hapticStyle = settings.watch { it.haptics.style }
     val soundOn = settings.watch { it.sound.enabled }
+    val respectSystemTouch = settings.watch { it.feedback.respectSystemTouchFeedback }
+    val asHardware = settings.watch { it.feedback.hapticsAsHardwareFeedback }
+    // Re-read on resume: the switch lives in Android's own settings, and
+    // someone who reads the notice below goes there and comes back.
+    var systemTouchOn by remember { mutableStateOf(HapticPlayer.systemTouchFeedbackOn(context)) }
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) {
+        systemTouchOn = HapticPlayer.systemTouchFeedbackOn(context)
+    }
     SettingsGroup(stringResource(R.string.keypress_haptics_group_title)) {
         item {
             ToggleSetting(
@@ -1260,6 +1308,35 @@ internal fun KeyPressHapticsSettings(
                 default = SettingsDefaults.feedback.respectSystemTouchFeedback,
             ) { scope.launch { repository.setRespectSystemTouchFeedback(it) } }
         }
+        // Issue #786: the styles that drive the vibrator directly used to go
+        // silent with Android's "Touch feedback" switch off. Say so whenever
+        // that switch is off, both when the keyboard is getting past it and
+        // when it cannot.
+        item(
+            visible = hapticsOn && !respectSystemTouch && !systemTouchOn &&
+                HapticPlayer.isDirectStyle(hapticStyle),
+        ) {
+            val bypassing = asHardware && HapticPlayer.canBypassSystemTouch()
+            StateBanner(
+                text = stringResource(
+                    when {
+                        bypassing -> R.string.keypress_system_touch_off_bypassed
+                        HapticPlayer.canBypassSystemTouch() -> R.string.keypress_system_touch_off_silent
+                        else -> R.string.keypress_system_touch_off_silent_old
+                    },
+                ),
+                tone = if (bypassing) BannerTone.INFO else BannerTone.WARNING,
+            )
+        }
+        item(visible = hapticsOn && !respectSystemTouch && HapticPlayer.canBypassSystemTouch()) {
+            ToggleSetting(
+                R.string.keypress_haptics_hardware_title,
+                stringResource(R.string.keypress_haptics_hardware_subtitle),
+                asHardware,
+                info = stringResource(R.string.keypress_haptics_hardware_info),
+                default = SettingsDefaults.feedback.hapticsAsHardwareFeedback,
+            ) { scope.launch { repository.setHapticsAsHardwareFeedback(it) } }
+        }
         item(visible = hapticsOn) {
             ToggleSetting(
                 R.string.keypress_dnd_mute_title,
@@ -1327,6 +1404,15 @@ internal fun KeyPressPopupSettings(
                 info = stringResource(R.string.keypress_popup_numeric_info),
                 default = SettingsDefaults.popup.inNumericFields,
             ) { scope.launch { repository.setKeyPopupInNumericFields(it) } }
+        }
+        item(visible = popupOn) {
+            ToggleSetting(
+                R.string.keypress_popup_window_band_title,
+                stringResource(R.string.keypress_popup_window_band_subtitle),
+                settings.watch { it.popup.windowBand },
+                info = stringResource(R.string.keypress_popup_window_band_info),
+                default = SettingsDefaults.popup.windowBand,
+            ) { scope.launch { repository.setKeyPopupWindowBand(it) } }
         }
         item(visible = popupOn) {
             SliderSetting(
@@ -1498,6 +1584,44 @@ internal fun KeyPressShortcutsSettings(
                 info = stringResource(R.string.keypress_all_accents_info),
                 default = SettingsDefaults.layoutBehavior.showAllPopupKeys,
             ) { scope.launch { repository.setShowAllPopupKeys(it) } }
+        }
+        item {
+            // Issue #677: the accents out of every letter's popup at once.
+            ToggleSetting(
+                R.string.keypress_no_accents_title,
+                stringResource(R.string.keypress_no_accents_subtitle),
+                settings.watch { it.layoutBehavior.noLetterAccents },
+                info = stringResource(R.string.keypress_no_accents_info),
+                default = SettingsDefaults.layoutBehavior.noLetterAccents,
+            ) { scope.launch { repository.setNoLetterAccents(it) } }
+        }
+        item {
+            // Issue #672: the digits on Q-P, decided apart from the number row.
+            ChoiceSetting(
+                R.string.keypress_top_row_holds_title,
+                subtitle = stringResource(R.string.keypress_top_row_holds_subtitle),
+                info = stringResource(R.string.keypress_top_row_holds_info),
+                options = listOf(
+                    TopRowHolds.AUTO to stringResource(R.string.keypress_top_row_holds_auto),
+                    TopRowHolds.DIGITS to stringResource(R.string.keypress_top_row_holds_digits),
+                    TopRowHolds.SYMBOLS to stringResource(R.string.keypress_top_row_holds_symbols),
+                    TopRowHolds.NONE to stringResource(R.string.keypress_top_row_holds_none),
+                ),
+                selected = settings.watch { it.layoutBehavior.topRowHolds },
+                default = SettingsDefaults.layoutBehavior.topRowHolds,
+                detail = { holds ->
+                    ChoiceDetail(
+                        stringResource(
+                            when (holds) {
+                                TopRowHolds.AUTO -> R.string.keypress_top_row_holds_auto_desc
+                                TopRowHolds.DIGITS -> R.string.keypress_top_row_holds_digits_desc
+                                TopRowHolds.SYMBOLS -> R.string.keypress_top_row_holds_symbols_desc
+                                TopRowHolds.NONE -> R.string.keypress_top_row_holds_none_desc
+                            },
+                        ),
+                    )
+                },
+            ) { scope.launch { repository.setTopRowHolds(it) } }
         }
         item {
             // Discussion #382: ü ahead of 7 on German's u.

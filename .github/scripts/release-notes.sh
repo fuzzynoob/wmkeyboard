@@ -28,7 +28,7 @@ prefix="wmkeyboard-${version}-vc${code}"
 # ---------------------------------------------------------------- helpers
 
 # Human size for a file in dist/, or "not built" when the build did not
-# produce it (lite has no native symbols, for one).
+# produce it (a release cut before native symbols existed, for one).
 size_of() {
   local f="$dist/$1"
   [ -f "$f" ] || { printf 'not built'; return; }
@@ -91,72 +91,152 @@ if [ "$have_apk" = true ]; then
 cat <<EOF
 ## Download
 
-There are two choices to make, and the second one is easy.
+### **⭐ [Download WM Keyboard ${version}](${base}/${prefix}-full-en-arm64-v8a.apk)** · $(size_of "${prefix}-full-en-arm64-v8a.apk")
 
-**full or lite?** **full** is the whole keyboard. **lite** leaves out ML Kit,
-LiteRT and the engines built on them (handwriting, OCR, document scanning,
-Whistle dictation and the local LLM) for a far smaller download. It keeps the
-grammar checker and offline dictation through whisper.cpp, Asr4All, Parakeet
-and Moonshine.
+This is the one for almost every phone from 2017 on. It installs over any earlier
+version from GitHub and keeps all your settings.
 
-**Which languages?** This is about the words the app *shows* you, on its
-settings screens and its panels. **all** has them in 48 languages besides
-English. **English** has English alone and is around 41 MB smaller. What you can
-*type* is identical: every layout and every dictionary is in both. You can swap
-one for the other later without uninstalling or losing a setting.
+**In your language:** on Android 11 or later the app switches to your phone's
+language by itself a few seconds after it first opens (a small download, so it
+needs the internet once). To pick a different one: **Settings › About › App
+language**. On Android 7 to 10 the app is in English: get **Offline, all
+languages** below instead, which has every language built in.
 
-Almost every phone sold since 2017 takes an **arm64-v8a** build, so start here:
-
-| arm64-v8a | all languages | English only |
-|:---|:---|:---|
-| **⭐ full** | **$(cell "${prefix}-full-intl-arm64-v8a.apk")** | **$(cell "${prefix}-full-en-arm64-v8a.apk")** |
-| **lite** | $(cell "${prefix}-lite-intl-arm64-v8a.apk") | $(cell "${prefix}-lite-en-arm64-v8a.apk") |
+**Keyboard languages are not affected:** every layout and dictionary is in every
+download.
 
 <details>
-<summary><b>Other architectures</b> (older 32-bit phones, emulators, ChromeOS, or if the above refuses to install)</summary>
+<summary><b>It won't install, or not an ordinary phone?</b></summary>
 
-| Architecture | full · all | full · English | lite · all | lite · English |
-|:---|:---|:---|:---|:---|
-| armeabi-v7a<br><sub>Older 32-bit phones and watches</sub> | $(cell "${prefix}-full-intl-armeabi-v7a.apk") | $(cell "${prefix}-full-en-armeabi-v7a.apk") | $(cell "${prefix}-lite-intl-armeabi-v7a.apk") | $(cell "${prefix}-lite-en-armeabi-v7a.apk") |
-| x86_64<br><sub>Emulators, ChromeOS, x86 tablets</sub> | $(cell "${prefix}-full-intl-x86_64.apk") | $(cell "${prefix}-full-en-x86_64.apk") | $(cell "${prefix}-lite-intl-x86_64.apk") | $(cell "${prefix}-lite-en-x86_64.apk") |
-| universal<br><sub>All three in one file. Only if the others refuse to install</sub> | $(cell "${prefix}-full-intl-universal.apk") | $(cell "${prefix}-full-en-universal.apk") | $(cell "${prefix}-lite-intl-universal.apk") | $(cell "${prefix}-lite-en-universal.apk") |
+| Your device | Download |
+|:---|:---|
+| Older 32-bit phone or watch | armeabi-v7a, $(cell "${prefix}-full-en-armeabi-v7a.apk") |
+| Chromebook, emulator, x86 tablet | x86_64, $(cell "${prefix}-full-en-x86_64.apk") |
+| Not sure, just make it work | universal, $(cell "${prefix}-full-en-universal.apk") |
+
+The files named \`full-intl-…\` and \`lite-…\` are this same app under the names
+older versions look for, so their built-in updater can find it. You don't need them.
 
 </details>
 
 EOF
 
-# The no-internet build, from the `offline` job. Releases before it existed
-# carry neither file, and get no section rather than one saying "not built".
-if [ -f "$dist/${prefix}-full-intl-nointernet-arm64-v8a.apk" ] \
-  || [ -f "$dist/${prefix}-full-intl-nointernet-universal.apk" ]; then
-# lite · English joined it after 0.5.13 (#490); a release without it gets the row
-# left out rather than two empty cells.
-lite_offline=''
-if [ -f "$dist/${prefix}-lite-en-nointernet-arm64-v8a.apk" ] \
-  || [ -f "$dist/${prefix}-lite-en-nointernet-universal.apk" ]; then
-  lite_offline="| **lite · English** | $(cell "${prefix}-lite-en-nointernet-arm64-v8a.apk") | $(cell "${prefix}-lite-en-nointernet-universal.apk") |"
-fi
+# The no-internet builds, from the `offline` job. Releases before it existed
+# carry none of these files, and get no section rather than one saying "not
+# built". Up to 0.6.3 the offline build was all languages with every library
+# built in (`full-intl-nointernet`, arm64-v8a and universal); from 0.6.4 it is
+# English and slim, with an all-languages universal one beside it.
+if [ -f "$dist/${prefix}-full-en-nointernet-arm64-v8a.apk" ]; then
 cat <<EOF
 <details>
-<summary><b>No internet permission</b> (a keyboard that cannot reach the network at all)</summary>
+<summary><b>Offline</b> (a keyboard that cannot reach the network at all)</summary>
 
-The regular builds with \`android.permission.INTERNET\` taken out of the
-manifest, so Android refuses every connection the app tries to make. Typing,
-prediction, gesture typing and the clipboard work as usual, and on full so do
-grammar checking, the scanners and a local AI model imported from a file. Anything
-that downloads (dictionary packs, voice and handwriting models, translation
-languages, GIFs, cloud backups) fails as it would with the phone offline, and
-the app cannot check for its own updates, so come back here for new versions.
-Language packs, voice models, OCR data and offline GIF packs fetched on another
-device can be imported instead
-([how](https://wmkeyboard.pages.dev/privacy/offline/)).
-Each is signed with the same key as the builds above and installs over them,
-and back, without losing a setting.
+The standard build with \`android.permission.INTERNET\` taken out of the
+manifest, so Android refuses every connection the app tries to make. It is as
+small as the standard build (about 22 MB for arm64-v8a, where 0.6.3's offline
+build was 275 MB) because it leaves out the same things: the
+interface is English, and the libraries behind features like offline voice
+typing, grammar checking, the scanner, handwriting, on-device translation and
+on-device AI are not built in. It cannot download them, so you fetch the ones
+you want on another device and import them: interface languages are the
+\`lang-\` files below (Android 11 or later), and **Settings › Privacy › Feature
+libraries** names each library file and where it is published. Every import is
+checked against a checksum built into the app. Typing, prediction, gesture
+typing and the clipboard need nothing. The app cannot check for its own updates,
+so come back here for new versions
+([how importing works](https://wmkeyboard.pages.dev/privacy/offline/)).
+
+**All languages** is the same build with all 48 interface languages built in
+(about 100 MB, universal only).
+Take it on Android 7 to 10, which cannot load a language pack, or to skip
+importing one. Both are signed with the same key as the standard build, so any
+of them installs over another without losing a setting.
 
 | | arm64-v8a | universal |
 |:---|:---|:---|
-| **full · all languages** | $(cell "${prefix}-full-intl-nointernet-arm64-v8a.apk") | $(cell "${prefix}-full-intl-nointernet-universal.apk") |
-${lite_offline}
+| **Offline** | $(cell "${prefix}-full-en-nointernet-arm64-v8a.apk") | $(cell "${prefix}-full-en-nointernet-universal.apk") |
+| **Offline, all languages** | | $(cell "${prefix}-full-intl-nointernet-universal.apk") |
+
+</details>
+
+EOF
+elif [ -f "$dist/${prefix}-full-intl-nointernet-arm64-v8a.apk" ] \
+  || [ -f "$dist/${prefix}-full-intl-nointernet-universal.apk" ]; then
+cat <<EOF
+<details>
+<summary><b>Offline</b> (a keyboard that cannot reach the network at all)</summary>
+
+The standard build with \`android.permission.INTERNET\` taken out of the
+manifest, so Android refuses every connection the app tries to make, and with
+everything it would otherwise download built in: all 48 interface languages and
+every feature library. Anything that downloads fails as it would with the phone
+offline, and the app cannot check for its own updates, so come back here for new
+versions. Language packs, voice models, OCR data and offline GIF packs fetched
+on another device can be imported instead
+([how](https://wmkeyboard.pages.dev/privacy/offline/)).
+
+| | arm64-v8a | universal |
+|:---|:---|:---|
+| **Offline** | $(cell "${prefix}-full-intl-nointernet-arm64-v8a.apk") | $(cell "${prefix}-full-intl-nointernet-universal.apk") |
+
+</details>
+
+EOF
+fi
+
+# The interface language packs the standard build downloads, for importing on
+# a phone that cannot fetch them itself. Listed, not described one by one.
+packs=$(cd "$dist" && ls ${prefix}-lang-*.apk 2>/dev/null | wc -l | tr -d ' ')
+if [ "$packs" -gt 0 ]; then
+# size_of takes a name in $dist, so no `cd` here: with a relative $dist it
+# would look in $dist/$dist and call every pack "not built".
+# Named for people, not by code: nobody looks for `iw` to find Hebrew. Each
+# row is the language in English and in itself, sorted by the English name.
+lang_name() { # <resource qualifier>
+  case "$1" in
+    ar) echo 'Arabic · العربية' ;; bg) echo 'Bulgarian · Български' ;;
+    bn) echo 'Bangla · বাংলা' ;; ca) echo 'Catalan · Català' ;;
+    cs) echo 'Czech · Čeština' ;; da) echo 'Danish · Dansk' ;;
+    de) echo 'German · Deutsch' ;; el) echo 'Greek · Ελληνικά' ;;
+    es) echo 'Spanish · Español' ;; et) echo 'Estonian · Eesti' ;;
+    fa) echo 'Persian · فارسی' ;; fi) echo 'Finnish · Suomi' ;;
+    fr) echo 'French · Français' ;; gu) echo 'Gujarati · ગુજરાતી' ;;
+    hi) echo 'Hindi · हिन्दी' ;; hr) echo 'Croatian · Hrvatski' ;;
+    hu) echo 'Hungarian · Magyar' ;; in) echo 'Indonesian · Bahasa Indonesia' ;;
+    is) echo 'Icelandic · Íslenska' ;; it) echo 'Italian · Italiano' ;;
+    iw) echo 'Hebrew · עברית' ;; ja) echo 'Japanese · 日本語' ;;
+    kn) echo 'Kannada · ಕನ್ನಡ' ;; ko) echo 'Korean · 한국어' ;;
+    lt) echo 'Lithuanian · Lietuvių' ;; lv) echo 'Latvian · Latviešu' ;;
+    ml) echo 'Malayalam · മലയാളം' ;; mr) echo 'Marathi · मराठी' ;;
+    nl) echo 'Dutch · Nederlands' ;; no) echo 'Norwegian · Norsk' ;;
+    pa) echo 'Punjabi · ਪੰਜਾਬੀ' ;; pl) echo 'Polish · Polski' ;;
+    pt) echo 'Portuguese · Português' ;; ro) echo 'Romanian · Română' ;;
+    ru) echo 'Russian · Русский' ;; sk) echo 'Slovak · Slovenčina' ;;
+    sl) echo 'Slovenian · Slovenščina' ;; sv) echo 'Swedish · Svenska' ;;
+    sw) echo 'Swahili · Kiswahili' ;; ta) echo 'Tamil · தமிழ்' ;;
+    te) echo 'Telugu · తెలుగు' ;; th) echo 'Thai · ไทย' ;;
+    tr) echo 'Turkish · Türkçe' ;; uk) echo 'Ukrainian · Українська' ;;
+    ur) echo 'Urdu · اردو' ;; vi) echo 'Vietnamese · Tiếng Việt' ;;
+    zh-rCN) echo 'Chinese, Simplified · 简体中文' ;; zu) echo 'Zulu · isiZulu' ;;
+    *) echo "$1" ;;
+  esac
+}
+pack_list=$(for f in "$dist"/${prefix}-lang-*.apk; do
+  f=$(basename "$f"); q=${f#"${prefix}-lang-"}; q=${q%.apk}
+  printf '%s\t| %s | [%s](%s/%s) |\n' "$(lang_name "$q")" "$(lang_name "$q")" "$(size_of "$f")" "$base" "$f"
+done | LC_ALL=C sort -f | cut -f2-)
+pack_list=$(printf '| Language | Download |\n|:---|:---|\n%s' "$pack_list")
+cat <<EOF
+<details>
+<summary><b>App languages, for a phone that can't download them</b> ($packs)</summary>
+
+You don't need these if your phone is online: the app fetches its language
+itself. For a phone that can't, like one running the offline build, download
+yours on another device, copy it to the phone, and open **Settings › About ›
+Storage › Import downloaded files** (Android 11 or later). Each works only with
+this exact version.
+
+$pack_list
 
 </details>
 
@@ -172,22 +252,19 @@ row() { # <file> <what it is>
   extras="${extras}| [\`$1\`](${base}/$1) | $(size_of "$1") | $2 |
 "
 }
-row SHA256SUMS.txt 'Checksums for everything above'
-row "${prefix}-full-intl-mapping.txt.gz" 'R8 mapping, **full · all languages**. Retraces a stack trace'
-row "${prefix}-full-en-mapping.txt.gz" 'R8 mapping, **full · English**'
-row "${prefix}-lite-intl-mapping.txt.gz" 'R8 mapping, **lite · all languages**'
-row "${prefix}-lite-en-mapping.txt.gz" 'R8 mapping, **lite · English**'
-row "${prefix}-full-intl-nointernet-mapping.txt.gz" 'R8 mapping, **no internet permission**. Only attached when it differs from full · all languages, which otherwise serves both'
-row "${prefix}-lite-en-nointernet-mapping.txt.gz" 'R8 mapping, **lite · English, no internet permission**. Only attached when it differs from lite · English'
+row "${prefix}-full-en-mapping.txt.gz" 'R8 mapping, **standard build**. Retraces a stack trace'
+row "${prefix}-full-intl-mapping.txt.gz" 'R8 mapping, **all-languages build**: the one the language packs are cut from, and the offline all-languages build, which it is apart from its manifest'
+row "${prefix}-full-en-nointernet-mapping.txt.gz" 'R8 mapping, **offline build**. Only attached when it differs from the standard build'"'"'s, which otherwise serves both'
+row "${prefix}-full-intl-nointernet-mapping.txt.gz" 'R8 mapping, **offline all-languages build**. Only attached when it differs from the all-languages one, which otherwise serves both'
 row "${prefix}-full-intl-native-symbols.zip" 'Native debug symbols, **full · all languages**'
-row "${prefix}-full-en-native-symbols.zip" 'Native debug symbols, **full · English**'
+row "${prefix}-full-en-native-symbols.zip" 'Native debug symbols, **standard build**'
 
 if [ -n "$extras" ]; then
   # Name only what is in the block. Mappings and symbols were first attached in
   # 0.5.8, so an older release's block is checksums alone.
   if [ -f "$dist/${prefix}-full-intl-mapping.txt.gz" ]; then
-    summary='Checksums, R8 mappings and native symbols'
-    blurb='For verifying a download, and for reading a crash report from these APKs.'
+    summary='R8 mappings and native symbols'
+    blurb='For reading a crash report from these APKs.'
   else
     summary='Checksums'
     blurb='For verifying what you downloaded.'
@@ -239,7 +316,10 @@ fi
 # The grouped commit list that used to live here is gone: the prose above is
 # the changelog, and the compare view is a better place to read every commit
 # than a wall of subjects in the release body.
-prev=$(git describe --tags --abbrev=0 "${tag}^" 2>/dev/null || true)
+# The release before this one by version, not by ancestry: a re-cut tag sits
+# on its own commit off main (0.6.2 did), and `git describe` skipped it and
+# counted 0.6.3 from 0.6.1. `prev..tag` is still the right range then.
+prev=$(git tag --list 'v*' --sort=-v:refname | awk -v t="$tag" 'f { print; exit } $0 == t { f = 1 }')
 if [ -n "$prev" ]; then
   count=$(git log --no-merges --oneline "${prev}..${tag}" | wc -l | tr -d ' ')
   echo "${count} commits since [${prev#v}](https://github.com/${repo}/releases/tag/${prev}). [See every one](https://github.com/${repo}/compare/${prev}...${tag})."

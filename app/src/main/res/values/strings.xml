@@ -14,13 +14,11 @@
          that file's statements target an android_app, so following it leaves
          this app vouching for itself and Chrome reports the app as missing.
          The site file stays where it is; it answers the other direction. -->
-    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://wmkeyboard.pages.dev\"}}]</string>
+    <string name="asset_statements" translatable="false">[{\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://wmkeyboard.pages.dev\"}}, {\"relation\": [\"delegate_permission/common.handle_all_urls\"], \"target\": {\"namespace\": \"web\", \"site\": \"https://wmkeyboard.app\"}}]</string>
     <string name="ime_name">WM Keyboard</string>
     <!-- Android's name for the keyboard as a spell checker (#511), under the
          system's spell checker setting. -->
     <string name="spell_checker_name">WM Keyboard spell checker</string>
-    <!-- The Harper spell checker's one subtype (res/xml/spellchecker.xml). -->
-    <string name="spell_checker_subtype_english">English</string>
     <!-- Play's name for the on-demand AI-runtime module (:feature:llm);
          surfaces in Play's download UI and settings. Lives here because a
          dist:title must resolve from the BASE module's resources. -->
@@ -32,8 +30,40 @@
     <string name="litert_module_title">Offline voice typing and sticker cutout</string>
     <string name="handwriting_module_title">Handwriting recognition</string>
     <string name="speech_module_title">Offline voice engines</string>
+    <string name="onnx_module_title">ONNX Runtime</string>
+    <!-- :feature:opus, the audio compressor for transcription server uploads. -->
+    <string name="opus_module_title">Voice upload compression</string>
+    <string name="executorch_module_title">Offline voice and glide models</string>
     <string name="grammar_module_title">Grammar checker</string>
+    <string name="spell_module_title">Hunspell spell checker</string>
     <string name="ocr_module_title">Offline text reader</string>
+    <!-- :feature:rime, librime behind the optional RIME engine for Chinese.
+         RIME is the engine's name and stays in Latin letters. -->
+    <string name="rime_module_title">RIME Chinese engine</string>
+    <!-- :feature:mozc, Google's Mozc behind the optional Mozc engine for
+         Japanese. Mozc is the engine's name and stays in Latin letters. -->
+    <string name="mozc_module_title">Mozc Japanese engine</string>
+    <string name="bergamot_module_title">Firefox Translations engine</string>
+    <string name="ct2_module_title">NLLB translation engine</string>
+    <string name="zinnia_module_title">Chinese and Japanese handwriting</string>
+    <!-- :feature:llama, llama.cpp behind GGUF models for on-device AI.
+         llama.cpp and GGUF stay in Latin letters. -->
+    <string name="llama_module_title">llama.cpp for GGUF models</string>
+    <!-- :feature:llamagpu, llama.cpp's build for Adreno GPUs (Compute = GPU
+         for GGUF models). llama.cpp, GGUF and Adreno stay in Latin letters. -->
+    <string name="llamagpu_module_title">llama.cpp for Adreno GPUs</string>
+    <!-- :feature:docscan, the built-in document scanner (OpenCV) used where
+         Google's scanner is missing. -->
+    <string name="docscan_module_title">Built-in document scanner</string>
+    <!-- :feature:zxing, the zxing-cpp barcode reader the QR scanner uses
+         where ML Kit's is missing or not picked. -->
+    <string name="zxing_module_title">QR and barcode reader</string>
+    <!-- :feature:imagegen, the sticker generator's runtime (MNN, and the NPU runner). -->
+    <string name="imagegen_module_title">Sticker generator</string>
+    <!-- The same for :feature:npu, the runtime behind Compute = NPU for
+         on-device AI. NPU stays in English. -->
+    <string name="npu_module_title">On-device AI on the NPU</string>
+    <string name="googlehome_module_title">Google Home</string>
     <!-- Shown in Settings › Notification access for the listener that the
          media-control tool and the one-time code chip share. It is the whole
          sentence the user reads before granting, so it names both features:
@@ -45,6 +75,9 @@
     <string name="passthrough_service_label">WM Keyboard gestures</string>
     <string name="passthrough_service_summary">Keeps WM Keyboard\'s gestures working with a screen reader</string>
     <string name="passthrough_service_description">This service keeps the keyboard gestures available while a screen reader runs. The gestures are the spacebar cursor slide, the backspace word swipe, glide typing and handwriting.\n\nThe service reads nothing. It receives no accessibility events. It cannot see the screen content. Its only action is to mark the keyboard window to pass touches straight through. Every touch outside the keyboard still goes to your screen reader as usual.</string>
+    <string name="screen_context_service_label">WM Keyboard AI screen reading</string>
+    <string name="screen_context_service_summary">Lets the floating button\'s Ask AI and Look up read the text on screen when you use them</string>
+    <string name="screen_context_service_description">When you press Ask AI on WM Keyboard\'s floating button, this service reads the text of the app on screen once and puts it in a new AI chat, where you see it before anything is sent. When you use Look up on the floating button and tap a word, it reads the text under your finger once and looks that word up in your dictionaries.\n\nIt reads nothing at any other time. It does not perform actions, does not watch what you type and keeps no copy. Text in password fields is skipped. Where the chat is sent depends on the AI provider you chose in WM Keyboard\'s settings, or it stays on the phone with an on-device model.</string>
     <!--
       Shown in the "open with" chooser for the keyboard's own files
       (.wmtheme.json, .wmlayout.json, .wmconfig.json, .wmstickers, …), so it
@@ -68,6 +101,10 @@
     <!-- Importing downloads fetched on another device (offline import) -->
     <string name="offline_import_row_title">Import from a file</string>
     <string name="offline_import_get_action">Get the files</string>
+    <string name="action_picker_search_hint">Search actions</string>
+    <string name="action_picker_search_empty">Nothing matches “%1$s”</string>
+    <string name="action_picker_group_show">Show this group</string>
+    <string name="action_picker_group_hide">Hide this group</string>
     <string name="offline_import_action">Import</string>
     <string name="offline_import_working_title">Importing…</string>
     <string name="offline_import_done_title">Imported</string>
@@ -87,6 +124,8 @@
     <string name="offline_import_word_pairs_done">Word pairs for %1$s</string>
     <string name="offline_import_emoji_done">Emoji names in %1$s, %2$s emoji</string>
     <string name="offline_import_cjk_done">Conversion dictionary: %1$s</string>
+    <!-- A zip of RIME schemas the user made or found; %1$s lists the schema ids it brought. -->
+    <string name="offline_import_rime_done">RIME schemas: %1$s. They are compiled the next time the RIME screen is open.</string>
     <string name="offline_import_whisper_ready">Voice model %1$s is ready</string>
     <!-- Whistle is the name of a voice model and is not translated. -->
     <string name="offline_import_whistle_ready">The Whistle voice model is ready</string>
@@ -94,10 +133,20 @@
     <string name="offline_import_whisper_vocab">Vocabulary file, for %1$s voice models</string>
     <string name="offline_import_ocr_done">Text recognition data for %1$s</string>
     <string name="offline_import_cutout_done">Background remover model</string>
+    <string name="offline_import_native_done">Feature library %1$s</string>
+    <!-- A feature library's download link. %1$s: library file names, %2$s: size. -->
+    <string name="offline_import_native_label">%1$s · %2$s</string>
+    <!-- A library inside a vendor's archive. %1$s: library names, %2$s: the .aar file, imported whole, %3$s: the libraries' size. -->
+    <string name="offline_import_native_archive_label">%1$s, inside %2$s (import the whole file) · %3$s</string>
+    <string name="offline_import_gesture_library_done">Google\'s gesture library. Pick it under Typing › Gestures › Glide engine to use it</string>
+    <string name="offline_import_language_pack_done">Interface language %1$s</string>
     <string name="offline_import_khipro_glide_done">Khipro spellings, for gliding on the Khipro layout</string>
+    <string name="offline_import_phonetic_index_done">Phonetic index for %1$s</string>
+    <string name="offline_import_dictionary_done">Offline dictionary %1$s, for the Dictionary tool</string>
     <string name="offline_import_avro_done">Desktop Avro\'s dictionary, for the Bangla candidate list</string>
     <string name="offline_import_mismatch">Not the file this app expects: its size or checksum differs from the one published.</string>
     <string name="offline_import_llm_done">AI model %1$s</string>
+    <string name="offline_import_yomichan_done">Dictionary %1$s, %2$s entries, for the Dictionary tool and Look up</string>
     <string name="offline_import_gif_done">GIF pack %1$s, %2$s GIFs</string>
     <string name="offline_import_gif_previews_only">%1$s holds only still previews, with no GIFs to send. The Discord community packs carry the animated ones.</string>
     <string name="offline_import_no_space">Not enough free space</string>
@@ -108,14 +157,16 @@
     <string name="offline_import_handwriting_waiting">Kept. Import the other files for this language to finish its handwriting model.</string>
     <string name="offline_import_handwriting_subtitle">A language\'s handwriting files fetched on another device, as .zip files</string>
     <string name="offline_import_handwriting_link_label">%1$s, file %2$d of %3$d</string>
-    <string name="offline_import_ocr_subtitle">Text recognition data fetched on another device, as .traineddata files</string>
+    <string name="offline_import_ocr_subtitle">Text recognition data fetched on another device: .traineddata files, or the three PaddleOCR files</string>
     <string name="offline_import_whisper_subtitle">A model\'s files fetched on another device: one .bin, or a .tflite with its filters_vocab .bin</string>
     <string name="offline_import_whisper_vocab_label">Vocabulary, %1$s</string>
     <string name="offline_import_language_pack_title">Language pack</string>
     <string name="offline_import_language_pack_subtitle">Word list, word pairs and emoji names in one file, to fetch anywhere and import here</string>
     <string name="offline_import_language_pack_label">%1$s language pack</string>
+    <string name="offline_import_language_packs_link">Interface languages: this version\'s release page, one lang-… .apk per language</string>
+    <string name="offline_import_natives_link">Feature libraries: Settings › Privacy › Feature libraries names the exact files</string>
     <string name="offline_import_storage_title">Import downloaded files</string>
-    <string name="offline_import_storage_subtitle">Language packs, voice and AI models, text recognition data and GIF packs, fetched on another device</string>
+    <string name="offline_import_storage_subtitle">Language packs, interface languages, feature libraries, voice and AI models, text recognition data and GIF packs, fetched on another device</string>
     <string name="offline_gifs_group">Offline GIF packs</string>
     <string name="offline_gifs_info">GIF packs kept on the phone and shown under Offline in the GIF panel. They need no internet and no API key. They are CleverKeys\' offline GIF packs: the Discord community packs carry animated GIFs, while the thumbnail packs hold only still previews and are not imported.</string>
     <plurals name="offline_gifs_pack_detail">
@@ -127,5 +178,7 @@
     <string name="offline_gifs_import_subtitle">Download a pack in your browser, then import the zip</string>
     <string name="offline_gifs_link_label">CleverKeys offline GIF packs</string>
     <string name="storage_gif_packs_title">GIF packs</string>
+    <string name="storage_yomichan_title">Imported dictionaries</string>
+    <string name="storage_yomichan_subtitle">Yomichan and Yomitan dictionaries you imported for the Dictionary tool and Look up</string>
     <string name="storage_gif_packs_subtitle">Offline GIF packs you imported for the GIF panel</string>
 </resources>

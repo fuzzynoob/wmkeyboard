@@ -114,13 +114,13 @@ class UnexpectedLayoutTest {
     }
 
     @Test
-    fun `a loc slot is skipped without a note and a lost swipe is named`() {
+    fun `a loc slot is skipped without a note and the backspace swipe is kept`() {
         val converted = converted(qwerty)
         assertNull(converted.key("q").flick[FlickDirection.DOWN_RIGHT])
-        // The delete key's own swipe is taken here, so ne="delete" is the one loss.
-        assertEquals(1, converted.notes.size)
-        assertEquals(R.plurals.core_lang_foreign_gestures_dropped, converted.notes.single().pluralsRes)
-        assertEquals(listOf<Any>(1), converted.notes.single().args)
+        // #769: backspace takes flick arms, so ne="delete" is forward delete on its flick, not a loss.
+        assertTrue(converted.notes.isEmpty())
+        val backspace = converted.keys().first { it.action == KeyAction.Delete }
+        assertEquals(KeyAction.ForwardDelete, backspace.flickActions[FlickDirection.UP_RIGHT]?.action)
     }
 
     @Test
@@ -245,9 +245,13 @@ class UnexpectedLayoutTest {
     }
 
     @Test
-    fun `a key with swipes and no tap takes its first swipe as the tap`() {
-        val key = single("""<key nw="esc" sw="config"/>""")
-        assertEquals(KeyAction.SendKey(111), key.action)
+    fun `a key with swipes and no tap is a swipe-only key`() {
+        val key = single("""<key nw="esc" ne="1" se="2"/>""")
+        assertEquals(KeyAction.Text, key.action)
+        assertEquals("", key.label)
+        assertTrue(key.isSwipeOnly())
+        assertEquals(mapOf(FlickDirection.UP_RIGHT to "1", FlickDirection.DOWN_RIGHT to "2"), key.flick)
+        assertEquals(KeyAction.SendKey(111), key.flickActions.getValue(FlickDirection.UP_LEFT).action)
     }
 
     // ---- the corpus ----

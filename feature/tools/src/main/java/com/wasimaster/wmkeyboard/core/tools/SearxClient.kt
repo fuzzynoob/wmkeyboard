@@ -42,8 +42,9 @@ object SearxClient {
         count: Int,
         safe: Boolean,
         source: NetSource = NetSource.WEB_SEARCH,
+        page: Int = 0,
     ): WebSearchPage {
-        val body = get(searchUrl(instance, query, categories = "general", safe = safe), source)
+        val body = get(searchUrl(instance, query, categories = "general", safe = safe, page = page), source)
         return WebSearchPage(parseWeb(body).take(count.coerceIn(1, 50)), parseAnswer(body))
     }
 
@@ -63,9 +64,9 @@ object SearxClient {
         }
     }
 
-    /** Blocking; call on an IO dispatcher. Throws on failure. */
-    fun imageSearch(query: String, instance: String, count: Int, safe: Boolean): List<ImageResult> =
-        parseImages(get(searchUrl(instance, query, categories = "images", safe = safe), NetSource.IMAGE_SEARCH))
+    /** Blocking; call on an IO dispatcher. Throws on failure. [page] counts from 0. */
+    fun imageSearch(query: String, instance: String, count: Int, safe: Boolean, page: Int = 0): List<ImageResult> =
+        parseImages(get(searchUrl(instance, query, categories = "images", safe = safe, page = page), NetSource.IMAGE_SEARCH))
             .take(count.coerceIn(1, 50))
 
     /**
@@ -76,16 +77,27 @@ object SearxClient {
      *
      * A 429 is the bot limiter public instances run, not a quota, so it gets
      * its own wording too.
+     *
+     * A web page where JSON was asked for is a check the request did not pass:
+     * the limiter's redirect to the home page, or a proxy's challenge page
+     * (Anubis and the like) in front of the instance. Parsing it would only
+     * surface a JSON error with the page's first bytes in it (#592).
      */
-    private fun get(url: String, source: NetSource): String = try {
-        ToolHttp.get(url, headers = requestHeaders(), source = source, route = NetLog.pathOf(url))
-    } catch (e: ToolHttpException) {
-        when (e.status) {
-            HTTP_FORBIDDEN -> throw ToolHttpException(R.string.ftools_search_error_json_disabled)
-            HTTP_TOO_MANY_REQUESTS -> throw ToolHttpException(R.string.ftools_search_error_searx_limited)
+    private fun get(url: String, source: NetSource): String {
+        val body = try {
+            ToolHttp.get(url, headers = requestHeaders(), source = source, route = NetLog.pathOf(url))
+        } catch (e: ToolHttpException) {
+            when (e.status) {
+                HTTP_FORBIDDEN -> throw ToolHttpException(R.string.ftools_search_error_json_disabled)
+                HTTP_TOO_MANY_REQUESTS -> throw ToolHttpException(R.string.ftools_search_error_searx_limited)
+            }
+            throw e
         }
-        throw e
+        if (isWebPage(body)) throw ToolHttpException(R.string.ftools_search_error_searx_web_page)
+        return body
     }
+
+    internal fun isWebPage(body: String): Boolean = body.trimStart().startsWith('<')
 
     /**
      * The headers a browser sends, which is what SearXNG's limiter (on by
@@ -94,6 +106,12 @@ object SearxClient {
      * no `Accept-Language` at all, whatever the rate, so `Accept:
      * application/json` alone was refused by every instance that runs it.
      * JSON still comes first; the format is asked for in the URL anyway.
+     *
+     * `Sec-Fetch-*` because [ToolHttp.USER_AGENT] reads as Chrome, and the
+     * limiter's `http_sec_fetch` check sends any Chrome 80+ that lacks them
+     * back to the home page with a 302, which HttpURLConnection follows into
+     * a 200 HTML page. These are the values Chrome sends for an address
+     * typed into its bar.
      * `Accept-Encoding` is left to HttpURLConnection, which offers gzip and
      * unpacks it only while the header is its own.
      */
@@ -107,6 +125,10 @@ object SearxClient {
         return mapOf(
             "Accept" to "application/json,text/html;q=0.9,*/*;q=0.8",
             "Accept-Language" to language,
+            "Sec-Fetch-Mode" to "navigate",
+            "Sec-Fetch-Site" to "none",
+            "Sec-Fetch-Dest" to "document",
+            "Sec-Fetch-User" to "?1",
         )
     }
 
@@ -114,13 +136,15 @@ object SearxClient {
      * SearXNG takes no result-count parameter — it answers with a page and the
      * caller keeps what it wants — so [webSearch] and [imageSearch] trim rather
      * than ask. `safesearch` is 0/1/2 for off/moderate/strict, and images get
-     * the strict end for the same reason the Brave path does.
+     * the strict end for the same reason the Brave path does. [page] is the
+     * instance's own page, which `pageno` counts from 1 (#879).
      */
     internal fun searchUrl(
         instance: String,
         query: String,
         categories: String,
         safe: Boolean,
+        page: Int = 0,
     ): String {
         val safesearch = when {
             !safe -> 0
@@ -133,6 +157,7 @@ object SearxClient {
             append("&format=json")
             append("&categories=$categories")
             append("&safesearch=$safesearch")
+            if (page > 0) append("&pageno=${page + 1}")
         }
     }
 

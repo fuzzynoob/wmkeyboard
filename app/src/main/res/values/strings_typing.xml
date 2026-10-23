@@ -41,7 +41,7 @@
     <!-- ==== Typing settings: automatic corrections ==== -->
     <string name="typing_autocorrect_title">Autocorrect</string>
     <string name="typing_autocorrect_subtitle">Fix typos automatically when you press space</string>
-    <string name="typing_autocorrect_info">When you press space, the keyboard compares the word you typed with the word list. If the word looks like a slip of a much more common word, the keyboard replaces it. The keyboard never corrects a word that you taught it. Autocorrect stays off in password fields.</string>
+    <string name="typing_autocorrect_info">When you press space, the keyboard compares the word you typed with the word list. If the word looks like a slip of a much more common word, the keyboard replaces it. The keyboard never corrects a word that you taught it. Autocorrect stays off in password fields. To turn it off for one language only, open that language in Languages &amp; layouts.</string>
 
     <string name="typing_autocorrect_confidence_title">Autocorrect confidence</string>
     <string name="typing_autocorrect_confidence_subtitle">How certain the keyboard must be before it corrects a word</string>
@@ -146,7 +146,7 @@
 
     <string name="typing_auto_space_punctuation_title">Automatic space after punctuation</string>
     <string name="typing_auto_space_punctuation_subtitle">The keyboard adds a space after you type . , ? ! ; or :</string>
-    <string name="typing_auto_space_punctuation_info">You do not need to press space at the end of a clause: \"hello,\" becomes \"hello, \" by itself. A group of marks (\"...\", \"?!\") stays together. A mark typed straight after a number gets no space, so \"5,000\", \"3.14\" and \"5:00\" stay whole. If you press space yourself, the keyboard does not add a second space. Shift immediately after the space removes it. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads. A space in these fields is a mistake.</string>
+    <string name="typing_auto_space_punctuation_info">You do not need to press space at the end of a clause: \"hello,\" becomes \"hello, \" by itself. A group of marks (\"...\", \"?!\") stays together. A mark typed straight after a number gets no space, so \"5,000\", \"3.14\" and \"5:00\" stay whole. A domain ending or file extension typed after a full stop closes back up, so \"google. com\" becomes \"google.com\". If you press space yourself, the keyboard does not add a second space. Shift immediately after the space removes it. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads. A space in these fields is a mistake.</string>
     <string name="typing_hug_punctuation_title">Remove a space before punctuation</string>
     <string name="typing_hug_punctuation_subtitle">\"Hey .\" becomes \"Hey.\" when you type the mark</string>
     <string name="typing_hug_punctuation_info">A space typed by mistake in front of a punctuation mark is removed when the mark lands. The mark must come after a word, a number or a closing bracket, so a mark at the start of a line is left alone. One backspace right after puts the space back. Languages that put a space in front of a mark on purpose, French among them, are handled by the setting below and are never hugged, whichever marks are listed here. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads.</string>
@@ -158,12 +158,15 @@
 
     <string name="typing_space_after_suggestion_title">Space after a suggestion</string>
     <string name="typing_space_after_suggestion_subtitle">Add a space when you select a word from the suggestion strip</string>
-    <string name="typing_space_after_suggestion_info">This setting is on by default. When you press a suggestion, the keyboard types the word and a space after it, so the next word starts clean. Turn it off to type the word without the space. This helps in the languages or fields where a space after a word is usually wrong. If you go back to a word and continue it, the keyboard never adds a second space.</string>
+    <string name="typing_space_after_suggestion_info">This setting is on by default. When you press a suggestion, the keyboard types the word and a space after it, so the next word starts clean. Turn it off to type the word without the space. This helps in the languages or fields where a space after a word is usually wrong. If you go back to a word and continue it, the keyboard never adds a second space. To turn it off for one language only, open that language in Languages &amp; layouts.</string>
 
     <string name="typing_wrap_selection_title">Wrap the selection with brackets</string>
     <string name="typing_wrap_selection_subtitle">Press either half of ( ) [ ] { } &lt; &gt; \" \' or ` to put the pair around the selected text</string>
     <string name="typing_wrap_selection_info">When you select text and press a bracket, a brace or a quote key, the keyboard puts the pair around the selection. It does not replace the selection. Either half of the pair works. Example: select \"foo\", press ( or ) and you get \"(foo)\". The wrapped text stays selected, so you can wrap it again. Turn this off to make these keys always replace the selection, like any other character.</string>
 
+    <string name="typing_continue_lists_title">Continue lists</string>
+    <string name="typing_continue_lists_subtitle">Enter after \"1. milk\" types \"2. \" on the next line, in any app</string>
+    <string name="typing_continue_lists_info">This setting is off by default. With it on, pressing Enter on a line that starts with a list marker starts the next line with the next one: - * + and • carry on as they are, 1. and 1) count up, and a task box such as - [x] or ☐ carries on as an empty box. The indentation in front of the marker is kept. Pressing Enter on an item with nothing after its marker ends the list: the marker is taken off and no new line is typed. A number has to be three digits or fewer, so a line that opens with a year is left alone. Only fields where Enter makes a new line take part; a chat box that sends on Enter sends as usual, and Shift+Enter there makes the list line. Passwords, email fields, web addresses and number pads are left alone.</string>
     <string name="typing_auto_close_brackets_title">Close brackets for me</string>
     <string name="typing_auto_close_brackets_subtitle">Press ( [ { and the keyboard types the closing half, with the cursor between them</string>
     <string name="typing_auto_close_brackets_info">This setting is off by default. With it on, pressing an opening bracket types the closing one behind the cursor and leaves the cursor between the two, so you type straight inside the pair: press ( and you get (), ready for what goes in it. Pressing the closing bracket when it is already the next character steps over it instead of typing a second one, and one backspace on an empty pair takes both halves out. The CJK brackets are included, and so are the fullwidth ones. Quotes are not: the apostrophe in \"don\'t\" shares that key, and closing it would be wrong more often than right. Nor is &lt;, which outside code is a less-than sign. Passwords, email fields and number pads are left alone; a browser\'s address bar is not.</string>
@@ -171,9 +174,12 @@
     <string name="typing_shift_recase_title">Shift changes the case of the selection</string>
     <string name="typing_shift_recase_subtitle">Shift with text selected steps through lowercase, Title Case and UPPERCASE</string>
     <string name="typing_shift_recase_info">When you select text and press shift, the keyboard changes the case of the selection. It does not arm shift for the next letter. Each press steps through lowercase, Title Case and UPPERCASE. Nothing changes for the scripts without case, such as Bengali. Turn this off to keep shift for the next character only, even while text is selected.</string>
-    <string name="typing_shift_recase_caret_title">Shift changes the case of the word at the cursor</string>
-    <string name="typing_shift_recase_caret_subtitle">With nothing selected, shift changes the word the cursor touches</string>
-    <string name="typing_shift_recase_caret_info">Put the cursor on a word or right after it and press shift. The word steps through lowercase, Title Case and UPPERCASE, and the cursor stays where it is. This works as on SwiftKey.\n\nWhile you type a word, shift is still for the next letter. When the cursor touches no word, shift works as usual.</string>
+    <string name="typing_shift_recase_caret_title">Shift changes the case of the word before the cursor</string>
+    <string name="typing_shift_recase_caret_subtitle">With nothing selected, shift changes the word that ends at the cursor</string>
+    <string name="typing_shift_recase_caret_info">Put the cursor right after a word and press shift. The word steps through lowercase, Title Case and UPPERCASE, and the cursor stays where it is. The shift key follows the word: Title Case puts shift on, and UPPERCASE is caps lock. This works as on SwiftKey.\n\nA word that only starts at the cursor does not change. While you type a word, shift is still for the next letter. When the cursor touches no word, shift works as usual.</string>
+    <string name="typing_shift_recase_inside_title">Shift changes the case of the word around the cursor</string>
+    <string name="typing_shift_recase_inside_subtitle">With nothing selected, shift changes the word the cursor is inside</string>
+    <string name="typing_shift_recase_inside_info">Put the cursor inside a word, as in \"cur|sor\", and press shift. The whole word steps through lowercase, Title Case and UPPERCASE, the same as for the word before the cursor.\n\nTurn this off to keep shift for a capital letter in the middle of a word.</string>
 
     <!-- ==== Typing settings: suggestions ==== -->
     <string name="typing_suggestions_title">Suggestions</string>
@@ -190,7 +196,7 @@
 
     <string name="typing_suggestions_first_title">Suggestion strip always visible</string>
     <string name="typing_suggestions_first_subtitle">Keep the suggestion strip visible before you type</string>
-    <string name="typing_suggestions_first_info">Usually the top bar shows the toolbar, and it changes to suggestions only while candidates exist. With this setting on, the top bar shows the suggestion strip at rest, so next word predictions are always visible. The arrow on its left opens the toolbar when you need a tool.</string>
+    <string name="typing_suggestions_first_info">Usually the top bar shows the toolbar, and it changes to suggestions only while candidates exist. With this setting on, the top bar shows the suggestion strip at rest, so next word predictions are always visible. The arrow on its left opens the toolbar when you need a tool. With it off, an empty field shows only the toolbar, and its first word predictions are skipped.</string>
 
     <string name="typing_primary_center_title">Best suggestion in the middle</string>
     <string name="typing_primary_center_subtitle">Show the best candidate in the middle slot</string>
@@ -244,6 +250,9 @@
     <string name="typing_number_prediction_title">Numbers from the letter keys</string>
     <string name="typing_number_prediction_subtitle">Type qwe with the number row off and the strip also offers 123</string>
     <string name="typing_number_prediction_info">With the number row off, the top row of letters shows a small digit in each corner. When every letter of the word you are typing sits on one of those keys, the strip offers the number those digits spell in its last slot, beside the words, and one press types it. The word itself is never replaced without a press. Two or more letters are needed, so a single I or a single A stays a word. A number of five digits or more is grouped with separators when Group long numbers is on, using its grouping style. Nothing is offered while the number row is shown, since the digits are then on their own keys. This setting is off by default.</string>
+    <string name="typing_recent_word_bar_title">Recent words</string>
+    <string name="typing_recent_word_bar_subtitle">Your last three words in a row above the strip, each with what else it could be, so you can fix one after you have typed past it</string>
+    <string name="typing_recent_word_bar_info">The three words you wrote last sit in a row above the suggestion strip, the newest on the right, each followed by what else it could have been: what the strip offered as you wrote it, the other readings of its swipe, and the spelling it had before you changed it from here. Tap one and only that word changes, where it stands; the word you are typing and the cursor stay put. Only words you wrote in the field join the row. It is left out of password fields and incognito, starts empty in every new field, and shows in web address bars. Under Rows &amp; bars you can move the row, put the words at the start of the strip instead, and keep the row\'s height while it is empty.</string>
     <string name="typing_skip_typed_word_info">The suggestion strip normally keeps one slot for the word exactly as you typed it, which is how you keep a spelling the dictionary does not know. Turn this on and that slot is given to another suggestion instead, so all three offer something new. The cost is that a word the keyboard does not recognise has one fewer way to survive a correction, and the strip no longer shows you which candidate is the literal thing you wrote.</string>
 
     <string name="typing_group_octopus_title">Words on the keys</string>
@@ -368,9 +377,17 @@
     <string name="typing_smart_gifs_title">GIFs for celebrations</string>
     <string name="typing_smart_gifs_subtitle">\"happy birthday\" offers a matching GIF search</string>
 
+    <string name="typing_smart_keep_text_title">Keep the text when a chip opens its tool</string>
+    <string name="typing_smart_keep_text_subtitle">The settings button on a chip leaves what you typed, such as 150 usd or calculator, in the text</string>
+    <string name="typing_smart_keep_text_info">The button at the end of a chip opens the tool with your numbers filled in. When this is off, the button also removes the text that the chip answered, because the tool types its own result in its place. When this is on, your text stays. Either way, if the tool typed nothing, the first backspace after you close the tool puts the removed text back.</string>
     <string name="typing_smart_contacts_title">Call or text a contact</string>
     <string name="typing_smart_contacts_subtitle">Type the name of a contact and the strip offers to call or text that person</string>
     <string name="typing_smart_contacts_info">Type the full name of a contact, in any case, or only the first name with a capital letter when no other contact has that first name. The strip then shows a chip with the name. Tap the name to open your phone app with the number filled in. Tap the message button to open your messages app. The keyboard never makes the call itself, and the name that you typed stays in the text. Each name is offered one time in each text field. This setting needs access to your contacts and is off by default.</string>
+    <string name="typing_smart_repeats_title">Repeated text</string>
+    <string name="typing_smart_repeats_subtitle">Type the same thing a few times in a row and the strip offers the Text repeat tool</string>
+    <string name="typing_smart_repeats_info">Type a word, a phrase or a line and then type it again, with a space, a comma or a new line between, or with nothing between, such as \"hahaha\". Once it is there the set number of times, a chip shows the text with a count that goes up as you keep typing it. Tap the chip and the Text repeat tool opens on that text, with the same separator and a larger count ready. The text you typed stays until you press Insert there, and the tool\'s own setting says whether Insert replaces those copies or adds to them. Each text is offered one time in each text field. A single stretched letter or a doubled emoji does not count, and the chip does not show in password fields.</string>
+    <string name="typing_smart_repeat_after_title">Chip after this many repeats</string>
+    <string name="typing_smart_repeat_after_subtitle">How many copies in a row before the chip shows</string>
     <string name="typing_smart_numbers_title">Group long numbers</string>
     <string name="typing_smart_numbers_subtitle">Type 1234567 and the strip offers it grouped. One press types the grouped number</string>
     <string name="typing_smart_numbers_info">A number of five digits or more, typed on its own, is offered back with separators. Numbers that start with a zero are left alone, and so is anything joined to a letter, a dash or a slash, because those are phone numbers, dates and codes rather than amounts.</string>
@@ -414,7 +431,7 @@
 
     <string name="typing_letter_swipe_action_title">What a swipe does</string>
     <string name="typing_letter_swipe_action_subtitle">Glide a word, or pick a different use for a swipe across the keys</string>
-    <string name="typing_letter_swipe_action_info">Type words: a swipe across the keys spells one word. This is glide typing.\n\nHandwrite: the keyboard reads a swipe across the keys as handwriting. Draw a letter or a word. After a short pause the keyboard recognises it and types it, and offers other readings in the suggestion strip. This needs a handwriting model (Settings → Handwriting). Only some editions have this option.\n\nSlide to a key: put your finger down and slide it to the key you want. The keyboard lights the key under your finger and types only that key when you lift. The keys you slide across type nothing. Use this when your finger often lands on the wrong key. Lift outside the keys to type nothing. A drag from a key with flick directions, from the space bar or from the delete key keeps its own action.\n\nWith every option, a plain press still types its key.</string>
+    <string name="typing_letter_swipe_action_info">Type words: a swipe across the keys spells one word. This is glide typing.\n\nHandwrite: the keyboard reads a swipe across the keys as handwriting. Draw a letter or a word. After a short pause the keyboard recognises it and types it, and offers other readings in the suggestion strip. This needs a handwriting model (Settings → Handwriting). The F-Droid build doesn\'t have this option.\n\nSlide to a key: put your finger down and slide it to the key you want. The keyboard lights the key under your finger and types only that key when you lift. The keys you slide across type nothing. Use this when your finger often lands on the wrong key. Lift outside the keys to type nothing. A drag from a key with flick directions, from the space bar or from the delete key keeps its own action.\n\nWith every option, a plain press still types its key.</string>
     <string name="typing_letter_swipe_type_words_label">Type words</string>
     <string name="typing_letter_swipe_handwrite_label">Handwrite</string>
     <string name="typing_letter_swipe_select_key_label">Slide to a key</string>
@@ -427,12 +444,29 @@
     <string name="typing_space_glide_multiword_subtitle">Swipe over the spacebar to continue with the next word</string>
     <string name="typing_two_thumb_title">Two-thumb typing</string>
     <string name="typing_two_thumb_subtitle">Tap and swipe with both thumbs at once to build one word</string>
-    <string name="typing_two_thumb_info">Use both thumbs together. Each thumb can tap or swipe, at the same time as the other, and every tap and swipe adds to the same word. For example, tap S with the left thumb, swipe O to M with the right, tap E with the left, then swipe T H I N G with the right, and you get "something". A tap that lands while the other thumb is still swiping goes into the word at that point, so a swipe over H E L O and a tap on L give "hello". Backspace removes the last tap or swipe from the word.</string>
+    <string name="typing_two_thumb_info">Use both thumbs together. Each thumb can tap or swipe, at the same time as the other, and every tap and swipe adds to the same word. For example, tap S with the left thumb, swipe O to M with the right, tap E with the left, then swipe T H I N G with the right, and you get "something". A tap that lands while the other thumb is still swiping goes into the word at that point, so a swipe over H E L O and a tap on L give "hello". Backspace removes the last tap or swipe from the word. Features that read one swipe as a whole word are off while this is on: the picker for a toss-up and its Hold to ask, gliding across the spacebar, and gliding over Shift for a capital.</string>
+    <string name="typing_off_with_two_thumb">Off while two-thumb typing is on</string>
     <string name="typing_two_thumb_word_end_title">Finish a two-thumb word</string>
     <string name="typing_two_thumb_word_end_subtitle">What types the word you are building</string>
-    <string name="typing_two_thumb_word_end_info">With space, the word stays open while you tap and swipe, and the keyboard reads it again after each one. Tap space or punctuation to type it. With all thumbs up, the word is typed with a space as soon as no thumb touches the keyboard, like ordinary glide, so your thumbs have to overlap to share a word.</string>
+    <string name="typing_two_thumb_word_end_info">With space, the word stays open while you tap and swipe, and the keyboard reads it again after each one. Tap space or punctuation to type it. With all thumbs up, the word is typed with a space once no thumb has touched the keyboard for a short pause, set below. A thumb that lands before the pause is over carries on the same word, so your thumbs can take turns. Tapped words end this way too.</string>
     <string name="typing_two_thumb_word_end_space_label">Space</string>
     <string name="typing_two_thumb_word_end_all_up_label">All thumbs up</string>
+    <string name="typing_two_thumb_pause_title">Pause after a swiped word</string>
+    <string name="typing_two_thumb_pause_subtitle">How long both thumbs stay up before a word with a swipe in it is typed</string>
+    <string name="typing_two_thumb_pause_info">With all thumbs up, a word is typed with its space only once no thumb has touched the keyboard for this long. A thumb that lands sooner adds to the same word, so your thumbs can take turns on one word without overlapping. This pause is for words with a swipe in them; words you only tap have their own below. Raise it if words end before you have finished them. Lower it if you wait too long for the space. The default is 350 ms.</string>
+    <string name="typing_two_thumb_tap_pause_title">Pause after a tapped word</string>
+    <string name="typing_two_thumb_tap_pause_subtitle">How long both thumbs stay up before a word you only tapped is typed</string>
+    <string name="typing_two_thumb_tap_pause_info">The same pause for words you only tap, so tapping T, lifting, and tapping O still gives "To". Taps leave longer gaps inside a word than swipes do, and stopping to think mid-word is normal when tapping, so you may want more time here than after a swipe. It starts at the swiped-word pause, 350 ms unless you changed that.</string>
+    <string name="typing_two_thumb_one_letter_pause_title">Pause after a one-letter word</string>
+    <string name="typing_two_thumb_one_letter_pause_subtitle">The least time a single letter waits before it is typed as a word</string>
+    <string name="typing_two_thumb_one_letter_pause_info">A single letter is far more often the start of a word than a word of its own, so it can wait longer than the pauses above. A word of one letter waits whichever is longer: this or its own pause. It starts at the shorter of the swiped-word and tapped-word pauses, 350 ms unless you changed them, which changes nothing until you raise it.</string>
+    <string name="typing_two_thumb_retract_title">Take the space back</string>
+    <string name="typing_two_thumb_retract_subtitle">How soon after the space a letter can still carry the word on</string>
+    <string name="typing_two_thumb_retract_info">If you stopped mid-word and the space came too early, carry straight on: a letter tapped or swiped within this time after the space takes it back and joins the word, as long as the two still lead to a word in the dictionary. Type car, let the space land, then pet, and you get "carpet". Type car, let the space land, then dog, and it stays "car dog". A letter after this time always starts a new word. It starts at twice the swiped-word pause, 700 ms unless you changed that. Slide it to the left end to turn it off.</string>
+    <string name="typing_two_thumb_retract_off">Off</string>
+    <string name="typing_two_thumb_pause_band_title">Show the pause on the strip</string>
+    <string name="typing_two_thumb_pause_band_subtitle">A line under the suggestions shrinks until the word is typed</string>
+    <string name="typing_two_thumb_pause_band_info">While your thumbs are up, a thin line along the bottom of the suggestion strip shrinks over the pause. When it is gone the word is typed with its space, and a thumb that lands before then takes the line away and carries on the word. With reduced motion on, the line stays whole until the pause is over.</string>
     <string name="typing_swipe_continues_typed_title">Swipe finishes typed letters</string>
     <string name="typing_swipe_continues_typed_subtitle">Typed letters and the swipe after them make one word</string>
     <string name="typing_swipe_continues_typed_info">Type the start of a word, then swipe the rest without a space. For example, type T O and swipe G E T H E R to get "together". When this setting is off, the typed letters are a word of their own and the swipe types the next word. Two-thumb typing always works this way.</string>
@@ -511,6 +545,37 @@
     <string name="typing_glide_steadiness_info">While your finger is down the keyboard re-reads the stroke many times a second, and early in a stroke there is very little to go on — two letters in, a great many words still fit. Shown as they come, the suggestions, the word above your finger and the words on the keys all change several times per glide, which is hard to read and pulls your eyes off the keyboard. This setting makes the word already on screen hold its place unless another word is clearly better, and gives it a moment to itself before anything can replace it. A word that stops fitting your stroke is still replaced at once. Lifting your finger types the word you can see, so a steadier preview never means typing something you were not shown. \"Light\" is the default.</string>
 
     <!-- One-of-three choice: whether a glide may finish a word for you. -->
+    <!-- Which decoder reads a glide. "FUTO Swipe" and "FUTO Model Weights License" are names: keep them as they are. -->
+    <string name="typing_glide_engine_title">Glide engine</string>
+    <string name="typing_glide_engine_subtitle">The keyboard\'s own decoder, for every language</string>
+    <string name="typing_glide_engine_ready">FUTO Swipe for English on QWERTY, the built-in decoder everywhere else</string>
+    <string name="typing_glide_engine_missing">The built-in decoder until the FUTO Swipe models are downloaded</string>
+    <string name="typing_glide_engine_downloading">Downloading the FUTO Swipe models: %1$s of %2$s</string>
+    <string name="typing_glide_engine_powered_by">Glide typing powered by FUTO Swipe</string>
+    <string name="typing_glide_engine_info">The built-in decoder reads a swipe by lining the word\'s keys up along your stroke, and works for every language and layout. FUTO Swipe is a pair of small neural networks trained on a million real English swipes: one reads the stroke, the other turns it into letters for a QWERTY keyboard, and the keyboard then picks the words out of your own word lists the same way it always does, your added words included. On 5,000 real swipes it put the right word first 96 times in 100, against 80 for the built-in decoder. It works only for English on a QWERTY layout; any other language or layout keeps the built-in decoder, and so does every swipe until the models are on the phone. The models are 3.9 MB and come from FUTO\'s Hugging Face page under the FUTO Model Weights License, which you accept when you pick it. They run on the phone: your swipes never leave it. FUTO Swipe also finishes long words early, reads a loop drawn on a key as a doubled letter, and uses the shapes learned from your own swipes. A pause or wiggle on a key does not mark a letter there, since the model reads your timing for itself. Google\'s gesture library is the closed-source glide engine of Google\'s own keyboard. This app never ships or downloads it: you import the file yourself (libjni_latinime.so, which GApps packages carry as libjni_latinimegoogle.so), and the keyboard loads it only when it is exactly one of the builds HeliBoard accepts, checked by its SHA-256. It reads your swipes against a dictionary the phone builds from your own word lists, in any language, and your swipes stay on the phone. It is closed code from someone else running inside the keyboard, so import it only from a source you trust. The Google Play version cannot load it.</string>
+    <string name="typing_glide_engine_licence_title">FUTO Swipe licence</string>
+    <string name="typing_glide_engine_licence_body">The FUTO Swipe models (%1$s) download from FUTO\'s Hugging Face page under the FUTO Model Weights License. It allows this use as long as the keyboard says it is powered by FUTO Swipe, which the glide settings and the About screen do, and it ends for anyone who claims in writing that the models infringe a patent. Accept to download them.</string>
+    <string name="typing_glide_engine_licence_accept">Accept and download</string>
+    <string name="typing_glide_engine_licence_view">Read licence</string>
+    <string name="typing_glide_library_engine_subtitle">Google\'s gesture library once it is imported and its dictionary is built, the built-in decoder until then</string>
+    <string name="typing_glide_library_title">Gesture library</string>
+    <string name="typing_glide_library_missing">Not imported. This phone takes the %1$s build of libjni_latinime.so</string>
+    <string name="typing_glide_library_imported">Imported. It loads the next time you swipe</string>
+    <string name="typing_glide_library_loaded">Loaded</string>
+    <string name="typing_glide_library_failed_changed">The file is no longer the build that was imported. Import it again</string>
+    <string name="typing_glide_library_failed_crashed">The keyboard closed while the gesture library was starting, so it is switched off. Try it again, or remove it</string>
+    <string name="typing_glide_library_failed_load">Android would not load the gesture library: %1$s</string>
+    <string name="typing_glide_library_import">Import</string>
+    <string name="typing_glide_library_replace">Replace</string>
+    <string name="typing_glide_library_retry">Try again</string>
+    <string name="typing_glide_library_result_installed">Imported. Swipe to start using it. If a gesture library was already in use, the new file takes over when the keyboard restarts</string>
+    <string name="typing_glide_library_result_other_abi">That is the %1$s build. This phone needs the %2$s build</string>
+    <string name="typing_glide_library_result_unknown">Not a build this keyboard knows. It loads only the exact libjni_latinime.so builds HeliBoard accepts, checked by their SHA-256</string>
+    <string name="typing_glide_library_result_error">Could not read the file: %1$s</string>
+    <string name="typing_glide_library_remove_title">Remove gesture library</string>
+    <string name="typing_glide_library_remove_subtitle">Deletes the file and the dictionaries built for it</string>
+    <string name="typing_glide_library_remove">Remove</string>
+    <string name="typing_glide_library_remove_confirm">Delete the imported gesture library and its dictionaries? A library already in use stays in memory until the keyboard restarts.</string>
     <string name="typing_glide_lookahead_title">Finish long words early</string>
     <string name="typing_glide_lookahead_subtitle">Offer a word before you have glided all of it</string>
     <string name="typing_glide_lookahead_info">A swipe is normally read from end to end: the keyboard matches the first letter to where you started and the last to where you stopped, so a long word cannot be offered until you have glided every letter of it. Tapping does not work that way — four letters into \"dictionary\" the word is already there. With this on, the keyboard may offer a word your stroke has only started, and lifting your finger types it. It only does so when that word is clearly a better answer than anything you have actually spelled, so it stays quiet on short words and on strokes that could be many things, and a word you have drawn in full keeps its place: \"thing\" glided to the g stays \"thing\", not \"things\". \"When sure\" is cautious; \"Eager\" offers a word as soon as it is ahead. Under \"Prefer my words\" and \"Only my words\" the early word is always one of your own, and the dictionary only reads a stroke you finish. Lifting on an early word is a choice, so the strip then offers that word\'s neighbours — its plural, possessive and the shorter word it ran past — instead of the stroke\'s other readings. Off by default. Not available on phonetic layouts such as Avro, where a stroke spells a romanization rather than the word itself.</string>
@@ -694,11 +759,11 @@
 
     <string name="typing_hint_flick_title">Swipe down to type the hint</string>
     <string name="typing_hint_flick_subtitle">A quick swipe down on a key types its small corner character</string>
-    <string name="typing_hint_flick_info">Each key shows its first press-and-hold character in the corner, such as 1 on q. A short, quick swipe straight down on the key types that character with no hold. This works on any key that has press-and-hold characters, on every layer. The spacebar, backspace and the shift and modifier keys keep their own swipes. The swipe must be short, straight down and fast. A longer or slower drag is a glide, as before. With glide typing on, a very fast glide of a short word that goes straight down, such as \"ed\", can type the hint instead. This setting is off by default.</string>
+    <string name="typing_hint_flick_info">Each key shows its first press-and-hold character in the corner, such as 1 on q. A short, quick swipe straight down on the key types that character with no hold. This works on any key that has press-and-hold characters, on every layer. The spacebar, backspace and the shift and modifier keys keep their own swipes. The swipe must be short, straight down and fast. A longer or slower drag is a glide, as before. A swipe that ends on another letter, such as \"ok\" from o to k, is a glided word, not a flick. This setting is off by default.</string>
 
     <string name="typing_capital_flick_title">Swipe up for a capital</string>
     <string name="typing_capital_flick_subtitle">A quick swipe up on a letter types it as a capital</string>
-    <string name="typing_capital_flick_info">A short, quick swipe straight up on a letter types its capital, with no need to press shift first. On a key that has its own shifted character, such as a number key with a symbol above it, the swipe types that character. The swipe must be short, straight up and fast, like the swipe down for the hint. A longer or slower drag is a glide, as before. If Words on the keys shows a word on the key, a swipe up still takes that word. With glide typing on, a very fast glide of a short word that goes straight up, such as \"de\", can type a capital instead. This setting is off by default.</string>
+    <string name="typing_capital_flick_info">A short, quick swipe straight up on a letter types its capital, with no need to press shift first. On a key that has its own shifted character, such as a number key with a symbol above it, the swipe types that character. The swipe must be short, straight up and fast, like the swipe down for the hint. A longer or slower drag is a glide, as before. If Words on the keys shows a word on the key, a swipe up still takes that word. A swipe that ends on another letter, such as \"de\" from d to e, is a glided word, not a flick. This setting is off by default.</string>
 
     <string name="typing_flick_hints_title">Show flick arms on keys</string>
     <string name="typing_flick_hints_subtitle">A key with flick characters shows them small at its edges and corners</string>
@@ -708,8 +773,17 @@
     <string name="typing_flick_popup_subtitle">Holding a flick key shows its characters in a cross, with the one under your finger lit</string>
     <string name="typing_flick_popup_info">While you hold a key that has flick directions, a popup over the key shows the centre character and all its flick characters in a 3×3 grid. The one your finger is moving towards is lit, so you can check before you lift. Turn this off if the keys already show their flick arms and you do not want a popup covering the keys around them. On by default.</string>
 
+    <string name="typing_swipe_only_tap_title">Tap a swipe-only key to see its swipes</string>
+    <string name="typing_swipe_only_tap_subtitle">A key with flick characters and no centre shows them for a moment when tapped</string>
+    <string name="typing_swipe_only_tap_info">A key can have flick characters and nothing in the middle: leave its label empty in the layout editor, or import an Unexpected Keyboard layout with keys like that. Only the swipes type anything. Off, the default, a tap on such a key does nothing. On, the tap brings up the key\'s flick popup for a moment so you can see what each swipe types, even if Flick popup is turned off.</string>
     <string name="typing_flick_distance_title">Flick distance</string>
     <string name="typing_flick_distance_subtitle">How far your finger moves before a press on a flick key becomes a flick</string>
+    <string name="typing_flick_reach_title">Flick reach</string>
+    <string name="typing_flick_reach_subtitle">How far a swipe from a flick key can go and still be a flick, before glide typing takes it</string>
+    <string name="typing_flick_reach_info" formatted="false">With glide typing on, a swipe that starts on a letter with flick characters stays a flick until it travels this far from where your finger landed, measured against the key\'s diagonal. Past that, the swipe is a glided word. A swipe that turns, or that reaches another letter in a direction no flick character points, becomes a word sooner. Lower the reach if long glides from those keys start late; raise it if a long flick turns into a word. The default is 141%.</string>
+    <string name="typing_flick_onto_letter_title">A flick onto a letter glides a word</string>
+    <string name="typing_flick_onto_letter_subtitle">A short swipe that ends on the next letter types a word, even where a flick character points that way</string>
+    <string name="typing_flick_onto_letter_info">With glide typing on, a short straight swipe from one letter onto its neighbour can mean two things when the first key has a flick character pointing that way: the flick character, or a two-letter word. Off, the default, the flick character wins, so a flick that overshoots still types what it points at. On, lifting inside another letter types the word instead, and a flick has to stop short of the next key. A swipe in a direction with no flick character is a word either way.</string>
     <string name="typing_flick_distance_info">A press on a flick key is a tap until your finger has moved this far. Lower the distance for a quick, short flick on a small key. Raise it if a tap that drifts a little flicks when you did not mean it to. The default is 22 dp, which the Japanese flick pad has always used. A swipe out to a flick character and more than halfway back again types that character\'s capital.</string>
 
     <string name="typing_space_hold_keys_label">Spacebar long press keys</string>
@@ -738,6 +812,9 @@
     <string name="typing_space_hold_picker_long_ring_info">With four layouts or fewer, holding the spacebar shows the sideways preview above it, and a drag steps through your layouts. Past four, the hold opens the picker instead, as a list or a carousel. Turn this off to keep the sideways preview however many layouts are on. It shows five at a time and slides along as you drag, so every layout is still in reach. The 🌐 key\'s long press still opens the picker. If the quick swipe is not set to Language, the hold opens the picker at any length.</string>
 
     <string name="typing_spacebar_text_label">Spacebar text</string>
+    <string name="typing_spacebar_live_wpm_title">Typing speed on the spacebar</string>
+    <string name="typing_spacebar_live_wpm_subtitle">Show your words per minute while you type</string>
+    <string name="typing_spacebar_live_wpm_info">The spacebar shows how fast you typed your last few words, next to its label. The number changes each time a word goes in, and typed, picked, glided and two-thumb words all count. After a pause of 5 seconds the spacebar shows only its label again. The keyboard keeps no record of this number. It works when Statistics is off and in incognito mode.</string>
     <!-- %1$s is the literal token %s, which the user types into the field. Keep it as it is. -->
     <string name="typing_spacebar_text_hint">Leave this blank to keep the normal spacebar label. Type <xliff:g id="token" example="%s">%1$s</xliff:g> to put that label in your text. Example: ~ <xliff:g id="token" example="%s">%1$s</xliff:g> ~</string>
 
@@ -836,7 +913,18 @@
     <string name="typing_hw_suggestion_hotkeys_leader_desc">The safe choice. Nothing else uses the shortcut key</string>
     <string name="typing_hw_suggestion_hotkeys_alt_desc">One key less, but many apps use Alt with a number for their tabs</string>
     <!-- The two quoted names are the choice labels of this same setting. -->
-    <string name="typing_hw_suggestion_hotkeys_info">You cannot press the suggestion strip while you type on a physical keyboard. A number key selects a suggestion instead.\n\n\"After the shortcut key\" is the safe choice, because nothing else uses it. \"Alt + number\" needs one key less, but browsers, editors and chat apps use a modifier with a number to switch tabs and workspaces.</string>
+    <string name="typing_hw_suggestion_hotkeys_info">You cannot press the suggestion strip while you type on a physical keyboard. A number key selects a suggestion instead.\n\n\"After the shortcut key\" is the safe choice, because nothing else uses it. \"Alt + number\" needs one key less, but browsers, editors and chat apps use a modifier with a number to switch tabs and workspaces.\n\nFor no extra key at all, set a pick mode key below. While pick mode is on, the number keys select suggestions on their own, Shift with a number types the number, and Shift+Alt with a number types the symbol on that key.</string>
+
+    <!-- Issue #701. "Pick mode" is a mode the user turns on with a key of their choice; while it is on, the number keys select suggestions. -->
+    <string name="typing_hw_pick_mode_key_title">Pick mode key</string>
+    <string name="typing_hw_pick_mode_key_subtitle">A key that makes the number keys select suggestions until you press it again</string>
+    <string name="typing_hw_pick_mode_key_capture_body">Or press a key on the attached keyboard. A key with Ctrl, Alt, Shift or Meta works, and so do F1 to F12 and Insert on their own.</string>
+    <!-- %1$s is a key combination, such as Ctrl+K. -->
+    <string name="typing_hw_pick_mode_key_leader_error">%1$s already opens the tools. Choose another key.</string>
+    <string name="typing_hw_pick_mode_key_clear_action">No key</string>
+    <string name="typing_hw_function_keys_title">F-keys press the toolbar</string>
+    <string name="typing_hw_function_keys_subtitle">F1 opens all tools and F2 to F10 press the toolbar buttons</string>
+    <string name="typing_hw_function_keys_info">F1 to F10 work like Ctrl+1 to Ctrl+0: F1 opens all tools, and F2 presses the first button on the toolbar. While this works, the toolbar shows F1, F2 and so on under its buttons when you press the shortcut key.\n\n\"In pick mode\" leaves the F-keys to the app until you turn pick mode on. \"Always\" takes them all the time, which gets in the way of terminals and code editors that use them.</string>
 
     <string name="typing_hw_auto_show_title">Show the keyboard for shortcuts</string>
     <string name="typing_hw_auto_show_subtitle">A shortcut that opens a tool also shows the keyboard</string>
@@ -871,6 +959,9 @@
 
     <string name="typing_suggestion_scroll_title">Scroll the suggestions</string>
     <string name="typing_suggestion_scroll_subtitle">Show each word at full size, and every word found, in a strip that scrolls sideways</string>
+    <string name="typing_suggestion_more_arrow_title">More suggestions arrow</string>
+    <string name="typing_suggestion_more_arrow_subtitle">An arrow at the end of the strip that opens every word found</string>
+    <string name="typing_suggestion_more_arrow_info">When the strip scrolls and the keyboard found more words than fit, an arrow at its right end opens all of them in a grid. Turn this off to give that space back to the words. A swipe down on the strip still opens the same grid. This setting is on by default.</string>
     <string name="typing_suggestion_scroll_info">Normally the strip splits its width evenly and shrinks long words to fit their slot. With this on, every word keeps its natural size and the strip scrolls sideways instead. The strip also carries on past the number of suggestions, through every word the keyboard found, so the one you want is a swipe away even when it ranked fourth or tenth. Short words still fill the visible part as before. Turn it on if you want five or six suggestions on a narrow phone, or if your word is often not among the first few. This setting is off by default.</string>
 
     <string name="typing_double_space_title">Double space</string>
@@ -998,7 +1089,16 @@
     </plurals>
     <string name="typing_mistype_tolerance_title">Mistype tolerance</string>
     <string name="typing_mistype_tolerance_subtitle">How far into a neighbouring key a tap may land and still count as a slip</string>
-    <string name="typing_mistype_tolerance_info">Every tap is read against where it landed, not only against the key it hit, so a tap near the edge of a key can still be read as the key next to it. This sets how generous that reading is. Above 100%, a tap well inside a neighbouring key is still a likely slip, which suits fast or hectic typing and big fingers. Below 100%, the key you hit is trusted more, which suits careful typing. It changes which words the strip offers and what autocorrect picks. The default is 100%.</string>
+    <string name="typing_mistype_tolerance_info" formatted="false">Every tap is read against where it landed, not only against the key it hit, so a tap near the edge of a key can still be read as the key next to it. This sets how generous that reading is. Above 100%, a tap well inside a neighbouring key is still a likely slip, which suits fast or hectic typing and big fingers. Below 100%, the key you hit is trusted more, which suits careful typing. It changes which words the strip offers and what autocorrect picks. The default is 100%.</string>
+    <string name="typing_fix_several_slips_title">Fix several missed keys</string>
+    <string name="typing_fix_several_slips_subtitle">Correct a word even when more than one tap landed a little off its key</string>
+    <string name="typing_fix_several_slips_info">Every tap is read against where it landed, so a tap near the edge of a key can count as the key next door. This reads every letter of a word that way at once, so a word typed quickly with three or four keys a little wide still comes out right. Careful only suggests a fix that also needs a letter added or removed, because that mix is what most often turns a correctly typed new word, name or slang into some other word. Eager applies those fixes too, which suits a dictionary that already holds every word you type. A word the keyboard knows is never changed, and one you keep typing is learned after a few uses.</string>
+    <string name="typing_fix_several_slips_off">Off</string>
+    <string name="typing_fix_several_slips_off_desc">Each tap that hit the key next door counts as one mistake, and autocorrect fixes one per word</string>
+    <string name="typing_fix_several_slips_careful">Careful</string>
+    <string name="typing_fix_several_slips_careful_desc">Fixes words with several keys a little off. A fix that also needs a letter added or removed is only suggested</string>
+    <string name="typing_fix_several_slips_eager">Eager</string>
+    <string name="typing_fix_several_slips_eager_desc">Also fixes words with keys a little off and a letter missing or extra. Best when your dictionary holds every word you type</string>
     <string name="typing_adapt_taps_title">Learn where my taps land</string>
     <string name="typing_adapt_taps_subtitle">Words you keep teach the keyboard how you miss each key when tapping</string>
     <string name="typing_adapt_taps_info">Nobody taps the exact middle of every key. With this on, every word you type and leave standing records where your finger landed on each letter, and later taps are read against keys moved to match. A slip toward a neighbouring key is then corrected the way you actually make it. Swipes have their own version of this under Glide typing. Turn it off to freeze what has been learned, or use Forget below to start over.</string>
@@ -1024,4 +1124,15 @@
     <string name="typing_finger_swipe_broadcast_title">Broadcast action</string>
     <string name="typing_finger_swipes_reset_title">Reset swipe actions</string>
     <string name="typing_finger_swipes_reset_subtitle">Put every multi-finger swipe back to its default</string>
+    <string name="typing_group_symbol_chords_title">Chords with ?123</string>
+    <string name="typing_symbol_chords_title">Chords with ?123</string>
+    <string name="typing_symbol_chords_subtitle">Hold ?123 still and tap a key to run an action</string>
+    <string name="typing_symbol_chords_info">Hold ?123 still with one finger and tap a key with another. Instead of typing that key, the keyboard runs the action you chose for it, and letting go of ?123 leaves you on the letters. Out of the box, ?123 and L switches to your next language. Hold ?123 a moment and each key with a chord shows it on its face. A key with no chord types as usual, and a drag off ?123 still shows the symbols. The chord needs ?123 held first: rolling off ?123 straight onto the next key is too quick to count. It works with two-thumb typing, where a held key never becomes part of a swipe.</string>
+    <string name="typing_symbol_chord_row_title">\?123 + %1$s</string>
+    <string name="typing_symbol_chord_add_title">Add a chord</string>
+    <string name="typing_symbol_chord_add_subtitle">Pick a key, then what it does</string>
+    <string name="typing_symbol_chord_key_title">Key to tap</string>
+    <string name="typing_symbol_chord_key_hint">The one character the key types</string>
+    <string name="typing_symbol_chords_reset_title">Reset chords</string>
+    <string name="typing_symbol_chords_reset_subtitle">Put the chords back to the default</string>
 </resources>

@@ -26,6 +26,10 @@
     <!-- Title of the colour picker dialog. %1$s is the name of the tool, for example "Clipboard". -->
     <!-- Heading of the options group. Many tools use this one heading. -->
     <string name="tooldetail_options_group">Options</string>
+    <!-- Heading of the fold that holds a screen's less used settings. Many screens use this one heading. -->
+    <string name="tooldetail_advanced_group">Advanced</string>
+    <!-- Heading of the fold at the end of every tool's page: show in toolbox, icon colour, press and hold. -->
+    <string name="tooldetail_toolbar_group">Toolbar and toolbox</string>
 
     <!-- Rows that send the user to a bigger settings screen. -->
     <string name="tooldetail_layout_nav_title">All layout and size settings</string>
@@ -122,7 +126,43 @@
     <string name="tooldetail_calendar_hijri_subtitle">Move the computed Hijri date to match the local moon sighting</string>
     <string name="tooldetail_calendar_hijri_info">The tool uses the arithmetic (tabular) Hijri calendar. Real Islamic months start at the sighting of the crescent moon. That can differ from the tables by one or two days. Set the offset that matches your local authority.</string>
     <string name="tooldetail_calendar_info">Select any two calendars to show next to the Gregorian one. The keyboard computes Chinese dates from astronomy. The Hebrew, Persian, Hindu (Saka), Buddhist and Japanese calendars are exact arithmetic. Hijri is the tabular calendar, so it has the day offset above.\n\nAll three start from the region of your device: the Bengali calendar in Bangladesh, era years in Japan, a Friday and Saturday weekend across much of the Middle East. That is only a guess at what you want. You can change all of it here.</string>
-    <string name="tooldetail_calendar_events_info">Press a day to see its events from the calendar of your device. The keyboard asks for calendar access the first time that you open the tool. It only reads events and never changes them.</string>
+    <string name="tooldetail_calendar_events_info">Press a day to see its events from the calendar of your device, and press an event to change it, delete it or type it into your text. The keyboard asks to read your calendar the first time that you open the tool, and to write to it the first time that you save an event.</string>
+    <string name="tooldetail_calendar_new_group">New events</string>
+    <string name="tooldetail_calendar_save_mode_title">Save events</string>
+    <string name="tooldetail_calendar_save_mode_subtitle">Where Save puts a new event</string>
+    <string name="tooldetail_calendar_save_mode_info">In the keyboard writes the event straight into your calendar, and asks for calendar access the first time. In the calendar app opens your calendar app\'s own editor with the event filled in, and you save it there. Changing and deleting events always happens in the keyboard.</string>
+    <string name="tooldetail_calendar_save_keyboard_label">In the keyboard</string>
+    <string name="tooldetail_calendar_save_app_label">In the calendar app</string>
+    <string name="tooldetail_calendar_default_calendar_title">Default calendar</string>
+    <string name="tooldetail_calendar_default_calendar_subtitle">The calendar a new event starts in</string>
+    <string name="tooldetail_calendar_default_calendar_primary">Primary calendar</string>
+    <string name="tooldetail_calendar_default_calendar_no_access">Allow calendar access to choose one</string>
+    <string name="tooldetail_calendar_default_length_title">Event length</string>
+    <string name="tooldetail_calendar_default_length_subtitle">How long a new event runs</string>
+    <string name="tooldetail_calendar_default_reminder_title">Reminder</string>
+    <string name="tooldetail_calendar_default_reminder_subtitle">The reminder a new event starts with</string>
+    <string name="tooldetail_calendar_reminder_none">None</string>
+    <string name="tooldetail_calendar_reminder_at_start">At the start</string>
+    <plurals name="tooldetail_calendar_minutes_before">
+        <item quantity="one">%d minute before</item>
+        <item quantity="other">%d minutes before</item>
+    </plurals>
+    <plurals name="tooldetail_calendar_hours_before">
+        <item quantity="one">%d hour before</item>
+        <item quantity="other">%d hours before</item>
+    </plurals>
+    <plurals name="tooldetail_calendar_days_before">
+        <item quantity="one">%d day before</item>
+        <item quantity="other">%d days before</item>
+    </plurals>
+    <plurals name="tooldetail_calendar_length_minutes">
+        <item quantity="one">%d minute</item>
+        <item quantity="other">%d minutes</item>
+    </plurals>
+    <plurals name="tooldetail_calendar_length_hours">
+        <item quantity="one">%d hour</item>
+        <item quantity="other">%d hours</item>
+    </plurals>
 
     <!-- Camera tool. -->
     <string name="tooldetail_camera_front_title">Start with the selfie camera</string>
@@ -171,10 +211,42 @@
     <!-- Dictionary tool. -->
     <string name="tooldetail_dictionary_auto_title">Look up the word at the cursor</string>
     <string name="tooldetail_dictionary_auto_subtitle">The tool searches the selected word or the current word when it opens</string>
+    <string name="tooldetail_dictionary_translations_group">Translations</string>
+    <string name="tooldetail_dictionary_translations_info">Translations come from Wiktionary. When the word was found in Wiktionary, its translations come on the same page, so nothing more is sent. When another source found the word, the tool asks Wiktionary for the translations as well, but only if Wiktionary is on in the dictionary sources.</string>
+    <string name="tooldetail_dictionary_translations_title">Show translations</string>
+    <string name="tooldetail_dictionary_translations_subtitle">Show the word in other languages under its definitions. Tap a translation to type it</string>
+    <string name="tooldetail_dictionary_translation_langs_title">Translate into</string>
+    <string name="tooldetail_dictionary_translation_langs_none_subtitle">Your keyboard languages. Add a language other than English, or pick some here</string>
+    <string name="tooldetail_dictionary_translation_langs_dialog_body">The tool shows the translations that Wiktionary has for these languages, in this order. Pick none to follow your keyboard languages.</string>
     <string name="tooldetail_dictionary_info">Definitions come from the sources below, in their order. The keyboard sends the word that you look up to an online source only when you use the tool.</string>
     <string name="tooldetail_dictionary_sources_title">Dictionary sources</string>
     <string name="tooldetail_dictionary_sources_subtitle">Where the tool looks for definitions, in order</string>
     <string name="tooldetail_dictionary_sources_info">The tool asks the first source that is on. When that source does not know the word, or cannot be reached, the tool asks the next one. Drag a source to change the order, and turn off a source to never ask it. Online sources receive only the word you look up.</string>
+    <string name="tooldetail_dictionary_packs_title">Vocabulary packs</string>
+    <string name="tooldetail_dictionary_offline_group">Offline dictionaries</string>
+    <string name="tooldetail_dictionary_imported_group">Imported dictionaries</string>
+    <string name="tooldetail_dictionary_imported_info">Yomichan and Yomitan dictionaries, in any language: Japanese with readings and pitch accent (JMdict, Jitendex), Chinese, Korean, and the Wiktionary dictionaries for many other languages. Import the dictionary\'s zip file. Inflected Japanese words find their dictionary form. The source list above asks them as one source, Imported dictionaries; inside it they answer in this order.</string>
+    <plurals name="tooldetail_dictionary_imported_entries">
+        <item quantity="one">%1$s entry</item>
+        <item quantity="other">%1$s entries</item>
+    </plurals>
+    <string name="tooldetail_dictionary_imported_up_desc">Move %1$s up</string>
+    <string name="tooldetail_dictionary_imported_down_desc">Move %1$s down</string>
+    <string name="tooldetail_dictionary_imported_import_title">Import a dictionary</string>
+    <string name="tooldetail_dictionary_imported_import_subtitle">A Yomichan or Yomitan dictionary zip. A large one takes some minutes.</string>
+    <string name="tooldetail_dictionary_imported_link">Yomitan dictionaries</string>
+    <string name="tooldetail_dictionary_offline_info">Whole English dictionaries kept on the phone, so the Dictionary tool can define ordinary words with no connection, and in the build without internet access. The vocabulary packs know only their own lists\' words. Once one is here, the source list above asks it wherever you put it; by default after the online sources, so it answers when they cannot be reached. Wiktionary, offline, is Wiktionary\'s common words with pronunciation (CC BY-SA 4.0). Open English WordNet has every single English word in WordNet, with shorter definitions (CC BY 4.0).</string>
+    <string name="tooldetail_dictionary_offline_available">%1$s download, %2$s</string>
+    <string name="tooldetail_dictionary_offline_installed">On this device, %1$s, %2$s</string>
+    <string name="tooldetail_dictionary_offline_downloading">Downloading, %1$s of %2$s</string>
+    <string name="tooldetail_dictionary_offline_queued">Waiting for the other download</string>
+    <string name="tooldetail_dictionary_offline_failed_not_a_pack">The file downloaded is not this dictionary. Try again later.</string>
+    <string name="tooldetail_dictionary_offline_failed_http">The server refused the download (HTTP %1$s). Try again later.</string>
+    <string name="tooldetail_dictionary_offline_download_desc">Download %1$s</string>
+    <string name="tooldetail_dictionary_offline_delete_desc">Delete %1$s</string>
+    <string name="tooldetail_dictionary_offline_import_title">Import a dictionary</string>
+    <string name="tooldetail_dictionary_offline_import_subtitle">A .wmdict.gz file fetched on another device or in a browser</string>
+    <string name="tooldetail_dictionary_packs_subtitle">The packs the Vocabulary packs source reads, offline. They know only the words of their own lists, so most words need an online source</string>
 
     <!-- Text editing tool. -->
     <string name="tooldetail_text_edit_repeat_title">Key repeat interval</string>
@@ -205,9 +277,11 @@
     <string name="tooldetail_word_steps_spaces">At spaces</string>
     <string name="tooldetail_word_steps_spaces_desc">The cursor stops only at spaces. An address is one word.</string>
     <string name="tooldetail_word_steps_punctuation">At spaces and punctuation</string>
-    <string name="tooldetail_word_steps_punctuation_desc">The cursor also stops at a dot, a slash or another mark, so it can stop at \"wmkeyboard.|\".</string>
+    <string name="tooldetail_word_steps_punctuation_desc">The cursor also stops at a dot, a slash, an underscore or another mark, so it can stop at \"wmkeyboard.|\".</string>
     <string name="tooldetail_word_steps_capitals_title">Stop at capitals</string>
     <string name="tooldetail_word_steps_capitals_subtitle">\"GrapheneOS\" is two words: \"Graphene\" and \"OS\"</string>
+    <string name="tooldetail_word_steps_digits_title">Stop at numbers</string>
+    <string name="tooldetail_word_steps_digits_subtitle">\"word1\" is two words: \"word\" and \"1\"</string>
     <string name="tooldetail_select_mode_info">While selection mode is on, every cursor move selects text: the cursor tools, the text editing panel, the spacebar cursor swipe and the volume keys. Turn it off to keep what you selected and stop selecting more.</string>
 
     <!-- Trackpad tool on the toolbar (issue #39). -->
@@ -355,6 +429,9 @@
     <string name="tooldetail_handwriting_stylus_info">This helps to reject the palm while you write with a stylus. Even with this setting off, the keyboard ignores finger touches for a short time after stylus strokes, so a resting palm does not draw.</string>
     <string name="tooldetail_handwriting_auto_space_title">Automatic space</string>
     <string name="tooldetail_handwriting_auto_space_subtitle">Put a space between words that you write one after another</string>
+    <string name="tooldetail_handwriting_zinnia_title">Offline recogniser for Chinese and Japanese</string>
+    <string name="tooldetail_handwriting_zinnia_subtitle">Read Chinese and Japanese with zinnia instead of Google ML Kit</string>
+    <string name="tooldetail_handwriting_zinnia_info">zinnia is a small open-source recogniser with models from the Tegaki project. It reads one character at a time and is less accurate than ML Kit, but needs nothing from Google. Builds without ML Kit, such as the F-Droid one, always use it. Simplified or Traditional Chinese follows the Traditional characters switch in Chinese settings.</string>
     <string name="tooldetail_handwriting_pause_title">Recognition pause</string>
     <string name="tooldetail_handwriting_pause_subtitle">How long after the last stroke the keyboard waits before it recognizes the word</string>
     <string name="tooldetail_handwriting_pause_info">A shorter pause feels faster, but it can cut multi-stroke letters and Bengali conjuncts in half. A longer pause gives you more time between strokes. Gboard uses about half a second.</string>
@@ -366,7 +443,7 @@
     <string name="tooldetail_handwriting_full_screen_automatic_label">Stylus</string>
     <string name="tooldetail_handwriting_full_screen_automatic_desc">A stylus writes and a finger keeps using the app. Start each run of writing over a text field. Needs Android\'s own setting for writing in text fields with a stylus</string>
     <string name="tooldetail_handwriting_models_header">Recognition models</string>
-    <string name="tooldetail_handwriting_models_info">One model for each language that you type in. Recognition runs fully on your device with Google ML Kit. Each language needs a one-time download, and its size is shown on its own row — they range from about 8 MB to about 26 MB. After that, handwriting works offline.</string>
+    <string name="tooldetail_handwriting_models_info">One model for each language that you type in. Recognition runs fully on your device, with Google ML Kit or, for Chinese and Japanese, zinnia. Each language needs a one-time download, and its size is shown on its own row — they range from about 8 MB to about 52 MB. After that, handwriting works offline.</string>
     <string name="tooldetail_handwriting_languages_title">Languages and layouts</string>
     <string name="tooldetail_handwriting_languages_subtitle">Add a language to get its handwriting model here</string>
 
@@ -392,11 +469,22 @@
     <string name="tooldetail_translate_models_group">Languages on the device</string>
     <string name="tooldetail_translate_models_info">Each language is one download. A translation needs the models of the two languages, and goes through English when neither of them is English. The list starts with the language you translate into and the languages you type in.</string>
     <string name="tooldetail_translate_models_more_group">More languages</string>
-    <string name="tooldetail_translate_module_missing_info">On-device translation is an extra part of the keyboard that comes from Google Play. Download it, then select the languages.</string>
-    <string name="tooldetail_translate_module_installing_info">Google Play is downloading the on-device translation part…</string>
-    <string name="tooldetail_translate_module_installing_sized_info">Google Play is downloading the on-device translation part: <xliff:g id="done" example="4.1 MB">%1$s</xliff:g> of <xliff:g id="total" example="9 MB">%2$s</xliff:g></string>
-    <string name="tooldetail_translate_module_failed_info">Google Play did not deliver the download. Check the connection and that the Play Store works, then try again.</string>
-    <string name="tooldetail_translate_module_metered_body">The on-device translation part comes from Google Play.</string>
+    <string name="tooldetail_translate_bergamot_group">Firefox Translations models</string>
+    <string name="tooldetail_translate_bergamot_info">Mozilla\'s models for the Bergamot engine, the same ones Firefox translates with. Each direction is its own download: French → English reads French, English → French writes it. A translation between two languages that are not English goes through English and needs both directions. The engine itself is a separate download of a few megabytes on builds that do not carry it. Needs a 64-bit phone with Android 9 or later.</string>
+    <string name="tooldetail_translate_bergamot_more_group">More directions</string>
+    <string name="tooldetail_translate_bergamot_engine">Firefox Translations engine</string>
+    <string name="tooldetail_translate_nllb_group">NLLB-200 model</string>
+    <string name="tooldetail_translate_nllb_info">Meta\'s NLLB-200, one model for 200 languages that translates between any two of them. It is the on-device engine for the pairs Firefox Translations and ML Kit have no model for. One download of 630 MB, plus its CTranslate2 engine of a few megabytes on builds that do not carry it. While Translate is open it takes about 1 GB of memory, and a sentence takes a few seconds. Needs a 64-bit phone with 6 GB of memory or more.</string>
+    <string name="tooldetail_translate_nllb_model">NLLB-200 (200 languages)</string>
+    <string name="tooldetail_translate_nllb_licence_title">NLLB-200 licence</string>
+    <string name="tooldetail_translate_nllb_licence_body">The NLLB-200 model (%1$s) downloads from Hugging Face under Meta\'s licence for it, Creative Commons Attribution-NonCommercial 4.0. You may use it for non-commercial purposes only, and its translations come with no warranty. Accept to download it.</string>
+    <string name="tooldetail_translate_nllb_licence_accept">Accept and download</string>
+    <string name="tooldetail_translate_nllb_licence_view">Read licence</string>
+    <string name="tooldetail_translate_module_missing_info">On-device translation is an extra part of the keyboard that downloads when you first need it. Download it, then select the languages.</string>
+    <string name="tooldetail_translate_module_installing_info">Downloading the on-device translation part…</string>
+    <string name="tooldetail_translate_module_installing_sized_info">Downloading the on-device translation part: <xliff:g id="done" example="4.1 MB">%1$s</xliff:g> of <xliff:g id="total" example="9 MB">%2$s</xliff:g></string>
+    <string name="tooldetail_translate_module_failed_info">The download did not finish. Check the connection, then try again.</string>
+    <string name="tooldetail_translate_module_metered_body">The on-device translation part is a separate download.</string>
     <string name="tooldetail_translate_model_builtin_label">Part of the engine. No download is necessary</string>
     <string name="tooldetail_translate_model_cancel_desc">Cancel the download for %1$s</string>
     <string name="tooldetail_translate_model_metered_body">The <xliff:g id="language" example="Bengali">%1$s</xliff:g> translation model is about <xliff:g id="size" example="30 MB">%2$s</xliff:g>.</string>
@@ -482,6 +570,9 @@
     <string name="tooldetail_media_klipy_hint">Free from partner.klipy.com. The Tenor API closed in the middle of 2026</string>
     <string name="tooldetail_media_giphy_label">GIPHY API key</string>
     <string name="tooldetail_media_giphy_hint">Free from developers.giphy.com</string>
+    <string name="tooldetail_media_gifcities_title">GifCities</string>
+    <string name="tooldetail_media_gifcities_subtitle">Search the Internet Archive\'s GeoCities GIFs too. No key needed</string>
+    <string name="tooldetail_media_gifcities_info">GifCities holds the GIFs the Internet Archive saved from GeoCities home pages before 2009: under construction signs, spinning globes, small animated clip art. Your search goes to gifcities.archive.org and the GIFs load from web.archive.org. These GIFs have no content rating, so the content filter does not apply to them. GIFs only, never stickers.</string>
     <string name="tooldetail_media_info">The GIF and sticker tools share all of this, and the content filter below. Any one key is enough. Every source that has a key shows up in the panel.</string>
     <string name="tooldetail_media_sending_group">Sending</string>
     <string name="tooldetail_media_sticker_send_title">Send stickers as</string>
@@ -540,33 +631,48 @@
     <string name="tooldetail_search_count_subtitle">Each search uses one API request either way</string>
     <string name="tooldetail_ocr_engine_online">Online model</string>
     <string name="tooldetail_ocr_online_group">Online text reader</string>
-    <string name="tooldetail_ocr_online_info">The photo goes to a model that can read images, at an address you choose, and the model writes out the text it sees. It reads any script and needs no language data. Any service with an OpenAI-compatible API works: OpenAI, OpenRouter, Gemini, Mistral, or a model on your own computer with Ollama or LM Studio. Each scan sends the photo to that service, and the service may charge for it.</string>
-    <string name="tooldetail_ocr_online_url_label">Address</string>
-    <string name="tooldetail_ocr_online_url_hint">For example https://api.openai.com/v1</string>
-    <string name="tooldetail_ocr_online_model_label">Model</string>
-    <string name="tooldetail_ocr_online_model_hint">A model that reads images, for example gpt-4o-mini</string>
-    <string name="tooldetail_ocr_online_key_label">API key</string>
-    <string name="tooldetail_ocr_online_key_hint">Leave blank for a server that asks for no key</string>
+    <string name="tooldetail_ocr_online_info">The online readers, in order. A vision model reads the photo at an address you choose and writes out the text it sees: any service with an OpenAI-compatible API works, such as OpenAI, OpenRouter, Gemini, Mistral, or Ollama or LM Studio on your own computer. A Rens server is a free front end to Google Lens. Both read any script and need no language data. Each scan sends the photo to the reader that is asked, and a paid service may charge for it.</string>
+    <string name="tooldetail_camera_translate_group">Translate photos</string>
+    <string name="tooldetail_camera_translate_info">Add a Rens server here to get a Translate button after you take a photo. The photo comes back with its text translated into the language that the Translate tool translates into. You can then send it, or retake it. The photo goes to the server you add, and from there to Google Lens.</string>
     <string name="tooldetail_search_answer_title">Show the answer from the search engine</string>
     <string name="tooldetail_search_answer_subtitle">A short answer above the results, when the engine writes one</string>
-    <string name="tooldetail_search_answer_info">Tavily writes a short answer to your query from the pages it found, and some SearXNG instances give instant answers. With this on, that answer shows in a box above the results, and Insert puts it in your text. Brave gives no answer with a normal search key, so nothing shows when Brave does the search. On Tavily the answer costs no extra credits.</string>
-    <string name="tooldetail_search_open_browser_title">Open results in the browser</string>
-    <string name="tooldetail_search_open_browser_subtitle">A tap opens the page; the button beside it inserts the link</string>
-    <string name="tooldetail_tavily_advanced_title">Advanced search</string>
-    <string name="tooldetail_tavily_advanced_subtitle">Better results, for 2 credits for each search instead of 1</string>
-    <string name="tooldetail_tavily_advanced_info">Tavily has two search depths. Basic is the default and costs 1 credit. Advanced looks deeper into each page for the parts that match your query, and costs 2 credits. The free plan gives 1,000 credits each month.</string>
+    <string name="tooldetail_search_answer_info">Tavily writes a short answer to your query from the pages it found, and some SearXNG instances give instant answers. With this on, that answer shows in a box above the results, with buttons to copy it or put it in your text. Brave gives no answer with a normal search key, so nothing shows when Brave does the search. On Tavily the answer costs no extra credits.</string>
+    <string name="tooldetail_search_open_browser_title">Tap a result</string>
+    <string name="tooldetail_search_open_browser_subtitle">What a tap on a result does. Press and hold one for the menu</string>
+    <string name="tooldetail_search_tap_menu">Show the menu</string>
+    <string name="tooldetail_search_tap_menu_desc">Open in the browser, insert the link or copy it, and for a picture send it or save it to the gallery.</string>
+    <string name="tooldetail_search_tap_insert">Insert</string>
+    <string name="tooldetail_search_tap_insert_desc">Puts the link in your text, or the picture itself. The button beside a web result opens it.</string>
+    <string name="tooldetail_search_tap_open">Open in the browser</string>
+    <string name="tooldetail_search_tap_open_desc">Opens the page, or the page a picture is on. The button beside a web result inserts its link.</string>
+    <string name="tooldetail_tavily_advanced_title">Search depth</string>
+    <string name="tooldetail_tavily_advanced_subtitle">Faster answers, or better results for more credits</string>
+    <string name="tooldetail_tavily_advanced_info">Tavily has four search depths. Basic is the default. Ultra fast and Fast answer sooner and cost 1 credit, but they do not take SafeSearch, so results are not filtered at those depths. Advanced looks deeper into each page for the parts that match your query, and costs 2 credits. The free plan gives 1,000 credits each month.</string>
+    <string name="tooldetail_tavily_depth_ultra_fast">Ultra fast</string>
+    <string name="tooldetail_tavily_depth_ultra_fast_desc">The quickest answer, with one short summary of each page. 1 credit. No SafeSearch.</string>
+    <string name="tooldetail_tavily_depth_fast">Fast</string>
+    <string name="tooldetail_tavily_depth_fast_desc">Quicker than Basic, with results nearly as good. 1 credit. No SafeSearch.</string>
+    <string name="tooldetail_tavily_depth_basic">Basic</string>
+    <string name="tooldetail_tavily_depth_basic_desc">The balance of speed and good results. 1 credit.</string>
+    <string name="tooldetail_tavily_depth_advanced">Advanced</string>
+    <string name="tooldetail_tavily_depth_advanced_desc">The best results, a little slower. 2 credits.</string>
 
     <!-- Text scan (OCR) tool. -->
     <string name="tooldetail_ocr_select_all_title">Start with everything selected</string>
     <string name="tooldetail_ocr_select_all_subtitle">Deselect words to cut the capture down. Off starts empty, and you select the words one by one</string>
     <string name="tooldetail_ocr_info">Recognition runs on your device. No photo and no text leaves your device, and it works offline. After a capture, press words to select exactly what the keyboard types or copies.</string>
     <string name="tooldetail_ocr_engine_title">Text recognition</string>
-    <string name="tooldetail_ocr_engine_info">ML Kit reads only Latin script text, for example English or French. Tesseract reads more than 100 languages in most scripts, for example Bangla, Arabic, Russian and Chinese, but each language needs a one-time download. Automatic reads Latin script with ML Kit and every other script with Tesseract.</string>
+    <string name="tooldetail_ocr_engine_info">ML Kit reads Latin script text, for example English or French, and on a phone with Google Play services also Chinese, Japanese, Korean and Devanagari. Tesseract reads more than 100 languages in most scripts, for example Bangla, Arabic, Russian and Chinese, but each language needs a one-time download. Automatic reads with ML Kit what it can, Chinese and Japanese with PaddleOCR where ML Kit cannot, and every other script with Tesseract.</string>
+    <!-- The F-Droid build has neither ML Kit nor Tesseract: PaddleOCR or the online reader. -->
+    <string name="tooldetail_ocr_engine_info_paddle">Automatic reads Chinese, Japanese and Latin-script text, for example English or French, with PaddleOCR on your device, after a one-time download of 21 MB. Other scripts read only with Online model.</string>
     <string name="tooldetail_ocr_engine_auto">Automatic</string>
     <string name="tooldetail_ocr_engine_mlkit" translatable="false">ML Kit</string>
     <string name="tooldetail_ocr_engine_tesseract" translatable="false">Tesseract</string>
-    <string name="tooldetail_ocr_packs_header">Tesseract languages</string>
-    <string name="tooldetail_ocr_packs_info">Tesseract reads a language only after the data for that language is on your device. There is one download for each language that you type in, from 0.4 MB to 12 MB. The data comes from the tessdata_fast set of the Tesseract project on GitHub. You can also download a language from the scanner itself.</string>
+    <string name="tooldetail_ocr_packs_header">Language data</string>
+    <string name="tooldetail_ocr_packs_info">Tesseract reads a language only after the data for that language is on your device. There is one download for each language that you type in, from 0.4 MB to 12 MB. The data comes from the tessdata_fast set of the Tesseract project on GitHub. With Automatic, Chinese and Japanese share one download of 11 MB instead: the PP-OCRv5 models of PaddleOCR, which read them much better. You can also download a language from the scanner itself.</string>
+    <string name="tooldetail_ocr_packs_info_paddle">PaddleOCR reads only after its data is on your device: one download of 21 MB for every language it reads, the PP-OCRv5 models of the PaddleOCR project. You can also download it from the scanner itself.</string>
+    <!-- A row in the list of downloads: the languages that PaddleOCR reads. -->
+    <string name="tooldetail_ocr_pack_paddle_title"><xliff:g id="languages" example="Chinese, Japanese">%1$s</xliff:g>, with PaddleOCR</string>
     <string name="tooldetail_ocr_packs_none_info">None of the languages you turned on has Tesseract data. Add a language on the Languages screen. Its data then shows here.</string>
 
     <!-- QR and barcode scanner tool. -->
@@ -577,11 +683,22 @@
     <string name="tooldetail_qr_scan_preview_title">Load link details</string>
     <string name="tooldetail_qr_scan_preview_subtitle">When a code is a web link, get the page title and description and show them above it. This needs an internet connection</string>
     <string name="tooldetail_qr_scan_info">Decoding runs on your device with ML Kit. It works offline and uploads nothing. It reads QR codes and the common product barcode formats, such as EAN, UPC and Code 128. Insert types the text of the code at the cursor. A link also gets an Open button.</string>
+    <!-- zxing-cpp is the name of an open-source barcode library. Keep it as it is. -->
+    <string name="tooldetail_qr_scan_zxing_info">Decoding runs on your device with zxing-cpp, without Google services. It works offline and uploads nothing. It reads QR codes, Data Matrix, Aztec, PDF417 and the product and industrial barcodes, such as EAN, UPC and Code 128. Insert types the text of the code at the cursor. A link also gets an Open button.</string>
+    <string name="tooldetail_qr_scan_zxing_title">Read codes with zxing-cpp</string>
+    <string name="tooldetail_qr_scan_zxing_subtitle">Use the open-source reader instead of ML Kit. It is a separate download of about 1 MB</string>
 
     <!-- Document scanner tool. -->
     <string name="tooldetail_doc_scan_gallery_title">Save to the gallery</string>
     <string name="tooldetail_doc_scan_gallery_subtitle">Also keep scanned pages in Pictures/WM Keyboard</string>
-    <string name="tooldetail_doc_scan_info">This opens the document scanner of Google, which is part of Google Play services, with edge detection, crop and shadow cleanup. Scanned pages come back as images. The keyboard puts them into the chat like a camera photo when it opens again. The processing runs on your device.</string>
+    <string name="tooldetail_doc_scan_info">This opens the document scanner of Google, which is part of Google Play services, with edge detection, crop and shadow cleanup. Turn on the built-in scanner below to use the keyboard\'s own instead. Scanned pages come back as images. The keyboard puts them into the chat like a camera photo when it opens again. The processing runs on your device.</string>
+    <string name="tooldetail_doc_scan_builtin_info">This opens the keyboard\'s own document scanner. It finds the page in the camera picture or a photo, lets you move its corners, flattens it, and can clean it up to white paper in colour, grey or black and white. Scanned pages come back as images. The keyboard puts them into the chat like a camera photo when it opens again. Everything runs on your device, without Google Play services.</string>
+    <string name="tooldetail_doc_scan_builtin_title">Use the built-in scanner</string>
+    <string name="tooldetail_doc_scan_builtin_subtitle">Scan with the keyboard\'s own scanner instead of Google\'s</string>
+    <string name="tooldetail_doc_scan_module_missing_info">The built-in scanner is an extra part of the keyboard, about 2.5 MB. It downloads the first time you scan, or now.</string>
+    <string name="tooldetail_doc_scan_module_installing_info">Downloading the built-in scanner…</string>
+    <string name="tooldetail_doc_scan_module_installing_sized_info">Downloading the built-in scanner: <xliff:g id="done" example="0.4 MB">%1$s</xliff:g> of <xliff:g id="total" example="2.4 MB">%2$s</xliff:g></string>
+    <string name="tooldetail_doc_scan_module_metered_body">The built-in scanner is a separate download of about 2.5 MB.</string>
 
     <!-- Voice typing tool. Everything it can be configured with lives on the
          Voice typing screen, so the page is one row that opens it. -->
@@ -611,7 +728,9 @@
     <string name="tooldetail_grammar_system_subtitle">Set WM Keyboard as the spell checker of Android</string>
     <string name="tooldetail_grammar_no_suggestions_title">Underline only, no fix popup</string>
     <string name="tooldetail_grammar_no_suggestions_subtitle">Mark the spelling mistakes but offer no corrections</string>
-    <string name="tooldetail_grammar_info">Grammar checking runs on your device with the Harper engine, the same one behind harper-ls. It works offline and uploads nothing that you type. Open the tool while you write to see the issues with one-press fixes. The dialect chip on the panel also changes the dialect.\n\nHarper can also act as the system spell checker of Android. The underlines and correction menus inside other apps then come from it as well. The button above opens the system Spell checker screen. Select WM Keyboard there. It follows the dialect that you select above. If your device hides that screen, the button opens the input method settings instead.</string>
+    <string name="tooldetail_grammar_providers_group">Checkers</string>
+    <string name="tooldetail_grammar_providers_info">Who checks your writing, in order. A check goes to the first checker that is on and knows the language you are typing in, and to the next one when that one cannot answer.\n\nHarper runs on the phone, works offline, and checks English only. Nothing you type leaves the phone with it.\n\nLanguageTool checks more than 30 languages, but it runs on a server, so the text in the field is sent there each time it is checked: to api.languagetool.org, LanguageTool\'s public server, unless you enter the address of a server you run yourself. It is off until you switch it on. It is never sent a password field or text typed in incognito. The public server takes 20 checks a minute, so a long note is checked a piece at a time.</string>
+    <string name="tooldetail_grammar_info">Harper, the grammar engine built into the keyboard, can also act as the system spell checker of Android. It runs on your device, works offline and uploads nothing that you type, whatever the Checkers list above says. The underlines and correction menus inside other apps then come from it as well. The button above opens the system Spell checker screen. Select WM Keyboard there. It follows the dialect that you select above. If your device hides that screen, the button opens the input method settings instead.</string>
 
     <!-- Wikipedia tool. -->
     <string name="tooldetail_wiki_language_label">Wikipedia language</string>
@@ -740,12 +859,65 @@
     <string name="tooldetail_passphrase_digit_subtitle">The keyboard adds it to a random word</string>
     <string name="tooldetail_password_info">The keyboard generates everything on your device with a cryptographic random source. It never stores it and never logs it. Passphrase words come from the bundled English word list of the keyboard.</string>
 
+    <!-- Text repeat tool. The panel edits these too, so they are also where it was last left. -->
+    <string name="tooldetail_repeat_group">Repeating</string>
+    <string name="tooldetail_repeat_group_info">The panel changes these as you use it, so they are also how it opens next time.</string>
+    <string name="tooldetail_repeat_count_title">Times</string>
+    <string name="tooldetail_repeat_count_subtitle">How many copies the panel opens on</string>
+    <string name="tooldetail_repeat_mode_title">Mode</string>
+    <string name="tooldetail_repeat_mode_subtitle">Copies in a row, the last letter stretched, or a staircase</string>
+    <string name="tooldetail_repeat_mode_repeat">Repeat</string>
+    <string name="tooldetail_repeat_mode_stretch">Stretch</string>
+    <string name="tooldetail_repeat_mode_stairs">Stairs</string>
+    <!-- Samples of each mode. Not translated. -->
+    <string name="tooldetail_repeat_mode_repeat_desc" translatable="false">ha ha ha ha</string>
+    <string name="tooldetail_repeat_mode_stretch_desc" translatable="false">no → nooooo</string>
+    <string name="tooldetail_repeat_mode_stairs_desc" translatable="false">ha / haha / hahaha</string>
+    <string name="tooldetail_repeat_separator_title">Between the copies</string>
+    <string name="tooldetail_repeat_separator_subtitle">Nothing, a space, a new line, a comma, or your own</string>
+    <string name="tooldetail_repeat_sep_none">None</string>
+    <string name="tooldetail_repeat_sep_space">Space</string>
+    <string name="tooldetail_repeat_sep_newline">New line</string>
+    <string name="tooldetail_repeat_sep_comma">Comma</string>
+    <string name="tooldetail_repeat_sep_custom">Custom</string>
+    <string name="tooldetail_repeat_custom_label">Custom separator</string>
+    <string name="tooldetail_repeat_custom_hint">Up to 8 characters, for example " | "</string>
+    <string name="tooldetail_repeat_numbered_title">Number each copy</string>
+    <!-- Sample of the numbering. Not translated. -->
+    <string name="tooldetail_repeat_numbered_subtitle" translatable="false">1. ha  2. ha  3. ha</string>
+    <string name="tooldetail_repeat_alternate_title">Alternate the case</string>
+    <!-- Sample of the alternation. Not translated. -->
+    <string name="tooldetail_repeat_alternate_subtitle" translatable="false">ha HA ha HA</string>
+    <string name="tooldetail_repeat_limits_group">Limits and the chip</string>
+    <string name="tooldetail_repeat_max_chars_title">Longest result</string>
+    <string name="tooldetail_repeat_max_chars_subtitle">The panel stops at the last whole copy that fits and says so</string>
+    <string name="tooldetail_repeat_chip_insert_title">When opened from the chip</string>
+    <string name="tooldetail_repeat_chip_insert_subtitle">What Insert does with the copies you had already typed</string>
+    <string name="tooldetail_repeat_chip_insert_replace">Replace them</string>
+    <string name="tooldetail_repeat_chip_insert_append">Add after them</string>
+    <string name="tooldetail_repeat_chip_insert_replace_desc">The copies you typed go, and the whole count takes their place, so the text ends with exactly that many.</string>
+    <string name="tooldetail_repeat_chip_insert_append_desc">The copies you typed stay, and the count is added after them.</string>
+    <string name="tooldetail_repeat_chip_after_title">Chip after this many repeats</string>
+    <string name="tooldetail_repeat_chip_after_subtitle">Type the same thing this many times in a row and the strip offers the tool</string>
+    <string name="tooldetail_repeat_recents_group">Recent texts</string>
+    <string name="tooldetail_repeat_recents_title">Remember recent texts</string>
+    <string name="tooldetail_repeat_recents_subtitle">The panel offers the last ten texts you repeated</string>
+    <string name="tooldetail_repeat_recents_info">Kept on this phone only, and never in a backup. Nothing is remembered in incognito mode, in password fields, or in fields that ask not to be learnt from.</string>
+    <string name="tooldetail_repeat_recents_clear_title">Clear recent texts</string>
+    <string name="tooldetail_repeat_recents_clear_action">Clear</string>
+    <plurals name="tooldetail_repeat_recents_count">
+        <item quantity="one">%d text remembered</item>
+        <item quantity="other">%d texts remembered</item>
+    </plurals>
+
     <!-- Keyboard modes tool. -->
     <string name="tooldetail_modes_group">Modes</string>
     <string name="tooldetail_modes_edit_title">Edit the keyboard modes</string>
     <string name="tooldetail_modes_edit_subtitle">Setups for each app and each field, and what each one changes</string>
-    <string name="tooldetail_image_columns_title">Results per row</string>
-    <string name="tooldetail_image_columns_subtitle">How many image results sit side by side</string>
+    <string name="tooldetail_image_columns_title">Images per row</string>
+    <string name="tooldetail_image_columns_subtitle">How many images sit side by side on the Images tab</string>
+    <string name="tooldetail_image_search_moved_title">Settings are on Web search</string>
+    <string name="tooldetail_image_search_moved_subtitle">This button opens the Images tab of web search, and shares its settings</string>
     <string name="tooldetail_image_columns_info">Fewer columns means larger previews, which is easier to judge before you send one. More columns fits more results without scrolling. GIF results are not affected: they are laid out in justified rows so each one keeps its own shape. This setting is 3 by default.</string>
 
     <string name="tooldetail_launcher_recents_count_title">How many recent apps</string>

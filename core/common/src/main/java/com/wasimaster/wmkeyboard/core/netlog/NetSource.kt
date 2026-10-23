@@ -28,6 +28,9 @@ enum class NetSource(
 
     /** DeepL Write, from the grammar panel or the selection bar. Its settings sit on the Translate page. */
     DEEPL_WRITE("deepl_write", ToolbarTool.TRANSLATE),
+
+    /** A LanguageTool server the grammar tool's list asks: the public API, or one the user runs. */
+    LANGUAGETOOL("languagetool", ToolbarTool.GRAMMAR),
     GIF("gif", ToolbarTool.GIF),
     STICKER("sticker", ToolbarTool.STICKER),
     WEB_SEARCH("web_search", ToolbarTool.WEB_SEARCH),
@@ -79,8 +82,20 @@ enum class NetSource(
     DOWNLOAD_CJK("download_cjk"),
     DOWNLOAD_EMOJI("download_emoji", ToolbarTool.EMOJI),
     DOWNLOAD_WHISPER("download_whisper", ToolbarTool.VOICE),
+
+    /** FUTO Swipe's glide models, when that glide engine is turned on. */
+    DOWNLOAD_GLIDE("download_glide"),
     DOWNLOAD_LLM("download_llm", ToolbarTool.AI),
+
+    /**
+     * An on-device translation model: a Bergamot direction from Mozilla's
+     * Firefox Translations servers, or the NLLB model from Hugging Face.
+     */
+    DOWNLOAD_TRANSLATE("download_translate", ToolbarTool.TRANSLATE),
     DOWNLOAD_VOCAB("download_vocab", ToolbarTool.VOCABULARY),
+
+    /** An offline dictionary for the Dictionary tool (#665). */
+    DOWNLOAD_DICTIONARY("download_dictionary", ToolbarTool.DICTIONARY),
     DOWNLOAD_FONT("download_font"),
     DOWNLOAD_CUTOUT("download_cutout", ToolbarTool.STICKER),
 
@@ -89,6 +104,31 @@ enum class NetSource(
 
     /** Tesseract language data for the scan text tool. */
     DOWNLOAD_OCR("download_ocr", ToolbarTool.OCR),
+
+    /** EmbeddingGemma 2, the model behind search by meaning. */
+    DOWNLOAD_SEMANTIC("download_semantic"),
+
+    /** The sticker generator's models and picture filter (data repository, or Qualcomm's bucket for NPU builds). */
+    DOWNLOAD_IMAGEGEN("download_imagegen"),
+
+    /** The upscaler's two networks (data repository): the sticker editor's and the photo editor's Upscale. */
+    DOWNLOAD_UPSCALE("download_upscale"),
+
+    /** IndicXlit, the neural readings on the Indic phonetic layouts. */
+    DOWNLOAD_XLIT("download_xlit"),
+
+    /** Meta's MMS voices, which read text aloud offline (Read back, the speaker buttons). */
+    DOWNLOAD_VOICE_OUT("download_voice_out", ToolbarTool.READ_BACK),
+
+    /**
+     * A native library a GitHub or F-Droid build fetches the first time a
+     * feature needs it: the project's own from the data repository, ML Kit's,
+     * LiteRT's and Qualcomm's straight from their Maven repositories.
+     */
+    DOWNLOAD_NATIVE("download_native"),
+
+    /** An interface language pack the standard GitHub build fetches when its language is picked. */
+    DOWNLOAD_LANGUAGE("download_language"),
     ADDONS("addons"),
     KEYMAN("keyman"),
     SIGNAL_STICKERS("signal_stickers", ToolbarTool.STICKER),
@@ -99,7 +139,22 @@ enum class NetSource(
     LINK_IMPORT("link_import"),
     BACKUP("backup"),
     UPDATES("updates", background = true),
+
+    /** About › Supporters, when its refresh button is pressed. */
+    SUPPORTERS("supporters"),
+    /** A file sent or received by the Send files tool (#729): a link or a device nearby. */
+    SEND("send", ToolbarTool.SEND_FILES),
     KDE_CONNECT("kde_connect", ToolbarTool.KDE_CONNECT),
+
+    /** The user's own Home Assistant server: its socket, its REST calls, a camera picture. */
+    HOME_ASSISTANT("home_assistant", ToolbarTool.HOME_ASSISTANT),
+
+    /** The other homes of the smart home tool: Samsung's cloud, a Hue bridge on the LAN, an openHAB server, Tuya's and SwitchBot's clouds. */
+    SMARTTHINGS("smartthings", ToolbarTool.HOME_ASSISTANT),
+    HUE("hue", ToolbarTool.HOME_ASSISTANT),
+    OPENHAB("openhab", ToolbarTool.HOME_ASSISTANT),
+    TUYA("tuya", ToolbarTool.HOME_ASSISTANT),
+    SWITCHBOT("switchbot", ToolbarTool.HOME_ASSISTANT),
     OTHER("other"),
     ;
 

@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Restore
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CheckCircle
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ErrorOutline
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MoreVert
@@ -103,6 +104,7 @@ internal val BackupDestination.accent: Color
         BackupDestination.SMB -> Color(0xFF5C6BC0)
         BackupDestination.GIT -> Color(0xFFF05032)
         BackupDestination.IMAP -> Color(0xFFC62828)
+        BackupDestination.NEARBY -> Color(0xFF7E57C2)
     }
 
 /** The destination's own name: "Dropbox", "WebDAV", "Folder". */
@@ -119,6 +121,7 @@ internal fun destinationName(context: Context, type: BackupDestination): String 
         BackupDestination.SMB -> R.string.backup_auto_dest_smb
         BackupDestination.GIT -> R.string.backup_auto_dest_git
         BackupDestination.IMAP -> R.string.backup_auto_dest_imap
+        BackupDestination.NEARBY -> R.string.backup_auto_dest_nearby
     },
 )
 
@@ -179,6 +182,7 @@ private fun nameHintRes(type: BackupDestination): Int = when (type) {
     BackupDestination.SMB -> R.string.backup_location_name_hint_smb
     BackupDestination.GIT -> R.string.backup_location_name_hint_git
     BackupDestination.IMAP -> R.string.backup_location_name_hint_imap
+    BackupDestination.NEARBY -> R.string.backup_location_name_hint_nearby
 }
 
 /** What a location that cannot be tried yet is missing, in the words for its kind. */
@@ -229,7 +233,7 @@ internal fun LocationsGroup(
         info = stringResource(R.string.backup_locations_info),
     ) {
         for (location in auto.locations) {
-            item {
+            item(key = location.id) {
                 LocationRow(
                     location = location,
                     syncs = auto.sync.enabled && location.id in auto.sync.locationIds,
@@ -388,6 +392,12 @@ private fun LocationRow(
                     )
                 }
             }
+        },
+        swipeActions = buildList {
+            if (location.configured) {
+                add(SwipeAction(Icons.Outlined.Restore, stringResource(R.string.backup_location_restore, title), onClick = onRestore))
+            }
+            add(deleteSwipeAction(stringResource(R.string.backup_location_remove), onRemove))
         },
         trailing = {
             Box {
@@ -594,6 +604,8 @@ private fun LocationEditorSheet(
                     draft = it
                     testResult = null
                 }
+                // Nothing to fill in: the pairing made it.
+                BackupDestination.NEARBY -> Unit
             }
 
             // Test: the readiness call a backup makes first, with what is on

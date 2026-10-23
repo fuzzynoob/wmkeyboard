@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.app
 import com.wasimaster.wmkeyboard.app.lock.AppLockTargets
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
+import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
@@ -56,6 +57,27 @@ internal fun LanguageSettings(
     // to fetch its dictionary comes back to Bangla, not to the top of a list of
     // eleven languages they then have to find it in again.
     val returnTo = remember { ReturnAnchor.take(LANGUAGES_ANCHOR) }
+    // A language swiped away that still has downloads on the phone: the
+    // dialog asks whether they go too, as Remove on its own page does.
+    var removing by remember { mutableStateOf<LanguageDef?>(null) }
+    removing?.let { language ->
+        LanguageDataDeleteDialog(
+            language = language,
+            bytes = downloadedLanguageBytes(context, settings.value, language.id),
+            onKeep = {
+                removing = null
+                scope.launch { removeLanguageLayouts(repository, settings, language.id) }
+            },
+            onDelete = {
+                removing = null
+                val before = settings.value
+                scope.launch {
+                    deleteLanguageData(context, repository, before, language.id)
+                    removeLanguageLayouts(repository, settings, language.id)
+                }
+            },
+        )
+    }
     // "Your languages" is the enabled set (deduped, in switch order); each opens
     // its detail. Adding one is a search over the whole registry.
     // The pencil on the heading swaps the list for the same list with drag
@@ -63,11 +85,16 @@ internal fun LanguageSettings(
     // layout, not just each language, so AZERTY and QWERTY keep distinct slots.
     var reordering by rememberSaveable { mutableStateOf(false) }
     val switchOrderItem = stringResource(R.string.langemoji_lang_switch_order_item_label)
-    val layoutLabel: (List<LayoutSpec>, String) -> String = { customLayouts, id ->
+    val layoutLabel: (List<LayoutSpec>, Map<String, String>, String) -> String = { customLayouts, names, id ->
         val layout = resolveLayout(customLayouts, id)
         val language = layout.language().displayName
-        // A layout named after its own language would say it twice.
-        if (layout.name == language) language else switchOrderItem.format(language, layout.name)
+        when {
+            // The name the keyboard shows for it, when the user gave it one.
+            !names[id].isNullOrBlank() -> names.getValue(id)
+            // A layout named after its own language would say it twice.
+            layout.name == language -> language
+            else -> switchOrderItem.format(language, layout.name)
+        }
     }
     // What decides which rows the groups hold; each row reads its own value.
     val canReorder = settings.watch { it.enabledLayoutIds.size > 1 }
@@ -102,9 +129,10 @@ internal fun LanguageSettings(
     ) {
         item(visible = editing) {
             val customLayouts = settings.watch { it.customLayouts }
+            val displayNames = settings.watch { it.layoutDisplayNames }
             ReorderableColumn(
                 settings.watch { it.enabledLayoutIds },
-                label = { layoutLabel(customLayouts, it) },
+                label = { layoutLabel(customLayouts, displayNames, it) },
                 onReorder = { scope.launch { repository.setEnabledLayoutIds(it) } },
                 modifier = Modifier.padding(horizontal = 16.dp),
                 // The same pencil is the way out of the list: a language
@@ -123,17 +151,33 @@ internal fun LanguageSettings(
         }
         for (language in languages) {
             if (editing) break
-            item {
+            item(key = language.id) {
                 val names = settings.watch { s ->
                     s.enabledLayoutIds
                         .filter { resolveLayout(s.customLayouts, it).language().id == language.id }
                         .joinToString { resolveLayout(s.customLayouts, it).name }
                 }
+                // Remove, as at the foot of the language's own page, and only
+                // while another language is left to type in.
+                val removeLabel = stringResource(R.string.languages_remove_action, language.englishName)
                 ScrollAnchor(language.id == returnTo) {
                     NavRow(
                         language.displayName,
                         subtitle = names.ifBlank { null },
                         route = "language/${language.id}",
+                        swipeActions = if (languages.size > 1) {
+                            listOf(
+                                deleteSwipeAction(removeLabel) {
+                                    if (hasLanguageData(context, settings.value, language.id)) {
+                                        removing = language
+                                    } else {
+                                        scope.launch { removeLanguageLayouts(repository, settings, language.id) }
+                                    }
+                                },
+                            )
+                        } else {
+                            emptyList()
+                        },
                     ) {
                         ReturnAnchor.arm(LANGUAGES_ANCHOR, language.id)
                         onNavigate("language/${language.id}")

@@ -1,5 +1,9 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import android.annotation.SuppressLint
+import android.content.Context
+import android.os.Build
+import android.view.WindowManager
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -26,12 +30,14 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableIntState
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.State
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -40,13 +46,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.wasimaster.wmkeyboard.core.debug.DebugLog
 import com.wasimaster.wmkeyboard.core.settings.ScreenVariant
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.SidePadScaleRange
@@ -269,7 +279,8 @@ internal fun Modifier.resizeHeadroom(session: ResizeSession): Modifier = layout 
  * Latches the frame's reserved height from the keyboard's own height on the
  * session's first layout: the keyboard as it stood on entry plus every dp it
  * could still grow, capped at [maxPx] so a tall keyboard on a short screen
- * leaves the host app some room.
+ * leaves the host app some room, and so the window can hold it at all (see
+ * [rememberImeWindowMaxHeightPx]).
  */
 internal fun ResizeSession.latchReserved(keyboardHeightPx: Int, headroomPx: Int, maxPx: Int) {
     keyboardPx.intValue = keyboardHeightPx
@@ -278,6 +289,76 @@ internal fun ResizeSession.latchReserved(keyboardHeightPx: Int, headroomPx: Int,
     reservedPx.intValue = (keyboardHeightPx + headroomPx)
         .coerceAtMost(maxPx)
         .coerceAtLeast(keyboardHeightPx)
+}
+
+/**
+ * The tallest the keyboard's window can ever be: the display less the status
+ * bar and any cutout across its top, which an input method's window never
+ * covers.
+ *
+ * The resize mode's reserved frame has to fit under it with everything else
+ * the window holds (#669). Capped only at 80% of the display, the frame plus
+ * the key-preview band above it asked for 2310px of a window that can be
+ * 2293px at most (CPH2481, measured): the window did not grow at all, and the
+ * frame was drawn from the top of the keyboard's old window, its held band
+ * filling where the keys had been and the keys below the screen's edge, only
+ * the toolbar left showing over the navigation bar.
+ */
+@Composable
+internal fun rememberImeWindowMaxHeightPx(): Int {
+    val context = LocalContext.current
+    val configuration = LocalConfiguration.current
+    return remember(context, configuration) { imeWindowMaxHeightPx(context) }
+}
+
+@SuppressLint("DiscouragedApi", "InternalInsetResource")
+private fun imeWindowMaxHeightPx(context: Context): Int = runCatching {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+        val metrics = context.getSystemService(WindowManager::class.java).currentWindowMetrics
+        val top = metrics.windowInsets.getInsetsIgnoringVisibility(
+            android.view.WindowInsets.Type.statusBars() or android.view.WindowInsets.Type.displayCutout(),
+        ).top
+        metrics.bounds.height() - top
+    } else {
+        val resources = context.resources
+        val id = resources.getIdentifier("status_bar_height", "dimen", "android")
+        val statusBar = if (id == 0) 0 else resources.getDimensionPixelSize(id)
+        resources.displayMetrics.heightPixels - statusBar
+    }
+}.getOrDefault(Int.MAX_VALUE)
+
+/**
+ * Holds the reserved frame to the window the system actually gives, whatever
+ * [rememberImeWindowMaxHeightPx] predicted (#724).
+ *
+ * The prediction is the display less the status bar, and the #669 fix capped
+ * the frame there. Some phones still let the window have less (seen on a
+ * Galaxy S25 Ultra): the window then does not grow at all, the frame is drawn
+ * from the top of the old window, and only the toolbar shows, on the
+ * navigation bar, with the keys below the screen's edge. [StableMeasureFrame]
+ * sees that as the keyboard measured taller than the window it was let have,
+ * and the reserved band gives up exactly that much, down to the keyboard's own
+ * height, so the keys are back on screen with whatever headroom fits.
+ */
+@Composable
+internal fun ResizeWindowFit(session: ResizeSession) {
+    val view = LocalView.current
+    val frame = remember(view) {
+        generateSequence(view.parent) { it.parent }.filterIsInstance<StableMeasureFrame>().firstOrNull()
+    } ?: return
+    LaunchedEffect(session, frame) {
+        snapshotFlow { frame.overflowPx.intValue }.collect { session.fitWindow(it) }
+    }
+}
+
+/** Takes [overflowPx] the window could not hold off the reserved band; see [ResizeWindowFit]. */
+internal fun ResizeSession.fitWindow(overflowPx: Int) {
+    val reserved = reservedPx.intValue
+    if (overflowPx <= 0 || reserved == 0) return
+    val fitted = (reserved - overflowPx).coerceAtLeast(keyboardPx.intValue)
+    if (fitted == reserved) return
+    DebugLog.i("window", "resize frame ${reserved}px over the window by ${overflowPx}px, held at ${fitted}px")
+    reservedPx.intValue = fitted
 }
 
 /**

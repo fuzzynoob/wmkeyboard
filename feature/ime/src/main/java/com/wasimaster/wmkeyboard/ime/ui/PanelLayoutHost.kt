@@ -9,6 +9,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
@@ -213,18 +215,18 @@ private val ClipboardHeaderFields = setOf(PanelFieldKind.CLIPBOARD_SEARCH, Panel
  */
 @Composable
 internal fun EmojiPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCallbacks) {
-    val session = rememberEmojiPanelSession(state)
+    val kaomoji by callbacks.emoji.kaomoji.state.collectAsState()
+    val session = rememberEmojiPanelSession(state, kaomoji)
     // Toggling the open panel closes it — back to the keys.
     val onClose = { callbacks.onPanelChange(PanelMode.EMOJI) }
-    // The search and the layout cross-fade as they trade places; the layout's
-    // cells stagger back in on their own clock (see [PanelLayoutGrid]). The
-    // page on its way out takes no taps while it fades.
-    val searching = state.emojiSearchActive
-    MotionCrossfade(searching, LocalKbTheme.current.motion.any, label = "emojiPanelPage") { search ->
-        Box(modifier = Modifier.blockTouches(search != searching)) {
-            EmojiPanelPage(state, session, callbacks, onClose, search)
-        }
-    }
+    // The search and the layout trade places at once, as the clipboard's do
+    // (#612). A cross-fade held the outgoing layout's full height while the
+    // keys came back underneath, so every search, face edit and tag rename
+    // grew the keyboard by a whole panel for the length of the fade and then
+    // dropped it again. The layout's cells still stagger back in on their own
+    // clock (see [PanelLayoutGrid]). The kaomoji tab's own boxes (its search,
+    // its editor) shrink the panel the same way.
+    EmojiPanelPage(state, session, callbacks, onClose, emojiPanelTyping(state))
     // A Popup overlay, so opening it never reflows the fixed-height panel.
     if (session.reorderOpen) {
         FavouritesReorderPopup(
@@ -247,7 +249,10 @@ private fun EmojiPanelPage(
     onClose: () -> Unit,
     search: Boolean,
 ) {
-    if (search) {
+    if (search && state.kaomojiText != null) {
+        val kaomoji by callbacks.emoji.kaomoji.state.collectAsState()
+        KaomojiTypingPanel(state, kaomoji, callbacks.emoji.kaomoji, onClose)
+    } else if (search) {
         EmojiSearchPanel(state, session, callbacks.emoji, onClose)
     } else {
         val spec = state.panelLayout(PanelKind.EMOJI)
@@ -345,19 +350,15 @@ internal fun ClipboardPanelHost(state: KeyboardUiState, callbacks: PanelLayoutCa
         )
         return
     }
-    // The search and the history cross-fade as they trade places, the way the
-    // emoji panel's do; the page on its way out takes no taps while it fades.
-    // The editor above stays instant: it captures the keys, and a second one
-    // fading out would be a second editor composed.
-    val searching = state.clipboardSearchActive
-    MotionCrossfade(searching, LocalKbTheme.current.motion.any, label = "clipboardPanelPage") { search ->
-        Box(modifier = Modifier.blockTouches(search != searching)) {
-            if (search) {
-                ClipboardSearchPage(state, session, callbacks)
-            } else {
-                ClipboardHistoryPage(state, session, callbacks, onClose)
-            }
-        }
+    // The search and the history trade places at once (#612). They used to
+    // cross-fade like the emoji panel's, but the two pages are very different
+    // heights, so the keyboard grew and shrank under the fade, and both grids
+    // laid out at once: the worst jump of any panel. The editor above was
+    // instant already.
+    if (state.clipboardSearchActive) {
+        ClipboardSearchPage(state, session, callbacks)
+    } else {
+        ClipboardHistoryPage(state, session, callbacks, onClose)
     }
 }
 

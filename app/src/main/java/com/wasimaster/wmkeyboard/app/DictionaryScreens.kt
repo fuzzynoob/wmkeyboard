@@ -24,8 +24,10 @@ import com.wasimaster.wmkeyboard.app.lock.AppLockTargets
 import com.wasimaster.wmkeyboard.core.clipboard.PhoneFormats
 import com.wasimaster.wmkeyboard.core.clipboard.ClipCopyRule
 import com.wasimaster.wmkeyboard.core.clipboard.ClipCopyRules
+import com.wasimaster.wmkeyboard.core.selection.SelectionMacros
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Rule
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Edit
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Remove
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ExpandMore
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Phone
@@ -365,6 +367,11 @@ internal fun DictionarySettings(repository: SettingsRepository, settings: LiveSe
                     } else {
                         standing
                     },
+                    swipeActions = listOf(
+                        deleteSwipeAction(stringResource(R.string.backup_delete_word_desc, word)) {
+                            persist { it.forget(word) }
+                        },
+                    ),
                     trailing = {
                         IconButton(onClick = { persist { it.forget(word) } }) {
                             Icon(
@@ -897,6 +904,11 @@ internal fun BlacklistSettings(repository: SettingsRepository, settings: LiveSet
                             LanguageRegistry.byId(id).displayName,
                         )
                     },
+                    swipeActions = listOf(
+                        deleteSwipeAction(stringResource(R.string.backup_delete_word_desc, word)) {
+                            scope.launch { repository.removeSuggestionBlacklistWord(word, entry.languageId) }
+                        },
+                    ),
                     trailing = {
                         IconButton(onClick = {
                             scope.launch { repository.removeSuggestionBlacklistWord(word, entry.languageId) }
@@ -1005,6 +1017,11 @@ internal fun PhoneFormatSettings(repository: SettingsRepository, settings: LiveS
                 WmRow(
                     title = format,
                     icon = Icons.Outlined.Phone,
+                    swipeActions = listOf(
+                        deleteSwipeAction(stringResource(R.string.phoneformats_delete_desc, format)) {
+                            scope.launch { repository.removeClipboardPhoneFormat(format) }
+                        },
+                    ),
                     trailing = {
                         IconButton(onClick = {
                             scope.launch { repository.removeClipboardPhoneFormat(format) }
@@ -1124,7 +1141,14 @@ internal fun CopyRuleSettings(repository: SettingsRepository, settings: LiveSett
     // The rule being edited by its index, or -1 for a new one; null while no dialog is up.
     var editing by remember { mutableStateOf<Int?>(null) }
     var sample by remember { mutableStateOf("") }
+    // Dragging the rules into another order (#612): they run in order, so the
+    // order is part of what they do.
+    var reordering by remember { mutableStateOf(false) }
     val save: (List<ClipCopyRule>) -> Unit = { next -> scope.launch { repository.setClipboardCopyRules(next) } }
+    val plainLetters = settings.watch { it.clipboard.plainLetters }
+    val cleanLinks = settings.watch { it.clipboard.cleanCopiedLinks }
+    val extraTrackers = settings.watch { it.clipboard.extraTrackers }
+    var editingTrackers by remember { mutableStateOf(false) }
 
     RegisterAddFab(stringResource(R.string.copy_rules_add_action)) { editing = -1 }
     SettingsGroup {
@@ -1137,11 +1161,58 @@ internal fun CopyRuleSettings(repository: SettingsRepository, settings: LiveSett
                 default = SettingsDefaults.clipboard.copyRulesToSystem,
             ) { scope.launch { repository.setClipboardCopyRulesToSystem(it) } }
         }
+        item {
+            ToggleSetting(
+                R.string.clipboard_plain_letters_title,
+                stringResource(R.string.clipboard_plain_letters_subtitle),
+                plainLetters,
+                info = stringResource(R.string.clipboard_plain_letters_info),
+                default = SettingsDefaults.clipboard.plainLetters,
+            ) { scope.launch { repository.setClipboardPlainLetters(it) } }
+        }
+        // Links lose their trackers on the way in (#665), with the same list
+        // the selection bar's Remove trackers uses, the user's own names too.
+        item {
+            ToggleSetting(
+                R.string.clipboard_clean_links_title,
+                stringResource(R.string.clipboard_clean_links_subtitle),
+                settings.watch { it.clipboard.cleanCopiedLinks },
+                info = stringResource(R.string.clipboard_clean_links_info),
+                default = SettingsDefaults.clipboard.cleanCopiedLinks,
+            ) { scope.launch { repository.setClipboardCleanCopiedLinks(it) } }
+        }
+        item {
+            WmRow(
+                title = stringResource(R.string.clipboard_extra_trackers_title),
+                subtitle = extraTrackers.joinToString(", ").ifEmpty {
+                    stringResource(R.string.clipboard_extra_trackers_none)
+                },
+                icon = Icons.AutoMirrored.Outlined.Rule,
+                onClick = { editingTrackers = true },
+            )
+        }
     }
     if (rules.isEmpty()) {
         CaptionText(stringResource(R.string.copy_rules_empty))
     }
-    SettingsGroup {
+    if (rules.size > 1) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+            horizontalArrangement = Arrangement.End,
+        ) {
+            TextButton(onClick = { reordering = !reordering }) {
+                Text(stringResource(if (reordering) R.string.copy_rules_reorder_done else R.string.copy_rules_reorder_action))
+            }
+        }
+    }
+    if (reordering && rules.size > 1) {
+        ReorderableColumn(
+            items = rules,
+            label = { it.pattern },
+            onReorder = save,
+            modifier = Modifier.padding(horizontal = 16.dp),
+        )
+    } else SettingsGroup {
         for ((index, rule) in rules.withIndex()) {
             item(key = "rule-$index-${rule.pattern}") {
                 val broken = ClipCopyRules.compile(rule) == null
@@ -1154,6 +1225,14 @@ internal fun CopyRuleSettings(repository: SettingsRepository, settings: LiveSett
                     },
                     icon = Icons.AutoMirrored.Outlined.Rule,
                     onClick = { editing = index },
+                    swipeActions = listOf(
+                        SwipeAction(Icons.Outlined.Edit, stringResource(CommonR.string.common_edit)) {
+                            editing = index
+                        },
+                        deleteSwipeAction(stringResource(R.string.copy_rules_delete_desc, rule.pattern)) {
+                            save(rules.filterIndexed { i, _ -> i != index })
+                        },
+                    ),
                     trailing = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Switch(
@@ -1190,7 +1269,10 @@ internal fun CopyRuleSettings(repository: SettingsRepository, settings: LiveSett
             .padding(horizontal = 16.dp, vertical = 8.dp),
     )
     if (sample.isNotBlank()) {
-        val kept = remember(sample, rules) { ClipCopyRules.apply(sample, rules) }
+        val kept = remember(sample, rules, cleanLinks, extraTrackers) {
+            val tidied = ClipCopyRules.apply(sample, rules)
+            if (cleanLinks) SelectionMacros.stripTrackersInText(tidied, extraTrackers) ?: tidied else tidied
+        }
         Text(
             if (kept == sample) {
                 stringResource(R.string.copy_rules_test_unchanged)
@@ -1203,6 +1285,47 @@ internal fun CopyRuleSettings(repository: SettingsRepository, settings: LiveSett
         )
     }
     Spacer(Modifier.height(16.dp))
+
+    if (editingTrackers) {
+        var input by remember { mutableStateOf(extraTrackers.joinToString("\n")) }
+        AlertDialog(
+            onDismissRequest = { editingTrackers = false },
+            title = { Text(stringResource(R.string.clipboard_extra_trackers_title)) },
+            text = {
+                Column {
+                    Text(
+                        stringResource(R.string.clipboard_extra_trackers_body),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = input,
+                        onValueChange = { input = it },
+                        label = { Text(stringResource(R.string.clipboard_extra_trackers_label)) },
+                        minLines = 3,
+                        maxLines = 8,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val names = input.split('\n', ',', ' ')
+                            .map { it.trim().removePrefix("?").removePrefix("&").substringBefore('=') }
+                            .filter { it.isNotEmpty() }
+                            .distinct()
+                        scope.launch { repository.setClipboardExtraTrackers(names) }
+                        editingTrackers = false
+                    },
+                ) { Text(stringResource(CommonR.string.common_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { editingTrackers = false }) {
+                    Text(stringResource(CommonR.string.common_cancel))
+                }
+            },
+        )
+    }
 
     editing?.let { index ->
         val existing = rules.getOrNull(index)
@@ -1369,6 +1492,11 @@ internal fun LearnedCorrectionsSettings(repository: SettingsRepository, settings
                             R.plurals.typing_learned_corrections_times,
                             taught.count,
                             taught.count,
+                        ),
+                        swipeActions = listOf(
+                            deleteSwipeAction(
+                                stringResource(R.string.typing_learned_corrections_delete_desc, typed),
+                            ) { persist { it.forget(typed) } },
                         ),
                         trailing = {
                             IconButton(onClick = { persist { it.forget(typed) } }) {

@@ -9,18 +9,19 @@
 ### Private. Offline. Yours.
 
 An open source multilingual Android keyboard with prediction, glide typing, transliteration,
-emoji search and a 75+ tool toolbox that all run on the phone and never phone home.
+emoji search and an 89-tool toolbox that all run on the phone and never phone home.
 
 <a href="https://github.com/wasi-master/wmkeyboard/releases/latest"><img src="https://img.shields.io/github/v/release/wasi-master/wmkeyboard?style=flat-square&label=Release&color=3DDC84&logo=android&logoColor=white" alt="Latest release"></a>
-<a href="https://play.google.com/store/apps/details?id=com.wasimaster.wmkeyboard"><img src="https://img.shields.io/badge/Google%20Play-Get%20it-01875F?style=flat-square&logo=googleplay&logoColor=white" alt="Google Play"></a>
+<a href="https://play.google.com/store/apps/details?id=com.wasimaster.wmkeyboard"><img src="https://img.shields.io/endpoint?url=https%3A%2F%2Fraw.githubusercontent.com%2Fwasi-master%2Fwmkeyboard%2Fbadges%2Fplay.json&style=flat-square&logo=googleplay&logoColor=white" alt="Google Play"></a>
 <a href="https://f-droid.org/packages/com.wasimaster.wmkeyboard/"><img src="https://img.shields.io/f-droid/v/com.wasimaster.wmkeyboard?style=flat-square&label=F-Droid&color=1976D2&logo=fdroid&logoColor=white" alt="F-Droid"></a>
 <a href="https://github.com/wasi-master/wmkeyboard/releases"><img src="https://img.shields.io/github/downloads/wasi-master/wmkeyboard/total?style=flat-square&label=Downloads&color=6C5CE7&logo=rolldown&logoColor=white" alt="Downloads"></a>
 <a href="https://github.com/wasi-master/wmkeyboard/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/wasi-master/wmkeyboard/ci.yml?style=flat-square&label=CI&logo=githubactions&logoColor=white" alt="CI"></a>
 <a href="https://wmkeyboard.pages.dev"><img src="https://img.shields.io/badge/Docs-wmkeyboard.pages.dev-F38020?style=flat-square&logo=cloudflarepages&logoColor=white" alt="Docs"></a>
 <a href="https://t.me/wmkeyboard"><img src="https://img.shields.io/badge/Telegram-Join%20Chat-24A1DE?style=flat-square&logo=telegram&logoColor=white" alt="Telegram Group"></a>
+<a href="https://supportkori.com/wasimaster"><img src="https://img.shields.io/badge/SupportKori-Sponsor-FFDD00?style=flat-square&logo=data%3Aimage/svg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI%2BPHJlY3Qgd2lkdGg9IjI0IiBoZWlnaHQ9IjI0IiByeD0iNS41IiBmaWxsPSIjRkZERDAwIi8%2BPGNpcmNsZSBjeD0iOC44IiBjeT0iOC4yIiByPSIxLjgiIGZpbGw9IiMxMDE4MjgiLz48Y2lyY2xlIGN4PSIxNS4yIiBjeT0iOC4yIiByPSIxLjgiIGZpbGw9IiMxMDE4MjgiLz48cGF0aCBkPSJNMy40IDkuOGMuMiA1LjUgMy44IDkuMiA4LjYgOS4yczguNC0zLjcgOC42LTkuMmMuMS0uOC0uNi0xLjQtMS40LTEuMy0uOC4xLTEuMy44LTEuNCAxLjUtLjIgMy44LTIuNiA2LjMtNS44IDYuM3MtNS42LTIuNS01LjgtNi4zYy0uMS0uNy0uNi0xLjQtMS40LTEuNS0uOC0uMS0xLjUuNS0xLjQgMS4zeiIgZmlsbD0iIzEwMTgyOCIvPjwvc3ZnPg%3D%3D&labelColor=101828" alt="Sponsor on SupportKori"></a>
 <a href="LICENSE"><img src="https://img.shields.io/badge/License-MIT-1f6feb?style=flat-square&logo=spdx&logoColor=white" alt="MIT license"></a>
 
-<a href="#install">Install</a> · <a href="#the-tour">Tour</a> · <a href="#languages">Languages</a> · <a href="#privacy">Privacy</a> · <a href="#editions">Editions</a> · <a href="#faq">FAQ</a> · <a href="#build-it-yourself">Build</a> · <a href="https://wmkeyboard.pages.dev"><b>Read the docs</b></a>
+<a href="#install">Install</a> · <a href="#the-tour">Tour</a> · <a href="#languages">Languages</a> · <a href="#privacy">Privacy</a> · <a href="#builds">Builds</a> · <a href="#faq">FAQ</a> · <a href="#build-it-yourself">Build</a> · <a href="https://wmkeyboard.pages.dev"><b>Read the docs</b></a>
 
 <br>
 
@@ -96,6 +97,8 @@ The features the keyboard has
   to switch language, drag a modifier for chords, peek a layer by dragging off shift, and much more!
 - **Modes.** One-handed, split, floating, and per-app modes that swap the whole keyboard, toolbar
   included, when a particular app opens.
+- **Spell checking** with Harper built in, plus Hunspell dictionaries, GiellaLT spellers and
+  Voikko for Finnish when you import them.
 - **Field awareness.** Enter, the number row, suggestions and learning all adapt to the field:
   passwords, code editors, terminals, URL bars, one-time-code fields.
 - **Hardware keyboards** get a hotkey layer, hint overlays and tool shortcuts.
@@ -104,12 +107,13 @@ The features the keyboard has
 
 ### Languages
 
-- **826 languages, 1,700+ layouts** from one data-driven registry: native scripts, InScript
+- **955 languages, 1,999 layouts** from one data-driven registry: native scripts, InScript
   variants, romanised entries, CJK, minority Cyrillic alphabets, and a dozen constructed ones. A
   fresh install starts in whatever your phone is already set to.
 - **Bangla, done properly.** Avro phonetic, Probhat with aspirates on shift, Jatiya, Khipro Classic and Dark,
   conjunct-aware backspace, and Bangla-English mixing in one field.
 - **CJK input** with composers for pinyin, jyutping, kana and hangul, plus Vietnamese Telex.
+  RIME for Chinese and Mozc for Japanese are there as optional engines.
 - **Layouts you can edit**, build from JSON, or import from FlorisBoard, HeliBoard, FUTO, and Keyman.
 - **Odd ones too:** musical notation, braille chording, Morse, fancy-text alphabets, and a
   T9 keypad for languages that had one.
@@ -122,25 +126,25 @@ The features the keyboard has
   for party in other languages.
 - Emoji 17.0, per-person skin tones, kaomoji, and long-press to send Google's animated emoji.
 - Sticker packs you make from your own photos, with a background cutout that runs on device.
-  WhatsApp and Signal packs import directly.
+  WhatsApp, Signal and Telegram packs import directly.
 - GIF search when you want it, off when you don't.
 
 [Emoji picker](https://wmkeyboard.pages.dev/emoji/picker/) · [Stickers](https://wmkeyboard.pages.dev/emoji/stickers/)
 
 ### The toolbox
 
-77 tools sit one tap behind the toolbar, and you drag the ones you use onto it. Most of them
+89 tools sit one tap behind the toolbar, and you drag the ones you use onto it. Most of them
 work in airplane mode.
 
 | | |
 |---|---|
-| **Text** | Clipboard with history, pins, search and screenshot capture. Snippets with `{date}` and `{clip}` variables. Text expansion. Undo and redo. Selection mode. A trackpad. Fancy text. |
-| **Numbers** | A calculator in the suggestion strip. Unit and currency conversion. Calendars. |
-| **Words** | Dictionary and Wikipedia lookup. Translate, on device in the Full edition. Grammar check with Harper, fully offline. Vocabulary practice. |
-| **Camera** | Text scan (OCR, ML Kit or Tesseract for 100+ languages). QR and barcode. Document scanner. |
-| **Phone** | Media controls. An app launcher. KDE Connect. Flashlight. One-time codes caught from notifications. |
-| **Voice** | Android's recogniser with a continuous mode, or offline Whisper with a catalog of 29 models. |
-| **Writing** | AI rewrite, summarise, translate and fix. On-device with a local model, or bring your own key for any provider that speaks the OpenAI shape. Nothing is enabled behind your back. |
+| **Text** | Clipboard with history, pins, search and screenshot capture. Snippets with `{date}` and `{clip}` variables. Text expansion. Undo and redo. Selection mode. A trackpad. Fancy text. Notes. |
+| **Numbers** | A calculator in the suggestion strip. Unit and currency conversion. Calendars, with events you can add and edit. |
+| **Words** | Dictionary, Wikipedia and Look up cards. Translate on device with ML Kit, Firefox Translations or NLLB-200. Grammar check with Harper, fully offline. Vocabulary practice. |
+| **Camera** | Text scan with ML Kit, Tesseract for 100+ languages, or PaddleOCR. QR and barcode with ML Kit or zxing-cpp. Document scanner, Google's or the keyboard's own. |
+| **Phone** | Media controls. An app launcher. KDE Connect. Smart home controls. Sending files. Flashlight. One-time codes caught from notifications. |
+| **Voice** | Android's recogniser with a continuous mode, or offline engines: Whisper on whisper.cpp, Whistle, Asr4All, Parakeet, Moonshine, Sherpa and Omnilingual. A transcription server of your own works too. |
+| **Writing** | AI rewrite, summarise, translate and fix. On-device with LiteRT-LM or GGUF models on llama.cpp, or bring your own key for any provider that speaks the OpenAI shape. Nothing is enabled behind your back. |
 
 [The toolbar](https://wmkeyboard.pages.dev/tools/overview/) · [Clipboard](https://wmkeyboard.pages.dev/tools/clipboard/) · [Whisper](https://wmkeyboard.pages.dev/tools/whisper/) · [AI tools](https://wmkeyboard.pages.dev/tools/ai/)
 
@@ -148,8 +152,8 @@ work in airplane mode.
 
 - A full theme editor: palettes, fonts per script, key shapes, textures, decals, particles,
   photo backgrounds, per-key styles, with a live preview while you edit.
-- Material You, AMOLED, and 29 built-in themes across 11 families, including Dracula, Nord,
-  Solarized, Catppuccin and Tokyo Night.
+- Material You, AMOLED, and 32 built-in themes, among them frosted glass and ports of Dracula,
+  Nord, Solarized, Catppuccin and Tokyo Night.
 - Icon packs, sound packs, and themes that export as files you can share.
 
 [Themes](https://wmkeyboard.pages.dev/themes/overview/) · [The editor](https://wmkeyboard.pages.dev/themes/editor/)
@@ -166,9 +170,9 @@ learning behave identically with the radio off.
 - Every tool that touches the network says so on its own settings page and stays off until you
   open it. A network activity log shows every request the keyboard has made.
 - Backups can be encrypted with a passphrase and written wherever you point them.
-- The one exception worth naming: handwriting and the scanners in the Full edition are built on
-  Google's ML Kit, which reports its own diagnostics to Google. The Lite edition carries no
-  Google library at all, and a build flag can remove the internet permission entirely.
+- The one exception worth naming: in the standard build, handwriting and the scanners run on
+  Google's ML Kit, which reports its own diagnostics to Google. The F-Droid build carries no
+  Google library at all, and the offline build has no internet permission.
 
 [Privacy at a glance](https://wmkeyboard.pages.dev/privacy/overview/) · [Network policy](https://wmkeyboard.pages.dev/privacy/network/) · [Your data on device](https://wmkeyboard.pages.dev/privacy/data/)
 
@@ -192,44 +196,49 @@ learning behave identically with the radio off.
 | Area | Families | Features | Capabilities |
 |---|---:|---:|---:|
 | Typing core: prediction, autocorrect, learning, spell check | 9 | 50 | 205 |
-| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 219 |
-| Languages, scripts, layouts, transliteration | 11 | 64 | 213 |
+| Input behaviour: glide, gestures, cursor, editing, keys | 11 | 80 | 220 |
+| Languages, scripts, layouts, transliteration | 11 | 65 | 220 |
 | Themes and appearance | 14 | 73 | 183 |
-| Emoji, GIFs, stickers, kaomoji | 16 | 88 | 94 |
-| Toolbar and the tool set | 10 | 85 | 311 |
+| Emoji, GIFs, stickers, kaomoji | 16 | 96 | 94 |
+| Toolbar and the tool set | 10 | 88 | 364 |
 | Clipboard, snippets, text expansion | 7 | 37 | 191 |
-| AI, voice, handwriting, scanning | 11 | 70 | 162 |
-| Privacy, backup, storage, statistics | 14 | 69 | 173 |
+| AI, voice, handwriting, scanning | 12 | 81 | 168 |
+| Privacy, backup, storage, statistics | 14 | 70 | 180 |
 | Accessibility, form factors, platform integration | 13 | 61 | 111 |
 | Extensibility: addons, plugins, imports, formats | 5 | 35 | 164 |
 | Modes, rows, field adaptation, runtime | 12 | 97 | 203 |
-| **Total** | **133** | **807** | **2,229** |
+| **Total** | **134** | **830** | **2,288** |
 
-Entries marked `RARE` there are things few or no mainstream keyboards ship. There are over 400.
+Entries marked `RARE` there are things few or no mainstream keyboards ship. There are over 500.
 
 </details>
 
-## Editions
+## Builds
 
-One codebase, two APKs. Everything about typing, prediction, themes, languages and privacy is
-identical. What differs is which on-device machine learning ships in the box.
+One app, three builds. Everything about typing, prediction, themes, languages and privacy is
+identical. Up to 0.6.2 there were two editions, Full and Lite; from 0.6.3 there is no Lite, and
+the optional feature libraries download the first time a feature needs them instead.
 
-| | Full | Lite |
-|---|:---:|:---:|
-| Handwriting, text scan, QR and document scanner | ✓ | |
-| Grammar check (Harper) | ✓ | |
-| Offline Whisper dictation | ✓ | |
-| On-device local LLM | ✓ | |
-| Google libraries on the compile classpath | ML Kit, LiteRT | none |
-| APK, `arm64-v8a`, English UI | 85 MB | 12 MB |
-| APK, `arm64-v8a`, all 48 UI languages | 132 MB | 57 MB |
-| On Google Play | ✓ | |
-| On F-Droid | | ✓ |
+| | Standard | F-Droid | Offline |
+|---|:---:|:---:|:---:|
+| Where | Google Play, GitHub | F-Droid | GitHub |
+| Handwriting | ML Kit, 126 languages | zinnia, Chinese and Japanese | ML Kit, 126 languages |
+| Text scan | ML Kit, Tesseract, PaddleOCR | PaddleOCR | ML Kit, Tesseract, PaddleOCR |
+| QR and barcode | ML Kit or zxing-cpp | zxing-cpp | ML Kit or zxing-cpp |
+| Document scanner | Google's or the built-in one | built-in | Google's or the built-in one |
+| Grammar check (Harper) | ✓ | ✓ | ✓ |
+| Offline Whisper (whisper.cpp), Asr4All, Parakeet, Moonshine, Sherpa, Omnilingual | ✓ | ✓ | ✓ |
+| Whisper on LiteRT, Whistle | ✓ | | ✓ |
+| On-device AI | LiteRT-LM and GGUF | GGUF | LiteRT-LM and GGUF |
+| On-device translate | ML Kit, Firefox Translations, NLLB-200 | Firefox Translations, NLLB-200 | ML Kit, Firefox Translations, NLLB-200 |
+| Google libraries on the compile classpath | ML Kit, LiteRT | none | ML Kit, LiteRT |
+| Feature libraries | downloaded on first use | downloaded once you allow it | in the APK |
+| Internet permission | ✓ | ✓ | |
 
-Sizes are from 0.5.12 and drift with dependencies. The UI-language choice only affects the
-words the settings app shows you. Every layout and dictionary is in both.
+The UI-language choice only affects the words the settings app shows you. Every layout and
+dictionary is in every build.
 
-[Full vs Lite](https://wmkeyboard.pages.dev/start/editions/)
+[Which build you have](https://wmkeyboard.pages.dev/start/editions/)
 
 ## Install
 
@@ -240,14 +249,16 @@ words the settings app shows you. Every layout and dictionary is in both.
 <a href="https://apps.obtainium.imranr.dev/redirect?r=obtainium://add/https://github.com/wasi-master/wmkeyboard"><img src="https://raw.githubusercontent.com/ImranR98/Obtainium/main/assets/graphics/badge_obtainium.png" alt="Get it on Obtainium" height="72"></a>
 </p>
 
-- **Google Play** carries the Full edition. Play delivers the heavier on-device parts (the local
-  LLM runtime, the translation engine, handwriting, the offline-voice interpreter) the first time
-  you use them, so the install stays small, and updates it like any other app.
-- **F-Droid** carries the Lite edition, built from source and checked byte-for-byte against the
-  `-fdroid.apk` on the matching GitHub release.
-- **GitHub releases** carry both editions, each in English-only and all-languages builds, for
-  `arm64-v8a`, `armeabi-v7a`, `x86_64` and a universal APK. Almost every phone made since 2017
-  wants `arm64-v8a`. A `SHA256SUMS.txt` sits next to them.
+- **Google Play** carries the standard build. Play delivers the heavier on-device parts (the AI
+  runtimes, the translation engines, handwriting, the offline voice engines, the scanners' readers)
+  the first time you use them, so the install stays small, and updates it like any other app.
+- **F-Droid** carries its own build, without Google's libraries, built from source as one APK
+  per CPU architecture and checked byte-for-byte against the matching `-fdroid.apk` on the
+  GitHub release.
+- **GitHub releases** carry the standard build for `arm64-v8a`, `armeabi-v7a`, `x86_64` and a
+  universal APK, which fetches its other UI languages and feature libraries on demand, and the
+  offline build for `arm64-v8a` and universal. Almost every phone made since 2017
+  wants `arm64-v8a`. GitHub lists each file's SHA-256 beside it.
 - **Obtainium** tracks the GitHub releases and updates you automatically. The release APKs also
   carry their own update check, which asks GitHub and shows a card on the Home screen.
 
@@ -275,11 +286,13 @@ background fetch, and it is off by default. <a href="https://wmkeyboard.pages.de
 </details>
 
 <details>
-<summary><b>Full or Lite?</b></summary>
+<summary><b>Which build?</b></summary>
 <br>
-Lite if you are short on storage or do not need handwriting, scanning, grammar check, offline
-Whisper or the local LLM. Full for everything. They share a package name and a signing key, so
-installing one over the other keeps all your data.
+The standard one, from Play or GitHub, unless you want F-Droid's (no Google library at all, at
+the cost of handwriting outside Chinese and Japanese, ML Kit's readers in the scanners, and the
+LiteRT models for Whisper and on-device AI) or the offline one (no internet permission,
+everything inside a much larger APK). The GitHub and F-Droid builds share a signing
+key, so installing one over the other keeps all your data.
 </details>
 
 <details>
@@ -356,27 +369,27 @@ gives you a local preview.
 
 ## Build it yourself
 
-You need a JDK 17 or newer to launch Gradle, and the Android SDK with compileSdk 36.1. Gradle
+You need a JDK 17 or newer to launch Gradle, and the Android SDK with compileSdk 37. Gradle
 provisions its own toolchain through Foojay on the first build. Android Studio's bundled JBR works
 well as `JAVA_HOME`.
 
 ```bash
-./gradlew assembleFullIntlDebug   # every feature, every UI language
+./gradlew assembleIntlDebug       # every UI language
 ```
 
 ```bash
-./gradlew assembleLiteEnDebug     # fewer tools, English UI, small
+./gradlew assembleEnDebug -Pwmkb.enableFdroid=true   # what F-Droid builds, English UI
 ```
 
 ```bash
-./gradlew unitTests               # the whole suite, ~7,000+ tests
+./gradlew unitTests               # the whole suite, ~9,500 tests
 ```
 
 ```bash
 ./gradlew staticAnalysis          # detekt + Android Lint, 20+ minutes
 ```
 
-The task name is the edition, then the UI-language build, then the build type. Two flags in
+The task name is the UI-language build, then the build type. Two flags in
 `local.properties` matter: the build channel (Play versus direct download), which decides
 whether the ML models and LLM runtime ship inside the APK or download on demand, and a
 no-internet switch that strips the permission entirely.
@@ -386,8 +399,9 @@ no-internet switch that strips the permission entirely.
 
 <br>
 
-27 Gradle modules, layered bottom-up. Every dependency points downward, and the engines under
-`core/` keep `android.*` out of the files that do the real work, so they test on a plain JVM.
+27 Gradle modules in every build, layered bottom-up, plus one Play feature module per native
+gate when building for Play. Every dependency points downward, and the engines under `core/`
+keep `android.*` out of the files that do the real work, so they test on a plain JVM.
 
 ```
 app/                  Settings app, manifest, resources, bundled assets, most unit tests
@@ -395,20 +409,21 @@ feature/
 ├── ime/              WMKeyboardService and the Compose keyboard UI (the keyboard itself)
 ├── addons/           Addon install, reconcile, download
 ├── tools/            Network tool clients: AI, GIF and sticker, search, link preview
-├── llm/              On-demand LiteRT-LM runtime (Play channel only)
-├── translate/        On-demand ML Kit translator (Play channel only)
-├── litert/           On-demand LiteRT interpreter: offline Whisper, sticker cutout
-└── handwriting/      On-demand ML Kit ink recogniser
+└── <gate>/           23 on-demand Play modules, one per native gate (llm, translate, speech,
+                      onnx, llama, bergamot, rime, mozc, zxing, ...), listed in native/gates.json
 core/
 ├── settings/         SettingsRepository (DataStore), KeyboardSettings, modes, power saving
-├── intelligence/     Grammar (Harper JNI), local LLM, handwriting, spell checker service
+├── intelligence/     Grammar, on-device AI, translation, handwriting, scanners, spell checker service
 ├── feedback/         Key sounds and haptics
-├── voice/            SpeechRecognizer plus offline Whisper dictation
+├── voice/            SpeechRecognizer plus the offline dictation engines
 ├── plugins/          Lua plugin sandbox
 ├── addons/           Addon store and repository data layer
 ├── content/          Clipboard, snippets, fonts, media, stickers
 ├── tools/            Offline tool engines: calc, units, currency, symbols, calendars
 ├── kdeconnect/       KDE Connect client
+├── send/             Send (Firefox Send fork) client: encrypted file links
+├── homeassistant/    Home Assistant client
+├── smarthome/        The smart home tool's other providers
 ├── icons/            Icon packs and the SVG parser
 ├── theme/            ThemeSpec, palettes, rendering
 ├── emoji/            Catalog loader, semantic search, usage tracking
@@ -419,7 +434,9 @@ core/
 ├── common/           Utilities, direct boot, debug log, shared contracts
 └── config/           Build flags and API keys
 tools/dictc/          Host-side dictionary compiler, shares :core:prediction sources
-native/               Rust: wm-engine (the text engines, shared with WMK Desktop), its JNI bridge, the Harper grammar bridge
+tools/architecture/   Konsist architecture rules over the whole source tree
+native/               wm-engine (the Rust text engines, shared with WMK Desktop) and its JNI bridge,
+                      plus the JNI builds behind every gate; gates.json lists them all
 docs/                 The documentation site (Astro Starlight)
 ```
 
@@ -450,9 +467,14 @@ for each of these, and [`app/src/main/assets/licenses/`](app/src/main/assets/lic
 the same files.
 
 - [Harper](https://github.com/Automattic/harper) for offline grammar checking, bridged from Rust.
-- [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and whisper-android for offline dictation.
-- Google ML Kit and LiteRT for handwriting, scanning, on-device translation and the local LLM runtime, in the Full edition.
-- [Tesseract](https://github.com/tesseract-ocr/tesseract) and Leptonica for OCR beyond the languages ML Kit covers.
+- [whisper.cpp](https://github.com/ggml-org/whisper.cpp) and whisper-android for offline dictation, [ExecuTorch](https://github.com/pytorch/executorch) behind Asr4All, Parakeet, Moonshine and FUTO Swipe, and [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) on [ONNX Runtime](https://github.com/microsoft/onnxruntime) behind Sherpa and Omnilingual. [RNNoise](https://github.com/xiph/rnnoise) and [Opus](https://opus-codec.org/) for cleaning and compressing audio.
+- Google ML Kit and LiteRT for handwriting, scanning, on-device translation and the LiteRT-LM runtime, in every build but F-Droid's.
+- [llama.cpp](https://github.com/ggml-org/llama.cpp) for GGUF models on device.
+- [Bergamot](https://github.com/browsermt/bergamot-translator) (Firefox Translations) and [CTranslate2](https://github.com/OpenNMT/CTranslate2) with NLLB-200 for on-device translation.
+- [Tesseract](https://github.com/tesseract-ocr/tesseract) and Leptonica, and PaddleOCR on [MNN](https://github.com/alibaba/MNN), for OCR beyond the languages ML Kit covers. [zxing-cpp](https://github.com/zxing-cpp/zxing-cpp) for codes and [OpenCV](https://opencv.org/) for the built-in document scanner.
+- [zinnia](https://taku910.github.io/zinnia/) with Tegaki's models for Chinese and Japanese handwriting.
+- [librime](https://github.com/rime/librime) and [Mozc](https://github.com/google/mozc) for the optional Chinese and Japanese engines.
+- [Hunspell](https://hunspell.github.io/), [divvunspell](https://github.com/divvun/divvunspell) and [Voikko](https://voikko.puimula.org/) for spell checking with imported dictionaries.
 - [Gemoji](https://github.com/github/gemoji), [KEmoji](https://invent.kde.org/libraries/kemoji) and Unicode CLDR for emoji names and keywords. [Noto](https://notofonts.github.io/) for fonts and animated emoji.
 - [Keyman](https://keyman.com) for the keyboard import format, and [Khipro](https://khipro.khiproteam.com/) for the Bangla layout of the same name.
 - [LuaJ](https://github.com/luaj/luaj) for the plugin sandbox. [Bouncy Castle](https://www.bouncycastle.org/) for backup encryption.

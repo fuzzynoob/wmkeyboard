@@ -72,6 +72,8 @@ internal class LanTransport(
     private val allowLoopback: Boolean,
     private val now: () -> Long,
     private val log: (String) -> Unit,
+    /** Read per socket, so a binder installed after [start] still applies to later dials. */
+    private val binder: () -> KdeSocketBinder?,
     /**
      * Whether a fresh connection to this device id is wanted. False while a
      * healthy link to it exists: a desktop re-announces on every network
@@ -121,6 +123,9 @@ internal class LanTransport(
             listening = false
             DatagramSocket().apply { broadcast = true }
         }
+        // Whichever of the two it is, this is the socket announcements leave
+        // from, so it is the one a binder has to see.
+        binder()?.bindDatagram(socket)
         udp = socket
         udpPort = socket.localPort
         jobs = listOfNotNull(
@@ -223,7 +228,11 @@ internal class LanTransport(
         if (!rateLimitAllows(deviceId) || !rateLimitAllows(address.hostAddress.orEmpty())) return
         val socket = Socket()
         try {
+            binder()?.bindOutgoing(socket)
             socket.keepAlive = true
+            // Nagle would hold each small pointer packet back until the last
+            // one is acknowledged, so a drag reached the desktop in bursts.
+            socket.tcpNoDelay = true
             socket.connect(InetSocketAddress(address, port), CONNECT_TIMEOUT_MS)
             socket.soTimeout = HANDSHAKE_TIMEOUT_MS
             val me = self()
@@ -262,6 +271,7 @@ internal class LanTransport(
                 return
             }
             socket.keepAlive = true
+            socket.tcpNoDelay = true
             socket.soTimeout = HANDSHAKE_TIMEOUT_MS
             // Byte by byte on purpose: a buffered reader would swallow the
             // start of the TLS stream that follows this one line.

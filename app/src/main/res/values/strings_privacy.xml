@@ -13,7 +13,7 @@
     <!-- Handwriting models: download and delete one model per language.    -->
     <!-- ================================================================== -->
 
-    <string name="privacy_handwriting_none_info">None of the languages you turned on has an ML Kit handwriting model. Add a language on the Languages screen. The model of that language then shows here.</string>
+    <string name="privacy_handwriting_none_info">None of the languages you turned on has a handwriting model in this version of the app. Add a language on the Languages screen. The model of that language then shows here.</string>
 
     <!-- Row subtitles. Each one says what the model of that language is doing. -->
     <string name="privacy_handwriting_status_checking">Checking…</string>
@@ -99,6 +99,22 @@
     <string name="privacy_backup_info">This setting is off at the start. The keyboard copies nothing that it stores to Google Drive or to a new device. Turn it on, and the Android backup treats the keyboard like any other app. Your settings, themes, layouts, snippets, learned words, sticker packs, icon packs and plugins come back on a new device, or after you install the app again. The backup leaves out the voice models, the AI models, the downloaded word lists and the emoji keyword packs. The keyboard can download these again by itself, and the backup must stay inside the size limit of Android. The backup does include your saved API keys. Android makes a cloud backup only on a device that can encrypt it with your screen lock. Backup &amp; restore in Settings is the other way, and it never uses Google. It saves the same data in a file that you move yourself.</string>
 
     <string name="privacy_downloads_group_title">Downloads</string>
+    <string name="privacy_native_downloads_title">Download feature libraries</string>
+    <string name="privacy_native_downloads_on_subtitle">On: a feature downloads its library from GitHub the first time you use it</string>
+    <string name="privacy_native_downloads_off_subtitle">Off: features that need a library say so instead of downloading it</string>
+    <string name="privacy_native_downloads_info">This F-Droid build leaves out the native libraries behind some features, such as offline voice typing and grammar checking. With this setting on, the keyboard downloads a library the first time its feature needs it, from the WM Keyboard data repository on GitHub. By turning this on, you choose to bypass F-Droid\'s checks: F-Droid did not build or review these files. Before the keyboard uses a file, it compares the file with a checksum that is built into this app. You can also import the files yourself from Settings › About › Storage.</string>
+    <string name="privacy_native_downloads_confirm_title">Download files that F-Droid has not checked?</string>
+    <string name="privacy_native_downloads_confirm_action">Turn on</string>
+    <string name="privacy_native_import_title">Feature libraries</string>
+    <!-- %1$d of %2$d: libraries on the phone, of all this build can use. -->
+    <string name="privacy_native_import_subtitle">%1$d of %2$d on this phone. This offline build cannot download them: get the files on another device and import them here</string>
+    <string name="privacy_qualcomm_licence_title">Qualcomm NPU runtime</string>
+    <string name="privacy_qualcomm_licence_accepted">Licence accepted. The NPU runtime downloads from Maven Central.</string>
+    <string name="privacy_qualcomm_licence_not_accepted">Not accepted. On-device AI can\'t use the NPU.</string>
+    <string name="privacy_qualcomm_licence_dialog_title">Qualcomm\'s licence</string>
+    <string name="privacy_qualcomm_licence_dialog_body">To run AI on the NPU, the keyboard needs Qualcomm\'s QNN runtime for your phone\'s chip (about <xliff:g id="size" example="29 MB">%1$s</xliff:g>). The keyboard downloads it from Qualcomm\'s own package on Maven Central, so Qualcomm gives you these files under its AI Stack License, not WM Keyboard. The licence says that you must be 18 or older and that you accept its terms.</string>
+    <string name="privacy_qualcomm_licence_accept">Accept and download</string>
+    <string name="privacy_qualcomm_licence_view">View licence</string>
     <string name="privacy_verify_checksums_title">Verify downloaded files</string>
     <string name="privacy_verify_checksums_subtitle">Check every download and import against its published checksum</string>
     <string name="privacy_verify_checksums_off_subtitle">Off: the keyboard uses files that fail their checksum. Turn this back on when you can.</string>
@@ -274,6 +290,8 @@
     <string name="privacy_permissions_location_subtitle">The location tool reads your position once when you tap, to share it or to set the weather location</string>
     <string name="privacy_permissions_calendar_title">Calendar</string>
     <string name="privacy_permissions_calendar_subtitle">The calendar tool lists the events of your day</string>
+    <string name="privacy_permissions_calendar_write_title">Change calendar events</string>
+    <string name="privacy_permissions_calendar_write_subtitle">The calendar tool saves, changes and deletes the events you edit, and the AI adds events when you set it to</string>
 
     <string name="privacy_permissions_images_title">Photos and images</string>
     <string name="privacy_permissions_images_subtitle">Show your new screenshots in the clipboard</string>
@@ -288,7 +306,7 @@
     <string name="privacy_permissions_usage_subtitle">Show which app a clipboard entry was copied from</string>
 
     <string name="privacy_permissions_overlay_title">Display over other apps</string>
-    <string name="privacy_permissions_overlay_subtitle">The floating button that opens the keyboard without a text field</string>
+    <string name="privacy_permissions_overlay_subtitle">The floating buttons that open the keyboard and the AI chat</string>
     <string name="privacy_permissions_exact_alarms_title">Alarms and reminders</string>
     <string name="privacy_permissions_exact_alarms_subtitle">Clock tool alarms and timers ring at the exact minute</string>
     <string name="privacy_permissions_full_screen_title">Full-screen notifications</string>
@@ -296,6 +314,8 @@
 
     <string name="privacy_permissions_accessibility_title">Accessibility service</string>
     <string name="privacy_permissions_accessibility_subtitle">Keep the keyboard gestures while TalkBack is on</string>
+    <string name="privacy_permissions_screen_content_title">Accessibility service for the AI button</string>
+    <string name="privacy_permissions_screen_content_subtitle">Let the floating AI button read the screen when you press it</string>
 
     <!-- Direct-download builds only. The keyboard can install a new version of itself. -->
     <string name="privacy_permissions_install_updates_title">Install updates</string>

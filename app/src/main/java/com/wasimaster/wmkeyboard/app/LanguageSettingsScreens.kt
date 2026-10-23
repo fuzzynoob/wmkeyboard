@@ -50,9 +50,11 @@ import com.wasimaster.wmkeyboard.core.dictionaries.AvroDictionaryDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryStore
+import com.wasimaster.wmkeyboard.core.dictionaries.DivvunSpellerDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackDownloadManager
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackEntry
+import com.wasimaster.wmkeyboard.core.dictionaries.VoikkoDictionaryDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
@@ -72,6 +74,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinProfile
 import com.wasimaster.wmkeyboard.core.input.composer.DoublePinyinScheme
 import com.wasimaster.wmkeyboard.core.input.composer.PinyinFuzzy
 import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
+import com.wasimaster.wmkeyboard.core.input.rime.RimeSchemaCatalog
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.InputMethodKind
@@ -80,7 +83,9 @@ import com.wasimaster.wmkeyboard.core.layout.composerType
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.layout.isShippedLayoutId
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
+import com.wasimaster.wmkeyboard.core.prediction.DivvunRuntime
 import com.wasimaster.wmkeyboard.core.prediction.PhoneticSchemes
+import com.wasimaster.wmkeyboard.core.prediction.VoikkoRuntime
 import com.wasimaster.wmkeyboard.core.prediction.PhoneticStripSource
 import com.wasimaster.wmkeyboard.core.prediction.PhoneticCandidateList
 import com.wasimaster.wmkeyboard.core.prediction.SpellingMap
@@ -100,6 +105,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.TransliterationHintMode
+import com.wasimaster.wmkeyboard.core.xlit.IndicXlitModels
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import java.io.File
@@ -585,10 +591,43 @@ internal fun startLanguageDataDownload(
 private val AUTO_DOWNLOAD_SIZE = DictionaryCatalog.DictionarySize.LARGE
 
 /** Bytes a language's downloaded files are taking up right now. */
-private fun downloadedLanguageBytes(filesDir: File, langId: String): Long =
-    DictionaryStore.downloadedFile(filesDir, langId).length() +
-        EmojiDictStore.packFile(filesDir, langId).length() +
-        NgramPackDownloadManager.packFile(filesDir, langId).length()
+internal fun downloadedLanguageBytes(context: Context, settings: KeyboardSettings, langId: String): Long =
+    languageDataFiles(context, settings, langId).sumOf { file ->
+        file.walkBottomUp().filter { it.isFile }.sumOf { it.length() }
+    }
+
+/**
+ * Every downloaded file only [langId] uses, which is what removing it may
+ * delete: its word list and phonetic index, emoji keywords, word pairs, CJK
+ * dictionaries, spellers and Bangla's Avro dictionary. The neural model is
+ * shared, so it counts only when no other language left on would still use
+ * it. One list, so the question, the size it quotes and the delete cannot
+ * disagree about what goes.
+ */
+private fun languageDataFiles(context: Context, settings: KeyboardSettings, langId: String): List<File> = buildList {
+    val filesDir = context.filesDir
+    add(DictionaryStore.downloadedFile(filesDir, langId))
+    add(DictionaryStore.phoneticFile(filesDir, langId))
+    add(EmojiDictStore.packFile(filesDir, langId))
+    add(NgramPackDownloadManager.packFile(filesDir, langId))
+    add(DivvunRuntime.bhfstFile(filesDir, langId))
+    add(DivvunRuntime.zhfstFile(filesDir, langId))
+    add(VoikkoRuntime.dictionaryDir(filesDir, langId))
+    CjkDictCatalog.forLang(langId).forEach { add(CjkDictStore.packDir(filesDir, it)) }
+    if (langId == PhoneticSchemes.BENGALI.languageId) add(AvroDictionaryDownloads.file(filesDir))
+}.filter(File::exists) + listOfNotNull(orphanedNeuralModel(context, settings, langId))
+
+/** IndicXlit's directory when [langId] is the last language on that has neural suggestions. */
+private fun orphanedNeuralModel(context: Context, settings: KeyboardSettings, langId: String): File? {
+    val neural = settings.suggestionStrip.neuralPhoneticLangs
+    if (langId !in neural) return null
+    val othersUsing = settings.enabledLayoutIds
+        .map { resolveLayout(settings.customLayouts, it).language().id }
+        .any { it != langId && it in neural }
+    if (othersUsing) return null
+    // The pack's own directory, which holds nothing else.
+    return IndicXlitModels.dir(context.noBackupFilesDir).parentFile?.takeIf { it.exists() }
+}
 
 /**
  * The download prompt, hoisted so every screen that can add a language asks the
@@ -702,9 +741,53 @@ private fun LanguageDataDownloadDialog(
     )
 }
 
+/** Whether [langId] has anything downloaded that removing it could leave behind. */
+internal fun hasLanguageData(context: Context, settings: KeyboardSettings, langId: String): Boolean =
+    languageDataFiles(context, settings, langId).isNotEmpty()
+
+/** Deletes what [languageDataFiles] lists, each through its own store so its screen hears of it. */
+internal suspend fun deleteLanguageData(
+    context: Context,
+    repository: SettingsRepository,
+    settings: KeyboardSettings,
+    langId: String,
+) {
+    val filesDir = context.filesDir
+    val neural = orphanedNeuralModel(context, settings, langId) != null
+    DictionaryStore.delete(filesDir, langId)
+    WordlistDownloadManager.refresh(filesDir)
+    // Leaves a "declined" mark behind, which is what stops the
+    // automatic pass fetching the keywords straight back.
+    EmojiDictDownloadManager.delete(filesDir, langId)
+    NgramPackDownloadManager.delete(filesDir, langId)
+    DivvunSpellerDownloads.delete(filesDir, langId)
+    VoikkoDictionaryDownloads.delete(filesDir, langId)
+    CjkDictCatalog.forLang(langId).forEach { CjkDictDownloadManager.delete(filesDir, it) }
+    if (langId == PhoneticSchemes.BENGALI.languageId) AvroDictionaryDownloads.delete(filesDir)
+    if (neural) deleteNeuralPhonetic(context, repository, settings)
+}
+
+/**
+ * Takes every layout of [langId] out of the enabled set. Refuses (false) when
+ * nothing would be left to type in.
+ */
+internal suspend fun removeLanguageLayouts(
+    repository: SettingsRepository,
+    settings: LiveSettings,
+    langId: String,
+): Boolean {
+    val current = settings.value
+    val next = current.enabledLayoutIds.filterNot {
+        resolveLayout(current.customLayouts, it).language().id == langId
+    }
+    if (next.isEmpty()) return false
+    repository.setEnabledLayoutIds(next.distinct())
+    return true
+}
+
 /** The mirror of [LanguageDataDownloadDialog], for a language on its way out. */
 @Composable
-private fun LanguageDataDeleteDialog(
+internal fun LanguageDataDeleteDialog(
     language: LanguageDef,
     bytes: Long,
     onKeep: () -> Unit,
@@ -845,6 +928,7 @@ private fun LayoutsGroup(
             spec.keyman?.let { it to spec.name }
         }
     }
+    val named = settings.watch { s -> listed.filter { it in s.enabledLayoutIds } }
     // #464: QWERTZ for English. The way in used to be duplicating a layout in
     // the editor and changing its language there, which nobody found.
     var borrowing by remember { mutableStateOf(false) }
@@ -855,6 +939,11 @@ private fun LayoutsGroup(
         // that fetches them, naming it.
         for ((binding, name) in keymanListed) {
             item { KeymanRulesRow(binding, name, rulesRefresh) }
+        }
+        // What each switched-on layout is called on the spacebar and in the
+        // switcher, and the way to call it something else.
+        for (layoutId in named) {
+            item(key = "name:$layoutId") { LayoutNameRow(layoutId, settings, repository, scope) }
         }
         item {
             WmRow(
@@ -978,21 +1067,14 @@ internal fun LanguageDetailScreen(
 
     val removeLanguage: () -> Unit = {
         scope.launch {
-            val current = settings.value
-            val next = current.enabledLayoutIds.filterNot {
-                resolveLayout(current.customLayouts, it).language().id == langId
-            }
-            if (next.isNotEmpty()) {
-                repository.setEnabledLayoutIds(next.distinct())
-                onRemoved()
-            }
+            if (removeLanguageLayouts(repository, settings, langId)) onRemoved()
         }
     }
 
     if (pendingDelete) {
         LanguageDataDeleteDialog(
             language = lang,
-            bytes = downloadedLanguageBytes(filesDir, langId),
+            bytes = downloadedLanguageBytes(context, settings.value, langId),
             // Either answer removes the language: the dialog is about the
             // files on disk, not about the removal the user already asked for.
             onKeep = {
@@ -1001,14 +1083,11 @@ internal fun LanguageDetailScreen(
             },
             onDelete = {
                 pendingDelete = false
-                DictionaryStore.delete(filesDir, langId)
-                WordlistDownloadManager.refresh(filesDir)
-                // Leaves a "declined" mark behind, which is what stops the
-                // automatic pass fetching the keywords straight back.
-                EmojiDictDownloadManager.delete(filesDir, langId)
-                NgramPackDownloadManager.delete(filesDir, langId)
-                if (langId == PhoneticSchemes.BENGALI.languageId) AvroDictionaryDownloads.delete(filesDir)
-                removeLanguage()
+                val before = settings.value
+                scope.launch {
+                    deleteLanguageData(context, repository, before, langId)
+                    if (removeLanguageLayouts(repository, settings, langId)) onRemoved()
+                }
             },
         )
     }
@@ -1031,6 +1110,53 @@ internal fun LanguageDetailScreen(
                 info = stringResource(R.string.languages_picker_hidden_info, lang.englishName),
                 default = false,
             ) { scope.launch { repository.setLanguageHiddenFromPicker(langId, it) } }
+        }
+    }
+
+    // Autocorrect per language (#802): English corrected and romanized
+    // Bengali kept as typed, on the same phone. Greyed out under the global
+    // switch, which still rules every language; the row keeps its own answer
+    // for when that comes back on.
+    SettingsGroup(stringResource(R.string.languages_autocorrect_group)) {
+        item {
+            val globalOn = settings.watch { it.correction.enabled }
+            ToggleSetting(
+                R.string.languages_autocorrect_title,
+                stringResource(
+                    if (globalOn) {
+                        R.string.languages_autocorrect_subtitle
+                    } else {
+                        R.string.languages_autocorrect_global_off_subtitle
+                    },
+                ),
+                settings.watch { langId !in it.correction.offLanguages },
+                info = stringResource(R.string.languages_autocorrect_info, lang.englishName),
+                enabled = globalOn,
+                default = true,
+            ) { scope.launch { repository.setAutocorrectForLanguage(langId, it) } }
+        }
+    }
+
+    // The space after a picked suggestion, per language the same way (#813):
+    // Bangla words take their case markers and suffixes straight after the
+    // pick, so the space only gets in the way there.
+    SettingsGroup(stringResource(R.string.languages_spacing_group)) {
+        item {
+            val globalOn = settings.watch { it.suggestionStrip.autoSpaceAfterSuggestion }
+            ToggleSetting(
+                R.string.languages_space_after_suggestion_title,
+                stringResource(
+                    if (globalOn) {
+                        R.string.languages_space_after_suggestion_subtitle
+                    } else {
+                        R.string.languages_space_after_suggestion_global_off_subtitle
+                    },
+                ),
+                settings.watch { langId !in it.suggestionStrip.spaceAfterSuggestionOffLangs },
+                info = stringResource(R.string.languages_space_after_suggestion_info, lang.englishName),
+                enabled = globalOn,
+                default = true,
+            ) { scope.launch { repository.setAutoSpaceAfterSuggestionForLanguage(langId, it) } }
         }
     }
 
@@ -1179,8 +1305,8 @@ internal fun LanguageDetailScreen(
             resolveLayout(s.customLayouts, id).let { it.langId == langId && it.inputMethod?.kind == InputMethodKind.RULES }
         }
     }
-    val transliterating = phonetic || rulesMethod ||
-        ComposerType.KHIPRO in composers || ComposerType.KHIPRO_DARK in composers
+    val khipro = ComposerType.KHIPRO in composers || ComposerType.KHIPRO_DARK in composers
+    val transliterating = phonetic || rulesMethod || khipro
     if (transliterating) {
         SettingsGroup(stringResource(R.string.languages_translit_hints_title)) {
             item {
@@ -1218,6 +1344,20 @@ internal fun LanguageDetailScreen(
         // strip, so they get no row.
         if (phonetic && PhoneticSchemes.forLanguage(langId) != null) {
             PhoneticStripGroup(langId, lang.englishName, settings, repository, scope)
+        }
+        // Khipro's strip has a chip of its own: the keys as pressed (#772).
+        if (khipro) {
+            SettingsGroup(stringResource(R.string.languages_phonetic_strip_title)) {
+                item {
+                    ToggleSetting(
+                        R.string.languages_raw_keys_chip_title,
+                        stringResource(R.string.languages_raw_keys_chip_subtitle),
+                        settings.watch { it.suggestionStrip.rawKeysChipFor(langId) },
+                        info = stringResource(R.string.languages_raw_keys_chip_info),
+                        default = SettingsDefaults.suggestionStrip.rawKeysChipFor(langId),
+                    ) { scope.launch { repository.setRawKeysChip(langId, it) } }
+                }
+            }
         }
     }
 
@@ -1346,6 +1486,36 @@ internal fun LanguageDetailScreen(
         }
     }
 
+    // Burmese written in Zawgyi, the font encoding much Burmese text is still
+    // in, the same way: allowing it puts the Zawgyi button on the strip of
+    // every Burmese layout, and the button turns it on. The key font is for
+    // the phones Zawgyi users have, whose own Myanmar font may be a Zawgyi one.
+    if (langId == "my") {
+        val zawgyiAllowed = settings.watch { it.suggestionStrip.burmeseZawgyiAllowed }
+        SettingsGroup(stringResource(R.string.languages_zawgyi_group)) {
+            item {
+                ToggleSetting(
+                    R.string.languages_zawgyi_allowed_title,
+                    stringResource(R.string.languages_zawgyi_allowed_subtitle),
+                    zawgyiAllowed,
+                    info = stringResource(R.string.languages_zawgyi_allowed_info),
+                    default = SettingsDefaults.suggestionStrip.burmeseZawgyiAllowed,
+                ) { scope.launch { repository.setBurmeseZawgyiAllowed(it) } }
+            }
+            if (zawgyiAllowed) {
+                item {
+                    ToggleSetting(
+                        R.string.languages_zawgyi_key_font_title,
+                        stringResource(R.string.languages_zawgyi_key_font_subtitle),
+                        settings.watch { it.suggestionStrip.burmeseUnicodeKeyFont },
+                        info = stringResource(R.string.languages_zawgyi_key_font_info),
+                        default = SettingsDefaults.suggestionStrip.burmeseUnicodeKeyFont,
+                    ) { scope.launch { repository.setBurmeseUnicodeKeyFont(it) } }
+                }
+            }
+        }
+    }
+
     // The word list, emoji keywords and word pairs, one row each, with the
     // Download all that fetches whatever of them is missing.
     DictionariesGroup(lang, settings, repository, scope, onNavigate)
@@ -1356,6 +1526,18 @@ internal fun LanguageDetailScreen(
         CjkDictPackManager(langId, repository, settings, onNavigate)
     }
 
+    // Chinese and Cantonese can convert on RIME instead (librime): the
+    // engine choice, its library, schema packs, imports and compiling.
+    if (RimeSchemaCatalog.forLang(langId).isNotEmpty()) {
+        RimeEngineGroup(langId, repository, settings)
+    }
+
+    // Japanese can convert on Mozc instead: the engine choice, its library,
+    // its dictionary and its learning.
+    if (langId == "ja") {
+        MozcEngineGroup(repository, settings)
+    }
+
     // Removing the only language would leave nothing to type in, so it is only
     // offered when another language is enabled.
     if (settings.watch { it.enabledLanguages.size > 1 }) {
@@ -1363,10 +1545,7 @@ internal fun LanguageDetailScreen(
             item {
                 OutlinedButton(
                     onClick = {
-                        val downloaded = DictionaryStore.isDownloaded(filesDir, langId) ||
-                            EmojiDictStore.isDownloaded(filesDir, langId) ||
-                            NgramPackDownloadManager.isDownloaded(filesDir, langId)
-                        if (downloaded) pendingDelete = true else removeLanguage()
+                        if (hasLanguageData(context, settings.value, langId)) pendingDelete = true else removeLanguage()
                     },
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1431,6 +1610,15 @@ internal fun EmojiDictRow(entry: EmojiDictEntry) {
                     androidx.compose.ui.graphics.Color.Unspecified
                 },
             )
+        },
+        swipeActions = if (status is EmojiDictDownloadManager.DownloadStatus.Downloaded) {
+            listOf(
+                deleteSwipeAction(stringResource(R.string.languages_emoji_dict_delete_desc)) {
+                    EmojiDictDownloadManager.delete(filesDir, entry.languageId)
+                },
+            )
+        } else {
+            emptyList()
         },
         trailing = {
             when (status) {
@@ -1588,6 +1776,15 @@ private fun CjkDictPackManager(
                 WmRow(
                     title = stringResource(pack.displayNameRes),
                     subtitle = packStatusLabel(pack, status),
+                    swipeActions = if (status == CjkDictDownloadManager.DownloadStatus.Downloaded) {
+                        listOf(
+                            deleteSwipeAction(stringResource(R.string.languages_cjk_delete_desc, packName)) {
+                                CjkDictDownloadManager.delete(filesDir, pack)
+                            },
+                        )
+                    } else {
+                        emptyList()
+                    },
                     trailing = {
                         when (status) {
                             is CjkDictDownloadManager.DownloadStatus.Downloading ->
@@ -1879,7 +2076,7 @@ private fun CjkDictPackManager(
  * text follows the app's language: it is read only while the row is drawn.
  */
 @Composable
-private fun packStatusLabel(
+internal fun packStatusLabel(
     pack: CjkDictPack,
     status: CjkDictDownloadManager.DownloadStatus,
 ): String = when (status) {
@@ -1929,6 +2126,8 @@ private fun PhoneticStripGroup(
     val candidateListOn = settings.watch {
         it.suggestionStrip.phoneticCandidateListFor(langId) != PhoneticCandidateList.OFF
     }
+    val neuralOn = settings.watch { it.suggestionStrip.neuralPhoneticFor(langId) }
+    val neuralLeads = settings.watch { langId in it.suggestionStrip.neuralLeadsLangs }
     SettingsGroup(stringResource(R.string.languages_phonetic_strip_title)) {
         item {
             ToggleSetting(
@@ -2004,6 +2203,28 @@ private fun PhoneticStripGroup(
                 ) { scope.launch { repository.setPhoneticCandidateList(langId, it) } }
             }
             item(visible = candidateListOn) { AvroDictionaryRow() }
+        }
+        // IndicXlit's readings after the one the space bar writes: a small
+        // neural network, one download shared by every language it writes.
+        if (IndicXlitModels.supports(langId)) {
+            item {
+                NeuralPhoneticToggle(langId, languageName, settings, neuralOn) { on ->
+                    scope.launch { repository.setNeuralPhonetic(langId, on) }
+                }
+            }
+            item(visible = neuralOn) { NeuralPhoneticModelRow(settings, repository) }
+            // Only where it measured worth the swap it makes (IndicXlitModels.LEADS).
+            if (IndicXlitModels.canLead(langId)) {
+                item(visible = neuralOn) {
+                    ToggleSetting(
+                        R.string.languages_neural_leads_title,
+                        stringResource(R.string.languages_neural_leads_subtitle),
+                        neuralLeads,
+                        info = stringResource(R.string.languages_neural_leads_info, languageName),
+                        default = langId in SettingsDefaults.suggestionStrip.neuralLeadsLangs,
+                    ) { scope.launch { repository.setNeuralLeads(langId, it) } }
+                }
+            }
         }
     }
 }

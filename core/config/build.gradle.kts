@@ -8,10 +8,10 @@ plugins {
 }
 
 // Coverage for the root's merged report (`./gradlew koverHtmlReportUnit`):
-// this module's full-flavour debug unit tests.
+// this module's debug unit tests.
 kover {
     currentProject {
-        createVariant("unit") { add("fullDebug") }
+        createVariant("unit") { add("debug") }
     }
 }
 
@@ -28,19 +28,39 @@ fun apiKey(propertyName: String, envName: String): String =
         ?: System.getenv(envName)?.trim()
         ?: ""
 
+/** The Google Home APIs SDK is checked in under feature/ime/libs/googlehome; without it the flag cannot be on. */
+val googleHomeSdk: Boolean = rootProject.file("feature/ime/libs/googlehome").listFiles()?.any { it.name.endsWith(".aar") } == true ||
+    rootProject.file("feature/ime/libs/googlehome/m2/com/google/android/gms/play-services-home").isDirectory
+
 fun flag(propertyName: String, envName: String): Boolean =
     (providers.gradleProperty(propertyName).orNull
         ?: localProperties.getProperty(propertyName)
         ?: System.getenv(envName)
         ?: "false").toBoolean()
 
+/**
+ * Whether the build carries Google's SDKs: every channel but F-Droid.
+ * :core:intelligence, :core:voice, :core:content and :feature:ime read the
+ * same flag to choose their src/google or src/nogoogle sources.
+ */
+val googleSdks: Boolean = !flag("wmkb.enableFdroid", "WMKB_ENABLE_FDROID")
+
+/**
+ * Whether the build carries the Qualcomm NPU runtime for on-device AI (#804).
+ * On unless switched off, and never in the F-Droid build: the QNN libraries
+ * are Qualcomm's own licence. :core:intelligence, :app and settings.gradle.kts
+ * read the same two properties to decide what gets packaged.
+ */
+val npuRuntime: Boolean =
+    (providers.gradleProperty("wmkb.enableNpu").orNull
+        ?: localProperties.getProperty("wmkb.enableNpu")
+        ?: System.getenv("WMKB_ENABLE_NPU")
+        ?: "true").toBoolean() && !flag("wmkb.enableFdroid", "WMKB_ENABLE_FDROID")
 
 android {
     namespace = "com.wasimaster.wmkeyboard.config"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
     }
     defaultConfig {
         minSdk = 24
@@ -56,6 +76,10 @@ android {
         buildConfigField("String", "TRANSLATE_API_KEY", "\"${apiKey("wmkb.translateApiKey", "WMKB_TRANSLATE_API_KEY")}\"")
         buildConfigField("String", "UNSPLASH_API_KEY", "\"${apiKey("wmkb.unsplashApiKey", "WMKB_UNSPLASH_API_KEY")}\"")
         buildConfigField("String", "PEXELS_API_KEY", "\"${apiKey("wmkb.pexelsApiKey", "WMKB_PEXELS_API_KEY")}\"")
+        // The SmartThings OAuth app this build signs in through (smart home
+        // tool). Blank leaves only the pasted-token way in.
+        buildConfigField("String", "SMARTTHINGS_CLIENT_ID", "\"${apiKey("wmkb.smartThingsClientId", "WMKB_SMARTTHINGS_CLIENT_ID")}\"")
+        buildConfigField("String", "SMARTTHINGS_CLIENT_SECRET", "\"${apiKey("wmkb.smartThingsClientSecret", "WMKB_SMARTTHINGS_CLIENT_SECRET")}\"")
         buildConfigField("Boolean", "ENABLE_PLAY_STORE", "${flag("wmkb.enablePlayStore", "WMKB_ENABLE_PLAY_STORE")}")
         buildConfigField("Boolean", "ENABLE_FDROID", "${flag("wmkb.enableFdroid", "WMKB_ENABLE_FDROID")}")
         // Diagnostic builds only: on an uncaught exception, replace Android's
@@ -65,29 +89,28 @@ android {
         // at startup means the in-app log screen is unreachable. Off by default;
         // build with -Pwmkb.enableCrashScreen=true.
         buildConfigField("Boolean", "ENABLE_CRASH_SCREEN", "${flag("wmkb.enableCrashScreen", "WMKB_ENABLE_CRASH_SCREEN")}")
+        // The features built on Google's SDKs (ML Kit, LiteRT, LiteRT-LM):
+        // every build has them except F-Droid's, which may carry no Google
+        // artifact (fdroid/README.md). Grammar is Harper, open source, so it
+        // is in every build.
+        buildConfigField("Boolean", "GOOGLE_SDKS", "$googleSdks")
+        buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "$googleSdks")
+        buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "$googleSdks")
+        buildConfigField("Boolean", "ENABLE_GRAMMAR", "true")
+        // On-device AI is in every build: llama.cpp runs GGUF models and needs
+        // nothing from Google. LiteRT-LM, the runtime for .litertlm and .task
+        // models, is a Google artifact, so F-Droid's build offers GGUF only.
+        buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "true")
+        buildConfigField("Boolean", "ENABLE_LITERT_LM", "$googleSdks")
+        buildConfigField("Boolean", "ENABLE_WHISPER", "$googleSdks")
+        // The NPU as a Compute choice for on-device AI: see npuRuntime above.
+        buildConfigField("Boolean", "ENABLE_NPU", "$npuRuntime")
+        // The Google Home APIs: their SDK is left out of F-Droid's build, and
+        // the grant only works for a signing certificate that has an OAuth
+        // client, so each channel says whether it carries one.
+        buildConfigField("Boolean", "ENABLE_GOOGLE_HOME", "${googleSdks && flag("wmkb.enableGoogleHome", "WMKB_ENABLE_GOOGLE_HOME") && googleHomeSdk}")
     }
 
-    flavorDimensions += "capabilities"
-    productFlavors {
-        create("full") {
-            dimension = "capabilities"
-            buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "true")
-            buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "true")
-            buildConfigField("Boolean", "ENABLE_GRAMMAR", "true")
-            buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "true")
-            buildConfigField("Boolean", "ENABLE_WHISPER", "true")
-        }
-        create("lite") {
-            dimension = "capabilities"
-            buildConfigField("Boolean", "ENABLE_ML_KIT_HANDWRITING", "false")
-            buildConfigField("Boolean", "ENABLE_ML_KIT_SCANNERS", "false")
-            // Harper is open source and needs no Play services, so lite has it
-            // too; only the ML Kit and LiteRT features stay full-only.
-            buildConfigField("Boolean", "ENABLE_GRAMMAR", "true")
-            buildConfigField("Boolean", "ENABLE_LOCAL_LLM", "false")
-            buildConfigField("Boolean", "ENABLE_WHISPER", "false")
-        }
-    }
     buildFeatures { buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11

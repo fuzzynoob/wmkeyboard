@@ -1,0 +1,74 @@
+---
+title: "Offline voice (Sherpa)"
+description: "Streaming dictation on your phone in 13 languages, Bangla among them, with words that appear while you speak."
+sidebar:
+  order: 4.6
+---
+
+import SettingsPath from '@components/SettingsPath.astro';
+
+Offline Sherpa runs [sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx), k2-fsa's speech toolkit, on your phone. Its models are streaming Zipformer transducers: they decode while you speak, so the words go into the field as you say them, the way the phone's own recognizer does it, and nothing waits for the end of the phrase. Each language has its own model, and one covers eight at once. Once a model is downloaded, no audio leaves the phone. The same runtime also reads text aloud: see [Read back and offline voices](/tools/read-back/). A language with no model on the phone uses the system recognizer instead.
+
+## Setting it up
+
+<SettingsPath path="Voice typing" />
+
+1. Add **Sherpa** to the **Recognition engine** list and move it to the top, or pick it for one language under **Engine for each language**.
+2. Press **Sherpa** on the list to open its screen, which holds the **Sherpa models** group. The first time, a banner offers ONNX Runtime, the engine Sherpa runs on: a one-time download of about 33 MB (arm64), from Google Play on the Play build and from Maven Central on the GitHub and F-Droid builds; the offline build carries it already. The F-Droid build asks you to turn on **Download feature libraries** first.
+3. Download the model for each language you dictate in. Each one comes from Hugging Face at a fixed revision, every file checked against its published SHA-256.
+
+| Model | Languages | Download | Licence |
+|---|---|---|---|
+| Zipformer English Small | English | 46 MB | Apache-2.0 |
+| Zipformer English | English | 75 MB | Apache-2.0 |
+| Vosk Bengali | Bangla | 96 MB | Apache-2.0 |
+| Vosk Russian Small | Russian | 30 MB | Apache-2.0 |
+| Zipformer Korean | Korean | 134 MB | Apache-2.0 |
+| Zipformer French | French | 130 MB | Apache-2.0 |
+| Kroko German | German | 73 MB | CC-BY-SA-4.0 |
+| Kroko Spanish | Spanish | 158 MB | CC-BY-SA-4.0 |
+| Zipformer Chinese | Mandarin | 169 MB | Apache-2.0 |
+| Zipformer ar en id ja ru th vi zh | Arabic, English, Indonesian, Japanese, Russian, Thai, Vietnamese, Mandarin | 341 MB | Apache-2.0 |
+| Punctuation (English) | punctuation and capitals for English; see below | 8 MB | |
+
+The sizes include Silero VAD (2 MB), a small voice detector every model carries so that deleting one never breaks another.
+
+## How it works
+
+While you speak, the words go into the field as underlined composing text, rewritten as they grow, and the line under the microphone shows them too. When the phrase ends, the finished text replaces them and goes through the same spacing, spoken punctuation, casing and undo as any other dictation (see [Voice typing](/tools/voice/)).
+
+**Where a phrase ends.** With **Stop after a pause** set, Silero listens for you to stop talking and ends the phrase after that long a pause; with **Keep listening** on, the next phrase starts at once. Silero hears speech rather than loudness, so a fan or traffic does not keep the phrase open the way it can for a loudness threshold. With the setting off, the phrase runs until you press the microphone or two minutes pass.
+
+**Which model.** When two downloaded models know the language, the larger one dictates. The model list marks each one in use, and **Engine for each language** can pin a language to a particular model.
+
+**Punctuation.** Most of these models write plain words with no punctuation, and the English ones trained on audiobooks spell in capitals. Sherpa turns capitals into ordinary lower case. With [Add punctuation and capitals](/tools/voice/#adding-punctuation-and-capitals) on, the default, a finished phrase gets full stops, commas, question marks and sentence capitals from a punctuation model for 88 languages, downloaded from that setting's row on the Voice typing screen. **Punctuation (English)** here does the same for English on its own, and with both on the phone an English phrase takes the multilingual model's marks and this one's capitals for names. The German, Spanish, Korean and eight-language models punctuate by themselves and are left as they are. Spoken punctuation ("comma", "full stop") works either way.
+
+## Words to listen for
+
+<SettingsPath path="Voice typing / Words to listen for" />
+
+Sherpa listens for the same [words to listen for](/tools/voice/#words-to-listen-for) the system recognizer gets: the names and terms you typed into **More words to listen for**, then your own words from the dictionary when **Listen for my words** is on. They go to the model as hotwords. While it decodes, a guess that spells one of your words gets a small bonus for each piece of the word it has spelled so far, and the bonus is taken back if the guess turns away before the word is complete. A name the model was close to hearing then comes out the way you spell it.
+
+The model can only write a word in the pieces it was trained on, so each word is first spelled in that model's pieces. Words it has no pieces for are left out: German umlauts for the English models, Bangla letters for any model but the Bengali one, and characters the Chinese model has never seen, which is most rare characters in Chinese names. The eight-language model takes Chinese characters and plain Latin words, but not words in Arabic, Cyrillic, Thai or Vietnamese letters. Words under three letters are left out too, so a stray initial does not turn up wherever a word starts with it.
+
+**What it costs.** Hotwords need a slower search: Sherpa keeps four guesses open instead of one. The search only runs when some of your words can be spelled by the model, so with an empty list, or **Listen for my words** off and nothing typed in, Sherpa decodes the quicker way. Switching between the two loads the model again, once.
+
+**What to expect.** Hotwords help a name the model nearly heard; they cannot teach it a sound it has never heard. On synthetic test sentences with 15 rare names (Siobhan, Okonkwo, Ljubljana, Kubernetes and the like) read by five voices, the English model got the name right 1 time in 75 without the list and 9 to 11 times with it, whether the list held just those names or 195 words. Ordinary sentences came out as before: no word from the list was ever typed into a sentence that did not have it.
+
+## Reduce background noise
+
+<SettingsPath path="Voice typing / Reduce background noise" />
+
+Not Sherpa's own, but worth knowing about here: **Reduce background noise** cleans the microphone's audio before any offline engine hears it, Sherpa included. **Light** runs [RNNoise](https://github.com/xiph/rnnoise), a tiny network that costs about 10 ms; it comes with the offline voice engines' shared libraries, so on a phone that has only Sherpa so far it fetches those (about 8 MB) at the next phrase. **Strong** runs [DPDFNet](https://github.com/ceva-ip/DPDFNet), a DeepFilterNet model, on the ONNX Runtime Sherpa already has, after a 9 MB model download. Strong is the one that helps recognition: on noisy test recordings Sherpa's English model went from 33% of words wrong to 31% with it, and to 40% with Light. Off by default; see [Voice typing](/tools/voice/#continuous-mode) for the details.
+
+## Sherpa, Whisper or the others
+
+For Bangla, Sherpa is the only offline engine that shows the words while you speak; [Whisper](/tools/whisper/) understands more accents and rarer words but types the phrase when you stop. For English, [Asr4All](/tools/asr4all/) streams too and punctuates on its own, [Moonshine](/tools/moonshine/) is the smallest, and Whisper (on whisper.cpp) takes your own words as a prompt, which it reads more freely than Sherpa's hotwords. Sherpa is the one to pick for live text in a language the others do not stream in. For a language none of them knows, [Omnilingual](/tools/omnilingual/) runs on the same runtime and covers about 380 keyboard languages, a phrase at a time.
+
+## Details & edge cases
+
+**Several languages at once.** A dictation that listens for more than one language at a time needs one Sherpa model that knows all of them, which only the eight-language model can be. Otherwise the panel asks for a model.
+
+**The licences.** sherpa-onnx is Apache-2.0, ONNX Runtime is Microsoft's under MIT, Silero VAD is MIT. The Kroko models are Banafo's community models under CC-BY-SA-4.0, the Vosk models Alpha Cephei's under Apache-2.0. All of them are credited in the app's About screen.
+
+**Where the runtime comes from.** The app never carries a copy of ONNX Runtime rebuilt by anyone but Microsoft: the Play build gets it from Play, the offline build carries Microsoft's own file inside the APK, and the GitHub and F-Droid builds read Microsoft's file straight out of its package on Maven Central, checked against a SHA-256 built into the app. See [Network activity](/privacy/network/).

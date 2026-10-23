@@ -11,7 +11,7 @@ import Shot from '@components/Shot.astro';
 
 Selecting a phone number in a chat and then dialling it usually means copying it, leaving the app, opening the dialler and pasting. The keyboard already knows what you selected, so it can offer the things that shape of text is for, and a good deal more: the everyday edits, a find and replace, line tools, case and chat formatting, conversions, and a way to hand the text to your contacts, maps or calendar.
 
-Select `01712345678` and the bar reads **Select all, Call, Message, WhatsApp, Contact, Copy, Cut, Paste, Delete, Share, Format, Find, Replace**. Select a sentence and it reads **Select all, Copy, Cut, Paste, Delete, Share, Save as note, Format, Find, Replace, Grammar, AI, Bangla, Fancy** and so on, with the actions that only make sense for what you selected (Sort on several lines, Colour on `#336699`, Zones on `5pm`) appearing when they do.
+Select `01712345678` and the bar reads **Select all, Call, Message, WhatsApp, Contact, Copy, Cut, Paste, Delete, Share, Format, Find, Replace**. Select a sentence and it reads **Select all, Copy, Cut, Paste, Delete, Share, Save as note, Format, Find, Replace, Repeat, Grammar, AI, Bangla, Fancy** and so on, with the actions that only make sense for what you selected (Sort on several lines, Colour on `#336699`, Zones on `5pm`) appearing when they do.
 
 This is off by default. It adds a bar that appears out of a gesture you already make for other reasons, so you have to ask for it.
 
@@ -58,7 +58,9 @@ Two things sit outside the order. **Undo** is always first while there is someth
 | Format | A number, link or address the rewrite would change; any text | On |
 | Find | Anything, when the field could hold another copy | On |
 | Replace | Anything | On |
-| Sort, Unique, Number, Bullets | Two or more lines | On |
+| Repeat | Anything, while the Text repeat tool is enabled | On |
+| Sort, Unique, Number, Bullets, Check boxes | Two or more lines | On (Check boxes off) |
+| Move up, Move down | Anything short of the whole field | Off |
 | Grammar | Text, with the [Grammar](/smart/grammar/) tool on | On |
 | DeepL Write | Text up to 2,500 characters, once [DeepL Write](/tools/translate/#deepl) is set up | On |
 | Translate | Text, with the [Translate](/tools/translate/) tool on | On |
@@ -68,11 +70,12 @@ Two things sit outside the order. **Undo** is always first while there is someth
 | Hindi | Latin text, with the [Hindi phonetic](/languages/hindi/) layout enabled | On |
 | Hinglish | Devanagari text, with the Hindi phonetic layout enabled | On |
 | Digits | Digits in another script | On |
+| Zawgyi ⇄ Unicode | Burmese text | On |
 | Colour | A colour code | On |
 | Call, Message, WhatsApp | A phone number | On |
 | Email | An address | On |
 | Open | A link or an address | On |
-| Remove trackers | A link with tracking parameters | On |
+| Remove trackers | A link with tracking parameters, alone or in text | On |
 | QR | A link, with the QR generator on | On |
 | Contact | A phone number or an address | On |
 | Fancy | Text | On |
@@ -94,7 +97,7 @@ The memory ends with the selection. Move it onto other text, clear it, or leave 
 
 ## Editing
 
-**Select all** selects the whole field. A long press usually selects only one word, so this is the fast way to act on everything you wrote. **Copy**, **Cut** and **Paste** are the editor's own; Paste replaces the selection and only appears while the clipboard holds text. **Delete** removes the selection. **Share** opens the system chooser with the selected text. **Save as note** keeps the selection in the [Notes tool](/tools/notes/) as a new note, or adds it to the note you edited last when <SettingsPath path="Tools / Notes / Save as note from a selection" /> says so; a toast says which. It appears only while the Notes tool is enabled.
+**Select all** selects the whole field. A long press usually selects only one word, so this is the fast way to act on everything you wrote. In a web page it goes in as Ctrl+A, so an editor in the page, like a code editor that only draws the lines on screen, selects its whole text itself rather than losing a selection the keyboard made for it. **Copy**, **Cut** and **Paste** are the editor's own; Paste replaces the selection and only appears while the clipboard holds text. **Delete** removes the selection. **Share** opens the system chooser with the selected text. **Save as note** keeps the selection in the [Notes tool](/tools/notes/) as a new note, or adds it to the note you edited last when <SettingsPath path="Tools / Notes / Save as note from a selection" /> says so; a toast says which. It appears only while the Notes tool is enabled.
 
 ## Find and replace
 
@@ -110,9 +113,13 @@ Three toggles: **Aa** matches case, **[ab]** matches whole words only (in any sc
 
 **Replace** swaps the current match and moves to the next. **All** replaces every match in one go, which Undo takes back in one go too. A field that does not report where its text is (a few web views) still lets you find, but not replace in place.
 
+**Repeat** opens the [Text repeat](/tools/utilities/#repeating-text) panel with the selection as the text to repeat: pick a count and a separator there and Insert writes the copies at the cursor. It appears only while the Text repeat tool is enabled.
+
 ## Lines
 
-With two or more lines selected, four chips appear. **Sort** puts them in order, digits compared as numbers so `item2` comes before `item10`; sort a list that is already in order and it turns the other way round. **Unique** drops repeated lines. **Number** puts `1.`, `2.`, `3.` in front of each line, and **Bullets** a bullet. Both are toggles: a list that already has the prefix on every line loses it, and either one converts into the other, so a bulleted list becomes a numbered one in a tap.
+With two or more lines selected, four chips appear. **Sort** puts them in order, digits compared as numbers so `item2` comes before `item10`; sort a list that is already in order and it turns the other way round. **Unique** drops repeated lines. **Number** puts `1.`, `2.`, `3.` in front of each line, and **Bullets** a bullet. **Check boxes** puts `☐` in front of each line, a list to tick off. All three are toggles: a list that already has the prefix on every line loses it, and any one converts into the others, so a bulleted list becomes a numbered one in a tap. A ticked box (`☑`, `✅`) and a Markdown task box (`- [ ]`, `[x]`) count as boxes already.
+
+**Move up** and **Move down** swap the lines your selection touches with the line above or below, and the selection goes with them, so pressing again keeps moving them. They work on one line as well as several, which is how a single item in a list changes places with its neighbour. Both are off to start with; turn them on under Actions.
 
 ## Format
 
@@ -133,7 +140,7 @@ On ordinary text, Format opens a row of chips in place of the bar: **lower case*
   <Shot id="smart/selection-actions-case" alt="Format on plain text: the four case options, with the arrow back to the actions." />
 </PhoneFrame>
 
-Each one rewrites the selection and leaves the result selected, so you can try Title, then Sentence, then UPPER without reselecting between taps.
+Each one rewrites the selection and leaves the result selected, so you can try Title, then Sentence, then UPPER without reselecting between taps. None of them changes the spelling: UPPER CASE writes `ß` as the capital `ẞ` rather than `SS`, so lower case gets the word back exactly.
 
 Title case and Sentence case leave a word that is already all capitals alone, so an acronym in the middle of a sentence survives. `the NASA launch` becomes `The NASA Launch`, not `The Nasa Launch`. That rule is suspended when the whole selection is capitals, because somebody selecting `HELLO THERE` and reaching for Title case is fixing shouting, not protecting acronyms.
 
@@ -158,7 +165,8 @@ Mono on several lines uses the app's fenced block where it has one. These four a
 - **Digits** turns figures in another script into `0` to `9`: `০১৭১২` becomes `01712`, and Devanagari, Arabic-Indic or Persian figures the same.
 - **Colour** appears on a colour code (`#336699`, `#f00`, `0xFF336699`, `rgb(51, 102, 153)`, `hsl(210, 50%, 40%)`), wears a swatch of the colour, and opens its other spellings; tap one to write it in place.
 - **JSON** pretty-prints a minified object or array with two-space indents, or minifies a pretty one. Key order and number literals survive either way.
-- **Remove trackers** appears on a link that carries tracking parameters (`utm_source`, `fbclid`, `gclid`, `si` and the like) and takes them off, leaving everything that says which page it is. `youtu.be/abc?si=XyZ` becomes `youtu.be/abc`. It is on to start with; if you have already picked your own set of actions, switch it on under Actions.
+- **Remove trackers** appears on a link that carries tracking parameters (`utm_source`, `fbclid`, `gclid`, `si` and the like) and takes them off, leaving everything that says which page it is. `youtu.be/abc?si=XyZ` becomes `youtu.be/abc`. It also takes the trackers a known site adds only there, such as Amazon's `/ref=…` path or X's `?s=20`, and turns a redirect link such as Google's `/url?q=…` into the link it leads to. It also shows on a sentence or a paragraph with such a link in it, and cleans every link there while leaving the words alone, and on a single link of any length (before version 0.6.2 a link longer than 320 characters, which tracked links often are, never offered it). Add parameter names of your own under <SettingsPath path="Clipboard / Copy rules" />, where **Remove trackers from copied links** also cleans every link as you copy it. It is on to start with; if you have already picked your own set of actions, switch it on under Actions.
+- **Zawgyi ⇄ Unicode** appears on Burmese text and converts it between Zawgyi, the old font encoding much Burmese is still written in, and Unicode, whichever way the text needs: Zawgyi becomes Unicode and Unicode becomes Zawgyi. It reads the whole selection to decide, and writes the result exactly as converted even in a text box the keyboard is [writing Zawgyi](/languages/burmese/#writing-zawgyi) into. It is on to start with; if you have already picked your own set of actions, switch it on under Actions.
 - **Base64** decodes Base64 text, and **Decode** a percent-encoded link (`hello%20world` to `hello world`). Both are careful about what counts: an ordinary word is never mistaken for Base64, and `50% off` is not encoded.
 
 ## Language
@@ -167,18 +175,18 @@ Mono on several lines uses the app's fenced block where it has one. These four a
 - **Banglish** goes the other way, writing Bengali script back in Latin letters by pronunciation (তোমার to `tomar`, ধন্যবাদ to `dhonnobad`, কী to `ki`), with the most readable spelling from the map for words it knows.
 - **Hindi** does the same for Hinglish: the known-spellings list first (`theek` to ठीक, `nhi` to नहीं), then the downloaded Hindi word list through the same phonetic match the strip uses, then the rules. It needs the Hindi phonetic layout switched on, because that is what loads all three. On Latin text with both Bangla and Hindi available you get both chips, and you pick the language you wrote.
 - **Hinglish** writes Devanagari back in Latin letters the way it is said, not the way it is spelled: करना is `karna` and नमस्ते is `namaste`, because spoken Hindi drops the inherent vowel in the first and keeps it in the second. Long vowels are doubled inside a word and single at its end (`naam`, `theek`, `mera`, `ladki`).
-- **Grammar** runs the [Grammar](/smart/grammar/) checker over the selection alone and commits every suggestion at once, offline. It shows a spinner while it works and says so when there is nothing to fix.
-- **DeepL Write** sends the selection to DeepL Write and puts DeepL's rewrite in its place, in the [writing style](/tools/translate/#options) you picked. It shows only after you add a DeepL API Pro key and turn on **DeepL Write** under Tools / Translate, and it works in the Lite edition too. Undo brings the original back.
+- **Grammar** runs the [Grammar](/smart/grammar/) checker over the selection alone and commits every suggestion at once, offline with Harper. With [LanguageTool](/smart/grammar/#checkers-harper-and-languagetool) switched on, the selection goes to its server when LanguageTool is the checker for your language, and never from a password field or in incognito. It shows a spinner while it works and says so when there is nothing to fix.
+- **DeepL Write** sends the selection to DeepL Write and puts DeepL's rewrite in its place, in the [writing style](/tools/translate/#options) you picked. It shows only after you add a DeepL API Pro key and turn on **DeepL Write** under Tools / Translate, and it works in the F-Droid build too. Undo brings the original back.
 - **AI** opens the [AI](/tools/ai/) tool on the selection. Under **AI buttons** you can give any AI action a chip of its own (Formal, Shorter, Friendly and Summarize are made for it): one tap runs it on the selection and the result lands in the AI panel, ready to apply. Applying replaces the selection, not the field around it. The AI's own Translate action reads **AI translate** as a chip, so it is not confused with the Translate chip below.
 - **Translate** opens the [Translate](/tools/translate/) tool with the selection in its box and the translation under it, using the translation engine you picked there (online, or on the device). **Replace text** in the panel then replaces the selection, not the field around it. It sits just before AI on the bar and is on to start with; if you have already picked your own set of actions, switch it on under Actions. Opening the Translate tool from the toolbar with text selected does the same thing.
 
 ## Look up
 
-**Search** opens the [web search](/tools/search/) tool with the selection as the query. **Speak** reads the selection aloud with the phone's speech engine (in Bengali for Bengali text) and turns into Stop while it does. **Zones** appears on a time and shows it in each of the zones you picked under Time zones, UTC and your own to start with; tap one to write it in place of the selection.
+**Search** opens the [web search](/tools/search/) tool with the selection as the query. **Speak** reads the selection aloud with the phone's speech engine, or with a downloaded [offline voice](/tools/read-back/#offline-voices) for that language (in Bengali for Bengali text), and turns into Stop while it does. **Zones** appears on a time and shows it in each of the zones you picked under Time zones, UTC and your own to start with; tap one to write it in place of the selection.
 
 ## Open in
 
-**Call** and **Message** open your dialler and your messaging app with the number filled in. **WhatsApp** opens a chat with that number. **Contact** adds the number or address to your contacts. **Open** hands a link to your browser, and an address to your mail app. When the link belongs to an app instead (a YouTube link with YouTube installed, say), the chip wears that app's icon and a small outward arrow, so you know where the tap goes before you make it. **Email** writes a new message to the selected address. **QR** opens the [QR generator](/tools/utilities/) with the link already in it. **Map** opens coordinates (`23.8103, 90.4125`) or something that looks like a street address in your maps app. **Calendar** adds a selected date or time (`14 Sep 2026`, `tomorrow 5pm`, `১৪ সেপ্টেম্বর`) as an event.
+**Call** and **Message** open your dialler and your messaging app with the number filled in. **WhatsApp** opens a chat with that number. **Contact** adds the number or address to your contacts. **Open** hands a link to your browser, and an address to your mail app. When the link belongs to an app instead (a YouTube link with YouTube installed, say), the chip wears that app's icon and a small outward arrow, so you know where the tap goes before you make it. **Email** writes a new message to the selected address. **QR** opens the [QR generator](/tools/utilities/) with the link already in it. **Map** opens coordinates (`23.8103, 90.4125`) or something that looks like a street address in your maps app. **Calendar** adds a selected date or time (`14 Sep 2026`, `tomorrow 5pm`, `১৪ সেপ্টেম্বর`) as an event: the [Calendar tool's](/tools/calendar/#adding-an-event) composer opens with the selection as the title and that date and time set, ready to save. With the Calendar tool switched off, or its **Save events** set to the calendar app, it opens your calendar app's editor instead.
 
 None of these send anything anywhere themselves: each hands the text to an app you picked and stops.
 
@@ -199,16 +207,22 @@ None of these send anything anywhere themselves: each hands the text to an app y
 | Selection actions | Toggle | Off |
 | Where it appears | Choice of 2 | Own row |
 | Show on every selection | Toggle | Off |
+| Show with nothing selected | Toggle | Off |
 | Read what is selected | Toggle | On |
-| Actions | Screen | 33 of 48 on |
+| Actions | Screen | 33 of 51 on |
+| Icon only | Screen | None |
 | AI buttons | Screen | None |
 | Time zones | Screen | UTC and your own |
 
 **Show on every selection** keeps the bar up on a selection too long to read. The keyboard does not read a selection past about 4,000 characters, so by default such a selection takes the whole bar away, Copy and Paste included, even though neither of those ever needed the text read, because the app does that work itself. Turn this on and the bar stays, carrying Select all, Copy, Cut, Paste and Delete, whichever of them you have switched on. Everything else still waits for a shorter selection, since every other action begins by reading the text.
 
+**Show with nothing selected** keeps the bar's row on screen all the time, not only while text is selected. With just a caret in the field, the row holds Select all and Paste, whichever of them you have switched on. Tap Select all and the full row for the whole text replaces it, so Copy, Translate and the rest are one tap further on and you never have to long-press to select first. The keyboard stays the same height as you move between selecting and typing. This switch only exists with **Own row** picked: over the suggestion strip it would take your suggestions away while you type, so it is hidden there. Password fields still never show the row.
+
 **Read what is selected** is the entity half of the feature. Turn it off and every selection is read as plain text: you keep the edits, the case options and the conversions, and lose Call, Email, Open, QR and Contact. It is worth turning off if you find the guesses wrong more often than right, since the generic half is the half that always applies.
 
 **Actions** is the list of everything the bar can offer, grouped, searchable, each with its own switch, and with a pencil that lets you drag the actions that are on into the order you want. The full list is on the [settings reference](/reference/settings/selection-actions/).
+
+**Icon only** picks the actions drawn as their icon with no name, for a shorter row once you know them by sight.
 
 ## Details and edge cases
 

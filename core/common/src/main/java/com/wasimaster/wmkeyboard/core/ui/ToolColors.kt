@@ -28,9 +28,9 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.THEMES -> Color(0xFFEC407A)
 
     // Text & clipboard — blues/teals
-    ToolbarTool.CLIPBOARD -> Color(0xFF42A5F5)
+    ToolbarTool.CLIPBOARD, ToolbarTool.CLIPBOARD_SEARCH -> Color(0xFF42A5F5)
     // The one-tap trio reads as the clipboard panel's own family (issue #41).
-    ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE -> Color(0xFF42A5F5)
+    ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE, ToolbarTool.RECENT_COPIES -> Color(0xFF42A5F5)
     ToolbarTool.SNIPPETS -> Color(0xFF26A69A)
     ToolbarTool.TEXT_EDIT -> Color(0xFF5C6BC0)
     ToolbarTool.TRACKPAD -> Color(0xFF7986CB)
@@ -71,12 +71,14 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.CURRENCY -> Color(0xFF66BB6A)
     ToolbarTool.QR_GEN -> Color(0xFF26A69A)
     ToolbarTool.PASSWORD_GEN -> Color(0xFFEF5350)
+    ToolbarTool.TEXT_REPEAT -> Color(0xFF7E57C2)
+    ToolbarTool.READ_BACK -> Color(0xFF26A69A)
     ToolbarTool.TYPING_TEST -> Color(0xFFFF7043)
     // Trophy gold: the screen it opens is levels and achievements.
     ToolbarTool.STATISTICS -> Color(0xFFFFA000)
     ToolbarTool.FIND_REPLACE -> Color(0xFF5C6BC0)
     // Sticky-note yellow.
-    ToolbarTool.NOTES -> Color(0xFFFBC02D)
+    ToolbarTool.NOTES, ToolbarTool.QUICK_NOTE -> Color(0xFFFBC02D)
     ToolbarTool.MEDIA_CONTROL -> Color(0xFFAB47BC)
     // KDE's own blue.
     ToolbarTool.KDE_CONNECT -> Color(0xFF1D99F3)
@@ -108,6 +110,12 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.LOCATION -> Color(0xFFE53935)
     // An evening indigo: a clock face at night, and apart from the calendar's red.
     ToolbarTool.CLOCK -> Color(0xFF5C6BC0)
+    // Home Assistant's own sky blue, so the tile reads as the house it controls.
+    ToolbarTool.HOME_ASSISTANT -> Color(0xFF18BCF2)
+    // A sunset's coral: the colour a photo library opens on, apart from the camera's.
+    // A clear sky blue: a link that travels, apart from the clipboard's and KDE Connect's blues.
+    ToolbarTool.SEND_FILES -> Color(0xFF26A69A)
+    ToolbarTool.GALLERY -> Color(0xFFFF7043)
     ToolbarTool.MOON_PHASE -> Color(0xFF7986CB)
 
     // Cursor keys — one neutral so they read as a set
@@ -126,7 +134,8 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.SELECT_ALL,
     ToolbarTool.SELECT_MODE -> Color(0xFF90A4AE)
 
-    ToolbarTool.HIDE_KEYBOARD -> Color(0xFF607D8B)
+    ToolbarTool.HIDE_KEYBOARD, ToolbarTool.LEAVE_FIELD -> Color(0xFF607D8B)
+    ToolbarTool.LANGUAGE -> Color(0xFF26A69A)
 }
 
 /**

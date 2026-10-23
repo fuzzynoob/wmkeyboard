@@ -10,29 +10,22 @@ plugins {
 }
 
 // Coverage for the root's merged report (`./gradlew koverHtmlReportUnit`):
-// this module's full-flavour debug unit tests.
+// this module's debug unit tests.
 kover {
     currentProject {
-        createVariant("unit") { add("fullDebug") }
+        createVariant("unit") { add("debug") }
     }
 }
 
 android {
     namespace = "com.wasimaster.wmkeyboard.language"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
     }
     defaultConfig {
         minSdk = 24
     }
 
-    flavorDimensions += "capabilities"
-    productFlavors {
-        create("full") { dimension = "capabilities" }
-        create("lite") { dimension = "capabilities" }
-    }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -73,6 +66,7 @@ val buildHostEngine by tasks.registering(Exec::class) {
     inputs.dir(rootProject.layout.projectDirectory.dir("app/src/main/assets/avro"))
     inputs.files(
         native.file("wm-engine/Cargo.toml"),
+        native.file("wm-engine/build.rs"),
         native.file("wm-engine-jni/Cargo.toml"),
         native.file("wm-engine-jni/Cargo.lock"),
         native.file("wm-engine-jni/build-host.sh"),

@@ -54,6 +54,13 @@
     <string name="keypress_system_touch_subtitle">Let Android\'s own touch vibration switch silence the keyboard too</string>
     <string name="keypress_system_touch_info">By default the keyboard keeps vibrating even when you turn off touch feedback in Android\'s sound settings, because the keyboard has its own switch for it. Turn this on if you expect the system setting to cover the keyboard as well. This setting is off by default.</string>
 
+    <string name="keypress_haptics_hardware_title">Vibrate past the system touch feedback switch</string>
+    <string name="keypress_haptics_hardware_subtitle">Keep the Custom, Sharp and Click styles working when Android\'s touch feedback is off</string>
+    <string name="keypress_haptics_hardware_info">Android silences ordinary short vibrations when you turn off touch feedback in its sound settings. The System styles have always got past that, but the Custom, Sharp, Click and Heavy click styles went quiet with it. With this on, those styles vibrate as hardware feedback, which that switch does not silence. They still follow Android\'s vibration strength setting. Turn this off if the vibration feels wrong on your phone. Needs Android 13 or newer. This setting is on by default.</string>
+    <string name="keypress_system_touch_off_bypassed">Touch feedback is off in Android\'s settings. The keyboard still vibrates because \"Vibrate past the system touch feedback switch\" is on.</string>
+    <string name="keypress_system_touch_off_silent">Touch feedback is off in Android\'s settings, so this vibration style is silent. Turn on \"Vibrate past the system touch feedback switch\" below, or pick System key or System tap.</string>
+    <string name="keypress_system_touch_off_silent_old">Touch feedback is off in Android\'s settings, so this vibration style is silent on this Android version. Pick System key or System tap, which still vibrate.</string>
+
     <string name="keypress_repeat_start_title">Time before a key repeats</string>
     <string name="keypress_repeat_start_subtitle">How long you hold backspace or space before it starts repeating</string>
     <string name="keypress_repeat_start_info">Holding backspace or space starts repeating after this long. It used to share the long press delay, which meant slowing down accent popups also slowed down backspace. They are now separate. This setting is 300 ms by default.</string>
@@ -73,6 +80,10 @@
     <string name="keypress_popup_numeric_title">Popup on number pads</string>
     <string name="keypress_popup_numeric_subtitle">Also show the bubble on number, phone, and date fields</string>
     <string name="keypress_popup_numeric_info">Number, phone, and date and time fields use a keypad. The floating character adds little there. Over a PIN it shows each digit large enough for another person to read it.\n\nTurn this off to hide the bubble on those keypads. Normal text fields do not change.</string>
+
+    <string name="keypress_popup_window_band_title">Space above the keyboard</string>
+    <string name="keypress_popup_window_band_subtitle">Keep a clear band above the top row for its bubbles</string>
+    <string name="keypress_popup_window_band_info">The keyboard keeps a clear band above its top row, so the bubble of a top-row key shows in full over the app. Apps still fill the screen down to the keys.\n\nSome phones move an app in a floating window clear of that band as well, and squash the window against the top of the screen. Turn this off if that happens. The bubble of a top-row key then stays inside the keyboard, over the key itself.</string>
 
     <string name="keypress_popup_min_duration_title">Minimum popup duration</string>
     <string name="keypress_popup_min_duration_subtitle">How long the bubble stays visible after a quick press</string>
@@ -175,6 +186,8 @@
     <string name="keypress_word_stops_punctuation_info">This is for each delete that takes whole words: the held delete key, and the backspace swipe when it takes words.\n\nOn, \"wmkeyboard.pages.dev\" goes in steps: \"dev\", then \".\", then \"pages\". Off, all of it goes in one step, up to the last space.</string>
     <string name="keypress_word_stops_capitals_title">Words stop at capitals</string>
     <string name="keypress_word_stops_capitals_subtitle">\"GrapheneOS\" goes as \"OS\", then \"Graphene\"</string>
+    <string name="keypress_word_stops_digits_title">Words stop at numbers</string>
+    <string name="keypress_word_stops_digits_subtitle">\"word1\" goes as \"1\", then \"word\"</string>
 
     <string name="keypress_word_delete_repeat_title">Word delete interval</string>
     <string name="keypress_word_delete_repeat_subtitle">How fast a held delete key clears words</string>
@@ -203,6 +216,20 @@
 
     <string name="keypress_all_accents_title">All accents on press and hold</string>
     <string name="keypress_all_accents_subtitle">Fill the popup of every letter with its full set of accents</string>
+    <string name="keypress_no_accents_title">No accents on press and hold</string>
+    <string name="keypress_no_accents_subtitle">Take the accented letters out of every letter\'s popup</string>
+    <string name="keypress_no_accents_info">This removes the accented forms of each Latin letter (à á â ä ã å ā …) from its press and hold popup, on every layout at once. The digits, symbols and shortcuts on the letters stay.\n\nThis setting is off by default. It only changes the popups: dictionaries and the text you type are untouched. When All accents on press and hold is also on, this one wins.</string>
+    <string name="keypress_top_row_holds_title">Top row press and hold</string>
+    <string name="keypress_top_row_holds_subtitle">What a hold on q to p types</string>
+    <string name="keypress_top_row_holds_info" formatted="false">The letters q to p hold the digits 1 to 0. This picks what those holds type, whether or not the number row is on.\n\nAuto keeps the digits while the number row is off and drops them while it is on, since the row already has them. Digits keeps them with the row on too. Symbols puts the symbols above each digit on a number row in their place: ! @ # $ % ^ &amp; * ( ). None drops them either way, so those keys open with their accents or have no popup.\n\nIt applies to every layout that puts digits on its letters. To give one key a different character, edit its alternates in the layout editor. Auto is the default.</string>
+    <string name="keypress_top_row_holds_auto">Auto</string>
+    <string name="keypress_top_row_holds_digits">Digits</string>
+    <string name="keypress_top_row_holds_symbols">Symbols</string>
+    <string name="keypress_top_row_holds_none">None</string>
+    <string name="keypress_top_row_holds_auto_desc">Digits without the number row, nothing with it</string>
+    <string name="keypress_top_row_holds_digits_desc">1 to 0, even with the number row on</string>
+    <string name="keypress_top_row_holds_symbols_desc" formatted="false">! @ # $ % ^ &amp; * ( ) in place of the digits</string>
+    <string name="keypress_top_row_holds_none_desc">No digits, so the keys open with their accents</string>
     <string name="keypress_all_accents_info">This adds the complete set of accents for each Latin letter (à á â ä ã å ā …) to its press and hold popup. The keyboard keeps the characters that the layout already lists.\n\nThis setting is off by default. The built-in popups are short on purpose, and the full set has many characters. It applies to letters only.</string>
 
     <string name="keypress_native_letters_title">Your language\'s letters first</string>

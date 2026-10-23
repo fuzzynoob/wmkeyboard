@@ -21,6 +21,8 @@ The AI tool runs a fixed set of one-tap writing actions against whatever text is
 
 Open **AI** from the [toolbar or the toolbox](/tools/overview/). It isn't pinned by default, so the first time you'll probably reach it through the toolbox. Typing its `ai` keyword on the suggestion strip works too. On a hardware keyboard, use the [leader key](/reference/shortcuts/): double-tap <KeyCap>Ctrl</KeyCap>, then press <KeyCap>A</KeyCap>.
 
+In the settings app, the **AI** row on the Home screen collects everything AI in one place: this tool and [AI reply](/tools/ai-reply/), each with its switch, then the [chat](/tools/ai-chat/), the settings assistant and the history. Press **AI writing tools** there to reach the provider, key and model.
+
 The panel opens on a row of action chips. Eleven ship with the keyboard, and the list is yours to change: rename them, rewrite their prompts, turn off the ones you never use, reorder them, or add your own. See [Your own actions](#your-own-actions) below.
 
 - **Rewrite**, **Summarize**, **Translate**, **Improve**, **Formal**, **Shorter**, **Friendly**, **Fix grammar**, **Explain**, **Continue**: each needs text to work on and is greyed out on an empty field.
@@ -38,7 +40,7 @@ If nothing is configured yet, the panel shows a short explanation in place of th
 
 While a request runs, the panel names the step it's on instead of showing a bare spinner: Preparing, Connecting, Waiting for the model, and Reasoning for a model that thinks before it answers. A request can spend most of its time waiting on a slow connection or a long field, so the step is worth seeing. **Waiting for the model** is the one you'll meet most. It starts the moment your text is on its way and lasts until the first words come back, which for a cloud provider is nearly the whole run.
 
-Once a result streams in, two buttons commit it. **Replace** swaps the field's text for the result. **Insert** drops it in at the cursor instead. Continue is the one exception to Replace: deleting the text you just asked it to continue would defeat the point, so Replace appends there. A **Delete markdown** checkbox, shown only when the result contains any and checked to start with, removes headings, bullets, quotes, code fences, inline code, links, and bold/italic syntax from what gets committed. Uncheck it to keep the raw markdown. Reasoning output between `<think>` tags is filtered out of both Replace and Insert either way, so only the answer itself lands in your field.
+Once a result streams in, two buttons commit it. **Replace** swaps the field's text for the result. **Insert** drops it in at the cursor instead. Continue is the one exception to Replace: deleting the text you just asked it to continue would defeat the point, so Replace appends there. A **Delete markdown** checkbox, shown only when the result contains any and checked to start with, removes headings, bullets, quotes, code fences, inline code, links, and bold/italic syntax from what gets committed, and writes LaTeX maths out in Unicode, so `$x^2$` lands as `x²`. Uncheck it to keep the raw markdown. Reasoning output between `<think>` tags is filtered out of both Replace and Insert either way, so only the answer itself lands in your field.
 
 If a model stops mid-answer because it hit the length ceiling, the panel says so and points at the setting to raise. That's worth knowing about: a truncated answer otherwise looks exactly like a finished one, and you'd only find out by reading your own half-rewritten text.
 
@@ -77,15 +79,19 @@ For bugs in the keyboard itself rather than something a model wrote, use the **F
 
 ## Choosing where it runs
 
-A row of provider chips sits at the top of the tool's settings: **Claude**, **OpenAI**, **Gemini**, **Grok**, **DeepSeek**, **Brave**, **Ollama**, **LM Studio**, **Other service**, and **On-device**. The pick isn't for life. Switching providers is another tap.
+The services the AI can use are an **AI providers** list at the top of the tool's settings, the same kind of [provider list](/tools/providers/) the translate and search tools keep. **Add a provider** offers Anthropic (Claude), OpenAI, Google Gemini, xAI (Grok), DeepSeek, Brave Answers, Ollama, LM Studio, an OpenAI-compatible service, and On your device. Each row holds its own key, address and model, set up in the sheet that opens when you tap it, with a **Test** button that sends the service one word and shows whether it answered.
 
-<PhoneFrame side caption="The provider row and a cloud provider's API key and model fields.">
-  <Shot id="tools/ai-settings-providers" alt="The provider row and a cloud provider's API key and model fields." />
+One row answers at a time. Pick it under **In use**, just below the list, or with the [model picker](#options) on the AI panel; the [chat](/tools/ai-chat/) and the settings assistant can each send to another row without changing it. A service can be on the list more than once: a second Anthropic key for work, or two Ollama servers, one at home and one at the office. Give each a nickname, and the picker shows it.
+
+Switching a row off takes it out of the picker. With nothing on the list, or every row off, the panel says the AI isn't set up yet, even if keys from before are still stored.
+
+<PhoneFrame side caption="The AI providers list, with a service's key and model in its setup sheet.">
+  <Shot id="tools/ai-settings-providers" alt="The AI providers list, with a service's key and model in its setup sheet." />
 </PhoneFrame>
 
 ### Cloud providers
 
-Claude (Anthropic), OpenAI, Gemini, Grok, and DeepSeek are bring-your-own-key only. Unlike some of the other network tools, WM Keyboard ships no built-in or proxied key for any of them. Paste your own key into the provider's field:
+Claude (Anthropic), OpenAI, Gemini, Grok, and DeepSeek are bring-your-own-key only. Unlike some of the other network tools, WM Keyboard ships no built-in or proxied key for any of them. Add the service and paste your own key into its setup:
 
 - **Claude**: from `console.anthropic.com` → API keys
 - **OpenAI**: from `platform.openai.com` → API keys
@@ -93,7 +99,7 @@ Claude (Anthropic), OpenAI, Gemini, Grok, and DeepSeek are bring-your-own-key on
 - **Grok**: from `console.x.ai` → API keys
 - **DeepSeek**: from `platform.deepseek.com` → API keys
 
-Each provider also has a **Model** field. Leave it blank and the app falls back to a built-in default, shown right in the field's hint: `claude-sonnet-5` for Claude, `gpt-5.6-luna` for OpenAI, `gemini-3.5-flash` for Gemini, `grok-4.5` for Grok, `deepseek-v4-flash` for DeepSeek. Type a model name here to use something else.
+Each service's setup also has a **Model** field. Leave it blank and the app falls back to a built-in default, shown right in the field's hint: `claude-sonnet-5-5` for Claude, `gpt-6-luna` for OpenAI, `gemini-3.8-flash` for Gemini, `grok-4.7` for Grok, `deepseek-flash` for DeepSeek. Type a model name here to use something else.
 
 DeepSeek's reasoning models stream their thinking on a separate field. The app folds that into the same `<think>` handling everything else uses, so **Show model reasoning** and the reasoning progress readout behave there exactly as they do elsewhere.
 
@@ -102,16 +108,16 @@ DeepSeek's reasoning models stream their thinking on a separate field. The app f
 **Brave** uses Brave's Answers API, which runs a web search before it writes each answer. That makes it the provider to pick for questions about facts, prices or recent events, and a poor fit for pure writing jobs like Proofread, where the search adds cost and nothing else.
 
 - **API key**: from `api-dashboard.search.brave.com`. The key needs Brave's **Answers** plan. A key that only has the **Search** plan is refused, and the panel shows Brave's own reason.
-- **Leave the key blank to reuse the web search key.** If you already gave the [web search tool](/tools/search/) your own Brave key, the AI tool uses that one. The key built into some builds is never used for answers, only for searches. A reused key puts Brave in the panel's model picker and the chat's model list only while Brave is the selected provider; paste the key into the Brave field to keep it there.
+- **Leave the key blank to reuse the web search key.** If you already gave the [web search tool](/tools/search/) your own Brave key, the AI tool uses that one. The key built into some builds is never used for answers, only for searches. With neither key, the row says it needs one.
 - **No Model field.** Brave has one model, so there's nothing to pick.
 - **One message per request.** Brave doesn't accept a system prompt or earlier turns, so the app sends the action's instructions, and in a [chat](#chatting-instead-of-transforming) the earlier messages as a transcript, together with your text as one message.
 - Brave bills each answer for the search it ran plus the tokens in and out. The usage and citation markers it writes into the stream are removed before you see the answer.
 
 ### Any other OpenAI-compatible service
 
-**Other service** is the escape hatch, and it reaches far more than the named chips do. Anything that speaks OpenAI's chat-completions shape works: OpenRouter, Groq, Together, Mistral, Cerebras, self-hosted vLLM. Three fields:
+**OpenAI-compatible service** is the escape hatch, and it reaches far more than the named services do. Anything that speaks OpenAI's chat-completions shape works: OpenRouter, Groq, Together, Mistral, Cerebras, self-hosted vLLM. Add one row for each service you use. Three fields:
 
-- **Service address**: the address up to and including the version segment, for example `https://openrouter.ai/api/v1`. The app adds `/chat/completions` itself. That split exists because services disagree about the prefix (`/v1`, `/openai/v1`, `/api/v1`), so guessing it would break half of them.
+- **Server address**: the address up to and including the version segment, for example `https://openrouter.ai/api/v1`. The app adds `/chat/completions` itself. That split exists because services disagree about the prefix (`/v1`, `/openai/v1`, `/api/v1`), so guessing it would break half of them.
 - **Model**: required here, unlike the named providers. There's no sensible default to guess for a service the app knows nothing about.
 - **API key**: optional. A gateway on your own network often wants none.
 
@@ -121,17 +127,17 @@ An `http://` address works, for a service on your own network, and that traffic 
 
 ### Extra headers
 
-Some services want more in a request than a key. OpenCode Go, for one, reads a session header and a User-Agent of its own, and a gateway in front of a provider may want its own token. Every provider except On-device has an **Extra headers** group under its fields for this. Tap **Add header**, then fill in a name and a value. Each edit saves as you make it, and the value stays hidden until you tap the eye.
+Some services want more in a request than a key. OpenCode Go, for one, reads a session header and a User-Agent of its own, and a gateway in front of a provider may want its own token. An **Extra headers** group on each service's own screen holds them: press the service's row on the list. The model on your device has none. Tap **Add header**, then fill in a name and a value. Each edit saves as you make it, and the value stays hidden until you tap the eye.
 
 - **Yours are sent last.** A header here replaces the app's own of the same name, whatever its capitals, so a `User-Agent` or `Authorization` you add is the one the service sees.
 - **`{session}` stands in for a session id.** Type it anywhere in a value, for example the name `x-opencode-session` with the value `{session}`. One panel action, its lookups included, sends one id, and a [chat](/tools/ai-chat/) sends the same id for every message in that conversation.
-- **Each provider has its own list.** Switching providers shows that provider's headers, not the last one's.
+- **Each kind of service has its own list.** Switching to another kind shows that kind's headers, not the last one's. Two rows of one kind share theirs.
 - A name with a space or other character a header can't hold, or a value with a line break, is left out of the request rather than failing it.
 - A backup without secrets leaves the headers out, the same as API keys.
 
 ### Self-hosted servers
 
-**Ollama** and **LM Studio** point at a server on your own network instead of a cloud API. No key is needed, only an address like `http://192.168.0.10:11434` (Ollama) or `http://192.168.0.10:1234` (LM Studio). Set `OLLAMA_HOST=0.0.0.0` so Ollama listens beyond localhost. Turn on LM Studio's local-server option. Both address fields are blank by default. Ollama defaults its model field to `qwen3` when you leave it blank. LM Studio has no default model to fall back to, so it uses whatever the server currently has loaded.
+**Ollama** and **LM Studio** point at a server on your own network instead of a cloud API. No key is needed, only an address like `http://192.168.0.10:11434` (Ollama) or `http://192.168.0.10:1234` (LM Studio). Set `OLLAMA_HOST=0.0.0.0` so Ollama listens beyond localhost. Turn on LM Studio's local-server option. Add one row for each server you run. Ollama defaults its model field to `qwen3` when you leave it blank. LM Studio has no default model to fall back to, so it uses whatever the server currently has loaded.
 
 :::note
 Traffic to a self-hosted server is plain HTTP, and the app allows cleartext traffic app-wide to support it. Keep the server on a network you trust.
@@ -139,15 +145,15 @@ Traffic to a self-hosted server is plain HTTP, and the app allows cleartext traf
 
 ### Local models
 
-<Flavor edition="full" />
+<Flavor edition="google" />
 
-The **On-device** provider runs a model entirely on the phone, no network involved. It's the only provider option that needs a download first, and it's the one provider chip that doesn't appear at all in a Lite build.
+The **On your device** provider runs a model entirely on the phone, no network involved. It's the only provider that needs a download first, and the one that **Add a provider** doesn't offer at all in the F-Droid build.
 
 <PhoneFrame side caption="The on-device model catalog, with tier badges and a params/size subtitle per model.">
   <Shot id="tools/ai-settings-local-catalog" alt="The on-device model catalog, with tier badges and a size/RAM subtitle per model." />
 </PhoneFrame>
 
-The catalog is eight models, ordered best-first rather than smallest-first:
+The catalog has two lists. The first is eight models in LiteRT-LM's format, the engine the keyboard has always used and still the default. They're ordered best-first rather than smallest-first:
 
 | Model | Params | Size | Tier | Gated |
 |---|---|---|---|---|
@@ -164,15 +170,55 @@ Each row names the licence its weights are published under, and **Licence and mo
 
 Two of the eight are gated and need a Hugging Face account. Paste a token into the **Access token** field under **Hugging Face account**, above the catalog. Then accept the model's license on its Hugging Face page, once per model.
 
+#### GGUF models on llama.cpp
+
+Below them sits a second list, **GGUF models (llama.cpp)**. These run on [llama.cpp](https://github.com/ggml-org/llama.cpp), a second engine that loads any GGUF file, the format most open models are published in. Each row says **Runs on llama.cpp**, and its name ends in "(GGUF)", which keeps it apart from a LiteRT-LM model of the same name in the panel's and the chat's model pickers. Picking one of these models is how you pick the engine: the keyboard routes every request to whichever engine runs the model in use. On the F-Droid build this is the only list: it has llama.cpp but not LiteRT-LM.
+
+| Model | Params | Size | Tier | Licence |
+|---|---|---|---|---|
+| Qwen 2.5 VL 3B | 3B | 2.77 GB | Untested | Qwen Research License |
+| Qwen 3 1.7B | 1.7B | 1.83 GB | Untested | Apache-2.0 |
+| Llama 3.2 1B | 1B | 808 MB | Untested | Llama 3.2 Community License |
+| Gemma 3 1B | 1B | 806 MB | Untested | Gemma Terms of Use |
+| Qwen 3 0.6B | 0.6B | 639 MB | Experimental | Apache-2.0 |
+| Qwen 2.5 0.5B | 0.5B | 491 MB | Experimental | Apache-2.0 |
+| SmolVLM 500M | 500M | 546 MB | Experimental | Apache-2.0 |
+| SmolLM2 360M | 360M | 386 MB | Experimental | Apache-2.0 |
+| Gemma 3 270M | 270M | 292 MB | Experimental | Gemma Terms of Use |
+
+None of them is gated, so no Hugging Face token is needed, Gemma 3 included. Each one is fetched from a fixed commit of its repository and checked against a SHA-256 before it counts as downloaded. A file that doesn't match is deleted and the row asks you to download it again. The Qwen 3, Qwen 2.5 and SmolLM2 files come from the makers' own repositories, Gemma, Qwen 2.5 VL and SmolVLM from ggml-org (the llama.cpp project), and Llama 3.2 from bartowski's conversion of Meta's model.
+
+Qwen 2.5 VL 3B and SmolVLM 500M read pictures. Each brings a second file, its projector (the `mmproj` file), which the download fetches first; the sizes above count both. Qwen 2.5 VL reads the text in a chat screenshot well, but needs a phone with 8 GB of RAM, and its licence allows research use only. SmolVLM is small enough for most phones, and tells you what a picture shows, but often gets the words in a screenshot wrong.
+
+What's different about them:
+
+- **GPU on Snapdragon phones.** With **Compute** on **GPU**, a GGUF model runs on the GPU of a phone with a Snapdragon chip (an Adreno GPU), through llama.cpp's OpenCL code, which Qualcomm wrote for these GPUs. On every other phone it runs on the CPU's big cores, whatever that row says. See [Compute](#compute-and-gguf-models) below.
+- **Pictures, for the models that read them.** Qwen 2.5 VL and SmolVLM look at a picture themselves: a screenshot in the [reply tool](/tools/ai-reply/), and the pictures in the newest message of a [chat](/tools/ai-chat/#sending-pictures). For every other GGUF model, the reply tool reads a screenshot another way, as it does for any model that can't see.
+- **The model's own chat template.** llama.cpp formats each conversation with the template stored in the GGUF file, so a model you import is prompted the way its makers trained it. Text from your field is kept as text: it can't open a turn of its own, even if it contains the template's markers.
+- **Stop really stops.** A LiteRT-LM answer runs to its end in the background after you press Stop. A GGUF answer ends at the next word, and what it had written is what the model remembers.
+- **Memory is checked first.** Before a model loads, the keyboard compares what it needs (the file, plus room for the context) with the memory free on the phone. If it's short, the context shrinks first. If even that won't fit, you get a message with both figures instead of a crash. A loaded model is unloaded after three minutes with nothing to do, and the keyboard lets go of it earlier when it hides.
+
+llama.cpp itself is an extra part of a few megabytes. The Google Play edition downloads it from Play with the first GGUF model, and the GitHub edition fetches it from the project's own release. Until it's there, the GGUF list shows a banner with a **Download** button.
+
 Every model carries an advisory minimum-RAM figure behind the scenes. When your phone's total RAM falls under it, the app appends "May be too large for this device" to that model's subtitle. It never blocks the download and never shows you the raw number. That warning is the only per-device signal the catalog gives you up front. There's no published speed benchmark, because how fast a model answers depends on the phone as much as on the model. What you get instead is a progress readout with elapsed seconds, once a request is actually running.
 
 Tapping **Download** starts a resumable download. Cancel it, lose signal, or background the app, and the next attempt picks the transfer up where it left off rather than restarting. Only one download runs at a time. On a metered connection, a model of 500 MB or more asks for confirmation first.
 
-Don't need the catalog? **Import your own** takes any `.litertlm` or `.task` file, the two container formats the on-device engine loads. That covers one you converted yourself or downloaded elsewhere in a browser. There's no GGUF support. A file with any other extension is rejected on import.
+Don't need the catalog? **Import your own** takes any `.litertlm` or `.task` file, which LiteRT-LM runs, and any GGUF file, which llama.cpp runs. That covers one you converted yourself or downloaded elsewhere in a browser. A GGUF is recognised by its contents, so one that lost its `.gguf` extension on the way still imports and gets the extension back. Anything else is rejected. The same goes for **Import files** under Storage, which also takes a catalog GGUF and checks it against its SHA-256 like a download. An imported GGUF uses the chat template inside it; one with no template is prompted in ChatML, the format most small open models use.
 
-A **Compute** row picks **CPU** or **GPU** for inference, and CPU is the default. GPU is best-effort. If it fails to initialize, or crashes partway through an answer, the engine falls back to CPU on its own and remembers not to retry GPU for that model file again this session.
+A GGUF vision model you import reads pictures when its projector is imported with it: select the model and its `mmproj` file together, or import one after the other. The projector is not a model, so it gets no row of its own. It pairs with the imported model whose file name it shares, or, when there is only one imported GGUF, with that one. Deleting the model deletes its projector too.
 
-A **Context size** row sets how much text the model is loaded with, prompt and answer together, in tokens. It defaults to the model's own value. This is the only length lever on-device. Unlike a cloud API there's no per-response ceiling to set, so the window is what bounds an answer. A larger window costs memory, and changing it reloads the model.
+A **Compute** row picks **CPU** or **GPU** for inference, and CPU is the default. GPU is best-effort. If it fails to initialize, runs out of GPU memory partway through an answer, or takes the keyboard down with it, the engine falls back to CPU on its own and keeps that model on the CPU from then on. It tries the GPU again after a system update, an app update or a fresh download of the model. Some GPU drivers keep a failed model's memory after the model is closed, which can leave the whole phone slow. When that happens, the keyboard restarts itself a few seconds after you close it, so the memory is freed. It doesn't do this while a screen of the app is open or a model is downloading.
+
+#### Compute and GGUF models
+
+**GPU** applies to a GGUF model on a phone with an Adreno GPU, the GPU in Snapdragon chips. Qualcomm tuned llama.cpp's code for the Snapdragon 8 Gen 1 and newer; older Adreno GPUs that support OpenCL 2.0 run it too, with less gain. llama.cpp's OpenCL code only knows Adreno, and the Vulkan code it has for other GPUs (Mali, PowerVR, Samsung's Xclipse) ran slower than the CPU on them, so on those phones a GGUF model stays on the CPU. **NPU** has no GGUF build, so it means **GPU** for a GGUF model. The GPU build of llama.cpp is a download of its own, about 10 MB, fetched only on a Snapdragon phone: when you pick **GPU** with a GGUF model on the phone, or the first time a GGUF model answers with **GPU** picked. Until it's there, GGUF models run on the CPU. It's loaded the first time a GGUF model runs after the keyboard starts, so if one already ran on the CPU, the GPU takes over after the keyboard restarts, which it does by itself a few seconds after you close it, as above. Failures are handled the same way as for LiteRT-LM models: a model that fails on the GPU moves to the CPU and stays there until the next system or app update, and a GPU driver that takes the keyboard down while starting is not used again until then.
+
+The GPU makes the biggest difference to reading a long prompt, such as a chat screenshot or a long text to rewrite. Writing the answer is limited by memory speed, so it gains less, and for the smallest models the CPU can be as fast. Qualcomm tuned models quantized as Q4_0 first. The catalog's Q4_K_M and Q8_0 files also run on the GPU, and with some Snapdragon 8 Gen 2 and Gen 3 drivers llama.cpp keeps the last layer of a K-quant model on the CPU, where those drivers compile it badly.
+
+On a phone with a Snapdragon 8 Elite (SM8750, the Galaxy S25 series) or 8 Elite Gen 5 (SM8850, the Galaxy S26 Ultra), running Android 12 or later, the row has a third choice, **NPU**, which runs a model on the phone's AI accelerator. The NPU needs a build of the model compiled for that chip, and only Gemma 3 1B and Gemma 3 270M have one. With **NPU** selected, **Download** on those two rows fetches the NPU build (689 MB and 461 MB on an SM8750) instead of the standard file. A model you already have gets a **Get the NPU build** button. Every other model runs as it does with **GPU**. So does a model whose NPU build fails to start, and the app keeps that model off the NPU until the next system or app update. A failure partway through an answer only moves the next try in that session to the GPU, because a prompt longer than the build's window fails the same way. The NPU build runs only on the NPU, so a model whose only file is its NPU build offers **Get the standard build** when Compute is CPU or GPU. The NPU runtime is Qualcomm's QNN. The Google Play edition downloads it from Play the first time you pick **NPU**. The GitHub edition first asks you to accept Qualcomm's licence, then fetches only your chip's files from Qualcomm's own package on Maven Central, about 30 MB. The F-Droid edition has no NPU at all.
+
+A **Context size** row sets how much text the model is loaded with, prompt and answer together, in tokens. It defaults to the model's own value, or 4,096 tokens for a GGUF model, whose own value is often far more than a phone can hold. This is the only length lever on-device. Unlike a cloud API there's no per-response ceiling to set, so the window is what bounds an answer. A larger window costs memory, and changing it reloads the model.
 
 ## Your own actions
 
@@ -236,6 +282,8 @@ For those two the keyboard falls back to explaining the tools to the model in wo
 
 It works, and a capable local model will use it, but a small one still ignores the format sometimes, or asks you to narrow a request it could have searched as written. The settings group says so when you're on one of those providers. If lookups matter to you, a provider with real tool support is far more reliable.
 
+Thinking models add one more rule. Before a model calls a tool it may reason, and several providers make the keyboard hand that reasoning back, untouched, along with the tool's answer: Gemini 3 attaches a signature to every call, Claude signs its thinking blocks, DeepSeek wants its reasoning text, and Gemini reached through OpenRouter or an OpenAI-compatible address hides the same signature in other fields. The keyboard keeps each model's turn exactly as it arrived and sends it back that way. Some providers reject the request if anything is missing.
+
 ### Seeing what it looked up
 
 An answer that used a tool says so. A line sits over the result, in the panel and in every chat answer: **Searched the web for "…"** or **Read example.com** for a single lookup, or **Used tools 3 times** when there were several. No line means the model answered from what it already knew.
@@ -251,6 +299,63 @@ Tap a result to open it in your browser, or press and hold to copy its address. 
 In [AI chat](/tools/ai-chat/) the record is saved with the answer, so reopening a conversation later still shows what each answer was built on. The panel's actions keep it only while the result is on screen.
 
 Every search and every page fetch is also a row in the [network activity log](/privacy/network-activity/), filed under **AI tool use** rather than **Web search**: you didn't run that search, the model did, and the log should say which.
+
+## The keyboard's own tools
+
+<SettingsPath path="Tools / AI writing tools / Keyboard tools" />
+
+Besides searching and reading pages, the model can use the keyboard's own tools, the same ones on your toolbar, through the same services and with the same settings. Ask "what's 18% of 2,450 in euros?" and it works the sum out on the calculator and converts it at a live rate instead of guessing either.
+
+Each tool has its own **Run**, **Ask** or **Off**, the same three choices an [MCP server's tools](#run-ask-or-off) have:
+
+- **Run**: the model uses it whenever it needs to.
+- **Ask**: the model's request stops and waits for you, with what it is about to do and the values it will send. See [Allowing a call](#allowing-a-call).
+- **Off**: the model isn't told the tool exists.
+
+| Tool | What it does | Starts on |
+|---|---|---|
+| **Image search** | Finds pictures through the [search tool's](/tools/search/) service. Only listed once one is set up. | Run |
+| **Weather** | Today's and tomorrow's weather for any place, or the place saved in the [weather tool](/tools/instruments/#weather) when the model names none. | Run |
+| **Wikipedia** | Reads the summary of the best-matching article, in the Wikipedia language the [encyclopedia tool](/tools/search/#reading-wikipedia) uses. | Run |
+| **Dictionary** | Looks a word up in the [dictionary tool's](/tools/search/#looking-up-definitions) sources, in your order. | Run |
+| **Translate** | Translates with the [translate tool's](/tools/translate/) engine: on your device, online, or on your device first, as set there. | Run |
+| **Currency converter** | Converts money at live rates from the [currency tool's](/tools/utilities/#converting-units-and-currencies) sources, coins included. | Run |
+| **Unit converter** | Converts lengths, weights, temperatures and other measurements. | Run |
+| **Calculator** | Works an expression out exactly, on your phone, with the [calculator's](/tools/utilities/#doing-the-math) degree and precision settings. | Run |
+| **WM Keyboard docs** | Searches this documentation for questions about the keyboard itself ("how do I import a Chinese dictionary?") and reads the best-matching sections, with their links. Sends only the search words, to this site. See [Using the docs with AI](/reference/ai-access/). | Run |
+| **Read your calendar** | Lists your events for the days the model asks about, up to a month at a time. Needs the [calendar tool's](/tools/calendar/) access. | Ask |
+| **Read your notes** | Searches your [notes](/tools/notes/) and reads up to five that match. With [Search by meaning](/smart/search-by-meaning/) on, notes that say the same thing in other words follow under "Close in meaning". A locked note's text stays hidden. | Ask |
+| **Read your snippets** | Searches your [snippets](/tools/snippets/) by their name, trigger, tags and text, and reads up to five that match, or the five newest when the model asks for none in particular: each one's name, how it is typed and its text, cut short. A [template](/tools/snippets/#template-variables) or [pattern](/tools/snippets/#pattern-triggers) is read as written, `{date}` and `$1` included, and never expanded. With [Search by meaning](/smart/search-by-meaning/) on, snippets that say the same thing in other words follow under "Close in meaning". | Ask |
+| **Search your clipboard** | Finds the clips in your [clipboard history](/tools/clipboard/) that mean what the model asks about, in any language, and reads up to eight short excerpts. Passwords, one-time codes and deleted clips are left out. Only listed while [Search by meaning](/smart/search-by-meaning/) is on and its model is downloaded, and it only finds what the keyboard has already indexed, which happens when the clipboard panel opens. | Ask |
+| **Your location** | Reads where your phone is, rounded to the precision the [location tool](/tools/location/) shares at, with the address if you have that on. | Ask |
+| **Add to your calendar** | Adds an event, see [Adding calendar events](#adding-calendar-events). | Ask |
+| **Save a note** | Adds a new note. | Ask |
+| **Set an alarm** | Sets an alarm in the [clock](/tools/clock/), once or on repeat days. | Ask |
+| **Start a timer** | Starts a countdown in the [clock](/tools/clock/). | Ask |
+| **Open an app** | Opens an installed app by its name, from the [app launcher's](/tools/app-launcher/) list. | Ask |
+| **Control media** | Plays, pauses or skips what is playing, or says what it is. Needs the [media tool's](/tools/media/) notification access. | Ask |
+| **Send to your computer** | Sends text or a link to a computer paired through [KDE Connect](/tools/kde-connect/). Only listed while KDE Connect is on. | Ask |
+| **Read your home** | Lists what is on or open across every home of the [Smart home tool](/tools/home-assistant/), or whatever matches a home, room, device or sensor name. Only listed while a home is set up. | Ask |
+| **Control your home** | Works one device on any home of the [Smart home tool](/tools/home-assistant/): lights, fans, temperature, scenes, locks. The model finds the device with **Read your home** first. With a Home Assistant on the list it can also send one plain sentence to Assist. | Ask |
+| **Read text in a picture** | For a model that can't see pictures: reads the text in one you [sent in the chat](/tools/ai-chat/#sending-pictures), with ML Kit on your device <Flavor edition="google" />, or the [scan text tool's](/tools/scanner/) online engine if you picked that. | Run |
+| **Search by picture** | Uploads a picture you sent to the [camera tool's](/tools/camera/) search site (Google Lens unless you changed it) and gives you the link to the results. The model can't read that page itself. | Off |
+
+The tools that read what's on your phone, and the ones that change something, start on **Ask**. A web page the model reads could carry instructions of its own, and **Ask** means nothing it says reaches your calendar or your notes without you seeing the request first. None of the tools can delete or edit anything: they only read, add or start. **Always allow** on the request card switches that tool to **Run**.
+
+The calendar tools, and the alarm, are told today's date and your time zone, so "tomorrow at five" lands on the right day.
+
+Every tool that is on is described to the model in every request, whether it gets used or not. That costs a little each time, and a small model on your device copes best with a short list, so turn off what you don't want it reaching for.
+
+While one runs, the line over the answer says what it is doing: **Checking the weather in Dhaka…**, **Converting 12 USD → EUR…**. Unfolded, a Wikipedia lookup lists the article it read, and an image search the pages its pictures came from.
+
+### Adding calendar events
+
+<SettingsPath path="Tools / AI writing tools / Keyboard tools / How events are added" />
+
+**Add to your calendar** works one of two ways:
+
+- **Open the app**, the default: your calendar app opens with the event filled in, and nothing is saved until you press its own Save. It needs no permission. The model is told the event isn't saved yet, so it says so.
+- **Add directly**: the keyboard writes the event into your calendar itself. Picking it asks for permission to add calendar events, with the usual explanation first, then lets you choose which calendar they go in. The first writable one, primary first, is used until you pick.
 
 ## MCP servers
 
@@ -331,6 +436,14 @@ The panel's actions all do the same shape of thing: take the text in a field, ha
 
 The same chats open full-screen in the settings app, at the path above or from a launcher shortcut of their own. Both places share one list of saved conversations. See [AI chat](/tools/ai-chat/).
 
+Two more ways in work from any app. The [floating button](/reference/settings/floating-button/#asking-the-ai-about-the-screen), set to **Ask AI about this screen**, opens a chat as a sheet over the screen you're on, with that screen's text attached when screen reading is on. **Ask AI** in the text selection menu opens the same sheet with the selected text; **Ask AI in the selection menu** below takes it out of that menu.
+
+## Memory
+
+<SettingsPath path="AI / Memory" />
+
+The AI can keep short facts about you between chats: where you live, what you do, how you like answers. A chat saves them, with an **Undo** under the answer each time, and the panel's actions and AI reply are handed them too, so a reply or a fresh piece of writing can use them. Actions only read memory, never save to it, and are told to leave the facts out unless the task needs them. A model on your phone gets memory while it's on; a cloud or self-hosted service gets it only after you turn on **Use with cloud models**. Incognito fields get none. See [AI memory](/tools/ai-memory/) for the whole of it.
+
 ## History
 
 <SettingsPath path="Tools / AI writing tools / History" />
@@ -357,17 +470,21 @@ API keys are never part of a record. It carries the model's name and nothing abo
 Like every tool, AI has an **Enabled** toggle (on by default) and, if [colorful tool icons](/reference/settings/tools/) are on, a per-tool icon color override. Below that:
 
 - **Keyword**: the word that offers this tool on the suggestion strip when you type it alone. Defaults to `ai`.
-- **Extra headers**: none to start with, see [Extra headers](#extra-headers).
-- **Provider**: which of the nine providers above is active. Defaults to **Claude**, though with no key entered yet a fresh install lands on the empty-state screen until you add one.
+- **Extra headers**: on each service's own screen, none to start with, see [Extra headers](#extra-headers).
+- **AI providers**: the services and models the AI can use, see [Choosing where it runs](#choosing-where-it-runs). Empty on a fresh install, which lands on the empty-state screen until you add one. Until you edit it, the list holds every service your earlier settings had a key or an address for.
+- **In use**: which row answers, shown once the list has two. The model picker on the panel changes it too.
 - **Max response length**: a token ceiling, roughly ¾ of a word each, picked from steps rather than a slider: 1k through 128k, plus **Provider maximum**. Default 8,192. A model the app takes for a reasoning model gets 4× this ceiling on its own, capped at 131,072, because reasoning tokens come out of the same budget before the answer starts. That guess is a substring match on the model ID, for strings like "thinking", "qwen3", "grok-4" or "deepseek-v4". The On-device provider swaps this row for **Context size**.
 - **Translate action's target language**: free text, defaults to **English**.
-- **Show model reasoning**: off by default. Turning it on streams a reasoning model's raw `<think>` passages instead of the step-by-step progress readout.
+- **Show model reasoning**: off by default. Turning it on streams a reasoning model's raw `<think>` passages instead of the step-by-step progress readout. It's for the panel's actions only: the [AI chat](/tools/ai-chat/#reasoning-and-tool-calls) always keeps reasoning in a folded step over the answer.
 - **Model picker on the panel**: on by default. Adds a horizontally-scrolling row to the panel itself for switching between every configured provider and downloaded local model in one tap. It's hidden automatically whenever there are fewer than two to choose from.
 - **Show a changes view**: on by default, see [Seeing what changed](#seeing-what-changed). **Open a result on the changes** below it is off.
 - **Let the model search the web**: on by default, and only shown once a search service is set up. **Let the model read a web page** below it is off, and **Lookups per answer** defaults to 3. See [Letting the model look things up](#letting-the-model-look-things-up).
+- **Keyboard tools**: Run, Ask or Off for each of the keyboard's own tools the model can use, see [The keyboard's own tools](#the-keyboards-own-tools). The information tools start on Run.
 - **MCP servers**: the servers whose tools the model can use, see [MCP servers](#mcp-servers). None are set up to start with.
 - **Chat with the model**: opens the conversation screen, see [AI chat](/tools/ai-chat/).
 - **Enter sends the message**: off by default. In the chat on the keyboard, Enter starts a new line and the send button sends. Turn this on to send with Enter instead.
+- **Auto-rename chats**: on by default. The model that answered names each chat from your first message and its reply, in your language, and can rename it later when you ask and accept. See [Naming chats](/tools/ai-chat/#naming-chats).
+- **Ask AI in the selection menu**: on by default. Puts **Ask AI** in other apps' menu for selected text. Turn it off to remove the entry; turning the AI tool off removes it as well.
 - **Actions on the panel**: the whole action list, see [Your own actions](#your-own-actions).
 - **History**: off by default, see [History](#history).
 
@@ -381,15 +498,17 @@ One more row lives on the History screen, under a **Downloading models** heading
 
 ### What the On-device provider adds
 
-<Flavor edition="full" />
+<Flavor edition="google" />
 
-Picking **On-device** draws the whole model manager onto the same screen, under the provider row. [Local models](#local-models) covers the catalog, **Compute** and **Context size**. Three more things sit on that screen and nowhere else:
+Adding **On your device** to the list puts the whole model manager on that row's own screen: press **On your device** to open it. [Local models](#local-models) covers the catalog, **Compute** and **Context size**. Three more things sit on that screen and nowhere else:
 
 - **Hugging Face account**, holding an **Access token** field. Blank by default, stored the same way an API key is, and only the gated models need it. Under the field, **Get a token** opens `huggingface.co/settings/tokens` in your browser.
 - **Import your own**, an **Import model file** button that opens the system file picker. It takes `.litertlm` and `.task` files only, and anything else is rejected with a message under the button.
 - **Free up**, labelled with a size (like "Free up 584 MB"). It only appears when there are orphaned files, meaning model directories left behind by an app update that dropped a model from the catalog. No row can reach those files any more, so the button is the only way to delete them. They're reported rather than deleted for you, on the grounds that it's a multi-gigabyte download you already paid for.
 
 Above that sits a line reporting how much storage your models take in total, partial downloads included. That figure is usually bigger than the one beside **Your models**, which only sums the finished ones you can see.
+
+The first time a model loads, the engine also builds working files from it, about the model's own size again, and keeps them so later loads are fast. They count as a cache: **Settings → About → Storage** lists them as **AI model working files** under **Caches**, and **Free up** there clears them, at the cost of one slower load. Deleting a model deletes its working files with it.
 
 ### About "Provider maximum"
 
@@ -407,19 +526,22 @@ The panel itself sends nothing until you actually tap an action chip: opening th
 - **Any other provider** (cloud or self-hosted): the text you run an action on is sent to that provider, only at the moment you tap the action. API keys and server addresses are stored on the device, not in any WM Keyboard service. See [Privacy at a glance](/privacy/overview/) for how this fits the keyboard's broader per-tool approach to anything that leaves the device.
 - **Dictation, when [Tidy dictation with AI](/tools/voice/#tidying-dictation-with-ai) is on**: each phrase you dictate goes to the same provider as soon as it lands, with no tap, to have its filler words taken out. Its text only, never the audio. Off by default, and an on-device model keeps it on the phone like any other action.
 - **Report**: builds a draft in your mail app and hands it over. The app has no reporting server and sends nothing itself, so a report only exists if you send the mail. API keys are never part of it.
+- **AI memory**: with an on-device model, goes nowhere. With a cloud or self-hosted provider, the saved facts picked for a run go with it only once you've turned on **Use with cloud models**, which starts off. Incognito fields never send them. See [AI memory](/tools/ai-memory/).
 - **History**: goes nowhere. It's a file in the app's private storage, off unless you turn it on, never written from a password field or in incognito, and deleted when you turn it off. It's deliberately left out of the backup file too, so it can't ride along in something you export and mail to yourself. There's no section for it to travel in, unlike the learned dictionary, which is a section of its own that you tick or leave alone. See [Your data](/privacy/data/).
 - **A lookup the model asked for**: goes to the service that answers it, and only when the model actually asks. A search carries the query the model wrote, not your field text, to whichever search backend you set up. A page fetch carries nothing but the request for that page. Both show in the [network activity log](/privacy/network-activity/) under **AI tool use**, and both are off entirely while [Data saver](/privacy/data-saver/) is holding web search back.
+- **Search by picture**: uploads the picture to the search site picked in the camera tool, and only when the model calls it, which it can't until you turn the tool on.
+- **One of the keyboard's own tools**: goes where that tool always sends it, and only when the model calls it. The weather goes to Open-Meteo, a translation to the translate tool's service (or nowhere, on your device), a rate lookup to the currency tool's sources, and so on. The calculator and the unit converter send nothing. Each request shows in the [network activity log](/privacy/network-activity/) under the tool it belongs to. What the tool hands back goes to your AI provider with the rest of the conversation: your events, a note, your location. That is why the tools that read your things start on **Ask**.
 - **A tool on an MCP server**: goes to the server you added, and only when the model calls that tool or you press Connect. A call carries the tool's name and the values the model wrote for it, with your headers. See [MCP servers](#mcp-servers).
 - **The changes view**: is computed on your phone. Comparing two pieces of text is arithmetic, not a request, so nothing is sent to build it.
 
 ## Details & edge cases
 
-- **Not every row here can be reset.** The **Enabled** switch and four of the AI switches (Show model reasoning, Model picker on the panel, Show a changes view, Open a result on the changes) grow a restore button once you move them off the default listed above, and so does the Translate target-language field. See [Putting one setting back](/reference/settings/#putting-one-setting-back). **Keyword** does it differently: change the word and a **Reset to defaults** row appears under the field, naming the word it would put back. The provider row, Max response length and Context size are drawn as chip rows rather than settings rows, so none of them has a button. The shipped value of an API key or address field is an empty box, which you clear yourself.
+- **Not every row here can be reset.** The **Enabled** switch and four of the AI switches (Show model reasoning, Model picker on the panel, Show a changes view, Open a result on the changes) grow a restore button once you move them off the default listed above, and so does the Translate target-language field. See [Putting one setting back](/reference/settings/#putting-one-setting-back). **Keyword** does it differently: change the word and a **Reset to defaults** row appears under the field, naming the word it would put back. Max response length and Context size are drawn as chip rows rather than settings rows, so neither has a button. The AI providers list has a **Reset to default** row of its own once you change it, which puts it back to what your earlier settings make.
 - **Offline, an on-device model can stand in.** With [Use on-device models offline](/privacy/data-saver/#with-no-connection) on and a [local model](#local-models) downloaded, an AI action set to a cloud provider or a server runs on the phone when there is no connection, or when the server does not answer. A short message says so the first time. AI chat always uses the provider you picked.
 - **AI isn't pinned to the toolbar or the onboarding wizard's starter set by default.** You add it yourself from the toolbox once you want it, the same as most non-essential tools.
 - **Not available on the lock screen.** AI needs credentials the direct-boot-safe mirror of your data deliberately doesn't carry, so it's one of the tools that only works after you've unlocked the device once since restart.
-- **The Writing keyboard mode pins AI first** on its toolbar for apps it recognizes as writing-heavy (see [Keyboard modes](/typing/modes/)). The pin shows in both editions, same as the tool itself. Only the On-device provider is Full-only.
-- **A reasoning model's guess is a substring match** against the model ID, on strings like "thinking", "-r1", "qwen3", "gpt-5", "grok-4", "deepseek-v4". It can be wrong in either direction. A false positive only costs a larger token ceiling. A false negative risks a response cut off mid-thought.
+- **The Writing keyboard mode pins AI first** on its toolbar for apps it recognizes as writing-heavy (see [Keyboard modes](/typing/modes/)). The pin shows in every build, same as the tool itself. Only the On-device provider is missing from the F-Droid build.
+- **A reasoning model's guess is a substring match** against the model ID, on strings like "thinking", "-r1", "qwen3", "gpt-5", "gpt-6", "grok-4", "deepseek-v4". It can be wrong in either direction. A false positive only costs a larger token ceiling. A false negative risks a response cut off mid-thought.
 - **Custom has no stored default prompt.** Every other action's prompt can be edited and still has a built-in fallback. Custom's instruction only ever exists for the run you type it for.
 - **On-device answers never claim to have been cut off.** The local engine reports no stop reason, so there's nothing to read, and the app says nothing rather than guessing. Every other provider does report it.
 - **The changes view can't spot moved text.** A paragraph the model relocated reads as a deletion where it was and an insertion where it went. Detecting moves properly needs a second pass that git only does on request. The actions that move text, Summarize and Rewrite, reword it at the same time, so that pass would fire rarely and mislead when it did.

@@ -34,6 +34,12 @@ import java.util.zip.ZipInputStream
  * list is switched on and go when it is deleted, so the list stays the one
  * thing a user manages. Which parts are written is the user's choice at
  * import ([inspect], then [write]).
+ *
+ * A Hunspell dictionary also keeps its own two files beside its list,
+ * `<name>.aff` and `<name>.dic`, as they were picked: the list is what the
+ * tries read, and the pair is what the Hunspell library checks words against
+ * when it is present ([hunspellFiles], [HunspellChecker]). They follow the
+ * list the same way.
  */
 object CustomDictionaries {
 
@@ -50,8 +56,14 @@ object CustomDictionaries {
 
     private const val PAIRS_SUFFIX = ".wmng"
     private const val SHORTCUTS_SUFFIX = ".shortcuts"
+    private const val AFF_SUFFIX = ".aff"
+    private const val DIC_SUFFIX = ".dic"
     private const val HEADER_SUFFIX = ".header"
     private const val BODY_SUFFIX = ".body"
+
+    /** Bumped when what [trie] compiles from a list changes, so old compiled copies are rebuilt. */
+    private const val PACKED_VERSION = "packed-1"
+    private const val INITIAL_WORDS = 1024
 
     /** What a list holds in place of words when only its pairs or shortcuts were imported. */
     private const val NO_WORDS_LINE = "# Only word pairs or shortcuts were imported with this list.\n"
@@ -162,8 +174,113 @@ object CustomDictionaries {
             .getOrDefault(emptyList())
     }
 
-    fun trie(filesDir: File, langId: String): WordSource =
-        PackedTrie.of(entries(filesDir, langId))
+    /**
+     * One language's switched-on lists as a single word source.
+     *
+     * Compiled once into a `.wmdict` and memory-mapped after that, the way a
+     * downloaded list is, so a keyboard start costs one `mmap` and no heap.
+     * It used to read every list into pairs and pack them at each start: a
+     * list of some 800,000 words was then a hundred megabytes of short-lived
+     * objects every time the keyboard came up, and on a 256 MB heap that ran
+     * out of memory at every start (#693).
+     *
+     * The compiled copy is rebuilt when the lists change, which is when any
+     * list's name, size or modification time does. It lives outside [root],
+     * so backups, the lists screen and the import never see it.
+     */
+    fun trie(filesDir: File, langId: String): WordSource {
+        val lists = lists(filesDir, langId)
+        val packed = packedFile(filesDir, langId)
+        val signatureFile = signatureFile(filesDir, langId)
+        if (lists.isEmpty()) {
+            dropPacked(filesDir, langId)
+            return PackedTrie.EMPTY
+        }
+        val signature = signatureOf(lists)
+        if (runCatching { signatureFile.readText() }.getOrNull() == signature) {
+            MappedTrie.open(packed)?.let { return it }
+        }
+        val trie = build(lists, langId)
+        // A cache that cannot be written leaves the built trie to serve this
+        // start; the next one tries again.
+        runCatching {
+            packed.parentFile?.mkdirs()
+            signatureFile.delete()
+            // Renamed into place, never written over: the keyboard may still
+            // have the old file mapped, and a mapped file cut short under its
+            // reader faults. Named per call, so two builds never share a part.
+            val part = File(packed.parentFile, "${packed.name}.${System.nanoTime()}.part")
+            try {
+                part.outputStream().buffered().use { PackedTrieCodec.write(trie, it) }
+                if (!part.renameTo(packed)) return@runCatching
+            } finally {
+                part.delete()
+            }
+            signatureFile.writeText(signature)
+        }
+        // The mapped copy, when there is one, so the arrays just built can go.
+        return MappedTrie.open(packed)?.takeIf { signatureFile.isFile } ?: trie
+    }
+
+    /**
+     * Forgets [langId]'s compiled lists, for an edit that might leave a list
+     * the same size within the same second as before it.
+     */
+    fun dropPacked(filesDir: File, langId: String) {
+        signatureFile(filesDir, langId).delete()
+        packedFile(filesDir, langId).delete()
+    }
+
+    private fun packedDir(filesDir: File): File = File(filesDir, "dictionary_cache")
+
+    private fun packedFile(filesDir: File, langId: String): File = File(packedDir(filesDir), "$langId.wmdict")
+
+    private fun signatureFile(filesDir: File, langId: String): File = File(packedDir(filesDir), "$langId.sig")
+
+    private fun signatureOf(lists: List<File>): String =
+        lists.joinToString("\n", prefix = "$PACKED_VERSION\n") { "${it.name}\t${it.length()}\t${it.lastModified()}" }
+
+    /**
+     * [lists] packed straight from their lines into two parallel arrays,
+     * which is what [PackedTrie.of] takes for big lists. No pair per word.
+     */
+    private fun build(lists: List<File>, langId: String): PackedTrie {
+        val respell = RomanianSpelling.appliesTo(langId)
+        val words = WordArrays()
+        for (list in lists) {
+            val head = head(list) ?: continue
+            if (!readsAsList(head)) continue
+            try {
+                list.inputStream().use { input ->
+                    DictionaryLoader.forEachEntry(input) { word, frequency ->
+                        words.add(if (respell) RomanianSpelling.canonical(word) else word, frequency)
+                    }
+                }
+            } catch (_: java.io.IOException) {
+                // What was read of it stays. An out-of-memory error is not
+                // caught here: the keyboard skips the language over it.
+            }
+        }
+        return PackedTrie.of(words.words, words.frequencies, words.count)
+    }
+
+    /** Growable `word`, `frequency` arrays for [build]. */
+    private class WordArrays {
+        var words = arrayOfNulls<String>(INITIAL_WORDS)
+        var frequencies = IntArray(INITIAL_WORDS)
+        var count = 0
+
+        fun add(word: String, frequency: Int) {
+            if (count == words.size) {
+                val size = words.size * 2
+                words = words.copyOf(size)
+                frequencies = frequencies.copyOf(size)
+            }
+            words[count] = word
+            frequencies[count] = frequency
+            count++
+        }
+    }
 
     /**
      * Imports everything in [stream] as a list named after [displayName], and
@@ -194,7 +311,8 @@ object CustomDictionaries {
     /**
      * One dictionary found in the picked files, before anything is written.
      * [words] are on this app's scale. A plain word list keeps its own bytes,
-     * so its comments and spacing survive the import.
+     * so its comments and spacing survive the import, and a Hunspell
+     * dictionary keeps its two files in [hunspell].
      */
     class ImportCandidate(
         val name: String,
@@ -204,10 +322,17 @@ object CustomDictionaries {
         val locale: String?,
         val description: String?,
         internal val verbatim: ByteArray? = null,
+        internal val hunspell: HunspellSource? = null,
     ) {
         /** Whether there is anything to ask about beyond the words. */
         val hasExtras: Boolean get() = ngrams.isNotEmpty() || shortcuts.isNotEmpty()
     }
+
+    /** A Hunspell dictionary's own files, written beside its list. */
+    class HunspellSource(val aff: ByteArray, val dic: ByteArray)
+
+    /** A list's Hunspell pair on disk. */
+    data class HunspellFiles(val aff: File, val dic: File)
 
     /** Which parts of a candidate to write. */
     data class ImportParts(val words: Boolean, val pairs: Boolean, val shortcuts: Boolean) {
@@ -358,6 +483,7 @@ object CustomDictionaries {
             shortcuts = emptyList(),
             locale = Hunspell.language(aff.bytes) ?: name.substringBeforeLast('.'),
             description = null,
+            hunspell = HunspellSource(aff.bytes, dic.bytes),
         )
     }
 
@@ -411,6 +537,17 @@ object CustomDictionaries {
                     writer.flush()
                 }
             }
+        }
+        // The rules the words were unfolded from, for the Hunspell library.
+        // Only with the words: a list imported for its pairs alone has
+        // nothing for Hunspell to stand behind.
+        val hunspell = candidate.hunspell
+        val keptRules = wrote && words > 0 && hunspell != null &&
+            writeAtomically(affFile(target)) { it.write(hunspell.aff) } &&
+            writeAtomically(dicFile(target)) { it.write(hunspell.dic) }
+        if (!keptRules) {
+            affFile(target).delete()
+            dicFile(target).delete()
         }
         if (!wrote) {
             pairsFile(target).delete()
@@ -500,9 +637,35 @@ object CustomDictionaries {
     /** The file holding a list's shortcuts, one `trigger<TAB>expansion` a line. */
     fun shortcutsFile(list: File): File = File(list.parentFile, baseName(list) + SHORTCUTS_SUFFIX)
 
+    /** The `.aff` an imported Hunspell dictionary kept beside [list]. */
+    fun affFile(list: File): File = File(list.parentFile, baseName(list) + AFF_SUFFIX)
+
+    /** The `.dic` an imported Hunspell dictionary kept beside [list]. */
+    fun dicFile(list: File): File = File(list.parentFile, baseName(list) + DIC_SUFFIX)
+
+    /** [list]'s Hunspell pair, when its import kept one. */
+    fun hunspellFilesOf(list: File): HunspellFiles? {
+        val aff = affFile(list)
+        val dic = dicFile(list)
+        return if (aff.isFile && dic.isFile) HunspellFiles(aff, dic) else null
+    }
+
+    /**
+     * The Hunspell pairs of the switched-on lists for [langId], oldest first:
+     * what the Hunspell library checks that language's words against. Empty
+     * for every list imported before the pairs were kept, which has to be
+     * imported again to gain one.
+     */
+    fun hunspellFiles(filesDir: File, langId: String): List<HunspellFiles> =
+        lists(filesDir, langId).mapNotNull(::hunspellFilesOf)
+
+    /** Whether any list for [langId], switched on or off, kept a Hunspell pair. */
+    fun hasHunspell(filesDir: File, langId: String): Boolean =
+        allLists(filesDir, langId).any { hunspellFilesOf(it) != null }
+
     /** The list and whatever sits beside it, for the storage screen. */
     fun filesOf(list: File): List<File> =
-        listOf(list, pairsFile(list), shortcutsFile(list)).filter { it.exists() }
+        listOf(list, pairsFile(list), shortcutsFile(list), affFile(list), dicFile(list)).filter { it.exists() }
 
     private fun baseName(list: File): String = displayName(list).removeSuffix(".txt")
 
@@ -630,10 +793,12 @@ object CustomDictionaries {
         }
     }.getOrNull()
 
-    /** Deletes a list and the pairs and shortcuts beside it. */
+    /** Deletes a list and the pairs, shortcuts and Hunspell files beside it. */
     fun remove(file: File): Boolean {
         pairsFile(file).delete()
         shortcutsFile(file).delete()
+        affFile(file).delete()
+        dicFile(file).delete()
         return file.delete()
     }
 
@@ -658,6 +823,7 @@ object CustomDictionaries {
         for (file in allLists(filesDir, langId)) {
             if (removeWordFrom(file, key)) changed = true
         }
+        if (changed) dropPacked(filesDir, langId)
         return changed
     }
 
@@ -789,8 +955,9 @@ object CustomDictionaries {
             .ifEmpty { "wordlist" }
         // A name is taken while anything of a list by that name is there: a
         // switched-off list, or the pairs of one, would otherwise be adopted.
-        fun taken(name: String) = listOf(".txt", ".txt$DISABLED_SUFFIX", PAIRS_SUFFIX, SHORTCUTS_SUFFIX)
-            .any { File(dir, name + it).exists() }
+        fun taken(name: String) =
+            listOf(".txt", ".txt$DISABLED_SUFFIX", PAIRS_SUFFIX, SHORTCUTS_SUFFIX, AFF_SUFFIX, DIC_SUFFIX)
+                .any { File(dir, name + it).exists() }
         var name = base
         var n = 2
         while (taken(name)) {

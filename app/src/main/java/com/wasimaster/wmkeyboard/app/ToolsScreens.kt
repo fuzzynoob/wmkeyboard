@@ -19,12 +19,8 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
@@ -44,6 +40,7 @@ import com.wasimaster.wmkeyboard.ime.ui.IconDefaults
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import com.wasimaster.wmkeyboard.core.settings.CursorTools
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
+import com.wasimaster.wmkeyboard.core.settings.ActionOnlyTools
 import com.wasimaster.wmkeyboard.core.settings.ToolBlocker
 import com.wasimaster.wmkeyboard.core.settings.toolBlocker
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -94,6 +91,11 @@ private val ToolsWithoutOptions: Set<ToolbarTool> =
 internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.EMOJI -> ImeR.string.ime_tool_emoji
     ToolbarTool.CLIPBOARD -> ImeR.string.ime_tool_clipboard
+    ToolbarTool.CLIPBOARD_SEARCH -> ImeR.string.ime_tool_clipboard_search
+    ToolbarTool.RECENT_COPIES -> ImeR.string.ime_tool_recent_copies
+    ToolbarTool.LEAVE_FIELD -> ImeR.string.ime_tool_leave_field
+    ToolbarTool.QUICK_NOTE -> ImeR.string.ime_tool_quick_note
+    ToolbarTool.READ_BACK -> ImeR.string.ime_tool_read_back
     ToolbarTool.SNIPPETS -> ImeR.string.ime_tool_snippets
     ToolbarTool.TEXT_EDIT -> ImeR.string.ime_tool_text_edit
     ToolbarTool.TRACKPAD -> ImeR.string.ime_tool_trackpad
@@ -112,6 +114,9 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.WEATHER -> ImeR.string.ime_tool_weather
     ToolbarTool.LOCATION -> ImeR.string.ime_tool_location
     ToolbarTool.CLOCK -> ImeR.string.ime_tool_clock
+    ToolbarTool.HOME_ASSISTANT -> ImeR.string.ime_tool_home_assistant
+    ToolbarTool.SEND_FILES -> ImeR.string.ime_tool_send_files
+    ToolbarTool.GALLERY -> ImeR.string.ime_tool_gallery
     ToolbarTool.CALENDAR -> ImeR.string.ime_tool_calendar
     ToolbarTool.INCOGNITO -> ImeR.string.ime_tool_incognito
     ToolbarTool.POWER_SAVING -> ImeR.string.ime_tool_power_saving
@@ -143,6 +148,7 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CURRENCY -> R.string.fonts_tool_currency_title
     ToolbarTool.QR_GEN -> R.string.fonts_tool_qr_gen_title
     ToolbarTool.PASSWORD_GEN -> R.string.fonts_tool_password_gen_title
+    ToolbarTool.TEXT_REPEAT -> R.string.fonts_tool_text_repeat_title
     ToolbarTool.TYPING_TEST -> R.string.fonts_tool_typing_test_title
     ToolbarTool.MEDIA_CONTROL -> R.string.fonts_tool_media_control_title
     ToolbarTool.KDE_CONNECT -> ImeR.string.ime_tool_kde_connect
@@ -174,12 +180,18 @@ internal fun toolTitle(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CUT -> ImeR.string.ime_tool_cut
     ToolbarTool.PASTE -> ImeR.string.ime_tool_paste
     ToolbarTool.HIDE_KEYBOARD -> R.string.fonts_tool_hide_keyboard_title
+    ToolbarTool.LANGUAGE -> R.string.fonts_tool_language_title
 }
 /** The one-line description under a tool's name, as a string resource. */
 @StringRes
 internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.EMOJI -> R.string.fonts_tool_emoji_desc
     ToolbarTool.CLIPBOARD -> R.string.fonts_tool_clipboard_desc
+    ToolbarTool.CLIPBOARD_SEARCH -> R.string.fonts_tool_clipboard_search_desc
+    ToolbarTool.RECENT_COPIES -> R.string.fonts_tool_recent_copies_desc
+    ToolbarTool.LEAVE_FIELD -> R.string.fonts_tool_leave_field_desc
+    ToolbarTool.QUICK_NOTE -> R.string.fonts_tool_quick_note_desc
+    ToolbarTool.READ_BACK -> R.string.fonts_tool_read_back_desc
     ToolbarTool.SNIPPETS -> R.string.fonts_tool_snippets_desc
     ToolbarTool.TEXT_EDIT -> R.string.fonts_tool_text_edit_desc
     ToolbarTool.TRACKPAD -> R.string.fonts_tool_trackpad_desc
@@ -198,6 +210,9 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.WEATHER -> R.string.fonts_tool_weather_desc
     ToolbarTool.LOCATION -> R.string.fonts_tool_location_desc
     ToolbarTool.CLOCK -> R.string.fonts_tool_clock_desc
+    ToolbarTool.HOME_ASSISTANT -> R.string.fonts_tool_home_assistant_desc
+    ToolbarTool.SEND_FILES -> R.string.fonts_tool_send_files_desc
+    ToolbarTool.GALLERY -> R.string.fonts_tool_gallery_desc
     ToolbarTool.CALENDAR -> R.string.fonts_tool_calendar_desc
     ToolbarTool.INCOGNITO -> R.string.fonts_tool_incognito_desc
     ToolbarTool.POWER_SAVING -> R.string.fonts_tool_power_saving_desc
@@ -229,6 +244,7 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CURRENCY -> R.string.fonts_tool_currency_desc
     ToolbarTool.QR_GEN -> R.string.fonts_tool_qr_gen_desc
     ToolbarTool.PASSWORD_GEN -> R.string.fonts_tool_password_gen_desc
+    ToolbarTool.TEXT_REPEAT -> R.string.fonts_tool_text_repeat_desc
     ToolbarTool.TYPING_TEST -> R.string.fonts_tool_typing_test_desc
     ToolbarTool.MEDIA_CONTROL -> R.string.fonts_tool_media_control_desc
     ToolbarTool.KDE_CONNECT -> R.string.fonts_tool_kde_connect_desc
@@ -260,6 +276,7 @@ internal fun toolDescription(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.CUT -> R.string.fonts_tool_cut_desc
     ToolbarTool.PASTE -> R.string.fonts_tool_paste_desc
     ToolbarTool.HIDE_KEYBOARD -> R.string.fonts_tool_hide_keyboard_desc
+    ToolbarTool.LANGUAGE -> R.string.fonts_tool_language_desc
 }
 internal fun toolIconFor(tool: ToolbarTool): androidx.compose.ui.graphics.vector.ImageVector =
     IconDefaults.forTool(tool)
@@ -290,7 +307,37 @@ private fun rememberToolSearchIndex(): Map<ToolbarTool, String> {
 }
 
 /**
- * The tool menu, grouped by what the tools do, over a field that searches it.
+ * The field that searches the tool menu, pinned under the bar so it stays in
+ * reach however far the list below it is scrolled (#679): with sixty rows,
+ * scrolling back up to search for the one not found was most of the work.
+ */
+@Composable
+internal fun ToolsSearchField(query: String, onQueryChange: (String) -> Unit) {
+    OutlinedTextField(
+        value = query,
+        onValueChange = onQueryChange,
+        placeholder = { Text(stringResource(R.string.tools_search_hint)) },
+        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
+        trailingIcon = {
+            if (query.isNotEmpty()) {
+                IconButton(onClick = { onQueryChange("") }) {
+                    Icon(
+                        Icons.Outlined.Close,
+                        contentDescription = stringResource(CommonR.string.common_clear),
+                    )
+                }
+            }
+        },
+        singleLine = true,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 8.dp),
+    )
+}
+
+/**
+ * The tool menu, grouped by what the tools do, under a field that searches it
+ * ([ToolsSearchField], pinned by the screen).
  * Everything else — the enable switch and the tool's own options — lives one
  * level down.
  *
@@ -304,10 +351,10 @@ private fun rememberToolSearchIndex(): Map<ToolbarTool, String> {
 internal fun ToolsSettings(
     repository: SettingsRepository,
     settings: LiveSettings,
+    query: String,
     onOpenTool: (ToolbarTool) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
-    var query by rememberSaveable { mutableStateOf("") }
     val searchIndex = rememberToolSearchIndex()
     // Every word of the query has to be somewhere in the tool's name or its
     // description. Substring rather than whole word, because a name is found
@@ -321,27 +368,6 @@ internal fun ToolsSettings(
         }
     }
     val searching = query.isNotBlank()
-
-    OutlinedTextField(
-        value = query,
-        onValueChange = { query = it },
-        placeholder = { Text(stringResource(R.string.tools_search_hint)) },
-        leadingIcon = { Icon(Icons.Outlined.Search, contentDescription = null) },
-        trailingIcon = {
-            if (query.isNotEmpty()) {
-                IconButton(onClick = { query = "" }) {
-                    Icon(
-                        Icons.Outlined.Close,
-                        contentDescription = stringResource(CommonR.string.common_clear),
-                    )
-                }
-            }
-        },
-        singleLine = true,
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    )
 
     // Resolved once per screen, not once per row: this list is ~60 rows long,
     // and every one of them recomposes whenever any tool is switched on or off.
@@ -405,13 +431,25 @@ internal fun ToolsSettings(
             }
         }
     }
-    // Only the group titles need a composition; the grouping itself is fixed.
-    val allGroups = ToolGroups.map { (title, tools) -> stringResource(title) to tools }
-    // Resolved once, not per recomposition: the keys go into saved settings,
-    // so they have to be the same string every time the screen is built.
+    // Panels as one group or two (#759). Above the groups it reshapes, so
+    // the switch and what it changes are on screen together.
+    val splitPanels = settings.watch { it.appUi.splitToolPanels }
+    ToggleSetting(
+        title = R.string.tools_split_panels_title,
+        subtitle = stringResource(R.string.tools_split_panels_subtitle),
+        checked = splitPanels,
+        onChange = { scope.launch { repository.setSplitToolPanels(it) } },
+        default = SettingsDefaults.appUi.splitToolPanels,
+    )
+    val groups = if (splitPanels) SplitToolGroups else ToolGroups
+    // Only the group titles need a composition; each grouping itself is fixed.
+    val allGroups = groups.map { (title, tools) -> stringResource(title) to tools }
+    // Resolved once per grouping, not per recomposition: the keys go into
+    // saved settings, so they have to be the same string every time the
+    // screen is built.
     val resources = LocalContext.current.resources
-    val foldKeys = remember(resources) {
-        ToolGroups.map { (titleRes, _) -> toolGroupFoldKey(resources, titleRes) }
+    val foldKeys = remember(resources, groups) {
+        groups.map { (titleRes, _) -> toolGroupFoldKey(resources, titleRes) }
     }
     // Composing the sixty rows is deferred and staggered by SettingsGroup
     // itself now — see [rememberGroupRevealed] — so the screen no longer
@@ -455,7 +493,7 @@ internal fun ToolsSettings(
  * A tool group's fold key, taken from the name of its title resource.
  *
  * Not the numeric id, which a build can renumber, and not the group's index,
- * which the lite flavor can shift by dropping a whole group. The key is
+ * which the F-Droid build can shift by dropping a whole group. The key is
  * joined to the screen route and saved in `AppUiSettings.advancedOpen`, so a
  * key that moves would reopen the wrong group.
  */
@@ -473,7 +511,7 @@ private fun toolGroupFoldKey(resources: Resources, @StringRes titleRes: Int): St
  * `settings`, so a row that took the settings object could not be skipped.
  */
 @Composable
-private fun ToolRow(
+internal fun ToolRow(
     tool: ToolbarTool,
     paint: ToolPaint?,
     /** Why the tool cannot run, or null; the row says so in place of its description. */
@@ -528,6 +566,24 @@ private fun ToolRow(
         onClick = onOpen,
     )
 }
+/** The Panels group, in the order the Tools screen lists it. */
+private val PanelTools = listOf(
+    ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.NOTES,
+    ToolbarTool.TEXT_EDIT, ToolbarTool.TRACKPAD, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
+    ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.GALLERY, ToolbarTool.DICTIONARY, ToolbarTool.VOCABULARY,
+    ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.FIND_REPLACE, ToolbarTool.GRAMMAR, ToolbarTool.APP_LAUNCHER, ToolbarTool.MEDIA_CONTROL,
+    ToolbarTool.KDE_CONNECT, ToolbarTool.SEND_FILES,
+)
+
+/**
+ * The panels that go to Connect and media when Panels is split: media, other
+ * apps and other devices. The rest of [PanelTools] is Writing.
+ */
+private val ConnectPanels = setOf(
+    ToolbarTool.CAMERA, ToolbarTool.GALLERY, ToolbarTool.APP_LAUNCHER, ToolbarTool.MEDIA_CONTROL,
+    ToolbarTool.KDE_CONNECT, ToolbarTool.SEND_FILES,
+)
+
 /**
  * The Tools screen's sections, as string resource and tools.
  *
@@ -537,19 +593,32 @@ private fun ToolRow(
  *
  * The last group is the safety net: a tool added to the enum but forgotten
  * here still gets a settings entry, because this menu is the only path to a
- * tool's own options. Tools this build cannot provide (the lite flavor) are
+ * tool's own options. Tools this build cannot provide (F-Droid's has fewer) are
  * filtered out, and a group left empty by that is dropped.
+ *
+ * This is the grouping every tool picker uses. The Tools screen alone can
+ * show [SplitToolGroups] instead, when the user asks for it.
+ *
+ * Below the two panel lists on purpose: top-level values are set in the order
+ * the file declares them, and these two read those lists as they are built.
  */
-internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
-    add(
-        R.string.tools_group_panels_title to listOf(
-            ToolbarTool.EMOJI, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.NOTES,
-            ToolbarTool.TEXT_EDIT, ToolbarTool.TRACKPAD, ToolbarTool.NUMPAD, ToolbarTool.HANDWRITING,
-            ToolbarTool.VOICE, ToolbarTool.CAMERA, ToolbarTool.DICTIONARY, ToolbarTool.VOCABULARY,
-            ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.FIND_REPLACE, ToolbarTool.GRAMMAR, ToolbarTool.APP_LAUNCHER, ToolbarTool.MEDIA_CONTROL,
-            ToolbarTool.KDE_CONNECT,
-        ),
-    )
+internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildToolGroups(splitPanels = false)
+
+/**
+ * [ToolGroups] with Panels shown as two groups, Writing and Connect and
+ * media (#759). Only the Tools screen offers it, behind
+ * `AppUiSettings.splitToolPanels`: a picker is opened to find one tool, and a
+ * second shape of the same list there would only be one more to learn.
+ */
+internal val SplitToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildToolGroups(splitPanels = true)
+
+private fun buildToolGroups(splitPanels: Boolean): List<Pair<Int, List<ToolbarTool>>> = buildList {
+    if (splitPanels) {
+        add(R.string.tools_group_writing_title to PanelTools.filterNot { it in ConnectPanels })
+        add(R.string.tools_group_connect_title to PanelTools.filter { it in ConnectPanels })
+    } else {
+        add(R.string.tools_group_panels_title to PanelTools)
+    }
     add(
         R.string.tools_group_scanners_title to listOf(
             ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN,
@@ -565,7 +634,7 @@ internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
     add(
         R.string.tools_group_create_title to listOf(
             ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT,
-            ToolbarTool.QR_GEN, ToolbarTool.PASSWORD_GEN, ToolbarTool.TYPING_TEST,
+            ToolbarTool.QR_GEN, ToolbarTool.PASSWORD_GEN, ToolbarTool.TEXT_REPEAT, ToolbarTool.READ_BACK, ToolbarTool.TYPING_TEST,
         ),
     )
     add(
@@ -580,18 +649,20 @@ internal val ToolGroups: List<Pair<Int, List<ToolbarTool>>> = buildList {
             ToolbarTool.UNDO, ToolbarTool.REDO,
             ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE,
             ToolbarTool.AUTOCORRECT, ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH,
-            ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS,
+            ToolbarTool.LANGUAGE, ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.INCOGNITO, ToolbarTool.SOUND_HAPTICS,
             ToolbarTool.THEMES, ToolbarTool.POWER_SAVING, ToolbarTool.SETTINGS, ToolbarTool.STATISTICS,
         ),
     )
     add(
         R.string.tools_group_utilities_title to listOf(
             ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL,
-            ToolbarTool.CALENDAR, ToolbarTool.CLOCK, ToolbarTool.WEATHER, ToolbarTool.LOCATION, ToolbarTool.MOON_PHASE, ToolbarTool.PLUGINS,
+            ToolbarTool.CALENDAR, ToolbarTool.CLOCK, ToolbarTool.WEATHER, ToolbarTool.LOCATION, ToolbarTool.HOME_ASSISTANT,
+            ToolbarTool.MOON_PHASE, ToolbarTool.PLUGINS,
         ),
     )
     val grouped = flatMapTo(HashSet()) { it.second }
-    val ungrouped = ToolbarTool.entries.filterNot { it in grouped }
+    // Action-only tools have no tile: the binding pickers list them under Other.
+    val ungrouped = ToolbarTool.entries.filterNot { it in grouped || it in ActionOnlyTools }
     if (ungrouped.isNotEmpty()) add(R.string.tools_group_other_title to ungrouped)
 }.map { (title, tools) -> title to tools.filter(::isSupportedTool) }
     .filter { it.second.isNotEmpty() }

@@ -1,13 +1,13 @@
 ---
 title: "Selection actions"
-description: "Every row on the Selection actions screen and its three sub-screens: the switch, where the bar draws, the list of actions and their order, the AI buttons and the time zones."
+description: "Every row on the Selection actions screen and its four sub-screens: the switch, where the bar draws, the list of actions and their order, the icon-only actions, the AI buttons and the time zones."
 sidebar:
   order: 18.8
 ---
 
 import SettingsPath from '@components/SettingsPath.astro';
 
-The Selection actions screen is the switch and two choices, then three doors: the Actions list, the AI buttons and the Time zones. This page is the field reference. For what the feature is and how each action behaves, start at [Selection actions](/smart/selection-actions/).
+The Selection actions screen is the switch and two choices, then four doors: the Actions list, Icon only, the AI buttons and the Time zones. This page is the field reference. For what the feature is and how each action behaves, start at [Selection actions](/smart/selection-actions/).
 
 ## Options
 
@@ -18,8 +18,10 @@ The Selection actions screen is the switch and two choices, then three doors: th
 | Selection actions | Toggle | Off |
 | Where it appears | Choice of 2 | **Own row** |
 | Show on every selection | Toggle | Off |
+| Show with nothing selected | Toggle | Off |
 | Read what is selected | Toggle | On |
-| Actions | Screen | 33 of 48 on |
+| Actions | Screen | 33 of 51 on |
+| Icon only | Screen | None |
 | AI buttons | Screen | None |
 | Time zones | Screen | UTC and the device's zone |
 
@@ -28,6 +30,8 @@ The Selection actions screen is the switch and two choices, then three doors: th
 **Where it appears** is either *Own row* or *Suggestion strip*. Own row gives the bar a row of its own above the keys, which arrives with the selection and leaves with it, so the keyboard is one row taller while it is there. That row is called **Selection actions** in the row list on [Rows & bars](/reference/settings/rows/#row-order), where you can move it above or below the suggestion strip. Suggestion strip draws the actions over the strip instead and costs no height, since there are no word suggestions to show while text is selected. Under that choice the strip goes back to the toolbar whenever a panel is open, because the arrow on that row is the way out of the panel.
 
 **Show on every selection** governs what happens past the length cap. The keyboard does not read a selection longer than 4,000 characters, and with this off the bar disappears at that point, since every action it draws is derived from the text. On, it keeps the five actions that are carried out by the editor rather than by the keyboard (Select all, Copy, Cut, Paste and Delete), filtered as always by which of them you have on and by whether each can do anything (Paste needs something on the clipboard; Select all is dropped once the selection already spans the field). The reading itself never happens, so the kind of the selection is not known and nothing that depends on it is offered. It also covers a selection some apps report but will not hand over, where those same five are the only actions that could have worked. Password fields are excluded whichever way this is set.
+
+**Show with nothing selected** keeps the own row up while the field has only a caret. Offered then are Select all and Paste, out of the actions you have on; Paste is drawn whether or not the clipboard holds anything, so the row does not change shape under your thumb, and a paste of nothing does nothing. Selecting text replaces it with the usual row for that selection, and collapsing the selection brings the caret row back. The row is not drawn while a panel is open, the same as for a selection. The switch is only listed with **Where it appears** set to **Own row**, and has no effect on the strip placement. Password fields are excluded whichever way this is set.
 
 **Read what is selected** decides whether a selection is read as a phone number, an address or a link, or only ever as plain text. With it off you keep every action that works on any text and lose Call, Message, WhatsApp, Email, Open, QR and Contact, because none of those mean anything without the reading. Phone shapes come from the formats you saved under [Phone number formats](/reference/settings/phone-formats/).
 
@@ -49,20 +53,24 @@ The list is an allow list, not a guarantee: an action that is on is drawn only w
 | Delete | Editing | On | Every selection |
 | Find | Editing | On | One line of text, not the whole field |
 | Replace | Editing | On | Every selection |
+| Repeat | Editing | On | Every selection, while the Text repeat tool is enabled |
 | Sort | Lines | On | Two or more lines |
 | Unique | Lines | On | Two or more lines |
 | Number | Lines | On | Two or more lines |
 | Bullets | Lines | On | Two or more lines |
+| Check boxes | Lines | Off | Two or more lines |
+| Move up, Move down | Lines | Off | Anything short of the whole field |
 | Format | Format | On | Every selection, when the rewrite would change something |
 | Fancy | Format | On | Plain text |
 | Bold, Italic, Strike, Mono | Format | Off | Plain text, in a chat app the keyboard knows |
 | camelCase, snake_case, kebab-case, CONSTANT_CASE | Format | Off | Inside Format's case options |
 | Digits | Convert | On | Digits in another script |
+| Zawgyi ⇄ Unicode | Convert | On | Burmese text |
 | Colour | Convert | On | A colour code |
 | JSON | Convert | Off | A JSON object or array |
 | Base64 | Convert | Off | Base64 text |
 | Decode | Convert | Off | A percent-encoded link |
-| Remove trackers | Convert | On | A link with tracking parameters |
+| Remove trackers | Convert | On | A link with tracking parameters, alone or in text |
 | Translate | Language | On | Plain text, with the Translate tool on |
 | Grammar | Language | On | Plain text, with the Grammar tool on |
 | DeepL Write | Language | On | Plain text up to 2,500 characters, with a DeepL key and DeepL Write on under Tools / Translate |
@@ -84,6 +92,12 @@ The list is an allow list, not a guarantee: an action that is on is drawn only w
 | Calendar | Open in | Off | A date or time |
 
 Search is off to start with, because it is a round trip to a network service and not what a selection usually means. Translate is on: it only opens the Translate tool, which can translate on the device, and a selection in a language you can't read is the text you could not have typed into that tool yourself. It was off before; a list you had already picked yourself keeps its choices, so switch it on here. The chat markers, the programmer's cases, Speak, Zones, Map, Calendar and the decoders are off because each is a taste rather than a need, and the row is long enough already.
+
+## Icon only
+
+<SettingsPath path="Advanced / Selection actions / Icon only" />
+
+A checkbox per action that is on and has an icon, in the bar's order. A picked action is drawn as its icon alone, with no name beside it, so the ones you know by sight take less of the row; a screen reader still says the name. The case options are not listed: they are written in the case they apply and have no icon to show instead.
 
 ## AI buttons
 

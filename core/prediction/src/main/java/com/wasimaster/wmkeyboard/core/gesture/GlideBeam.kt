@@ -1,10 +1,6 @@
 package com.wasimaster.wmkeyboard.core.gesture
 
 import com.wasimaster.wmkeyboard.core.prediction.FuzzyBeamSearch
-import com.wasimaster.wmkeyboard.core.prediction.TrieWalker
-import kotlin.math.ceil
-import kotlin.math.ln
-import kotlin.math.sqrt
 
 /**
  * Glide decoder: a best-first lattice over the dictionary trie itself.
@@ -42,12 +38,13 @@ import kotlin.math.sqrt
  * column)` and advancing one letter is one bounded pass over the column.
  *
  * **Why the bound is admissible.** Both terms are non-negative and the DP takes
- * a minimum over predecessors, so no extension of a prefix can finish below that
- * prefix column's lowest value. Expanding in order of
- * `logWeight + ln(1 + maxSubtree(node)) - shapeWeight * minCol` therefore never
- * discards a word that would have finished in the top K — the same argument
- * `FuzzyBeamSearch` makes for typing, with the alignment floor standing in for
- * the edit cost.
+ * a minimum over predecessors, so no extension of a prefix can finish below the
+ * lowest of its column plus the cheapest any key sequence could explain the rest
+ * of the stroke from there ([buildRemain]). Expanding in order of
+ * `logWeight + ln(1 + maxSubtree(node)) - shapeWeight * thatFloor` therefore
+ * never discards a word that would have finished in the top K — the same
+ * argument `FuzzyBeamSearch` makes for typing, with the alignment floor standing
+ * in for the edit cost.
  *
  * **One thing that was tried and did not work.** Weighting each sample by how
  * deliberate the finger looked there — letters sit at velocity minima and
@@ -77,8 +74,16 @@ import kotlin.math.sqrt
  * Scores are in the same log space as the typing beam
  * (`logWeight + ln(1 + frequency) - cost`), so `FuzzyBeamSearch.WalkSource`
  * weights carry over unchanged and a caller can build one source list for both.
+ *
+ * The decoder runs in Rust (`wm-engine`'s `glide`, through [NativeGlide]):
+ * this class holds its weights and its result types and hands each call
+ * across. The Kotlin decoder it replaced lives on in the test sources
+ * (`reference/KotlinGlideBeam`) as the reference `NativeGlideParityTest`
+ * holds the Rust one to, bit for bit.
  */
 class GlideBeam(private val tuning: Tuning = Tuning()) {
+
+    private val nativeTuning: DoubleArray by lazy { NativeGlide.tuningArray(tuning) }
 
     /**
      * The decoder's weights, injectable so the harness can sweep them rather
@@ -109,8 +114,13 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         /** Nats per unit of alignment cost — the dial that trades shape against
          * the language model. */
         val shapeWeight: Double = 2.5,
-        /** Flat charge for a doubled letter, which the stroke's shape cannot show. */
-        val repeatCost: Float = 0.1f,
+        /**
+         * Flat charge for a doubled letter, which the stroke's shape cannot show.
+         *
+         * 0.1 until 2026-10-22, lowered with [unloopedRepeat] (#886); the
+         * measurement is written up there.
+         */
+        val repeatCost: Float = 0.05f,
         /**
          * Extra charge for a doubled letter the finger did *not* loop on.
          *
@@ -126,8 +136,21 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
          * i as for the i, and a hold on the f of `of` had to be long enough to
          * double it or it did nothing (issue #337). A pause now says only the
          * first thing — see [unclaimedDwell] — and a doubling asks for a loop.
+         *
+         * Kept small (#886). The language model's term is `ln(1 + f)` over a
+         * list whose frequencies are already logarithms, so the most common
+         * doubled words stand only a little above the rare single spellings
+         * the same stroke draws: at 0.4, with [repeatCost] 0.1 and
+         * [shapeWeight] 2.5, the charge was worth 1.25 there and `all` lost to
+         * `al`, `been` to `ben` and `ill` to whatever passed near it. On 8,000
+         * real swipe.futo.org strokes over the bundled list, short doubled
+         * words read right .20 -> .64 (0.05 and 0.1), strokes looped on the
+         * doubled key .78 -> .81 and the whole set .7741 -> .7768; over the
+         * AOSP list .36 -> .49 on the short doubles and .6931 -> .6923 on the
+         * whole set. A stray loop on a word with no doubled letter costs .4 to
+         * .55 points, which is the price of a loop being cheaper to claim.
          */
-        val unloopedRepeat: Float = 0.4f,
+        val unloopedRepeat: Float = 0.1f,
         /**
          * How many times the stroke's own even pace a step has to take for the
          * finger to read as having stopped dead there.
@@ -348,6 +371,20 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
          * there is no asymmetry here to exploit yet. The only thing either says
          * is that a *tight* anchor costs accuracy: whatever an anchor is for, it
          * is not for being strict.
+         *
+         * Above the shipped value the radius widens the score as well as the
+         * gate (issue #805). As a gate alone it admitted words that could not
+         * win: the first letter still paid its location cost on the first
+         * sample, capped only from 2.06 key widths out, and the lead-in from
+         * the touch-down to the key was travel the gap term charged, so a word
+         * starting 2.5 keys off trailed one starting under the finger by about
+         * 40 nats against a dictionary's whole frequency spread of about 14.
+         * The excess over the default is now [startSlack]: that much of the
+         * distance to the first key is free on the first sample, that much of
+         * the lead-in is free as gap, the shape channel sees the lead-in on
+         * the word's own path, and the key is walkable even if the stroke
+         * never passes within [nearRadius] of it. At or under the default all
+         * four are zero, so the shipped decoder is unchanged.
          */
         val startRadius: Float = 1.6f,
         /** How far the stroke's *last* sample may sit from the word's last key,
@@ -447,6 +484,16 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         val nearCost: Float get() = nearRadius * nearRadius * invTwoSigmaSq
         val loopRadiusSq: Float get() = loopRadius * loopRadius
 
+        /**
+         * How much of [startRadius] lies past the shipped one, in key widths:
+         * the distance from the touch-down to a word's first key that the
+         * score forgives. See [anchorSlack].
+         */
+        val startSlack: Float get() = (startRadius - DEFAULT.startRadius).coerceAtLeast(0f)
+
+        /** [startSlack] for [endRadius] and the lift-off. */
+        val endSlack: Float get() = (endRadius - DEFAULT.endRadius).coerceAtLeast(0f)
+
         /** [dwellFull] as the divisor it is used as, floored off zero. */
         val dwellScale: Float get() = if (dwellFull > MIN_DWELL_FULL) dwellFull else MIN_DWELL_FULL
 
@@ -484,7 +531,7 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
      * it was placed on, in key widths.
      *
      * [samples] is the resampled index each visit was placed on, `0` until
-     * [GlideWorkspace.SAMPLE_POINTS], and [chars] the offset in the word at
+     * [sampleCount], and [chars] the offset in the word at
      * which each visit's characters begin — together, what maps a place along
      * the stroke back to the letters written there (see `GlideCase.Letters`).
      */
@@ -494,6 +541,8 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         val y: FloatArray,
         val samples: IntArray = IntArray(keys.size),
         val chars: IntArray = IntArray(keys.size),
+        /** Samples the stroke was resampled to; see [GlideWorkspace.samples]. */
+        val sampleCount: Int = GlideWorkspace.SHORT_SAMPLES,
     ) {
         val size: Int get() = keys.size
     }
@@ -526,7 +575,7 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
      * [shapes] are the user's own learned shapes for this grid, when they
      * have any, for the shape channel to compare against beside the ideal.
      */
-    @Suppress("LongParameterList", "ReturnCount")
+    @Suppress("LongParameterList", "ReturnCount", "UNUSED_PARAMETER")
     fun decode(
         path: List<GesturePoint>,
         keys: GlideKeyMap,
@@ -539,96 +588,8 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
     ): List<Candidate> {
         if (path.size < MIN_SAMPLES || keyWidth <= 0f) return emptyList()
         if (keys.keyCount == 0 || sources.isEmpty() || limit <= 0) return emptyList()
-        if (!resample(path, keyWidth, ws)) return emptyList()
-        ws.prepareKeys(keys.keyCount)
-        buildCosts(keys, ws)
-        buildDwell(keys, ws)
-        if (ws.arcStep <= 0f) return emptyList()
-        buildLoops(path, keyWidth, keys, ws)
-
-        val k = maxOf(limit * 2, RESULT_K)
-        val results = HashMap<String, Candidate>()
-        // Completions are collected apart from the readings and never touch
-        // `floor`. The floor is what makes the walk's bound admissible for
-        // *words*; a completion scores on a prefix's alignment plus a guess,
-        // and letting one raise the floor would prune real words that the
-        // guess merely outscored.
-        //
-        // A stroke that ends on a loop asks for no guesses at all. The loop
-        // is a deliberate mark on the last key the finger reached, and a
-        // finger that drew it and lifted has said where the word ends: with
-        // "finish words early" on, a circle closing "see" was otherwise
-        // read as the start of "seer" (issue #337).
-        val ahead = if (lookAhead > 0 && !endsOnLoop(ws)) HashMap<String, Candidate>() else null
-        // One budget across every source, carried in a box so `searchOne` can
-        // spend from it without threading a return value back.
-        val budget = intArrayOf(tuning.lookAheadBudget)
-        var floor = Double.NEGATIVE_INFINITY
-
-        // Heaviest source first, so its emissions raise the floor before the
-        // lighter ones start — the same ordering trick the typing beam uses.
-        val ordered = sources.sortedByDescending {
-            it.logWeight + ln1p(it.walker.maxSubtree(it.walker.root))
-        }
-        for (src in ordered) {
-            val rootBound = src.logWeight + ln1p(src.walker.maxSubtree(src.walker.root))
-            if (rootBound < floor - EPS) continue
-            floor = searchOne(src, keys, ws, k, results, floor, ahead, budget)
-        }
-
-        val ranked = results.values.sortedWith(
-            compareByDescending<Candidate> { it.score }.thenBy { it.word }
-        )
-        var read = rescoreShape(ranked, keys, ws, shapes).take(limit)
-
-        // Inject or promote learned words whose saved shape matches the drawn stroke,
-        // even if trie pruning or anchor mismatch filtered or demoted them in results.
-        if (shapes != null && tuning.shapeSeeding && tuning.learnedShapeGain > 0.0) {
-            quantise(ws.pathX, ws.pathY, ws.drawnShape8)
-            val nearWords = shapes.wordsNear(ws.drawnShape8, radius = 0.35f, limit = limit)
-            if (nearWords.isNotEmpty()) {
-                val maxRescoredScore = read.maxOfOrNull { it.score } ?: 0.0
-                val updatedRead = read.map { candidate ->
-                    if (candidate.word in nearWords) {
-                        Candidate(candidate.word, maxOf(candidate.score, maxRescoredScore), candidate.shapeCost, candidate.tier, candidate.ahead)
-                    } else {
-                        candidate
-                    }
-                }.toMutableList()
-
-                val readWords = read.mapTo(HashSet()) { it.word }
-                for (word in nearWords) {
-                    if (word !in readWords) {
-                        updatedRead.add(Candidate(word, maxRescoredScore, 0.0, FuzzyBeamSearch.Tier.DICTIONARY))
-                    }
-                }
-                read = updatedRead.sortedWith(
-                    compareByDescending<Candidate> { it.score }.thenBy { it.word }
-                ).take(limit)
-            }
-        }
-        if (ahead.isNullOrEmpty()) return read
-        // A word the stroke spelled out is never also offered as a guess at
-        // where it was going: one source can read it while another's prefix
-        // completes to it, and the merged list would carry it twice.
-        val readWords = read.mapTo(HashSet()) { it.word }
-        val guesses = ahead.values.filterNot { it.word in readWords }
-        // Merged into one ranked list so a caller sees the decoder's whole
-        // opinion in score order; `Candidate.ahead` is what tells the two
-        // apart, and every caller that cares checks it.
-        //
-        // The completions go through the shape channel too (issue #167).
-        // They used to skip it, and every caller compares a guess's score
-        // against the best ordinary reading's — so a reading paid the
-        // channel's charge, up to several nats on a real finger, and the
-        // guess extending it paid nothing. "thing" drawn to its last letter
-        // lost to "things" on that gap alone, and a word the stroke had
-        // spelled out could be beaten by any longer word it started.
-        val completions = rescoreShape(guesses, keys, ws, shapes)
-            .take(lookAhead)
-        return (read + completions).sortedWith(
-            compareByDescending<Candidate> { it.score }.thenBy { it.word }
-        )
+        return NativeGlide.decode(tuning, nativeTuning, path, keys, keyWidth, sources, limit, shapes, lookAhead)
+            ?: error(NO_TWIN)
     }
 
     /**
@@ -637,12 +598,10 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
      * spread — and quantised to a byte a coordinate. Null when the stroke is
      * too short to be a glide.
      */
+    @Suppress("UNUSED_PARAMETER")
     fun sampleShape(path: List<GesturePoint>, keyWidth: Float, ws: GlideWorkspace): ByteArray? {
         if (path.size < MIN_SAMPLES || keyWidth <= 0f) return null
-        if (!resample(path, keyWidth, ws)) return null
-        val out = ByteArray(2 * GlideWorkspace.SAMPLE_POINTS)
-        quantise(ws.pathX, ws.pathY, out)
-        return out
+        return NativeGlide.sampleShape(path, keyWidth)
     }
 
     /**
@@ -654,7 +613,7 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
      * character [keys] cannot produce, has fewer than two keys, or cannot reach
      * the stroke's last sample at all.
      */
-    @Suppress("ReturnCount", "CyclomaticComplexMethod", "NestedBlockDepth")
+    @Suppress("UNUSED_PARAMETER")
     fun align(
         word: String,
         path: List<GesturePoint>,
@@ -663,1415 +622,12 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         ws: GlideWorkspace,
     ): Alignment? {
         if (path.size < MIN_SAMPLES || keyWidth <= 0f || keys.keyCount == 0) return null
-        val visits = IntArray(GlideWorkspace.MAX_IDEAL_POINTS)
-        val starts = IntArray(GlideWorkspace.MAX_IDEAL_POINTS)
-        var count = 0
-        var previous = -1
-        var at = 0
-        while (at < word.length) {
-            val codePoint = word.codePointAt(at)
-            val start = at
-            at += Character.charCount(codePoint)
-            val key = keys.keyIndex(codePoint)
-            // A joiner is not a visit: the walk stepped over it, so the
-            // alignment it is read back against has to step over it too, or
-            // every hyphenated word would report "cannot be drawn" and take
-            // its shape lesson and its casing with it (#230). The next letter
-            // keeps its own offset, so [Alignment.chars] still points past the
-            // hyphen and not at it.
-            if (key < 0) {
-                if (GlideJoiners.isJoiner(codePoint)) continue
-                return null
-            }
-            if (key == previous) continue
-            if (count >= GlideWorkspace.MAX_IDEAL_POINTS) return null
-            visits[count] = key
-            starts[count] = start
-            count++
-            previous = key
-        }
-        if (count < 2) return null
-        if (!resample(path, keyWidth, ws)) return null
-        if (ws.arcStep <= 0f) return null
-        ws.prepareKeys(keys.keyCount)
-        buildCosts(keys, ws)
-        buildLoops(path, keyWidth, keys, ws)
-
-        val n = GlideWorkspace.SAMPLE_POINTS
-        val keyCount = keys.keyCount
-        val cost = ws.pointCost
-        val step = ws.arcStep
-        val arc = ws.arcAt
-        val back = IntArray(count * n)
-        var prev = FloatArray(n)
-        var cur = FloatArray(n)
-        prev[0] = cost[visits[0]]
-        for (j in 1 until n) prev[j] = GlideWorkspace.UNREACHABLE
-        for (m in 1 until count) {
-            val key = visits[m]
-            val span = keys.distance(visits[m - 1], key)
-            val expected = span / step
-            val lo = maxOf(1, (expected - tuning.gapWindow).toInt())
-            val hi = maxOf(lo, (expected + tuning.gapWindow).toInt() + 1) + ws.collapsedSamples
-            cur[0] = GlideWorkspace.UNREACHABLE
-            for (j in 1 until n) {
-                var best = GlideWorkspace.UNREACHABLE
-                var from = -1
-                val arcJ = arc[j]
-                var i = maxOf(0, j - hi)
-                val to = j - lo
-                while (i <= to) {
-                    val before = prev[i]
-                    if (before < GlideWorkspace.UNREACHABLE) {
-                        val gap = arcJ - arc[i] - span
-                        val v = before + tuning.gapWeight * (if (gap < 0f) -gap else gap)
-                        if (v < best) {
-                            best = v
-                            from = i
-                        }
-                    }
-                    i++
-                }
-                cur[j] = if (from < 0) GlideWorkspace.UNREACHABLE else best + cost[j * keyCount + key]
-                back[m * n + j] = from
-            }
-            val swap = prev
-            prev = cur
-            cur = swap
-        }
-        if (prev[n - 1] >= GlideWorkspace.UNREACHABLE) return null
-
-        val x = FloatArray(count)
-        val y = FloatArray(count)
-        val samples = IntArray(count)
-        var j = n - 1
-        for (m in count - 1 downTo 0) {
-            x[m] = ws.pathX[j]
-            y[m] = ws.pathY[j]
-            samples[m] = j
-            if (m > 0) j = back[m * n + j]
-        }
-        return Alignment(visits.copyOf(count), x, y, samples, starts.copyOf(count))
-    }
-
-    // ---- the walk ----
-
-    // The vocabulary cap adds a subtree prune and an emit gate, which takes the
-    // cognitive-complexity count one past the threshold. Splitting the loop to
-    // get it back would cost more than it buys: this is one best-first walk over
-    // a shared column, and every branch in it is on the hot path.
-    @Suppress(
-        "LongParameterList", "CyclomaticComplexMethod", "NestedBlockDepth",
-        "CognitiveComplexMethod",
-    )
-    private fun searchOne(
-        src: FuzzyBeamSearch.WalkSource,
-        keys: GlideKeyMap,
-        ws: GlideWorkspace,
-        k: Int,
-        results: HashMap<String, Candidate>,
-        floorIn: Double,
-        ahead: HashMap<String, Candidate>?,
-        budget: IntArray,
-    ): Double {
-        var floor = floorIn
-        val walker = src.walker
-        val n = GlideWorkspace.SAMPLE_POINTS
-        val keyCount = keys.keyCount
-        // The vocabulary cap as this source's own frequency. A source with no
-        // frequency ranking answers 0, which switches every test below off.
-        val minFrequency = walker.frequencyAtRank(tuning.vocabularyRank)
-
-        ws.reset()
-        ws.push(
-            node = walker.root, parent = -1, viaLabel = GlideWorkspace.NO_LABEL,
-            lastKey = -1, length = 0, extra = 0f, floorCost = 0f,
-            bound = src.logWeight + ln1p(walker.maxSubtree(walker.root)),
-            letterCp = 0,
-        )
-
-        var pops = 0
-        while (ws.heapSize > 0 && pops < MAX_POPS) {
-            val s = ws.popBest()
-            if (ws.bound[s] < floor - EPS) break
-            pops++
-
-            val node = ws.node[s]
-            val length = ws.length[s].toInt()
-            val extra = ws.extra[s]
-            val lastKey = ws.lastKey[s]
-
-            // The prefix's last letter must land on the last sample. For a
-            // finished word that is where the finger lifted; for a look-ahead
-            // it is where the finger is *now*, which is the same condition and
-            // the same anchor.
-            // `lastKey` is -1 at the root, which has spelled nothing and can
-            // be neither a word nor a prefix worth guessing from.
-            val atEnd = lastKey >= 0 && ws.endKey[lastKey] &&
-                ws.cols[ws.columnOf(s) + n - 1] < GlideWorkspace.UNREACHABLE
-            if (atEnd) {
-                val total = ws.cols[ws.columnOf(s) + n - 1]
-                // Charged here and not on the way down: only a finished
-                // word knows which pauses none of its letters claim. The
-                // bound stays admissible since the charge can only lower
-                // a score, never raise one.
-                val shape = total + extra + unclaimedDwell(s, keys, ws) +
-                    unclaimedLoop(s, ws)
-                if (length >= MIN_WORD_LENGTH && walker.isWord(node) &&
-                    walker.frequency(node) >= minFrequency
-                ) {
-                    val score = src.logWeight + ln1p(walker.frequency(node)) -
-                        tuning.shapeWeight * shape
-                    if (score > floor - EPS || results.size < k) {
-                        val word = ws.materialize(s)
-                        if (!listedNonWord(word, src)) {
-                            emit(word, score, shape.toDouble(), src.tier, results)
-                            if (results.size >= k) floor = kthBest(results, k, ws)
-                        }
-                    }
-                }
-                if (ahead != null && budget[0] > 0 && length >= MIN_LOOKAHEAD_PREFIX) {
-                    lookAhead(src, walker, node, s, shape, minFrequency, ws, ahead, budget)
-                }
-            }
-            if (length >= MAX_WORD_LENGTH || length >= n) continue
-
-            val count = walker.childrenInto(node, ws.children)
-            // The trie is spelled in UTF-16 units, so a letter outside the BMP
-            // is two edges: the high surrogate, then the low. A state that has
-            // taken the high half is waiting on the low, and only the pair
-            // names a key — every Warang Citi letter shares one high half.
-            val pendingHigh = ws.viaLabel[s].takeIf { it.isHighSurrogate() }
-            for (i in 0 until count) {
-                val label = ws.children.labels[i]
-                val child = ws.children.nodes[i]
-                val subtree = walker.maxSubtree(child)
-                // Every word under here is at most `subtree` frequent, so a
-                // subtree below the cap holds nothing the emit gate would keep.
-                // Pruning it makes a capped decode cheaper than an uncapped
-                // one rather than merely quieter.
-                if (subtree < minFrequency) continue
-
-                val codePoint: Int
-                if (pendingHigh != null) {
-                    // Anything but a low surrogate here is a malformed word,
-                    // which no grid can spell.
-                    if (!label.isLowSurrogate()) continue
-                    codePoint = Character.toCodePoint(pendingHigh, label)
-                } else if (label.isHighSurrogate()) {
-                    // Half a letter: let the low half decide, and until it does
-                    // spend none of the stroke on it.
-                    if (!descendSilent(src, subtree, s, child, label, extra, floor, ws)) break
-                    continue
-                } else {
-                    codePoint = label.code
-                }
-
-                val key = keys.keyIndex(codePoint)
-                // A hyphen, a dot, an at sign: spelled in the word, absent from
-                // the grid, and never drawn. Step over it for the price of
-                // `joinerCost` rather than losing the word with it (#230). Only
-                // between letters — a word cannot be *started* on a character
-                // the stroke's first sample has nothing to anchor to — and
-                // never twice running, which bounds the detour a malformed
-                // entry can send the walk on.
-                if (key < 0 && length > 0 && GlideJoiners.isJoiner(codePoint) &&
-                    !GlideJoiners.isJoiner(ws.viaLabel[s].code)
-                ) {
-                    val cost = extra + tuning.joinerCost
-                    if (!descendSilent(src, subtree, s, child, label, cost, floor, ws)) break
-                    continue
-                }
-                // A character the grid cannot produce makes its whole subtree
-                // unreachable; so does one the stroke never went near.
-                if (key < 0 || key >= keyCount || !ws.nearKey[key]) continue
-                if (length == 0 && !ws.startKey[key]) continue
-
-                val repeat = length > 0 && codePoint == ws.letterCp[s]
-
-                val minCol: Float
-                var childExtra = extra
-                if (repeat) {
-                    // A doubled letter is one key visited once, so the stroke
-                    // holds no evidence of it at all: the alignment carries
-                    // over untouched and the repeat pays a flat charge instead.
-                    // Without the charge every doubled spelling would shadow
-                    // its single one for free. A loop on the key is the
-                    // evidence, and waives it; a pause is not (issue #337).
-                    minCol = ws.floorCost[s]
-                    childExtra += repeatCharge(lastKey, ws)
-                } else {
-                    minCol = advance(
-                        ws,
-                        prevColumn = if (length == 0) -1 else ws.columnOf(s),
-                        key = key,
-                        prevKey = lastKey,
-                        keys = keys,
-                    )
-                    if (minCol >= GlideWorkspace.UNREACHABLE) continue
-                }
-
-                val bound = src.logWeight + ln1p(subtree) -
-                    tuning.shapeWeight * (minCol + childExtra)
-                if (bound < floor - EPS) continue
-
-                val id = ws.push(
-                    node = child, parent = s, viaLabel = label, lastKey = key,
-                    length = length + 1, extra = childExtra, floorCost = minCol, bound = bound,
-                    letterCp = codePoint,
-                )
-                if (id < 0) break // pool saturated; best-first says the rest are worse
-                if (repeat) ws.copyColumn(s, id) else ws.storeScratch(id)
-            }
-        }
-        return floor
-    }
-
-    /**
-     * Whether [word] is a word list's non-word that the decoder should not
-     * offer: an interrupted word, a stray full stop or a stutter (see
-     * [GlideJoiners.isNonWord], issue #304). Only for word lists. The personal
-     * lexicon holds what this user wrote or added, and #230 was about letting
-     * them glide exactly that.
-     */
-    private fun listedNonWord(word: String, src: FuzzyBeamSearch.WalkSource): Boolean =
-        src.tier == FuzzyBeamSearch.Tier.DICTIONARY && GlideJoiners.isNonWord(word)
-
-    /**
-     * Descends the edge [label] into [child] without spending any of the stroke:
-     * the alignment column, the letter count, the last key and the last letter
-     * all carry over untouched, and only [extra] may differ from the parent's.
-     *
-     * Two edges are walked this way and they are the same case — a character in
-     * the word that the stroke has nothing to say about. The high half of a
-     * surrogate pair is half a letter and waits for the low half to name a key;
-     * a [GlideJoiners] character is a whole character with no key at all, and
-     * pays [Tuning.joinerCost] for the privilege.
-     *
-     * False when the state pool saturated, which best-first says the caller
-     * should take as "the rest of these children are worse" and stop.
-     */
-    @Suppress("LongParameterList")
-    private fun descendSilent(
-        src: FuzzyBeamSearch.WalkSource,
-        subtree: Int,
-        s: Int,
-        child: Int,
-        label: Char,
-        extra: Float,
-        floor: Double,
-        ws: GlideWorkspace,
-    ): Boolean {
-        val bound = src.logWeight + ln1p(subtree) -
-            tuning.shapeWeight * (ws.floorCost[s] + extra)
-        if (bound < floor - EPS) return true
-        val id = ws.push(
-            node = child, parent = s, viaLabel = label, lastKey = ws.lastKey[s],
-            length = ws.length[s].toInt(), extra = extra, floorCost = ws.floorCost[s],
-            bound = bound, letterCp = ws.letterCp[s],
-        )
-        if (id < 0) return false
-        ws.copyColumn(s, id)
-        return true
-    }
-
-    /**
-     * Offers the commonest word under the prefix at state [s] as a look-ahead
-     * candidate — the stroke drawn so far explains that prefix, and the rest of
-     * the word is the language model's guess about where the finger is going.
-     *
-     * The word is found by descending from [node] always into a child whose
-     * subtree bound equals this node's, which by construction arrives at a word
-     * carrying that bound: the walker's `maxSubtree` is the greatest frequency
-     * anywhere beneath, so the branch holding it is the branch that still
-     * reports it. That makes the frequency in the score the *actual* word's
-     * rather than an upper bound over a subtree, which matters because the two
-     * differ by exactly the amount that would make a long shot look certain.
-     *
-     * A prefix that is already the commonest thing under it offers nothing —
-     * the ordinary emit above has that word, drawn rather than guessed.
-     */
-    @Suppress("LongParameterList")
-    private fun lookAhead(
-        src: FuzzyBeamSearch.WalkSource,
-        walker: TrieWalker,
-        node: Int,
-        s: Int,
-        shape: Float,
-        minFrequency: Int,
-        ws: GlideWorkspace,
-        ahead: HashMap<String, Candidate>,
-        budget: IntArray,
-    ) {
-        val best = walker.maxSubtree(node)
-        if (best < minFrequency || best <= walker.frequency(node)) return
-        budget[0]--
-        val prefix = ws.materialize(s)
-        val word = StringBuilder(prefix)
-        var at = node
-        var steps = 0
-        while (steps < MAX_WORD_LENGTH) {
-            if (walker.isWord(at) && walker.frequency(at) == best) break
-            // Its own buffer: `ws.children` belongs to the walk that called
-            // this, and sharing it would make the walk correct only for as
-            // long as it happens to refill the buffer after this returns.
-            val children = ws.lookAheadChildren
-            val count = walker.childrenInto(at, children)
-            var next = -1
-            var label = '\u0000'
-            for (i in 0 until count) {
-                if (walker.maxSubtree(children.nodes[i]) == best) {
-                    next = children.nodes[i]
-                    label = children.labels[i]
-                    break
-                }
-            }
-            if (next < 0) return
-            word.append(label)
-            at = next
-            steps++
-        }
-        if (steps == 0 || word.length <= prefix.length) return
-        val spelled = word.toString()
-        if (listedNonWord(spelled, src)) return
-        val extra = spelled.length - prefix.length
-        val score = src.logWeight + ln1p(best) - tuning.shapeWeight * shape -
-            tuning.lookAheadCost * extra
-        val existing = ahead[spelled]
-        if (existing == null || score > existing.score) {
-            ahead[spelled] = Candidate(spelled, score, shape.toDouble(), src.tier, extra)
-        }
-    }
-
-    /**
-     * Extends the alignment by one letter sitting on [key], writing the new
-     * column into [GlideWorkspace.scratch] and returning its lowest value.
-     *
-     * [prevColumn] is the parent's column offset, or -1 for the word's first
-     * letter, which is anchored to the stroke's first sample: that is where the
-     * finger went down, so there is nothing to search over.
-     *
-     * For every later letter the DP asks, for each sample `j`, which earlier
-     * sample `i` the previous letter sat on. Only a band of `i` is worth
-     * checking. The stroke's travel between the two samples is `(j - i)` steps
-     * of known length, the two keys are a known distance apart, and the two
-     * should agree; [GAP_WINDOW] bounds how far they may disagree before the
-     * placement is not worth scoring at all. That band is what keeps this a
-     * bounded pass rather than the quadratic scan the exact formulation asks
-     * for, and it costs nothing real — a placement outside it carries a gap
-     * penalty no word recovers from.
-     */
-    private fun advance(
-        ws: GlideWorkspace,
-        prevColumn: Int,
-        key: Int,
-        prevKey: Int,
-        keys: GlideKeyMap,
-    ): Float {
-        val n = GlideWorkspace.SAMPLE_POINTS
-        val keyCount = keys.keyCount
-        val cost = ws.pointCost
-        val out = ws.scratch
-
-        if (prevColumn < 0) {
-            out[0] = cost[key]
-            for (j in 1 until n) out[j] = GlideWorkspace.UNREACHABLE
-            return out[0]
-        }
-
-        val prev = ws.cols
-        val step = ws.arcStep
-        val arc = ws.arcAt
-        val span = keys.distance(prevKey, key)
-        // Samples the stroke should have travelled between the two letters.
-        // A loop's collapsed arc can only make the finger's travel read as
-        // less than its sample count says, so it widens the far edge alone.
-        val expected = span / step
-        val lo = maxOf(1, (expected - tuning.gapWindow).toInt())
-        val hi = maxOf(lo, (expected + tuning.gapWindow).toInt() + 1) + ws.collapsedSamples
-
-        out[0] = GlideWorkspace.UNREACHABLE
-        var best = GlideWorkspace.UNREACHABLE
-        for (j in 1 until n) {
-            val from = maxOf(0, j - hi)
-            val to = j - lo
-            val arcJ = arc[j]
-            var bestPrev = GlideWorkspace.UNREACHABLE
-            var i = from
-            while (i <= to) {
-                val at = prev[prevColumn + i]
-                if (at < GlideWorkspace.UNREACHABLE) {
-                    val travelled = arcJ - arc[i]
-                    val gap = travelled - span
-                    val v = at + tuning.gapWeight * (if (gap < 0f) -gap else gap)
-                    if (v < bestPrev) bestPrev = v
-                }
-                i++
-            }
-            val value = if (bestPrev >= GlideWorkspace.UNREACHABLE) {
-                GlideWorkspace.UNREACHABLE
-            } else {
-                bestPrev + cost[j * keyCount + key]
-            }
-            out[j] = value
-            if (value < best) best = value
-        }
-        return best
-    }
-
-    // ---- per-decode preparation ----
-
-    /**
-     * Resamples [path] to [GlideWorkspace.SAMPLE_POINTS] equidistant samples in
-     * key-width coordinates, interpolating the clock along with the position so
-     * timing survives. False when the stroke is too short to be a swipe at all.
-     */
-    private fun resample(path: List<GesturePoint>, keyWidth: Float, ws: GlideWorkspace): Boolean {
-        val n = GlideWorkspace.SAMPLE_POINTS
-        var totalPx = 0f
-        for (i in 1 until path.size) {
-            totalPx += distance(path[i - 1], path[i])
-        }
-        if (totalPx / keyWidth < MIN_STROKE_LENGTH) return false
-
-        val step = totalPx / (n - 1)
-        ws.arcStep = step / keyWidth
-        // Travel is read off arcAt rather than off sample indices; identity
-        // until buildLoops finds something to collapse.
-        val arcStep = ws.arcStep
-        for (j in 0 until n) ws.arcAt[j] = j * arcStep
-        ws.collapsedSamples = 0
-        val first = path.first()
-        ws.pathX[0] = first.x / keyWidth
-        ws.pathY[0] = first.y / keyWidth
-        ws.pathT[0] = first.t
-
-        var out = 1
-        var index = 0
-        var cx = first.x
-        var cy = first.y
-        var ct = first.t
-        var accumulated = 0f
-        while (out < n - 1 && index < path.size - 1) {
-            val next = path[index + 1]
-            val segment = sqrt((next.x - cx) * (next.x - cx) + (next.y - cy) * (next.y - cy))
-            if (accumulated + segment >= step && segment > 0f) {
-                val fraction = (step - accumulated) / segment
-                cx += fraction * (next.x - cx)
-                cy += fraction * (next.y - cy)
-                ct += ((next.t - ct) * fraction).toLong()
-                ws.pathX[out] = cx / keyWidth
-                ws.pathY[out] = cy / keyWidth
-                ws.pathT[out] = ct
-                out++
-                accumulated = 0f
-            } else {
-                accumulated += segment
-                cx = next.x
-                cy = next.y
-                ct = next.t
-                index++
-            }
-        }
-        val last = path.last()
-        while (out < n) {
-            ws.pathX[out] = last.x / keyWidth
-            ws.pathY[out] = last.y / keyWidth
-            ws.pathT[out] = last.t
-            out++
-        }
-        return true
-    }
-
-    /**
-     * Fills the per-sample, per-key cost table and the three key masks the walk
-     * prunes with: keys the stroke passed near at all, keys it could have
-     * started on, and keys it could have ended on.
-     */
-    private fun buildCosts(keys: GlideKeyMap, ws: GlideWorkspace) {
-        val n = GlideWorkspace.SAMPLE_POINTS
-        val keyCount = keys.keyCount
-        val cost = ws.pointCost
-        val invTwoSigmaSq = tuning.invTwoSigmaSq
-        val maxPointCost = tuning.maxPointCost
-        val nearCost = tuning.nearCost
-        for (i in 0 until n) {
-            val base = i * keyCount
-            val px = ws.pathX[i]
-            val py = ws.pathY[i]
-            for (k in 0 until keyCount) {
-                val dx = px - keys.keyX[k]
-                val dy = py - keys.keyY[k]
-                val scaled = (dx * dx + dy * dy) * invTwoSigmaSq
-                cost[base + k] = if (scaled > maxPointCost) maxPointCost else scaled
-                if (scaled <= nearCost) ws.nearKey[k] = true
-            }
-        }
-        anchorMask(ws.pathX[0], ws.pathY[0], keys, ws.startKey, tuning.startRadiusSq)
-        anchorMask(ws.pathX[n - 1], ws.pathY[n - 1], keys, ws.endKey, tuning.endRadiusSq)
-    }
-
-    /**
-     * Finds where the finger lingered and files each hold as a pause event.
-     *
-     * Because the path is resampled by arc length, a sample's timestamp gap is
-     * the reciprocal of speed with no differentiating required: a step that took
-     * much longer than the stroke's even pace is a step the finger was barely
-     * moving through.
-     *
-     * Nothing for a stroke with no clock, which is every synthetic path in a
-     * test that does not care about timing — and nothing is the right answer
-     * there, since no-evidence and no-pause should charge the same.
-     */
-    private fun buildDwell(keys: GlideKeyMap, ws: GlideWorkspace) {
-        if (tuning.unclaimedDwell <= 0f) return
-        val n = GlideWorkspace.SAMPLE_POINTS
-        val span = (ws.pathT[n - 1] - ws.pathT[0]).toFloat()
-        if (span <= 0f) return
-        val evenStep = span / (n - 1)
-        val dwellScale = tuning.dwellScale
-        var runEnd = -1
-        for (j in 1 until n) {
-            val step = (ws.pathT[j] - ws.pathT[j - 1]).toFloat()
-            val lingering = ((step / evenStep) - 1f) / dwellScale
-            if (lingering <= 0f) continue
-            val score = if (lingering > 1f) 1f else lingering
-            recordPause(j, score, runEnd, ws)
-            runEnd = j
-        }
-        for (p in 0 until ws.pauseCount) {
-            val j = ws.pauseAt[p]
-            placePause(p, ws.pathX[j], ws.pathY[j], keys, ws)
-        }
-    }
-
-    /**
-     * Puts pause event [p] at ([x], [y]) and works out which keys may claim
-     * it: those within `DWELL_RADIUS` of it and no more than `DWELL_TIE`
-     * farther than the nearest key. A stop is on one key, so the key next door
-     * does not get to answer for it; the tie is for a stop drawn on the line
-     * between two, which says nothing about which of them was meant and
-     * should favour neither.
-     */
-    private fun placePause(p: Int, x: Float, y: Float, keys: GlideKeyMap, ws: GlideWorkspace) {
-        var nearestSq = Float.MAX_VALUE
-        for (k in 0 until keys.keyCount) {
-            val dx = x - keys.keyX[k]
-            val dy = y - keys.keyY[k]
-            val d = dx * dx + dy * dy
-            if (d < nearestSq) nearestSq = d
-        }
-        val reach = minOf(DWELL_RADIUS, sqrt(nearestSq) + DWELL_TIE)
-        ws.pauseX[p] = x
-        ws.pauseY[p] = y
-        ws.pauseReachSq[p] = reach * reach
-    }
-
-    /**
-     * Files sample [j]'s slowness as a pause event. A true standstill puts no
-     * arc on the path, so all of its time lands in the one step that crosses
-     * it; slow *travel* smears over several adjacent steps instead, and those
-     * are one hold, not several — one event, sitting on whichever sample was
-     * slowest, so a crawl through a key is charged once. [runEnd] is the last
-     * sample filed, for telling adjacent from separate.
-     */
-    private fun recordPause(j: Int, score: Float, runEnd: Int, ws: GlideWorkspace) {
-        val count = ws.pauseCount
-        if (count > 0 && runEnd == j - 1) {
-            if (score > ws.pauseScore[count - 1]) {
-                ws.pauseScore[count - 1] = score
-                ws.pauseAt[count - 1] = j
-            }
-            return
-        }
-        ws.pauseAt[count] = j
-        ws.pauseScore[count] = score
-        ws.pauseCount = count + 1
-    }
-
-    /**
-     * The pauses along the stroke that none of state [s]'s letters sit on,
-     * summed by how still the finger was at each, times [Tuning.unclaimedDwell].
-     *
-     * A pause is claimed by a key within the reach [placePause] gave it: the
-     * key it happened on, and never its neighbour. The word's keys are read
-     * straight off the parent chain, so this costs a walk of the word per pause
-     * and allocates nothing.
-     */
-    private fun unclaimedDwell(s: Int, keys: GlideKeyMap, ws: GlideWorkspace): Float {
-        val weight = tuning.unclaimedDwell
-        if (weight <= 0f || ws.pauseCount == 0) return 0f
-        var charge = 0f
-        for (p in 0 until ws.pauseCount) {
-            val px = ws.pauseX[p]
-            val py = ws.pauseY[p]
-            val reachSq = ws.pauseReachSq[p]
-            var claimed = false
-            var cur = s
-            while (cur >= 0 && !claimed) {
-                val key = ws.lastKey[cur]
-                if (key >= 0) {
-                    val dx = px - keys.keyX[key]
-                    val dy = py - keys.keyY[key]
-                    claimed = dx * dx + dy * dy <= reachSq
-                }
-                cur = ws.parent[cur]
-            }
-            if (!claimed) charge += ws.pauseScore[p]
-        }
-        return weight * charge
-    }
-
-    // ---- loops ----
-
-    /**
-     * Finds the places the finger went round on itself or rubbed back and
-     * forth and files each as an event: the samples it covers, where it sat,
-     * the key it is on, and how much of a doubled-letter mark it is — a loop
-     * all of one, a wiggle none, since a wiggle files a pause instead. Then
-     * leaves each event's inside to its key and collapses the events' arc out
-     * of [GlideWorkspace.arcAt]. See [Tuning.loopExtent] for the reading and
-     * [Tuning.wiggleExtent] for the wiggle's. Nothing happens at zero extent,
-     * and a stroke with no loops leaves the workspace as it found it.
-     *
-     * The search runs on a fine resample of the stroke rather than on the
-     * alignment's [GlideWorkspace.SAMPLE_POINTS]: on a long word those sit
-     * half a key apart, a loop is three of them, and no three points make a
-     * circle. The first start that passes is usually a step or two early, on
-     * the way in, so once a window is found every later start inside it is
-     * tried too and the roundest wins — the loop itself rather than the loop
-     * with its approach.
-     */
-    private fun buildLoops(path: List<GesturePoint>, keyWidth: Float, keys: GlideKeyMap, ws: GlideWorkspace) {
-        ws.loopCount = 0
-        val reach = maxOf(tuning.loopExtent, tuning.wiggleExtent)
-        if (reach <= 0f) return
-        resampleFine(path, keyWidth, ws)
-        val n = ws.fineCount
-        var a = 0
-        while (a < n - 2) {
-            var window = roundestWindow(a, reach, ws)
-            if (window == NO_WINDOW) {
-                a++
-                continue
-            }
-            var from = a
-            var other = a + 1
-            while (other < windowEnd(window) - 1) {
-                val later = roundestWindow(other, reach, ws)
-                if (later != NO_WINDOW && windowRoundness(later) > windowRoundness(window)) {
-                    window = later
-                    from = other
-                }
-                other++
-            }
-            val b = windowEnd(window)
-            val extent = sqrt(extentSq(from, b, ws))
-            val loop = windowRoundness(window) >= LOOP_ROUNDNESS && extent <= tuning.loopExtent
-            val wiggle = !loop && tuning.wiggleExtent > 0f && extent <= tuning.wiggleExtent
-            if (!loop && !wiggle) {
-                a++
-                continue
-            }
-            val e = recordLoop(from, b, if (loop) 1f else 0f, keys, ws)
-            if (wiggle) recordWiggle(e, keys, ws)
-            a = b + 1
-        }
-        if (ws.loopCount > 0) {
-            excludeNeighbours(keys, ws)
-            collapseArc(ws)
-        }
-    }
-
-    /**
-     * Whether the stroke's last doubling loop ends within [END_LOOP_REACH] of
-     * where the finger lifted, measured along the collapsed arc: a loop drawn
-     * as the stroke's last act, with at most the flick of the lift after it.
-     */
-    private fun endsOnLoop(ws: GlideWorkspace): Boolean {
-        val last = GlideWorkspace.SAMPLE_POINTS - 1
-        for (e in ws.loopCount - 1 downTo 0) {
-            if (ws.loopScore[e] <= 0f || ws.loopKey[e] < 0) continue
-            return ws.arcAt[last] - ws.arcAt[ws.loopTo[e]] <= END_LOOP_REACH
-        }
-        return false
-    }
-
-    /**
-     * Files the wiggle recorded as loop event [e] as a pause on its key,
-     * worth [Tuning.wiggleWeight] of a full stop: a rub is how a finger that
-     * would rather not stop says the key is in the word. The loop event it
-     * also is carries no doubling weight and is kept only so its arc is
-     * collapsed and its inside left to its key.
-     */
-    private fun recordWiggle(e: Int, keys: GlideKeyMap, ws: GlideWorkspace) {
-        val p = ws.pauseCount
-        if (tuning.unclaimedDwell <= 0f || tuning.wiggleWeight <= 0f) return
-        if (p >= GlideWorkspace.SAMPLE_POINTS) return
-        ws.pauseAt[p] = (ws.loopFrom[e] + ws.loopTo[e]) / 2
-        ws.pauseScore[p] = tuning.wiggleWeight
-        placePause(p, ws.loopX[e], ws.loopY[e], keys, ws)
-        ws.pauseCount = p + 1
-    }
-
-    /**
-     * Leaves the samples strictly inside every mark to the mark's own key:
-     * every other key pays [Tuning.loopExclusion] more there, up to
-     * [Tuning.maxPointCost].
-     *
-     * A loop drawn on the o of `good` sweeps over the i, the p, the k and the
-     * l on its way round, and before this the alignment was free to place any
-     * of their letters on those samples — so the circle that meant "the o
-     * twice" pulled in words that went through the keys around it (issue
-     * #337). The first and last samples of the window stay open to every key:
-     * that is where the stroke arrives from the letter before and leaves for
-     * the one after. A mark on no key excludes nothing.
-     */
-    private fun excludeNeighbours(keys: GlideKeyMap, ws: GlideWorkspace) {
-        val charge = tuning.loopExclusion
-        if (charge <= 0f) return
-        val keyCount = keys.keyCount
-        val cost = ws.pointCost
-        val cap = tuning.maxPointCost
-        for (e in 0 until ws.loopCount) {
-            val own = ws.loopKey[e]
-            if (own < 0) continue
-            for (j in ws.loopFrom[e] + 1 until ws.loopTo[e]) {
-                val base = j * keyCount
-                for (k in 0 until keyCount) {
-                    if (k != own) cost[base + k] = minOf(cap, cost[base + k] + charge)
-                }
-            }
-        }
-    }
-
-    /**
-     * Resamples [path] into [GlideWorkspace.fineX] and [GlideWorkspace.fineY]
-     * at [FINE_SPACING] key widths a point — coarser only when a stroke would
-     * need more than [GlideWorkspace.MAX_FINE_POINTS] of them. Position only:
-     * the loop search has no use for the clock.
-     */
-    private fun resampleFine(path: List<GesturePoint>, keyWidth: Float, ws: GlideWorkspace) {
-        var totalPx = 0f
-        for (i in 1 until path.size) totalPx += distance(path[i - 1], path[i])
-        val total = totalPx / keyWidth
-        val spacing = maxOf(FINE_SPACING, total / (GlideWorkspace.MAX_FINE_POINTS - 1))
-        val count = (total / spacing).toInt() + 1
-        ws.prepareFine(count)
-        ws.fineStep = spacing
-        val stepPx = spacing * keyWidth
-        val first = path.first()
-        ws.fineX[0] = first.x / keyWidth
-        ws.fineY[0] = first.y / keyWidth
-        var out = 1
-        var index = 0
-        var cx = first.x
-        var cy = first.y
-        var accumulated = 0f
-        while (out < count && index < path.size - 1) {
-            val next = path[index + 1]
-            val segment = sqrt((next.x - cx) * (next.x - cx) + (next.y - cy) * (next.y - cy))
-            if (accumulated + segment >= stepPx && segment > 0f) {
-                val fraction = (stepPx - accumulated) / segment
-                cx += fraction * (next.x - cx)
-                cy += fraction * (next.y - cy)
-                ws.fineX[out] = cx / keyWidth
-                ws.fineY[out] = cy / keyWidth
-                out++
-                accumulated = 0f
-            } else {
-                accumulated += segment
-                cx = next.x
-                cy = next.y
-                index++
-            }
-        }
-        ws.fineCount = out
-    }
-
-    /**
-     * Of the windows of fine points starting at [a] that stay within [reach]
-     * of themselves and hold at least [Tuning.loopMinArc] of path and
-     * `LOOP_RATIO` times their own extent, the roundest — its end and its
-     * roundness packed into one long, or [NO_WINDOW].
-     *
-     * Roundness is the isoperimetric quotient `4πA / P²` of the polygon the
-     * window's points make when closed back to the start: 1 for a circle,
-     * nothing for a path that goes out and comes back along itself, and
-     * nothing for a zigzag, whose signed area cancels. Turning was the
-     * obvious measure and the wrong one: a loop drawn on a key that sits at
-     * a reversal — the `o` of `good` on QWERTY — has the corner's own turn
-     * cancelling half of the circle's, and a loop entered on a cusp cancels
-     * all of it. Area does not care which way round the finger went.
-     *
-     * Path length is the sum of the chords, not the point count times the
-     * spacing: a sharp corner between two points has less chord than
-     * spacing, and counting the spacing turned every hairpin into a loop.
-     * The extent is the window's widest pairwise distance, which only grows
-     * as the window does, so the scan stops the moment it passes [reach].
-     */
-    private fun roundestWindow(a: Int, reach: Float, ws: GlideWorkspace): Long {
-        val n = ws.fineCount
-        val xs = ws.fineX
-        val ys = ws.fineY
-        val ax = xs[a]
-        val ay = ys[a]
-        val reachSq = reach * reach
-        var extentSq = 0f
-        var length = 0f
-        var twiceArea = 0f
-        var bestEnd = -1
-        var bestRoundness = 0f
-        var b = a + 1
-        while (b < n && b - a <= MAX_WINDOW_POINTS) {
-            val bx = xs[b]
-            val by = ys[b]
-            val sx = bx - xs[b - 1]
-            val sy = by - ys[b - 1]
-            length += sqrt(sx * sx + sy * sy)
-            twiceArea += xs[b - 1] * by - bx * ys[b - 1]
-            var i = a
-            while (i < b) {
-                val dx = xs[i] - bx
-                val dy = ys[i] - by
-                val d = dx * dx + dy * dy
-                if (d > extentSq) extentSq = d
-                i++
-            }
-            if (extentSq > reachSq) break
-            if (length >= tuning.loopMinArc && extentSq >= MIN_LOOP_EXTENT_SQ &&
-                length * length >= LOOP_RATIO * LOOP_RATIO * extentSq
-            ) {
-                val closed = twiceArea + (bx * ay - ax * by)
-                val dx = bx - ax
-                val dy = by - ay
-                val perimeter = length + sqrt(dx * dx + dy * dy)
-                val roundness = TWO_PI * (if (closed < 0f) -closed else closed) / (perimeter * perimeter)
-                if (roundness > bestRoundness) {
-                    bestRoundness = roundness
-                    bestEnd = b
-                }
-            }
-            b++
-        }
-        return if (bestEnd < 0) NO_WINDOW else (bestEnd.toLong() shl Int.SIZE_BITS) or
-            (bestRoundness.toRawBits().toLong() and 0xffffffffL)
-    }
-
-    private fun windowEnd(window: Long): Int = (window shr Int.SIZE_BITS).toInt()
-
-    private fun windowRoundness(window: Long): Float = Float.fromBits(window.toInt())
-
-    /** Squared widest pairwise distance among fine points `[a, b]`. */
-    private fun extentSq(a: Int, b: Int, ws: GlideWorkspace): Float {
-        var extent = 0f
-        for (j in a + 1..b) {
-            for (i in a until j) {
-                val dx = ws.fineX[i] - ws.fineX[j]
-                val dy = ws.fineY[i] - ws.fineY[j]
-                val d = dx * dx + dy * dy
-                if (d > extent) extent = d
-            }
-        }
-        return extent
-    }
-
-    /**
-     * Files the fine window `[from, to]` as a loop event of strength [score]:
-     * its centroid, the alignment samples it covers, how much of its path its
-     * chord is — what the collapse leaves of it — and its key, the one nearest
-     * the centroid within [Tuning.loopRadius], or -1. Only that key is
-     * credited: a loop is a mark on one key, and crediting every key in reach
-     * let a circle drawn a little off the f of `off` double the d of `odd`
-     * (issue #337). Returns the event's index.
-     */
-    private fun recordLoop(from: Int, to: Int, score: Float, keys: GlideKeyMap, ws: GlideWorkspace): Int {
-        val xs = ws.fineX
-        val ys = ws.fineY
-        var cx = 0f
-        var cy = 0f
-        var length = 0f
-        for (j in from..to) {
-            cx += xs[j]
-            cy += ys[j]
-            if (j > from) {
-                val sx = xs[j] - xs[j - 1]
-                val sy = ys[j] - ys[j - 1]
-                length += sqrt(sx * sx + sy * sy)
-            }
-        }
-        val points = (to - from + 1).toFloat()
-        cx /= points
-        cy /= points
-        val dx = xs[to] - xs[from]
-        val dy = ys[to] - ys[from]
-        val chord = sqrt(dx * dx + dy * dy)
-
-        // Onto the alignment's samples: the nearest to where the window
-        // starts and ends, at least one step apart so there is something to
-        // collapse.
-        val last = GlideWorkspace.SAMPLE_POINTS - 1
-        val toSample = ws.fineStep / ws.arcStep
-        var a = minOf(last, (from * toSample + 0.5f).toInt())
-        var b = minOf(last, (to * toSample + 0.5f).toInt())
-        if (b <= a) {
-            if (a < last) b = a + 1 else a = b - 1
-        }
-        val e = ws.loopCount
-        ws.loopFrom[e] = a
-        ws.loopTo[e] = b
-        ws.loopShrink[e] = if (length > 0f) chord / length else 1f
-        ws.loopX[e] = cx
-        ws.loopY[e] = cy
-        ws.loopScore[e] = score
-        ws.loopCount = e + 1
-        var own = -1
-        var nearestSq = tuning.loopRadiusSq
-        for (k in 0 until keys.keyCount) {
-            val kx = cx - keys.keyX[k]
-            val ky = cy - keys.keyY[k]
-            val d = kx * kx + ky * ky
-            if (d <= nearestSq) {
-                nearestSq = d
-                own = k
-            }
-        }
-        ws.loopKey[e] = own
-        if (own >= 0 && score > ws.keyLoop[own]) ws.keyLoop[own] = score
-        return e
-    }
-
-    /**
-     * Rebuilds [GlideWorkspace.arcAt] with every loop's arc shrunk to its
-     * chord, spread evenly over its samples, and counts the samples' worth of
-     * arc that removed. A closed loop's chord is near zero, so it vanishes
-     * from every word's travel alike; a loop entered on one side and left on
-     * the other still credits the finger with the distance it net-moved.
-     */
-    private fun collapseArc(ws: GlideWorkspace) {
-        val n = GlideWorkspace.SAMPLE_POINTS
-        val step = ws.arcStep
-        val arc = ws.arcAt
-        var removed = 0f
-        var e = 0
-        arc[0] = 0f
-        for (j in 1 until n) {
-            if (e < ws.loopCount && j > ws.loopFrom[e] && j <= ws.loopTo[e]) {
-                val a = ws.loopFrom[e]
-                val shrink = ws.loopShrink[e]
-                arc[j] = arc[a] + (j - a) * step * shrink
-                if (j == ws.loopTo[e]) {
-                    removed += (j - a) * step * (1f - shrink)
-                    e++
-                }
-            } else {
-                arc[j] = arc[j - 1] + step
-            }
-        }
-        ws.collapsedSamples = ceil(removed / step).toInt()
-    }
-
-    /**
-     * What a doubled letter on [key] pays: the flat [Tuning.repeatCost] plus
-     * [Tuning.unloopedRepeat], the whole of it waived to the extent the finger
-     * looped there. Only a loop waives it: a pause or a wiggle says the key is
-     * in the word, not that it is in it twice (issue #337). A charge dropped
-     * and never a credit, so `extra` only ever grows along a chain and the
-     * bound stays admissible.
-     */
-    private fun repeatCharge(key: Int, ws: GlideWorkspace): Float =
-        (tuning.repeatCost + tuning.unloopedRepeat) * (1f - ws.keyLoop[key])
-
-    /**
-     * The loops along the stroke that none of state [s]'s *doubled* letters
-     * sit on, summed by strength, times [Tuning.unclaimedLoop]. A loop is
-     * claimed only by a doubling on its own key (see [recordLoop]). A repeat is
-     * a state spelling the same letter as its parent one character further on;
-     * the half-letter state of a surrogate pair carries its parent's letter
-     * at the parent's length, which keeps it out.
-     */
-    private fun unclaimedLoop(s: Int, ws: GlideWorkspace): Float {
-        val weight = tuning.unclaimedLoop
-        if (weight <= 0f || ws.loopCount == 0) return 0f
-        var charge = 0f
-        for (e in 0 until ws.loopCount) {
-            // A wiggle's event doubles nothing, and a loop on no key is
-            // ignored by every word alike, which orders nothing.
-            val own = ws.loopKey[e]
-            if (ws.loopScore[e] <= 0f || own < 0) continue
-            var claimed = false
-            var cur = s
-            while (cur >= 0 && !claimed) {
-                val parent = ws.parent[cur]
-                if (parent >= 0 && ws.letterCp[cur] == ws.letterCp[parent] &&
-                    ws.length[cur].toInt() == ws.length[parent] + 1
-                ) {
-                    claimed = ws.lastKey[cur] == own
-                }
-                cur = parent
-            }
-            if (!claimed) charge += ws.loopScore[e]
-        }
-        return weight * charge
-    }
-
-    // ---- shape channel ----
-
-    /**
-     * Reorders the finished candidates by how well each one's *shape* matches
-     * the stroke, with position and size normalised away.
-     *
-     * A rescore over the handful of words the search already emitted, rather
-     * than a term inside it: the normalisation needs a whole candidate to
-     * compute, and a per-state version would have no admissible bound and would
-     * cost a resample per trie edge. Here it costs a resample per candidate.
-     */
-    private fun rescoreShape(
-        ranked: List<Candidate>,
-        keys: GlideKeyMap,
-        ws: GlideWorkspace,
-        shapes: GlideShapeSource?,
-    ): List<Candidate> {
-        val weight = tuning.shapeChannel
-        // A lone candidate is rescored too, not merely reordered: its score
-        // still gets compared, to the completions decoded beside it, and a
-        // reading that skipped the charge because it had no rival would be
-        // measured against guesses that paid it.
-        if (weight <= 0.0 || ranked.isEmpty()) return ranked
-        normalise(ws.pathX, ws.pathY, ws.drawnShapeX, ws.drawnShapeY)
-        val learned = shapes?.takeIf { tuning.learnedShapeGain > 0.0 }
-
-        val rescored = ArrayList<Candidate>(ranked.size)
-        for (candidate in ranked) {
-            // A look-ahead candidate's ideal path runs through letters the
-            // finger has not drawn, so comparing the whole shape against the
-            // whole word would ask it to account for a stroke that does not
-            // exist yet. What the finger *has* drawn is the prefix, and the
-            // prefix's ideal path is exactly what an ordinary reading of the
-            // same letters would be measured against — so a guess pays what
-            // the word it extends pays, and the two compare on the letters
-            // ahead alone. The learned shapes are of whole words and have
-            // nothing to say about a prefix.
-            val distance = if (candidate.ahead > 0) {
-                shapeDistance(candidate.word.dropLast(candidate.ahead), keys, ws)
-            } else {
-                shapeDistance(candidate.word, keys, ws)
-                    ?.let { ideal -> learnedDistance(candidate.word, ideal, learned, ws) }
-            }
-
-            rescored.add(
-                if (distance == null) {
-                    candidate
-                } else {
-                    Candidate(
-                        candidate.word,
-                        candidate.score - weight * distance,
-                        candidate.shapeCost,
-                        candidate.tier,
-                        candidate.ahead,
-                    )
-                }
-            )
-        }
-        return rescored.sortedWith(
-            compareByDescending<Candidate> { it.score }.thenBy { it.word }
-        )
-    }
-
-    /**
-     * Mean distance between the normalised stroke and [word]'s normalised ideal
-     * path, or null when the word cannot be drawn on this grid at all.
-     */
-    private fun shapeDistance(word: String, keys: GlideKeyMap, ws: GlideWorkspace): Double? {
-        var count = 0
-        var previous = -1
-        var at = 0
-        while (at < word.length) {
-            val codePoint = word.codePointAt(at)
-            at += Character.charCount(codePoint)
-            val key = keys.keyIndex(codePoint)
-            // A joiner has no point on the ideal path — the same skip the walk
-            // made. Answering null instead would let a hyphenated reading out
-            // of the shape channel entirely, so it would pay none of the charge
-            // its rivals pay and win on that alone (#230).
-            if (key < 0) {
-                if (GlideJoiners.isJoiner(codePoint)) continue
-                return null
-            }
-            // Consecutive letters on one key are one point of the path: the
-            // finger visited it once, however many letters it stood for.
-            if (key == previous) continue
-            if (count >= GlideWorkspace.MAX_IDEAL_POINTS) return null
-            ws.idealX[count] = keys.keyX[key]
-            ws.idealY[count] = keys.keyY[key]
-            count++
-            previous = key
-        }
-        if (count < 2) return null
-        resamplePolyline(ws.idealX, ws.idealY, count, ws.idealShapeX, ws.idealShapeY)
-        normalise(ws.idealShapeX, ws.idealShapeY, ws.idealShapeX, ws.idealShapeY)
-
-        var sum = 0.0
-        for (j in 0 until GlideWorkspace.SAMPLE_POINTS) {
-            val dx = ws.drawnShapeX[j] - ws.idealShapeX[j]
-            val dy = ws.drawnShapeY[j] - ws.idealShapeY[j]
-            sum += sqrt(dx * dx + dy * dy).toDouble()
-        }
-        return sum / GlideWorkspace.SAMPLE_POINTS
-    }
-
-    /**
-     * [ideal] shortened by how this user draws [word], when [shapes] know: the
-     * nearer of the ideal path and the word's learned shapes, but never more
-     * than [Tuning.learnedShapeGain] nearer than the ideal.
-     *
-     * The store keeps shapes in key widths, so where a stroke starts counts
-     * for merging and seeding; here each is centred and scaled to unit spread
-     * first, exactly as the drawn stroke and the ideal path are, so the
-     * distance is in the shape channel's units and comparable with [ideal].
-     */
-    private fun learnedDistance(
-        word: String,
-        ideal: Double,
-        shapes: GlideShapeSource?,
-        ws: GlideWorkspace,
-    ): Double {
-        shapes ?: return ideal
-        val stored = shapes.shapesOf(word)
-        if (stored.isEmpty()) return ideal
-        val n = GlideWorkspace.SAMPLE_POINTS
-        var own = Double.MAX_VALUE
-        for (shape in stored) {
-            for (j in 0 until n) {
-                ws.learnedShapeX[j] = shape[2 * j] / GlideShapeStore.QUANT
-                ws.learnedShapeY[j] = shape[2 * j + 1] / GlideShapeStore.QUANT
-            }
-            normalise(ws.learnedShapeX, ws.learnedShapeY, ws.learnedShapeX, ws.learnedShapeY)
-            var sum = 0.0
-            for (j in 0 until n) {
-                val dx = ws.drawnShapeX[j] - ws.learnedShapeX[j]
-                val dy = ws.drawnShapeY[j] - ws.learnedShapeY[j]
-                sum += sqrt(dx * dx + dy * dy).toDouble()
-            }
-            own = minOf(own, sum / n)
-        }
-        return maxOf(minOf(ideal, own), ideal - tuning.learnedShapeGain)
-    }
-
-    /** A key-width path as the shape store keeps one: [GlideShapeStore.QUANT] to the key width, clamped to a byte. */
-    private fun quantise(xs: FloatArray, ys: FloatArray, out: ByteArray) {
-        for (j in 0 until GlideWorkspace.SAMPLE_POINTS) {
-            out[2 * j] = (xs[j] * GlideShapeStore.QUANT).toInt().coerceIn(-SHAPE_BYTE_LIMIT, SHAPE_BYTE_LIMIT).toByte()
-            out[2 * j + 1] = (ys[j] * GlideShapeStore.QUANT).toInt().coerceIn(-SHAPE_BYTE_LIMIT, SHAPE_BYTE_LIMIT).toByte()
-        }
-    }
-
-    /**
-     * Centres a path on its own centroid and scales it to unit spread, so that
-     * comparing two paths compares their shapes and nothing else. In and out may
-     * be the same arrays.
-     */
-    private fun normalise(xs: FloatArray, ys: FloatArray, outX: FloatArray, outY: FloatArray) {
-        val n = GlideWorkspace.SAMPLE_POINTS
-        var cx = 0f
-        var cy = 0f
-        for (j in 0 until n) {
-            cx += xs[j]
-            cy += ys[j]
-        }
-        cx /= n
-        cy /= n
-        var spread = 0f
-        for (j in 0 until n) {
-            val dx = xs[j] - cx
-            val dy = ys[j] - cy
-            spread += dx * dx + dy * dy
-        }
-        val scale = sqrt(spread / n).takeIf { it > MIN_SHAPE_SPREAD } ?: 1f
-        for (j in 0 until n) {
-            outX[j] = (xs[j] - cx) / scale
-            outY[j] = (ys[j] - cy) / scale
-        }
-    }
-
-    /** Resamples a [count]-point polyline to [GlideWorkspace.SAMPLE_POINTS] by arc length. */
-    private fun resamplePolyline(
-        xs: FloatArray,
-        ys: FloatArray,
-        count: Int,
-        outX: FloatArray,
-        outY: FloatArray,
-    ) {
-        val n = GlideWorkspace.SAMPLE_POINTS
-        var total = 0f
-        for (i in 1 until count) {
-            val dx = xs[i] - xs[i - 1]
-            val dy = ys[i] - ys[i - 1]
-            total += sqrt(dx * dx + dy * dy)
-        }
-        if (total <= 0f) {
-            for (j in 0 until n) {
-                outX[j] = xs[0]
-                outY[j] = ys[0]
-            }
-            return
-        }
-        val step = total / (n - 1)
-        outX[0] = xs[0]
-        outY[0] = ys[0]
-        var out = 1
-        var index = 0
-        var cx = xs[0]
-        var cy = ys[0]
-        var accumulated = 0f
-        while (out < n - 1 && index < count - 1) {
-            val nx = xs[index + 1]
-            val ny = ys[index + 1]
-            val segment = sqrt((nx - cx) * (nx - cx) + (ny - cy) * (ny - cy))
-            if (accumulated + segment >= step && segment > 0f) {
-                val fraction = (step - accumulated) / segment
-                cx += fraction * (nx - cx)
-                cy += fraction * (ny - cy)
-                outX[out] = cx
-                outY[out] = cy
-                out++
-                accumulated = 0f
-            } else {
-                accumulated += segment
-                cx = nx
-                cy = ny
-                index++
-            }
-        }
-        while (out < n) {
-            outX[out] = xs[count - 1]
-            outY[out] = ys[count - 1]
-            out++
-        }
-    }
-
-    /** Which keys the anchor at ([x], [y]) could have meant, within [radiusSq]. */
-    private fun anchorMask(
-        x: Float,
-        y: Float,
-        keys: GlideKeyMap,
-        out: BooleanArray,
-        radiusSq: Float,
-    ) {
-        for (k in 0 until keys.keyCount) {
-            val dx = x - keys.keyX[k]
-            val dy = y - keys.keyY[k]
-            out[k] = dx * dx + dy * dy <= radiusSq
-        }
-    }
-
-    // ---- results ----
-
-    private fun emit(
-        word: String,
-        score: Double,
-        shapeCost: Double,
-        tier: FuzzyBeamSearch.Tier,
-        results: HashMap<String, Candidate>,
-    ) {
-        val existing = results[word]
-        if (existing == null || score > existing.score) {
-            results[word] = Candidate(word, score, shapeCost, tier)
-        }
-    }
-
-    /** The [k]th best score in [results], sorted in the workspace's scratch rather than a fresh array per emit. */
-    private fun kthBest(results: HashMap<String, Candidate>, k: Int, ws: GlideWorkspace): Double {
-        val size = results.size
-        if (size < k) return Double.NEGATIVE_INFINITY
-        var scores = ws.scoreScratch
-        if (scores.size < size) {
-            scores = DoubleArray(size)
-            ws.scoreScratch = scores
-        }
-        var i = 0
-        for (c in results.values) scores[i++] = c.score
-        java.util.Arrays.sort(scores, 0, size)
-        return scores[size - k]
-    }
-
-    private fun distance(a: GesturePoint, b: GesturePoint): Float {
-        val dx = b.x - a.x
-        val dy = b.y - a.y
-        return sqrt(dx * dx + dy * dy)
+        return NativeGlide.align(nativeTuning, word, path, keys, keyWidth)
     }
 
     companion object {
 
-        /** Strokes shorter than this are taps, in key widths. */
-        private const val MIN_STROKE_LENGTH = 0.5f
-
         private const val MIN_SAMPLES = 3
-        private const val MIN_WORD_LENGTH = 2
-
-        /**
-         * Letters a stroke must have spelled before the decoder will guess what
-         * it is going to spell next.
-         *
-         * Three, because two is not evidence. A stroke that has reached its
-         * second letter has been through one direction change at most, and
-         * every long word starting with those two letters fits it about as
-         * well — guessing there is guessing from frequency alone, dressed up as
-         * a reading of a gesture.
-         */
-        private const val MIN_LOOKAHEAD_PREFIX = 3
-        private const val MAX_WORD_LENGTH = 24
-
-        /** Below this spread a path is a dot, and dividing by its size is noise. */
-        private const val MIN_SHAPE_SPREAD = 1e-4f
-
-        private const val SHAPE_BYTE_LIMIT = 127
-
-        /** How near a key a pause has to happen to count as a pause on it, in key widths. */
-        private const val DWELL_RADIUS = 0.8f
-
-        /**
-         * How much farther than the nearest key another key may sit from a
-         * pause and still claim it, in key widths: enough for a stop drawn on
-         * the line between two keys to belong to both, not enough for the key
-         * next door to answer for a stop a little off centre.
-         */
-        private const val DWELL_TIE = 0.25f
-
-        /**
-         * Arc over extent a window needs to be a loop: a straight pass is 1,
-         * any single corner at most 2 — exactly 2 for a full reversal — and a
-         * circle π. Halfway between the corner and the circle.
-         */
-        private const val LOOP_RATIO = 2.5f
-
-        /**
-         * Least roundness — `4πA / P²` of the closed window, 1 for a circle —
-         * a loop must show. A loop drawn as an egg or a teardrop still clears
-         * this; a corner, a reversal and a zigzag are nowhere near it.
-         */
-        private const val LOOP_ROUNDNESS = 0.55f
-
-        /** Point spacing of the loop search's resample, in key widths. */
-        private const val FINE_SPACING = 0.08f
-
-        /** Longest window the loop search extends, in fine points: five key widths of path. */
-        private const val MAX_WINDOW_POINTS = 64
-
-        private const val TWO_PI = 2f * Math.PI.toFloat()
-
-        /** [roundestWindow]'s answer when no window starting at a sample is a loop. */
-        private const val NO_WINDOW = -1L
-
-        /** Below this extent a window is tremor, whatever its path: a loop a finger means is wider than a third of a key. */
-        private const val MIN_LOOP_EXTENT_SQ = 0.3f * 0.3f
-
-        /**
-         * Most stroke a loop may have after it, in key widths, and still be
-         * the stroke's closing mark: the lift's own flick, not a move on to
-         * another key, which is a key width away.
-         */
-        private const val END_LOOP_REACH = 0.5f
 
         /** Runaway backstop; floor pruning ends healthy walks far earlier. */
         const val MAX_POPS = 2000
@@ -2079,8 +635,7 @@ class GlideBeam(private val tuning: Tuning = Tuning()) {
         /** Rank depth kept internally, so reranking has something to reorder. */
         const val RESULT_K = 8
 
-        private const val EPS = 1e-9
-
-        private fun ln1p(v: Int): Double = ln(1.0 + v)
+        private const val NO_TWIN =
+            "a glide source with no Rust twin: every TrieWalker the keyboard builds has one"
     }
 }

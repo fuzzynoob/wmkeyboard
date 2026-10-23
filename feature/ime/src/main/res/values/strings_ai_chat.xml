@@ -122,4 +122,155 @@
     <string name="ime_ai_chat_tool_mcp_allow_once">Allow once</string>
     <!-- Allows this call, and lets the tool run without asking from now on. -->
     <string name="ime_ai_chat_tool_mcp_allow_always">Always allow</string>
+
+    <!-- The keyboard's own tools the AI can use (#698). %1$s in the next four
+         is the tool's name, one of ime_ai_tool_name_*. -->
+    <string name="ime_ai_chat_tool_builtin_running">Using %1$s…</string>
+    <string name="ime_ai_chat_tool_builtin_done">Used %1$s</string>
+    <string name="ime_ai_chat_tool_builtin_waiting">%1$s is waiting for you</string>
+    <!-- The question on the card before the call runs. -->
+    <string name="ime_ai_chat_tool_builtin_ask">Let the AI use %1$s?</string>
+    <!-- Each tool's name, as the chat and the settings show it. -->
+    <string name="ime_ai_tool_name_image_search">Image search</string>
+    <string name="ime_ai_tool_name_weather">Weather</string>
+    <string name="ime_ai_tool_name_wm_docs">WM Keyboard docs</string>
+    <string name="ime_ai_tool_name_wikipedia">Wikipedia</string>
+    <string name="ime_ai_tool_name_define_word">Dictionary</string>
+    <string name="ime_ai_tool_name_translate">Translate</string>
+    <string name="ime_ai_tool_name_convert_currency">Currency converter</string>
+    <string name="ime_ai_tool_name_convert_units">Unit converter</string>
+    <string name="ime_ai_tool_name_calculate">Calculator</string>
+    <!-- While each tool runs, and after. %1$s is what it was asked about. -->
+    <string name="ime_ai_tool_image_search_running">Searching for images of “%1$s”…</string>
+    <string name="ime_ai_tool_image_search_done">Searched for images of “%1$s”</string>
+    <!-- %1$s is a place, such as Dhaka. -->
+    <string name="ime_ai_tool_weather_running">Checking the weather in %1$s…</string>
+    <string name="ime_ai_tool_weather_done">Checked the weather in %1$s</string>
+    <string name="ime_ai_tool_wm_docs_running">Searching the WM Keyboard docs for “%1$s”…</string>
+    <string name="ime_ai_tool_wm_docs_done">Searched the WM Keyboard docs for “%1$s”</string>
+    <string name="ime_ai_tool_wikipedia_running">Looking up “%1$s” on Wikipedia…</string>
+    <string name="ime_ai_tool_wikipedia_done">Looked up “%1$s” on Wikipedia</string>
+    <string name="ime_ai_tool_define_word_running">Looking up “%1$s” in the dictionary…</string>
+    <string name="ime_ai_tool_define_word_done">Looked up “%1$s” in the dictionary</string>
+    <!-- %1$s is a language, such as Bengali. -->
+    <string name="ime_ai_tool_translate_running">Translating into %1$s…</string>
+    <string name="ime_ai_tool_translate_done">Translated into %1$s</string>
+    <!-- %1$s is a conversion, such as "12 USD → EUR" or "5 mi → km". -->
+    <string name="ime_ai_tool_convert_running">Converting %1$s…</string>
+    <string name="ime_ai_tool_convert_done">Converted %1$s</string>
+    <!-- %1$s is an expression, such as 18% of 2450. -->
+    <string name="ime_ai_tool_calculate_running">Working out %1$s…</string>
+    <string name="ime_ai_tool_calculate_done">Worked out %1$s</string>
+    <string name="ime_ai_tool_name_calendar_events">Your calendar</string>
+    <string name="ime_ai_tool_name_search_notes">Your notes</string>
+    <string name="ime_ai_tool_name_search_snippets">Your snippets</string>
+    <string name="ime_ai_tool_name_search_clipboard">Your clipboard</string>
+    <string name="ime_ai_tool_name_current_location">Your location</string>
+    <string name="ime_ai_tool_name_add_calendar_event">Add to calendar</string>
+    <string name="ime_ai_tool_name_add_note">New note</string>
+    <string name="ime_ai_tool_name_remember">Memory</string>
+    <string name="ime_ai_tool_name_forget">Forget</string>
+    <string name="ime_ai_tool_name_set_alarm">Alarm</string>
+    <string name="ime_ai_tool_name_start_timer">Timer</string>
+    <string name="ime_ai_tool_name_open_app">Open an app</string>
+    <string name="ime_ai_tool_name_media_control">Media control</string>
+    <string name="ime_ai_tool_name_send_to_pc">Send to computer</string>
+    <!-- %1$s is a date, or two joined by a dash. -->
+    <string name="ime_ai_tool_calendar_events_running">Reading your calendar for %1$s…</string>
+    <string name="ime_ai_tool_calendar_events_done">Read your calendar for %1$s</string>
+    <string name="ime_ai_tool_search_notes_running">Searching your notes for “%1$s”…</string>
+    <string name="ime_ai_tool_search_notes_done">Searched your notes for “%1$s”</string>
+    <!-- %1$s is what the model searched for. -->
+    <string name="ime_ai_tool_search_snippets_running">Searching your snippets for “%1$s”…</string>
+    <string name="ime_ai_tool_search_snippets_done">Searched your snippets for “%1$s”</string>
+    <!-- %1$s is what the model searched for. -->
+    <string name="ime_ai_tool_search_clipboard_running">Looking through your clipboard for “%1$s”…</string>
+    <string name="ime_ai_tool_search_clipboard_done">Looked through your clipboard for “%1$s”</string>
+    <!-- %1$s is the event's title. -->
+    <string name="ime_ai_tool_add_calendar_event_running">Adding “%1$s” to your calendar…</string>
+    <string name="ime_ai_tool_add_calendar_event_done">Added “%1$s” to your calendar</string>
+    <!-- %1$s is the note's title. -->
+    <string name="ime_ai_tool_add_note_running">Saving the note “%1$s”…</string>
+    <string name="ime_ai_tool_add_note_done">Saved the note “%1$s”</string>
+    <!-- AI memory. %1$s is the start of the fact the model saved, such as "Lives in Dhaka". -->
+    <string name="ime_ai_tool_remember_running">Saving “%1$s” to memory…</string>
+    <string name="ime_ai_tool_remember_done">Remembered “%1$s”</string>
+    <!-- %1$s is a memory's number or words from it. -->
+    <string name="ime_ai_tool_forget_running">Forgetting “%1$s”…</string>
+    <string name="ime_ai_tool_forget_done">Forgot “%1$s”</string>
+    <!-- The line under an answer when the model saved a fact about the user. A fact follows it. -->
+    <string name="ime_ai_memory_saved">Saved to memory</string>
+    <!-- The same, when the model changed a fact it had saved before. -->
+    <string name="ime_ai_memory_updated">Memory updated</string>
+    <!-- The same, after the user pressed Undo on it. -->
+    <string name="ime_ai_memory_undone">Taken back</string>
+    <!-- Takes the save back: deletes the new memory, or puts the old wording back. -->
+    <string name="ime_ai_memory_undo">Undo</string>
+    <!-- %1$s is a time of day, such as 07:30. -->
+    <string name="ime_ai_tool_set_alarm_running">Setting an alarm for %1$s…</string>
+    <string name="ime_ai_tool_set_alarm_done">Set an alarm for %1$s</string>
+    <!-- %1$s is a length of time, such as 10m. -->
+    <string name="ime_ai_tool_start_timer_running">Starting a %1$s timer…</string>
+    <string name="ime_ai_tool_start_timer_done">Started a %1$s timer</string>
+    <!-- %1$s is an app's name. -->
+    <string name="ime_ai_tool_open_app_running">Opening %1$s…</string>
+    <string name="ime_ai_tool_open_app_done">Opened %1$s</string>
+    <!-- %1$s is the start of what was sent. -->
+    <string name="ime_ai_tool_send_to_pc_running">Sending “%1$s” to your computer…</string>
+    <string name="ime_ai_tool_send_to_pc_done">Sent “%1$s” to your computer</string>
+    <string name="ime_ai_tool_name_read_image_text">Reading a picture</string>
+    <string name="ime_ai_tool_name_reverse_image_search">Search by picture</string>
+    <!-- %1$s is the picture's number in the chat, such as 2. -->
+    <string name="ime_ai_tool_read_image_text_running">Reading the text in picture %1$s…</string>
+    <string name="ime_ai_tool_read_image_text_done">Read the text in picture %1$s</string>
+    <string name="ime_ai_tool_reverse_image_search_running">Searching the web by picture %1$s…</string>
+    <string name="ime_ai_tool_reverse_image_search_done">Searched the web by picture %1$s</string>
+    <!-- The chat composer's picture sources (#698), now in its "+" menu. -->
+    <string name="ime_ai_chat_picture_clipboard">Copied picture</string>
+    <string name="ime_ai_chat_picture_screenshot">Newest screenshot</string>
+    <string name="ime_ai_chat_picture_no_clip">No picture in the clipboard history</string>
+    <string name="ime_ai_chat_picture_no_shot">No screenshot on this phone</string>
+    <string name="ime_ai_chat_picture_no_permission">Allow access to your pictures to add a screenshot</string>
+    <string name="ime_ai_chat_picture_unreadable">That picture could not be read</string>
+    <string name="ime_ai_chat_picture_item_desc">Picture</string>
+    <string name="ime_ai_chat_picture_remove_desc">Remove picture</string>
+    <!-- The chat composer's "+" menu (#882): its button, and the buttons in it, named by a long press. -->
+    <string name="ime_ai_chat_attach_menu_desc">Add pictures, files and text</string>
+    <string name="ime_ai_chat_attach_image">Pictures from the gallery</string>
+    <string name="ime_ai_chat_attach_file">A file</string>
+    <string name="ime_ai_chat_attach_photo">Take a photo</string>
+    <string name="ime_ai_chat_attach_full">No room for more on this message</string>
+    <string name="ime_ai_chat_attach_no_picker">This phone has nothing to pick that with</string>
+    <string name="ime_ai_chat_photo_no_permission">Allow the camera to take a photo</string>
+    <string name="ime_ai_chat_file_too_big">That file is too big to send (14 MB at most)</string>
+    <string name="ime_ai_chat_file_unreadable">That file could not be read as text, sound, video or PDF</string>
+    <string name="ime_ai_chat_file_remove_desc">Remove file</string>
+    <!-- The chat's steps before an answer (#882): the folded reasoning, and a tool call opened up. -->
+    <string name="ime_ai_chat_reasoning">Reasoning</string>
+    <!-- %1$s is the tool's own name as the model calls it, such as web_search. -->
+    <string name="ime_ai_chat_tool_call">%1$s call</string>
+    <string name="ime_ai_chat_tool_arguments">Arguments</string>
+    <string name="ime_ai_chat_tool_output">Output</string>
+    <!-- The chat composer's Reasoning switch (#882), as TalkBack reads its state. -->
+    <string name="ime_ai_chat_reasoning_on_desc">The model reasons before it answers</string>
+    <string name="ime_ai_chat_reasoning_off_desc">The model answers without reasoning</string>
+    <!-- The chat list (#882): picking several chats with a long press, and renaming one. -->
+    <plurals name="ime_ai_chat_selected_count">
+        <item quantity="one">%1$d selected</item>
+        <item quantity="other">%1$d selected</item>
+    </plurals>
+    <string name="ime_ai_chat_delete_selected">Delete the selected chats</string>
+    <string name="ime_ai_chat_rename">Rename</string>
+    <string name="ime_ai_chat_rename_title">Rename chat</string>
+    <!-- %1$s is the chat's title. -->
+    <string name="ime_ai_chat_rename_desc">Rename %1$s</string>
+    <string name="ime_ai_chat_rename_hint">The chat\'s new name</string>
+    <!-- The chat's rename_chat tool (#882): its record, and the card asking the user to accept the name. %1$s is the name. -->
+    <string name="ime_ai_tool_name_rename_chat">Rename chat</string>
+    <string name="ime_ai_tool_rename_chat_running">Renaming the chat to “%1$s”…</string>
+    <string name="ime_ai_tool_rename_chat_done">Renamed the chat to “%1$s”</string>
+    <string name="ime_ai_chat_rename_ask">Rename this chat to “%1$s”?</string>
+    <string name="ime_ai_chat_rename_accept">Accept</string>
+    <string name="ime_ai_chat_rename_decline">Decline</string>
+    <string name="ime_ai_chat_error_only_reasoning">The model spent its whole answer reasoning and wrote no reply. Try again, or turn Reasoning off.</string>
 </resources>

@@ -113,12 +113,19 @@ object ToolHttp {
         HttpResponse(connection.readBody(call), kept)
     }
 
+    /**
+     * POSTs [form] URL-encoded. [wantHeaders] are kept on a failure, the way
+     * [getWithHeaders] keeps them: a 429's `Retry-After` is what says how long
+     * to wait.
+     */
     fun postForm(
         url: String,
         form: Map<String, String>,
         timeoutMs: Int = 10_000,
         source: NetSource? = null,
         route: String? = null,
+        headers: Map<String, String> = emptyMap(),
+        wantHeaders: Set<String> = emptySet(),
     ): String = metered(url, "POST", source, route) { connection, call ->
         connection.connectTimeout = timeoutMs
         connection.readTimeout = timeoutMs
@@ -126,13 +133,17 @@ object ToolHttp {
         connection.requestMethod = "POST"
         connection.doOutput = true
         connection.setRequestProperty("Content-Type", "application/x-www-form-urlencoded; charset=UTF-8")
+        for ((name, value) in headers) connection.setRequestProperty(name, value)
         val body = form.entries.joinToString("&") { (key, value) ->
             "$key=${URLEncoder.encode(value, "UTF-8")}"
         }
         connection.send(body.toByteArray(), call)
         val status = connection.responseCode
         call.status = status
-        if (status !in 200..299) throw httpFailure(status, connection.readError(call))
+        if (status !in 200..299) {
+            val kept = wantHeaders.mapNotNull { name -> connection.getHeaderField(name)?.let { name to it } }.toMap()
+            throw httpFailure(status, connection.readError(call), kept)
+        }
         connection.readBody(call)
     }
 
@@ -174,6 +185,7 @@ object ToolHttp {
         headers: Map<String, String> = emptyMap(),
         source: NetSource? = null,
         route: String? = null,
+        savedBytes: Long = 0,
     ): String {
         val boundary = "----wmkb" + java.util.UUID.randomUUID().toString().replace("-", "")
         val body = multipartBody(boundary, fields, file)
@@ -190,6 +202,8 @@ object ToolHttp {
             val status = connection.responseCode
             call.status = status
             if (status !in 200..299) throw httpFailure(status, connection.readError(call))
+            // Counted as saved only once the server took the smaller file.
+            call.bytesSaved = savedBytes
             connection.readBody(call)
         }
     }
@@ -483,14 +497,23 @@ object ToolHttp {
      * shows the provider's own words when it sent any, and our wording for the
      * status when it did not.
      */
-    fun friendlyMessage(context: Context, t: Throwable): String = when (t) {
-        is ToolHttpException -> httpText(context, t)
-        is NoInternetPermissionException -> context.getString(CommonR.string.common_error_no_internet_permission)
-        is UnknownHostException -> context.getString(CommonR.string.common_error_network)
-        is SocketTimeoutException -> context.getString(CommonR.string.common_error_timeout)
-        is ConnectException -> context.getString(R.string.core_tools_error_server_unreachable)
+    fun friendlyMessage(context: Context, t: Throwable): String =
+        friendlyMessage(t) { res, arg -> if (arg == null) context.getString(res) else context.getString(res, arg) }
+
+    /**
+     * [friendlyMessage] with the strings looked up by [text], which is given a
+     * resource and the one argument it formats, or null when it takes none.
+     * Public so a caller's JVM tests, which have no Context, can hold it to
+     * the same wording (#828).
+     */
+    fun friendlyMessage(t: Throwable, text: (res: Int, arg: Any?) -> String): String = when (t) {
+        is ToolHttpException -> httpText(t, text)
+        is NoInternetPermissionException -> text(CommonR.string.common_error_no_internet_permission, null)
+        is UnknownHostException -> text(CommonR.string.common_error_network, null)
+        is SocketTimeoutException -> text(CommonR.string.common_error_timeout, null)
+        is ConnectException -> text(R.string.core_tools_error_server_unreachable, null)
         else -> t.message?.takeIf { it.isNotBlank() }
-            ?: context.getString(CommonR.string.common_error_generic)
+            ?: text(CommonR.string.common_error_generic, null)
     }
 
     /**
@@ -507,11 +530,11 @@ object ToolHttp {
     }
 
     /** The provider's own words, or our wording for the status it answered with. */
-    private fun httpText(context: Context, t: ToolHttpException): String {
+    private fun httpText(t: ToolHttpException, text: (res: Int, arg: Any?) -> String): String {
         t.apiMessage?.takeIf { it.isNotBlank() }?.let { return it }
         // A failure with no status of its own (the size cap) takes no argument.
-        if (t.status <= 0) return context.getString(t.messageRes)
-        return context.getString(t.messageRes, t.status)
+        if (t.status <= 0) return text(t.messageRes, null)
+        return text(t.messageRes, t.status)
     }
 
     /** The failure to throw for an HTTP status outside 200..299. */

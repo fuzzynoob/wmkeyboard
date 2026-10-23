@@ -30,6 +30,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -73,10 +74,6 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.rememberSwipeToDismissBoxState
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
 import kotlinx.coroutines.CoroutineScope
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
@@ -149,6 +146,9 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import kotlin.math.roundToInt
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
 import androidx.compose.material3.FloatingActionButton
+import androidx.compose.material3.SmallFloatingActionButton
+import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Chat
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.Stable
 
@@ -382,10 +382,14 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "keymaps" to Color(0xFF26C6DA),
     "rows" to Color(0xFF26A69A),
     "rows/symbol" to Color(0xFF26A69A),
+    "ai" to Color(0xFF7E57C2),
     "ai_actions" to Color(0xFF7E57C2),
     "ai_history" to Color(0xFF7E57C2),
+    "ai_memory" to Color(0xFF7E57C2),
     "ai_chat" to Color(0xFF7E57C2),
+    "settings_assistant" to Color(0xFF7E57C2),
     "ai_mcp" to Color(0xFF7E57C2),
+    "ai_tools" to Color(0xFF7E57C2),
     "modes" to Color(0xFFFFA726),
     "emoji" to Color(0xFFFFB300),
     "emoji/panel" to Color(0xFFFFB300),
@@ -403,6 +407,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     // The Notes tool's own yellow, see ToolColors.
     // The Clock tool's own indigo, see ToolColors.
     "clock" to Color(0xFF5C6BC0),
+    "homeassistant/entities" to Color(0xFF18BCF2),
     "notes" to Color(0xFFFBC02D),
     "notes/tags" to Color(0xFFFBC02D),
     "notes/trash" to Color(0xFFFBC02D),
@@ -426,12 +431,15 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "selection_macros/ai" to Color(0xFF5E6BC0),
     "selection_macros/zones" to Color(0xFF5E6BC0),
     "advanced" to Color(0xFF8D6E63),
+    // A child of Advanced, so it keeps the parent's brown.
+    FloatingButtonRoute to Color(0xFF8D6E63),
     "backup" to Color(0xFF78909C),
     "backup/auto" to Color(0xFF78909C),
     "backup/sync" to Color(0xFF78909C),
     "backup/contents" to Color(0xFF78909C),
     "about" to Color(0xFF90A4AE),
     "licenses" to Color(0xFF90A4AE),
+    "supporters" to Color(0xFFFFB300),
     // Behind the version row's seven taps, so it keeps About's grey.
     "egg_game" to Color(0xFF90A4AE),
     "debug_log" to Color(0xFF607D8B),
@@ -451,11 +459,18 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     // per-category grid under it takes the default: its destination is
     // "emojiorder/{category}", and the screen names itself by the literal.
     "emojicategories" to Color(0xFFFFB300),
+    // The kaomoji library and its two lists, children of the emoji panel.
+    "kaomoji" to Color(0xFFFFB300),
+    "kaomoji/faces" to Color(0xFFFFB300),
+    "kaomoji/tags" to Color(0xFFFFB300),
     // A child of the media control tool, so it keeps that tool's purple.
     "musicapps" to Color(0xFFAB47BC),
     // A child of the app launcher tool, so it keeps that tool's violet.
     "launchercombos" to Color(0xFF7E57C2),
     "kdeconnect/devices" to Color(0xFF1D99F3),
+    // Children of the Send files tool, so they keep that tool's teal.
+    "send/instances" to Color(0xFF26A69A),
+    "send/history" to Color(0xFF26A69A),
 )
 
 /** The accent for a route with no colour of its own. */
@@ -614,6 +629,48 @@ internal fun RegisterAddFab(label: String, onClick: () -> Unit) {
  * thrown away and rebuilt.
  */
 private const val AddFabKey = "wm.fab.add"
+
+/**
+ * How a screen opens the AI chat, published at the settings root while
+ * **Chat button on every screen** is on; null otherwise. The frame draws
+ * [AiChatFab] from it on every screen but the few in [NoChatFabRoutes].
+ */
+internal val LocalAiChatFab = compositionLocalOf<(() -> Unit)?> { null }
+
+/**
+ * Screens that never get the everywhere button: the chat itself and the
+ * settings assistant, which are already a chat, and the AI screen, which
+ * registers the same button as its own.
+ */
+private val NoChatFabRoutes = setOf("ai", "ai_chat", "settings_assistant")
+
+/**
+ * The button that opens the AI chat. Full size where it is the screen's one
+ * action, as on the AI screen; [small] and in the tertiary colour where it
+ * rides beside a screen's own "add", so the two read as one primary action and
+ * one aside.
+ */
+@Composable
+internal fun AiChatFab(onClick: () -> Unit, small: Boolean = false) {
+    val label = stringResource(R.string.toolai_ai_chat_fab_desc)
+    // A wrapper carries the flight key, as on the keyboard test button: the
+    // button travels between screens rather than blinking out and back.
+    Box(Modifier.wmSharedElement(AiChatFabKey)) {
+        if (small) {
+            SmallFloatingActionButton(
+                onClick = onClick,
+                containerColor = MaterialTheme.colorScheme.tertiaryContainer,
+                contentColor = MaterialTheme.colorScheme.onTertiaryContainer,
+            ) { Icon(Icons.AutoMirrored.Outlined.Chat, contentDescription = label) }
+        } else {
+            FloatingActionButton(onClick = onClick) {
+                Icon(Icons.AutoMirrored.Outlined.Chat, contentDescription = label)
+            }
+        }
+    }
+}
+
+private const val AiChatFabKey = "wm.fab.ai_chat"
 
 /** Pins [content] under the bar, above the scrolling body, while the caller is composed. */
 @Composable
@@ -890,6 +947,13 @@ internal val LocalScreenRoute = compositionLocalOf<String?> { null }
 /** The screen this one was opened from, fixed at its first composition. */
 internal val LocalFlightOrigin = compositionLocalOf<String?> { null }
 
+/**
+ * Opens a settings route, for a part shared by many screens that has no
+ * navigation of its own to be handed: a provider list opening one provider's
+ * screen. A no-op outside the settings graph.
+ */
+internal val LocalSettingsNavigate = compositionLocalOf<(String) -> Unit> { {} }
+
 /** One end of a flight: which part of a row, going where, from where. */
 private fun flightKey(part: String, destination: String, from: String?): String =
     "$part|$destination|${from ?: "-"}"
@@ -1088,6 +1152,10 @@ internal fun Modifier.focusOncePlaced(
  * rows built by `NavRow`, `ToggleSetting` and their siblings are wrapped by
  * those helpers instead, so they leave this at 0 and take the argument
  * themselves.
+ *
+ * [swipeActions] puts buttons behind the row that a swipe toward the start
+ * shows, and [fullSwipe] one a long swipe runs outright — see
+ * [SwipeActionsRow], including why a row with them must be keyed.
  */
 @Composable
 internal fun WmRow(
@@ -1107,8 +1175,38 @@ internal fun WmRow(
     subtitleFlies: Boolean = false,
     enabled: Boolean = true,
     @StringRes highlightKey: Int = 0,
+    swipeActions: List<SwipeAction> = emptyList(),
+    fullSwipe: SwipeAction? = null,
     onClick: (() -> Unit)? = null,
 ) {
+    if (swipeActions.isNotEmpty()) {
+        // The caller's modifier goes on the outside, so one that has to sit
+        // on an item's root (a lazy list's `animateItem`) still does, and
+        // padding insets the buttons along with the row.
+        // Not tied to [enabled]: a row that cannot be opened (an addon source
+        // whose list did not load) is often exactly the one to remove.
+        SwipeActionsRow(swipeActions, modifier = modifier, fullSwipe = fullSwipe) {
+            WmRow(
+                title = title,
+                subtitle = subtitle,
+                icon = icon,
+                accent = accent,
+                titleStyle = titleStyle,
+                titleContent = titleContent,
+                leading = leading,
+                trailing = trailing,
+                supporting = supporting,
+                trailingOnTitleLine = trailingOnTitleLine,
+                titleReflows = titleReflows,
+                flightTo = flightTo,
+                subtitleFlies = subtitleFlies,
+                enabled = enabled,
+                highlightKey = highlightKey,
+                onClick = onClick,
+            )
+        }
+        return
+    }
     if (highlightKey != 0) {
         HighlightableRow(title, highlightKey) {
             WmRow(
@@ -1308,64 +1406,6 @@ internal class SettingsSnackbar(
 
 /** The screen's undo bar. Null outside a settings screen's frame. */
 internal val LocalSettingsSnackbar = compositionLocalOf<SettingsSnackbar?> { null }
-
-/**
- * A row that is deleted by swiping it aside, either way.
- *
- * Pairs with [SettingsSnackbar]: the swipe is the fast way to remove a row and
- * the bar is what makes removing it that easily safe. The trash button on the
- * row stays — a swipe is a shortcut for people who know it is there, never the
- * only way to reach something.
- *
- * Callers in a plain `Column` (which is what a settings group is) must key the
- * row: `item(key = id) { }` in a group, which also closes the deleted row in
- * place, or `key(id) { }` anywhere else. Without it the state remembered here
- * belongs to a *position* in the list, and the row that slides up into a
- * deleted row's place inherits its dismissed state and vanishes too.
- */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-internal fun SwipeToDelete(onDelete: () -> Unit, content: @Composable () -> Unit) {
-    val haptics = rememberSettingsHaptics()
-    val state = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.Settled) return@rememberSwipeToDismissBoxState false
-            haptics.toggle(on = false)
-            onDelete()
-            true
-        },
-    )
-    SwipeToDismissBox(
-        state = state,
-        backgroundContent = { SwipeToDeleteBackground(state.dismissDirection) },
-        content = { content() },
-    )
-}
-
-/** What shows under a row being swiped away: the error colour and a bin. */
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SwipeToDeleteBackground(direction: SwipeToDismissBoxValue) {
-    // Settled means the row is at rest and the background is not being looked
-    // at; painting it anyway leaves a red edge under every row in the list.
-    if (direction == SwipeToDismissBoxValue.Settled) return
-    val alignment =
-        if (direction == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart
-        else Alignment.CenterEnd
-    Box(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(MaterialTheme.colorScheme.errorContainer)
-            .padding(horizontal = 24.dp),
-        contentAlignment = alignment,
-    ) {
-        Icon(
-            Icons.Outlined.Delete,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.onErrorContainer,
-        )
-    }
-}
 
 /** The [SettingsHaptics] for the window this composable is drawn in. */
 @Composable
@@ -2492,7 +2532,8 @@ internal fun WmScreen(
                     .padding(padding)
                     .fillMaxSize()
                     .nestedScroll(scrollLock)
-                    .verticalScroll(scrollState),
+                    .verticalScroll(scrollState)
+                    .holdScrolledPlace(scrollState),
                 verticalArrangement = Arrangement.Top,
             ) {
                 // The same air under the bar whatever comes first. A group
@@ -2505,18 +2546,35 @@ internal fun WmScreen(
                 // button stacks above a screen's own, and needs its own room.
                 val hasFab = fab != null || slots?.fab != null
                 val hasPreview = LocalKeyboardPreview.current != null && slots?.dock == null
+                val hasChat = LocalAiChatFab.current != null && LocalScreenRoute.current !in NoChatFabRoutes
+                // Each small button stacked above the bottom one adds a step.
+                val buttons = listOf(hasFab, hasPreview, hasChat).count { it }
                 Spacer(
                     Modifier.height(
-                        when {
-                            hasFab && hasPreview -> FAB_TAIL + PREVIEW_FAB_STEP
-                            hasFab || hasPreview -> FAB_TAIL
-                            else -> 24.dp
-                        },
+                        if (buttons == 0) 24.dp else FAB_TAIL + PREVIEW_FAB_STEP * (buttons - 1),
                     ),
                 )
             }
         }
     }
+}
+
+/**
+ * Keeps a scrolled page at least as tall as the part of it already scrolled
+ * past plus the screen (#665).
+ *
+ * A row closing at the foot of a page scrolled to its end made the page
+ * shorter than where the reader stood, the scroll offset was clamped, and
+ * every card above was dragged down a row's height in a few frames, which
+ * read as the whole list flashing. Held this way the rows above stay where
+ * they are and the room the row left stays as empty space below, which goes
+ * as soon as the reader scrolls up past it. Read in layout only, so a scroll
+ * costs this node a relayout and recomposes nothing.
+ */
+private fun Modifier.holdScrolledPlace(scroll: ScrollState): Modifier = layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints)
+    val floor = scroll.value + scroll.viewportSize
+    layout(placeable.width, maxOf(placeable.height, floor)) { placeable.place(0, 0) }
 }
 
 /** Height a scrolling body leaves free under a floating action button. */
@@ -2610,6 +2668,7 @@ private fun WmScreenFrame(
     RegisterSettingsCrumb(crumbTitle ?: title, route)
     val slots = remember { ScreenSlots() }
     val preview = LocalKeyboardPreview.current?.takeIf { slots.dock == null }
+    val chatFab = LocalAiChatFab.current
     val scope = rememberCoroutineScope()
     // One per screen, published for everything it draws — see [SettingsSnackbar].
     val snackbarHost = remember { SnackbarHostState() }
@@ -2706,18 +2765,24 @@ private fun WmScreenFrame(
                 },
                 floatingActionButton = {
                     val own = fab ?: slots.fab
+                    val chat = chatFab?.takeIf { route !in NoChatFabRoutes }
                     // The keyboard test (#412) rides above the screen's own
                     // button rather than in its place. Not on a screen that
                     // docks a keyboard of its own: two keyboards, one of them
-                    // the real one, would be a test of nothing.
-                    if (preview != null) {
+                    // the real one, would be a test of nothing. The everywhere
+                    // chat button sits between them, small when the screen
+                    // has a button of its own and full size when it has not.
+                    if (preview != null || (chat != null && own != null)) {
                         Column(
                             horizontalAlignment = Alignment.End,
                             verticalArrangement = Arrangement.spacedBy(PREVIEW_FAB_GAP),
                         ) {
-                            KeyboardPreviewFab(preview)
+                            if (preview != null) KeyboardPreviewFab(preview)
+                            if (chat != null) AiChatFab(chat, small = own != null)
                             own?.invoke()
                         }
+                    } else if (chat != null) {
+                        AiChatFab(chat)
                     } else {
                         own?.invoke()
                     }

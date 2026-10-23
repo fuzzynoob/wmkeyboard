@@ -38,7 +38,6 @@ import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.common.R as CommonR
-import com.wasimaster.wmkeyboard.config.BuildConfig
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Backspace
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.KeyboardReturn
@@ -80,9 +79,7 @@ val LocalHandwritingFullScreen = staticCompositionLocalOf { HandwritingFullScree
  * service's insets check mirrors this predicate — keep the two in step.
  */
 internal fun handwritingFullScreen(state: KeyboardUiState): Boolean =
-    BuildConfig.ENABLE_ML_KIT_HANDWRITING &&
-        state.handwriting.fullScreen &&
-        state.panel == PanelMode.HANDWRITING
+    state.handwriting.fullScreen && state.panel == PanelMode.HANDWRITING
 
 /**
  * Pen-button mode is the only one below Android 14: the stylus mode rides on
@@ -115,6 +112,8 @@ internal fun HandwritingFullScreen(
     onClose: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
+    // The candidates move with every stroke: read live (see [withLiveTyping]).
+    val words = withLiveTyping(state).suggestions
     val hw = state.handwriting
     val controls = LocalHandwritingFullScreen.current
     val feedback = LocalKeyPressFeedback.current
@@ -159,7 +158,7 @@ internal fun HandwritingFullScreen(
                     Box(modifier = Modifier.fillMaxWidth().height(150.dp)) {
                         HandwritingStatusBody(state, onStroke, onDownloadModel)
                     }
-                } else if (!manual && hw.strokes.isEmpty() && state.suggestions.isEmpty()) {
+                } else if (!manual && hw.strokes.isEmpty() && words.isEmpty()) {
                     Text(
                         stringResource(R.string.ime_handwriting_stylus_hint),
                         color = kb.secondaryText,
@@ -167,8 +166,8 @@ internal fun HandwritingFullScreen(
                         modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
                     )
                 }
-                if (state.suggestions.isNotEmpty()) {
-                    CandidateRow(state.suggestions, onSuggestion)
+                if (words.isNotEmpty()) {
+                    CandidateRow(words, onSuggestion)
                 }
                 Row(modifier = Modifier.fillMaxWidth().height(48.dp)) {
                     val key = Modifier.weight(1f).fillMaxHeight()

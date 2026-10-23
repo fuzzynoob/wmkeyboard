@@ -4,6 +4,8 @@ import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.settings.OcrEngine
+import com.wasimaster.wmkeyboard.core.util.PlayServices
+import com.wasimaster.wmkeyboard.config.BuildConfig
 
 /**
  * Which Tesseract language data ("pack") reads text in each keyboard language,
@@ -16,10 +18,45 @@ import com.wasimaster.wmkeyboard.core.settings.OcrEngine
  * `nor`, and a language without a pack of its own reads with the main pack for
  * its script, so Maithili gets Hindi's Devanagari model.
  *
+ * Chinese and Japanese can also read with PaddleOCR, whose one pack
+ * ([PaddleOcrModel.PACK]) covers both and reads them far better than
+ * tessdata_fast; see [offlinePack]. Its recognizer reads Latin script too,
+ * which F-Droid's build, with neither ML Kit nor Tesseract, falls back on.
+ *
  * Never a catalogue on its own: the lists the user sees come from their
  * enabled languages through [packsFor].
  */
 object OcrLanguages {
+
+    /**
+     * Whether ML Kit's four non-Latin recognizers can run: a build with ML Kit on a
+     * phone with Play services, which downloads their models. Null asks the
+     * build and the phone; tests set it.
+     */
+    internal var extraScriptsOverride: Boolean? = null
+
+    private val extraScripts: Boolean
+        get() = extraScriptsOverride ?: (mlKit && PlayServices.available)
+
+    /**
+     * Whether the build has ML Kit's text recognizers at all: every one but
+     * F-Droid's. Null asks the build; tests set it.
+     */
+    internal var mlKitOverride: Boolean? = null
+
+    private val mlKit: Boolean
+        get() = mlKitOverride ?: BuildConfig.ENABLE_ML_KIT_SCANNERS
+
+    /**
+     * Whether this build can run PaddleOCR: every one, on the LiteRT
+     * interpreter Whisper brings where the build has it and on the MNN
+     * library the sticker generator brings in F-Droid's (see
+     * [PaddleOcrModel.runtime]). Null asks the build; tests set it.
+     */
+    internal var paddleOverride: Boolean? = null
+
+    private val paddle: Boolean
+        get() = paddleOverride ?: true
 
     /** The tessdata_fast release the downloads are pinned to. */
     const val SOURCE_TAG = "4.1.0"
@@ -40,64 +77,183 @@ object OcrLanguages {
         return byLanguageId[language.id] ?: byScript[language.script]
     }
 
+    /**
+     * Whether PaddleOCR reads [language] in a build that can run it: Chinese
+     * in either script and Japanese, its own; and Latin script, which its
+     * recognizer also reads, only in a build with neither ML Kit nor
+     * Tesseract ([tesseractAvailable]) to read it better.
+     */
+    fun paddleReads(language: LanguageDef, tesseractAvailable: Boolean = true): Boolean =
+        paddle && language.id !in notText && when (language.script) {
+            ScriptId.HAN, ScriptId.JAPANESE -> true
+            ScriptId.LATIN -> !mlKit && !tesseractAvailable
+            else -> false
+        }
+
+    /**
+     * [engine] as this build can honour it: ML Kit in a build without it,
+     * or Tesseract without its library, read as Auto, so a choice restored
+     * from another build's backup still reads with what is here.
+     */
+    fun usable(engine: OcrEngine, tesseractAvailable: Boolean): OcrEngine = when {
+        engine == OcrEngine.ML_KIT && !mlKit -> OcrEngine.AUTO
+        engine == OcrEngine.TESSERACT && !tesseractAvailable -> OcrEngine.AUTO
+        else -> engine
+    }
+
+    /** The engines the settings offer in this build, Auto first. */
+    fun engines(tesseractAvailable: Boolean): List<OcrEngine> =
+        OcrEngine.entries.filter { usable(it, tesseractAvailable) == it }
+
     /** The download size of [pack] in bytes, or 0 for a name this table does not know. */
-    fun sizeOf(pack: String): Long = sizes[pack] ?: 0L
+    fun sizeOf(pack: String): Long =
+        if (pack == PaddleOcrModel.PACK) PaddleOcrModel.totalBytes else sizes[pack] ?: 0L
 
     /**
      * A human name for [pack]: the English name of the first language that
      * reads with it as its own, or the pack name itself.
      */
-    fun nameOf(pack: String): String =
-        byLanguageId.entries.firstOrNull { it.value == pack }
+    fun nameOf(pack: String): String {
+        if (pack == PaddleOcrModel.PACK) return "PaddleOCR"
+        return byLanguageId.entries.firstOrNull { it.value == pack }
             ?.let { LanguageRegistry.byId(it.key).englishName }
             ?: pack
+    }
 
     /** Every pack name this table can hand out. */
     val allPacks: Set<String> get() = sizes.keys
 
     /**
-     * The packs [languages] need, each with the languages it serves, in the
-     * order the languages come in. Languages with no pack are left out.
+     * The packs [languages] need under [engine], each with the languages it
+     * serves, in the order the languages come in. Languages with no pack are
+     * left out. Under Auto, Chinese and Japanese list Paddle's pack where
+     * ML Kit does not read them, and so does Latin script where neither
+     * ML Kit nor Tesseract ([tesseractAvailable]) is in the build.
      */
-    fun packsFor(languages: List<LanguageDef>): List<Pair<String, List<LanguageDef>>> =
-        languages.mapNotNull { lang -> packFor(lang)?.let { it to lang } }
+    fun packsFor(
+        languages: List<LanguageDef>,
+        engine: OcrEngine = OcrEngine.AUTO,
+        tesseractAvailable: Boolean = true,
+    ): List<Pair<String, List<LanguageDef>>> =
+        languages.mapNotNull { lang ->
+            val auto = usable(engine, tesseractAvailable) == OcrEngine.AUTO
+            val pack = if (auto && paddleReads(lang, tesseractAvailable) && mlKitScript(lang) == null) {
+                PaddleOcrModel.PACK
+            } else {
+                packFor(lang)?.takeIf { tesseractAvailable }
+            }
+            pack?.let { it to lang }
+        }
             .groupBy({ it.first }, { it.second })
             .toList()
 
     /**
-     * The pack Tesseract reads [language] with under [engine], or null when
-     * ML Kit reads it instead. [tesseractAvailable] is false in a build
-     * without the native library, which leaves everything to ML Kit.
+     * The pack that reads [language] on the phone under [engine], Tesseract's
+     * or [PaddleOcrModel.PACK], or null when ML Kit reads it instead.
+     * [tesseractAvailable] is false in a build without the native library.
+     * [onDisk] says whether a pack is downloaded: under Auto, Chinese and
+     * Japanese read with Paddle unless only their Tesseract pack is there, so
+     * a pack fetched before Paddle existed keeps working and the download
+     * offered is always Paddle's. Null too when nothing in this build reads
+     * [language] offline (see [readable]).
      */
-    fun tesseractPack(engine: OcrEngine, language: LanguageDef, tesseractAvailable: Boolean): String? {
-        if (!tesseractAvailable) return null
+    fun offlinePack(
+        engine: OcrEngine,
+        language: LanguageDef,
+        tesseractAvailable: Boolean,
+        onDisk: (String) -> Boolean = { false },
+    ): String? {
         val pack = packFor(language) ?: return null
-        return when (engine) {
+        return when (usable(engine, tesseractAvailable)) {
             OcrEngine.ML_KIT, OcrEngine.ONLINE -> null
-            OcrEngine.TESSERACT -> pack
-            // ML Kit's recognizer here is the Latin one.
-            OcrEngine.AUTO -> pack.takeIf { language.script != ScriptId.LATIN }
+            OcrEngine.TESSERACT -> pack.takeIf { tesseractAvailable }
+            OcrEngine.AUTO -> when {
+                // ML Kit reads its five scripts better than tessdata_fast does,
+                // CJK above all (#757), and needs no download.
+                mlKitScript(language) != null -> null
+                // So does Paddle, where ML Kit's Chinese and Japanese are
+                // missing, and for Latin script where nothing else is.
+                paddleReads(language, tesseractAvailable) ->
+                    if (tesseractAvailable && !onDisk(PaddleOcrModel.PACK) && onDisk(pack)) pack
+                    else PaddleOcrModel.PACK
+                else -> pack.takeIf { tesseractAvailable }
+            }
         }
     }
 
     /**
+     * The ML Kit recognizer that reads [language], or null when ML Kit has
+     * none for its script. Each non-Latin recognizer reads Latin as well, so
+     * English words in a Japanese sign still come through.
+     *
+     * The other four's models come from Play services on first use, so
+     * without Play services they count as missing and those scripts go to
+     * Paddle or Tesseract.
+     */
+    fun mlKitScript(language: LanguageDef): MlKitScript? {
+        if (language.id in notText || !mlKit) return null
+        if (language.script != ScriptId.LATIN && !extraScripts) return null
+        return when (language.script) {
+            ScriptId.LATIN -> MlKitScript.LATIN
+            ScriptId.HAN -> MlKitScript.CHINESE
+            ScriptId.JAPANESE -> MlKitScript.JAPANESE
+            ScriptId.HANGUL -> MlKitScript.KOREAN
+            ScriptId.DEVANAGARI -> MlKitScript.DEVANAGARI
+            else -> null
+        }
+    }
+
+    /**
+     * The recognizer ML Kit reads [language] with when it reads it at all:
+     * a script ML Kit has no recognizer for falls back to the Latin one, as
+     * it always did under [OcrEngine.ML_KIT]. Meaningless in a build without
+     * ML Kit, where [readable] decides instead.
+     */
+    fun mlKitRecognizer(language: LanguageDef): MlKitScript = mlKitScript(language) ?: MlKitScript.LATIN
+
+    /**
      * The languages the viewfinder's language chip steps through: one per
      * distinct way of reading, so two languages that read with the same pack,
-     * or both with ML Kit, do not both appear. Empty under [OcrEngine.ML_KIT],
+     * or both with the same ML Kit recognizer, do not both appear. The panel
+     * shows the chip only with two or more. Empty under [OcrEngine.ONLINE],
      * where the language makes no difference.
      */
     fun chipLanguages(
         engine: OcrEngine,
         enabled: List<LanguageDef>,
         tesseractAvailable: Boolean,
+        onDisk: (String) -> Boolean = { false },
     ): List<LanguageDef> {
-        // The online model reads any script, so the language changes nothing there either.
-        if (engine == OcrEngine.ML_KIT || engine == OcrEngine.ONLINE || !tesseractAvailable) return emptyList()
-        return enabled.filter { packFor(it) != null }
-            .distinctBy { tesseractPack(engine, it, true) ?: ML_KIT_ROUTE }
+        // The online model reads any script, so the language changes nothing there.
+        if (engine == OcrEngine.ONLINE) return emptyList()
+        return enabled.filter { packFor(it) != null && readable(engine, it, tesseractAvailable, onDisk) }
+            .distinctBy { route(engine, it, tesseractAvailable, onDisk) }
     }
 
-    private const val ML_KIT_ROUTE = ""
+    /**
+     * Whether anything in this build reads [language] under [engine]: always
+     * online and wherever ML Kit is; without ML Kit (F-Droid's build) only a
+     * pack, Paddle's or Tesseract's.
+     */
+    fun readable(
+        engine: OcrEngine,
+        language: LanguageDef,
+        tesseractAvailable: Boolean,
+        onDisk: (String) -> Boolean = { false },
+    ): Boolean = engine == OcrEngine.ONLINE || mlKit ||
+        offlinePack(engine, language, tesseractAvailable, onDisk) != null
+
+    /**
+     * What reads [language] under [engine], as a key: two languages with the
+     * same key read the same way.
+     */
+    fun route(
+        engine: OcrEngine,
+        language: LanguageDef,
+        tesseractAvailable: Boolean,
+        onDisk: (String) -> Boolean = { false },
+    ): String =
+        offlinePack(engine, language, tesseractAvailable, onDisk) ?: "mlkit:${mlKitRecognizer(language)}"
 
     // Keyboard language id -> pack, for every language with a pack of its own.
     // Sizes are the 4.1.0 files, for progress and the storage check.
@@ -182,3 +338,6 @@ object OcrLanguages {
         "yid" to 545606L, "yor" to 963400L,
     )
 }
+
+/** ML Kit's text recognizers, one per script it reads. */
+enum class MlKitScript { LATIN, CHINESE, JAPANESE, KOREAN, DEVANAGARI }

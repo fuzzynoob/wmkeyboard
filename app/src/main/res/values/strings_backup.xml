@@ -131,6 +131,8 @@
     <string name="backup_section_swipe_label">Swipe style</string>
     <string name="backup_section_notes_label">Notes</string>
     <string name="backup_section_clock_label">Clock</string>
+    <string name="backup_section_kaomoji_label">Kaomoji</string>
+    <string name="backup_section_ai_memory_label">AI memory</string>
 
     <!-- The same names in the middle of a sentence, for the list in     -->
     <!-- backup_restore_done ("The app restored themes, snippets.").      -->
@@ -150,6 +152,8 @@
     <string name="backup_section_swipe_label_lowercase">swipe style</string>
     <string name="backup_section_notes_label_lowercase">notes</string>
     <string name="backup_section_clock_label_lowercase">clock</string>
+    <string name="backup_section_kaomoji_label_lowercase">kaomoji</string>
+    <string name="backup_section_ai_memory_label_lowercase">AI memory</string>
 
     <!-- How much of each part a backup file holds. %1$d is the count. These -->
     <!-- go after the name of the part: "Themes: 3 custom themes".           -->
@@ -214,6 +218,14 @@
         <item quantity="one">%1$d alarm</item>
         <item quantity="other">%1$d alarms</item>
     </plurals>
+    <plurals name="backup_section_kaomoji_count">
+        <item quantity="one">%1$d kaomoji</item>
+        <item quantity="other">%1$d kaomoji</item>
+    </plurals>
+    <plurals name="backup_section_ai_memory_count">
+        <item quantity="one">%1$d memory</item>
+        <item quantity="other">%1$d memories</item>
+    </plurals>
 
     <!-- ================================================================== -->
     <!-- Backup: what the export file holds.                                -->
@@ -247,6 +259,9 @@
     <string name="backup_include_notes_subtitle">Your notes, their tags, and what is in the trash</string>
     <string name="backup_include_notes_info">Locked notes stay out of the file unless Include API keys is on. A backup file is easy to share, and a locked note is one you asked to keep from view.</string>
     <string name="backup_include_clock_subtitle">Alarms, timer presets, countdowns and the clock settings</string>
+    <string name="backup_include_kaomoji_subtitle">Your kaomoji library: the faces you added, their tags, the order and your favourites</string>
+    <string name="backup_include_ai_memory_subtitle">What the AI remembers about you, from Settings › AI › Memory</string>
+    <string name="backup_include_ai_memory_info">Off unless you turn it on. These facts come from your chats, so a backup that holds them is as personal as the chats. Sync never carries them to another phone.</string>
     <string name="backup_include_clock_info">Running timers, the stopwatch and the history stay on this phone. Sync leaves the clock out unless you turn it on, so two phones do not ring for one alarm.</string>
     <string name="backup_include_swipe_subtitle">How you swipe: where your finger lands, the readings you corrected, and the shape you draw each word in. Holds the words you have swiped.</string>
     <string name="backup_include_addons_info">This is only the list of addresses. The add-ons themselves go into the sections above. An installed theme is a custom theme, and an installed pack is an icon pack.</string>
@@ -343,7 +358,7 @@
     <string name="backup_auto_passphrase_label">Passphrase</string>
     <string name="backup_auto_passphrase_show">Show the passphrase</string>
     <string name="backup_auto_passphrase_hide">Hide the passphrase</string>
-    <string name="backup_auto_personal_warning">This backup holds words that you typed, or text that you copied, and no passphrase protects it. The app writes it to your locations on a timer. Turn on a passphrase, or turn off the dictionary, the clipboard and the swipe style in What goes in a backup.</string>
+    <string name="backup_auto_personal_warning">This backup holds words that you typed, text that you copied, or what the AI remembers about you, and no passphrase protects it. The app writes it to your locations on a timer. Turn on a passphrase, or turn off the dictionary, the clipboard, the swipe style and AI memory in What goes in a backup.</string>
     <string name="backup_auto_now_action">Back up now</string>
     <string name="backup_auto_running">Backing up…</string>
     <!-- %1$s is the name of the file that the app wrote. -->
@@ -381,6 +396,7 @@
     <string name="backup_auto_dest_smb_desc">A shared folder on a Windows computer or a NAS</string>
     <string name="backup_auto_dest_git_desc">A private repository on GitHub, GitLab, Gitea or Forgejo. It needs a token</string>
     <string name="backup_auto_dest_imap_desc">A folder in your email account. It needs the IMAP server and a password</string>
+    <string name="backup_auto_dest_nearby_desc">A computer with WM Keyboard, over KDE Connect on the same network. Made when you pair it</string>
     <string name="backup_auto_dest_folder">Folder</string>
     <string name="backup_auto_dest_webdav">WebDAV</string>
     <string name="backup_auto_dest_drive">Google Drive</string>
@@ -413,6 +429,7 @@
     <string name="backup_auto_dest_smb">Windows share (SMB)</string>
     <string name="backup_auto_dest_git">Git repository</string>
     <string name="backup_auto_dest_imap">Email (IMAP)</string>
+    <string name="backup_auto_dest_nearby">Nearby device</string>
 
     <string name="backup_auto_s3_endpoint_label">Endpoint</string>
     <string name="backup_auto_s3_endpoint_hint">Leave this empty for Amazon S3. For other services, put their address here, for example https://your-account.r2.cloudflarestorage.com or the address of your own MinIO server.</string>
@@ -489,6 +506,7 @@
     <string name="backup_location_name_hint_smb">Optional. For example, NAS or Office PC.</string>
     <string name="backup_location_name_hint_git">Optional. For example, Private repo.</string>
     <string name="backup_location_name_hint_imap">Optional. For example, Mail archive.</string>
+    <string name="backup_location_name_hint_nearby">Optional. For example, My laptop.</string>
     <string name="backup_location_not_backed_up">Automatic backups do not go here</string>
     <!-- %1$s is the location's backup state, such as "Last backup: 2 hours ago". -->
     <string name="backup_location_state_syncs"><xliff:g id="state">%1$s</xliff:g>. Syncs here.</string>
@@ -497,6 +515,9 @@
     <string name="backup_auto_targets_none">Add a location on the Backup &amp; restore screen first.</string>
     <string name="backup_sync_targets_title">Sync through</string>
     <string name="backup_sync_targets_info">Your devices must share at least one of these locations. If you tick more than one, the app writes the sync file to each of them, so sync keeps working while one service is down. That uses a little more data.</string>
+    <string name="backup_sync_paired_title">Sync with paired devices</string>
+    <string name="backup_sync_paired_subtitle">A computer with WM Keyboard that you pair over KDE Connect syncs with this phone</string>
+    <string name="backup_sync_paired_info">A paired computer becomes a location here, Nearby device, and is ticked. Sync this device is turned on with it. The two send each other their sync files while both are on the same network and the keyboard is open.</string>
     <string name="backup_auto_needs_target">Tick a location in Back up to.</string>
     <string name="backup_sync_needs_target">Tick a location in Sync through.</string>
     <string name="backup_sync_secrets_unprotected">We strongly suggest that you turn on Protect with a passphrase in Automatic backup first</string>

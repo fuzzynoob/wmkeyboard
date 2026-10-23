@@ -3,6 +3,8 @@
 
     <!-- Grammar panel: the offline grammar strip above the key rows. -->
     <string name="ime_grammar_title">Grammar</string>
+    <!-- The panel's title while a LanguageTool server checks the text. %1$s is the server's name, "LanguageTool" unless the user named it. -->
+    <string name="ime_grammar_title_via">Grammar · <xliff:g id="server" example="LanguageTool">%1$s</xliff:g></string>
     <!-- Content description of the chip that opens the list of English dialects. -->
     <string name="ime_grammar_dialect_desc">Select the dialect</string>
     <!-- How many issues the grammar check found in the text. %1$d is the count. -->
@@ -40,10 +42,13 @@
     <string name="ime_translate_offline_standin_label">On device, offline</string>
     <string name="ime_offline_fallback_toast">No connection. The on-device model answers instead.</string>
     <string name="ime_grammar_unavailable_info">This build of the app does not include the grammar engine. The file <xliff:g id="library_file" example="libharper_jni.so">libharper_jni.so</xliff:g> is missing.</string>
-    <string name="ime_grammar_module_installing_info">The grammar checker is an extra part of the keyboard. Google Play is downloading it…</string>
-    <string name="ime_grammar_module_failed_info">Google Play did not deliver the grammar checker. Check the connection and that the Play Store works, then open this panel again.</string>
-    <string name="ime_grammar_module_data_saver_info">The grammar checker is an extra part of the keyboard that comes from Google Play, and data saving is holding downloads.</string>
-    <string name="ime_grammar_module_installing_toast">Google Play is downloading the grammar checker. Try again in a moment.</string>
+    <string name="ime_grammar_module_installing_info">The grammar checker is an extra part of the keyboard, and it is downloading…</string>
+    <string name="ime_grammar_module_failed_info">The grammar checker did not download. Check the connection, then open this panel again.</string>
+    <string name="ime_grammar_module_data_saver_info">The grammar checker is an extra part of the keyboard that downloads separately, and data saving is holding downloads.</string>
+    <string name="ime_grammar_languagetool_private_info">LanguageTool is never sent a password field or text typed in incognito, so nothing checks this field. Harper checks English here when it is on the list.</string>
+    <string name="ime_grammar_languagetool_data_saver_info">Data saving is holding online grammar checks, so LanguageTool is not asked. Harper checks English when it is on the list.</string>
+    <string name="ime_grammar_nothing_on_info">Every grammar checker is off. Switch one on in the Grammar check settings.</string>
+    <string name="ime_grammar_module_installing_toast">The grammar checker is downloading. Try again in a moment.</string>
 
     <!-- AI panel: one tap actions that run on the text in the field. -->
     <string name="ime_ai_model_label">Model:</string>
@@ -150,6 +155,8 @@
 
     <!-- Toolbar switches: what the keyboard says after a tap. -->
     <string name="ime_service_incognito_field_toast">This field is always incognito</string>
+    <string name="ime_service_incognito_field_app_toast">Incognito: %1$s asked for it in this field, so nothing typed here is learned</string>
+    <string name="ime_service_incognito_switch_toast">Incognito is on. Tap the Incognito tool to turn it off</string>
     <string name="ime_service_incognito_on_toast">Incognito is on. The keyboard does not learn what you type.</string>
     <string name="ime_service_incognito_off_toast">Incognito is off</string>
     <string name="ime_service_power_saving_on_toast">Power saving is on</string>
@@ -169,6 +176,10 @@
     <string name="ime_service_phonetic_english_needs_layout_toast">Only for Avro and Hindi phonetic</string>
     <string name="ime_service_ansi_on_toast">Bengali is written as ANSI, version %1$d</string>
     <string name="ime_service_ansi_off_toast">Bengali is written as Unicode</string>
+    <string name="ime_service_zawgyi_on_toast">Burmese is written as Zawgyi</string>
+    <string name="ime_service_zawgyi_off_toast">Burmese is written as Unicode</string>
+    <string name="ime_zawgyi_field_toast">Writing Zawgyi in this text box</string>
+    <string name="ime_zawgyi_paste_moved_toast">The pasted text is no longer before the cursor, so it was left as it is</string>
     <string name="ime_service_selection_actions_on_toast">Selection actions are on</string>
     <string name="ime_service_selection_actions_off_toast">Selection actions are off</string>
     <!-- Shown when the Fancy text tool turns the fancy keyboard on. %1$s is the style name, such as Bold. -->
@@ -184,6 +195,7 @@
 
     <!-- Tools: search, articles, exchange rates, QR codes. -->
     <string name="ime_service_search_error">The search did not work</string>
+    <string name="ime_service_search_more_metered">Data saving is on, so no more results are fetched on mobile data</string>
     <!-- Search by photo (#349): the camera tool's Search button. -->
     <string name="ime_service_photo_search_no_app">No app on this phone can search with a photo</string>
     <string name="ime_service_photo_search_no_browser">No browser on this phone can open the results</string>
@@ -243,9 +255,25 @@
     <string name="ime_controls_unpin">Unpin</string>
     <string name="ime_controls_switch">Switch keyboard</string>
 
-    <!-- The floating keyboard button over other apps (issue #374). The label
-         is what a screen reader says for the button. -->
+    <!-- The floating button over other apps (#374, #697, #755). The labels
+         name its actions: what a screen reader says for the button, and the
+         names in its quick menu and on its settings page. -->
     <string name="ime_summon_button_label">Show keyboard</string>
-    <string name="ime_summon_button_hidden_toast">Keyboard button hidden until the keyboard next opens</string>
+    <string name="ime_summon_button_hide_label">Hide keyboard</string>
+    <string name="ime_ai_button_label">Ask AI about this screen</string>
+    <string name="ime_floating_menu_label">Quick menu</string>
+    <string name="ime_floating_lookup_label">Look up a word</string>
+    <string name="ime_floating_pick_hint">Tap a word to look it up</string>
+    <string name="ime_floating_pick_nothing">There is no text there to look up</string>
+    <string name="ime_floating_hide_label">Hide the button</string>
+    <string name="ime_floating_none_label">Nothing</string>
+    <string name="ime_floating_close_menu">Close menu</string>
+    <string name="ime_floating_dismiss_target">Drop here to hide the button</string>
+    <string name="ime_floating_menu_empty">The quick menu is empty. Add actions to it in the floating button settings.</string>
+    <string name="ime_floating_button_hidden_toast">Floating button hidden until the keyboard next opens</string>
+    <string name="ime_floating_button_hidden_open_toast">Floating button hidden until the keyboard closes</string>
 
+    <!-- Toasts when the user presses their pick-mode key on a physical keyboard. In pick mode the number keys select suggestions. -->
+    <string name="ime_hw_pick_mode_on_toast">Pick mode on: number keys select suggestions, Shift types the number</string>
+    <string name="ime_hw_pick_mode_off_toast">Pick mode off</string>
 </resources>

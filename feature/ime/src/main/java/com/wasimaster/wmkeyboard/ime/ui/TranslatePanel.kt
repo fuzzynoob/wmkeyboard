@@ -56,31 +56,36 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Popup
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.providers.ProviderTool
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.TranslateEngine
 import com.wasimaster.wmkeyboard.core.theme.FrostSurface
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
+import com.wasimaster.wmkeyboard.core.tools.TranslateProviders
 import com.wasimaster.wmkeyboard.core.translate.OfflineModelState
 import com.wasimaster.wmkeyboard.core.translate.OfflineTranslateLanguages
-import com.wasimaster.wmkeyboard.core.translate.OnDeviceTranslator
+import com.wasimaster.wmkeyboard.core.translate.OfflineTranslation
 import com.wasimaster.wmkeyboard.core.translate.TranslateModuleState
 import com.wasimaster.wmkeyboard.core.ui.ScrollRail
 import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
 import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
+import com.wasimaster.wmkeyboard.ime.ProviderPicks
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.TranslateUi
 
@@ -115,6 +120,11 @@ data class TranslateCallbacks(
  * was left a sliver under the chips. So the part of the budget that is lines
  * of text is asked for in sp, one line at a time: Android 14's nonlinear font
  * scaling grows a 19sp line far more than it would one 91sp block.
+ *
+ * Issue #713: the text box was paid one line, so while typing it was a single
+ * row that scrolled, and a second sentence pushed the first out of sight. It
+ * is paid [TranslateQueryLines] now. The box only takes what its text needs,
+ * so while the text is short the lines it leaves go to the translation.
  */
 @Composable
 internal fun translateCompactHeight(): Dp = with(LocalDensity.current) {
@@ -122,13 +132,18 @@ internal fun translateCompactHeight(): Dp = with(LocalDensity.current) {
 }
 
 /**
- * The text lines [translateCompactHeight] pays for: the text box's one, a
- * chip's label, two of translation, and a button's label.
+ * The text lines [translateCompactHeight] pays for: the text box's
+ * [TranslateQueryLines], a chip's label, two of translation, and a button's
+ * label.
  */
-private val TranslateCompactLines = listOf(19.sp, 16.sp, 19.sp, 19.sp, 18.sp)
+private val TranslateCompactLines =
+    List(TranslateQueryLines) { 19.sp } + listOf(16.sp, 19.sp, 19.sp, 18.sp)
 
 /** Everything else in the typed-in panel: header, paddings, the suggestion strip's row. */
 private val TranslateCompactChrome = 169.dp
+
+/** How many lines of the text box show while it has the keys, before it scrolls. */
+private const val TranslateQueryLines = 3
 
 /** The most the text box grows before it scrolls. */
 private val TranslateQueryMaxHeight = 96.dp
@@ -199,6 +214,12 @@ internal fun TranslateTool(
 ) {
     val menus = remember { TranslateMenus() }
     val sideBySide = shortLandscape()
+    // Issue #695: sideways, with the keys back under the panel, the panel is
+    // cut down to its header and the text box below it got no height at all,
+    // so what was typed never showed. While typing, the header carries the
+    // text and its translation instead, and the language chips move down into
+    // whatever room the body has left.
+    val typingSideways = sideBySide && state.mediaSearchActive
     FullBleedTool(
         state,
         title = if (sideBySide) "" else stringResource(R.string.ime_tool_translate),
@@ -208,7 +229,33 @@ internal fun TranslateTool(
         // several lines in the panel itself rather than the header's one-line
         // search bar: room for both over the keys.
         compactHeight = translateCompactHeight(),
-        headerActions = if (sideBySide) {
+        headerActions = if (typingSideways) {
+            {
+                TranslateQueryBox(
+                    state = state,
+                    focused = state.focusedIndex(FocusRegion.SEARCH) == 0,
+                    onQueryTap = onQueryTap,
+                    onPaste = callbacks.onPaste,
+                    modifier = Modifier
+                        .weight(1f)
+                        .heightIn(max = FullBleedHeaderHeight),
+                    singleLine = true,
+                )
+                TranslateResult(
+                    state,
+                    Modifier
+                        .weight(1f)
+                        .heightIn(max = FullBleedHeaderHeight)
+                        .padding(start = 8.dp),
+                )
+                TranslateActionRow(
+                    state,
+                    callbacks,
+                    Modifier.padding(start = 8.dp),
+                    actionModifier = Modifier.widthIn(min = TranslateHeaderActionMinWidth),
+                )
+            }
+        } else if (sideBySide) {
             {
                 TranslateLanguageRow(state, callbacks, menus, Modifier.weight(1f))
                 TranslateActionRow(
@@ -222,7 +269,11 @@ internal fun TranslateTool(
             null
         },
     ) {
-        TranslatePanel(state, callbacks, onQueryTap, menus, sideBySide)
+        if (typingSideways) {
+            TranslateLanguageRow(state, callbacks, menus, Modifier.fillMaxWidth().padding(horizontal = 8.dp))
+        } else {
+            TranslatePanel(state, callbacks, onQueryTap, menus, sideBySide)
+        }
     }
 }
 
@@ -290,43 +341,79 @@ private fun TranslatePanel(
         }
         return
     }
-    Column(
+    TranslateStack(
+        query = {
+            TranslateQueryBox(
+                state = state,
+                focused = queryFocused,
+                onQueryTap = onQueryTap,
+                onPaste = callbacks.onPaste,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        },
+        languages = { TranslateLanguageRow(state, callbacks, menus) },
+        result = { TranslateResult(state, Modifier.fillMaxSize()) },
+        actions = {
+            TranslateActionRow(
+                state,
+                callbacks,
+                Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 4.dp),
+                shareRow = true,
+            )
+        },
         modifier = Modifier
             .fillMaxSize()
             .padding(horizontal = 8.dp),
-    ) {
-        // Weighted, so the box is the thing that gives when the panel is short:
-        // while it has the keys the panel is collapsed to a few lines, and a
-        // long text at its full height pushed Replace and Insert off the
-        // bottom edge, leaving two slivers of button (#501). The chips and the
-        // actions are measured first now; the text and the result share what
-        // is left, and the text scrolls inside its share.
-        TranslateQueryBox(
-            state = state,
-            focused = queryFocused,
-            onQueryTap = onQueryTap,
-            onPaste = callbacks.onPaste,
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f, fill = false),
-        )
-        TranslateLanguageRow(state, callbacks, menus)
-        TranslateResult(
-            state,
-            Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-        )
-        TranslateActionRow(
-            state,
-            callbacks,
-            Modifier
-                .fillMaxWidth()
-                .padding(bottom = 4.dp),
-            actionModifier = Modifier.weight(1f),
-        )
+    )
+}
+
+/**
+ * The upright panel, top to bottom: the text, the chips, the result, the
+ * actions. The chips and the actions are measured first, so a long text never
+ * pushes Replace and Insert off the bottom edge (#501). The text takes what it
+ * needs of the rest, short of [TranslateResultFloorLines] kept for the result,
+ * and scrolls inside that; the result gets everything the text left.
+ *
+ * A Column's weights could not do the last part (#713): each weighted child
+ * gets its share of the room whether it uses it or not, so the text was held
+ * to half of it however short the translation, and a short text left its half
+ * empty instead of handing it to the translation.
+ */
+@Composable
+private fun TranslateStack(
+    query: @Composable () -> Unit,
+    languages: @Composable () -> Unit,
+    result: @Composable () -> Unit,
+    actions: @Composable () -> Unit,
+    modifier: Modifier,
+) {
+    Layout(contents = listOf(query, languages, result, actions), modifier = modifier) { slots, constraints ->
+        val (queryNodes, languageNodes, resultNodes, actionNodes) = slots
+        val width = constraints.maxWidth
+        val height = if (constraints.hasBoundedHeight) constraints.maxHeight else constraints.minHeight
+        val loose = Constraints(maxWidth = width)
+        fun Constraints.upTo(px: Int) = copy(maxHeight = px.coerceAtLeast(0))
+        val languageRow = languageNodes.first().measure(loose.upTo(height))
+        val actionRow = actionNodes.first().measure(loose.upTo(height - languageRow.height))
+        val rest = (height - languageRow.height - actionRow.height).coerceAtLeast(0)
+        val floor = minOf(TranslateResultFloorLines * 19.sp.roundToPx() + 8.dp.roundToPx(), rest / 2)
+        val box = queryNodes.first().measure(loose.upTo(rest - floor))
+        val resultHeight = (rest - box.height).coerceAtLeast(0)
+        val resultBox = resultNodes.first().measure(Constraints.fixed(width, resultHeight))
+        layout(width, height) {
+            var y = 0
+            for (placeable in listOf(box, languageRow, resultBox, actionRow)) {
+                placeable.place(0, y)
+                y += placeable.height
+            }
+        }
     }
 }
+
+/** Lines of translation the text box always leaves room for, while the panel has them. */
+private const val TranslateResultFloorLines = 2
 
 /** Whether the on-device engine is short of something, so the result area offers the download. */
 private fun TranslateUi.offersDownload(): Boolean = missingModels.isNotEmpty() || moduleMissing
@@ -345,7 +432,11 @@ private fun TranslateLanguageRow(
     val kb = LocalKbTheme.current
     val translate = state.translate
     val target = state.settings.translateTargetLang
-    val engine = if (OnDeviceTranslator.AVAILABLE) state.settings.translate.engine else TranslateEngine.ONLINE
+    val engine = if (OfflineTranslation.available) state.settings.translate.engine else TranslateEngine.ONLINE
+    // Pick mode (#727): a chooser of the providers that are on takes the
+    // engine chip's place, since choosing the phone is choosing the engine.
+    val providers = rememberProviderChoices(ProviderTool.TRANSLATE, state.settings)
+    val engineChip = OfflineTranslation.available && providers == null
     val menu = menus.open
     val rows = menu?.let { translateMenuRows(it, translate, target, engine, state.settings, menus.showAll) }.orEmpty()
     val pick: (TranslateMenu, String) -> Unit = { which, key ->
@@ -372,7 +463,7 @@ private fun TranslateLanguageRow(
         add(TranslateMenu.SOURCE)
         add(null) // swap
         add(TranslateMenu.TARGET)
-        if (OnDeviceTranslator.AVAILABLE) add(TranslateMenu.ENGINE)
+        if (engineChip) add(TranslateMenu.ENGINE)
     }
     PanelFocusTarget(
         panel = PanelMode.TRANSLATE,
@@ -460,7 +551,7 @@ private fun TranslateLanguageRow(
         // The on-device engine standing in while offline (#452) says so too:
         // the chip still reads "Online".
         val via = when {
-            translate.translated.isEmpty() -> null
+            translate.translated.isEmpty() || providers != null -> null
             translate.offlineStandIn -> R.string.ime_translate_offline_standin_label
             translate.viaServer -> R.string.ime_translate_server_label
             translate.viaDeepL -> R.string.ime_translate_deepl_label
@@ -484,7 +575,9 @@ private fun TranslateLanguageRow(
                 color = kb.accent,
             )
         }
-        if (OnDeviceTranslator.AVAILABLE) {
+        if (providers != null) {
+            ProviderChooser(providers, onPick = { ProviderPicks.choose(ProviderTool.TRANSLATE, it) })
+        } else if (engineChip) {
             Box {
                 TranslateChip(
                     label = stringResource(engine.labelRes),
@@ -608,15 +701,18 @@ private const val TranslateProgressMs = 300
 
 /**
  * Replace and Insert, or the one download button while that is the offer,
- * with the ring's ACTIONS region over them. [actionModifier] sizes each button:
- * a share of the row under the result, a minimum width in the header.
+ * with the ring's ACTIONS region over them. Each button is a share of the row
+ * under the result ([shareRow]), or [actionModifier]'s minimum width in the
+ * header.
  */
 @Composable
 private fun TranslateActionRow(
     state: KeyboardUiState,
     callbacks: TranslateCallbacks,
     modifier: Modifier,
-    actionModifier: Modifier,
+    actionModifier: Modifier = Modifier,
+    /** Each button takes an equal share of the row's width. */
+    shareRow: Boolean = false,
 ) {
     val kb = LocalKbTheme.current
     val translate = state.translate
@@ -640,6 +736,7 @@ private fun TranslateActionRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
+        val sized = if (shareRow) actionModifier.weight(1f) else actionModifier
         if (offerDownload) {
             val downloading = translate.missingModels.any { translate.models[it] is OfflineModelState.Downloading }
             // Play cancels a module by session and the panel holds none,
@@ -651,25 +748,26 @@ private fun TranslateActionRow(
                         moduleComing -> R.string.ime_translate_module_installing_action
                         downloading -> CommonR.string.common_cancel
                         translate.meteredAsk -> R.string.ime_metered_allow_action
+                        translate.licenceAsk -> R.string.ime_translate_nllb_licence_accept_action
                         else -> CommonR.string.common_download
                     },
                 ),
                 icon = if (downloading || moduleComing) null else Icons.Outlined.Download,
                 enabled = !moduleComing,
-                modifier = actionModifier.focusRing(focusedAction == 0, kb.chipShape()),
+                modifier = sized.focusRing(focusedAction == 0, kb.chipShape()),
             ) { callbacks.onDownload() }
         } else {
             TranslateAction(
                 label = stringResource(R.string.ime_translate_replace_action),
                 icon = Icons.Outlined.SwapVert,
                 enabled = translate.translated.isNotEmpty(),
-                modifier = actionModifier.focusRing(focusedAction == 0, kb.chipShape()),
+                modifier = sized.focusRing(focusedAction == 0, kb.chipShape()),
             ) { callbacks.onReplace() }
             TranslateAction(
                 label = stringResource(R.string.ime_insert_action),
                 icon = null,
                 enabled = translate.translated.isNotEmpty(),
-                modifier = actionModifier.focusRing(focusedAction == 1, kb.chipShape()),
+                modifier = sized.focusRing(focusedAction == 1, kb.chipShape()),
             ) { callbacks.onInsert() }
         }
     }
@@ -688,13 +786,15 @@ private fun TranslateQueryBox(
     onQueryTap: () -> Unit,
     onPaste: () -> Unit,
     modifier: Modifier,
+    /** In the header's one row: no room for more than a line, nor for the margins. */
+    singleLine: Boolean = false,
 ) {
     val kb = LocalKbTheme.current
     val shape = kb.cardShape()
     val hint = stringResource(R.string.ime_translate_hint)
     Box(
         modifier = modifier
-            .padding(top = 2.dp, bottom = 6.dp)
+            .padding(top = if (singleLine) 4.dp else 2.dp, bottom = if (singleLine) 4.dp else 6.dp)
             .clip(shape)
             .frostGlass(kb, shape, FrostSurface.CHIPS)
             .background(kb.chip)
@@ -702,7 +802,12 @@ private fun TranslateQueryBox(
             .focusRing(focused, shape)
             .clickable(enabled = !state.mediaSearchActive) { onQueryTap() }
             // Room on the right for the paste button below.
-            .padding(start = 12.dp, end = 12.dp + TranslatePasteSize, top = 8.dp, bottom = 8.dp),
+            .padding(
+                start = 12.dp,
+                end = 12.dp + TranslatePasteSize,
+                top = if (singleLine) 4.dp else 8.dp,
+                bottom = if (singleLine) 4.dp else 8.dp,
+            ),
     ) {
         if (state.mediaSearchActive) {
             ClipEditText(
@@ -712,7 +817,7 @@ private fun TranslateQueryBox(
                 placeholderColor = kb.secondaryText,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .heightIn(min = 20.dp, max = TranslateQueryMaxHeight),
+                    .heightIn(min = 20.dp, max = if (singleLine) 28.dp else TranslateQueryMaxHeight),
             )
         } else {
             Text(
@@ -720,7 +825,7 @@ private fun TranslateQueryBox(
                 color = if (state.mediaQuery.isEmpty()) kb.secondaryText else kb.chipText,
                 fontSize = 14.sp,
                 lineHeight = 19.sp,
-                maxLines = 3,
+                maxLines = if (singleLine) 1 else TranslateQueryIdleLines,
                 overflow = TextOverflow.Ellipsis,
             )
         }
@@ -741,6 +846,13 @@ private fun TranslateQueryBox(
         )
     }
 }
+
+/**
+ * How many lines of the text box show while the keys are away, about
+ * [TranslateQueryMaxHeight]'s worth: the panel is at full height then, and
+ * the result keeps the rest.
+ */
+private const val TranslateQueryIdleLines = 5
 
 /** The paste button in the text box's corner, padding included. */
 private val TranslatePasteSize = 28.dp
@@ -816,11 +928,17 @@ private fun translateMenuRows(
     val onlineOnly = stringResource(R.string.ime_translate_online_only_label)
     val selected = if (menu == TranslateMenu.SOURCE) translate.sourceOverride else target
     val names = TranslateClient.languages.toMap()
-    val downloaded: (String) -> Boolean = { code ->
-        val model = OfflineTranslateLanguages.modelCode(code)
-        model == OfflineTranslateLanguages.PIVOT || translate.models[model] is OfflineModelState.Downloaded
+    // The engines on the translate list: ML Kit, Bergamot, or both. Each
+    // reads its own set of languages and keeps its own models.
+    val engines = remember(settings) {
+        TranslateProviders.rows(settings, TranslateEngine.ON_DEVICE)
+            .mapNotNullTo(mutableSetOf()) { OfflineTranslation.engineOf(it.typeId) }
     }
-    val typed = settings.enabledLanguages.mapNotNullTo(mutableSetOf()) { OfflineTranslateLanguages.modelCode(it.id) }
+    val supported: (String) -> Boolean = { code -> OfflineTranslation.supports(code, engines) }
+    val downloaded: (String) -> Boolean = { code -> OfflineTranslation.ready(code, engines, translate.models) }
+    val typed = settings.enabledLanguages.mapNotNullTo(mutableSetOf()) {
+        TranslateClient.pickerCode(it.id.replace('_', '-'))?.lowercase()
+    }
     // An empty map is "not looked yet", not "nothing downloaded": a short
     // list drawn off it would be English alone.
     val shortList = engine == TranslateEngine.ON_DEVICE && settings.translate.onlyDownloaded &&
@@ -828,27 +946,22 @@ private fun translateMenuRows(
     val codes = TranslateClient.languages.map { it.first }
     val arranged = arrangeTranslateLanguages(
         codes = codes,
-        ready = { code ->
-            downloaded(code) ||
-                translate.models[OfflineTranslateLanguages.modelCode(code)] is OfflineModelState.Downloading
-        },
-        keep = { code ->
-            code.equals(selected, ignoreCase = true) || OfflineTranslateLanguages.modelCode(code) in typed
-        },
+        ready = { code -> downloaded(code) || OfflineTranslation.coming(code, engines, translate.models) },
+        keep = { code -> code.equals(selected, ignoreCase = true) || code.lowercase() in typed },
         downloadedFirst = showModels && settings.translate.downloadedFirst,
         shortList = shortList,
     )
     val languages = arranged.map { code ->
-        val model = OfflineTranslateLanguages.modelCode(code)
+        val onDevice = supported(code)
         TranslateMenuRow(
             key = code,
             label = names[code] ?: code,
             selected = code.equals(selected, ignoreCase = true),
-            note = onlineOnly.takeIf { showModels && model == null },
-            downloaded = showModels && model != null && downloaded(code),
+            note = onlineOnly.takeIf { showModels && !onDevice },
+            downloaded = showModels && onDevice && downloaded(code),
             // Only a dead end when nothing else can take it: Automatic hands
             // these to the online service.
-            dimmed = engine == TranslateEngine.ON_DEVICE && model == null,
+            dimmed = engine == TranslateEngine.ON_DEVICE && !onDevice,
         )
     } + listOfNotNull(
         TranslateMenuRow(
@@ -926,7 +1039,8 @@ private fun TranslateDownloadOffer(translate: TranslateUi, modifier: Modifier = 
     val states = translate.missingModels.map { translate.models[it] }
     val running = states.filterIsInstance<OfflineModelState.Downloading>()
     val waiting = translate.missingModels.filter { translate.models[it] !is OfflineModelState.Downloaded }
-    val names = waiting.joinToString(", ") { TranslateClient.languageName(it) }
+    val engineName = stringResource(R.string.ime_translate_bergamot_engine_name)
+    val names = waiting.joinToString(", ") { OfflineTranslation.label(it, TranslateClient::languageName, engineName) }
     Column(
         modifier = modifier
             .padding(vertical = 4.dp)
@@ -976,7 +1090,8 @@ private fun TranslateDownloadOffer(translate: TranslateUi, modifier: Modifier = 
                 names,
                 Formatter.formatShortFileSize(
                     context,
-                    OfflineTranslateLanguages.APPROX_MODEL_BYTES * waiting.size.coerceAtLeast(1),
+                    waiting.sumOf { OfflineTranslation.downloadBytes(it) }
+                        .takeIf { it > 0L } ?: OfflineTranslateLanguages.APPROX_MODEL_BYTES,
                 ),
             ),
             color = kb.suggestionText,
@@ -985,6 +1100,11 @@ private fun TranslateDownloadOffer(translate: TranslateUi, modifier: Modifier = 
         when {
             translate.meteredAsk -> Text(
                 stringResource(R.string.ime_metered_ask_body),
+                color = kb.accent,
+                fontSize = 13.sp,
+            )
+            translate.licenceAsk -> Text(
+                stringResource(R.string.ime_translate_nllb_licence_body),
                 color = kb.accent,
                 fontSize = 13.sp,
             )

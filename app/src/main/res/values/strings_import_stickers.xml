@@ -308,6 +308,32 @@
     <string name="import_text_title">Open in the editor?</string>
     <string name="import_text_body">The keyboard has no use for <xliff:g id="file_name" example="settings.json">%1$s</xliff:g>. It is not a theme, a layout, a snippet pack, a sticker pack, an icon pack, a plugin or a backup. You can still read and edit it here.</string>
     <string name="import_open_editor_action">Open editor</string>
+    <!-- Shown for a language pack zip, or a word list or dictionary on its own,
+         opened from a file manager or a chat app. Import installs it the way
+         the download screens' own Import button does. -->
+    <string name="import_offline_title">Install language files?</string>
+    <string name="import_offline_body"><xliff:g id="file_name" example="wmkb-lang-de.zip">%1$s</xliff:g> holds files the keyboard normally downloads, such as word lists, word pairs or emoji names. Import installs them.</string>
+    <!-- Files of other kinds opened from a file manager or a chat app, each
+         recognised by its contents rather than its name. -->
+    <string name="import_font_body">The app adds this font to your fonts. Pick where it draws text under Fonts.</string>
+    <string name="import_emoji_font_body">This is an emoji font. The app adds it and draws emoji with it.</string>
+    <string name="import_key_sound_body">The app adds this sound and plays it on every key press.</string>
+    <string name="import_flex_language_title">Language pack from FlorisBoard</string>
+    <string name="import_flex_language_body">This FlorisBoard language pack holds these tables: <xliff:g id="tables" example="cangjie5, quick5">%1$s</xliff:g>. The app installs the first one it can type with (Cangjie, Quick or stroke).</string>
+    <string name="import_heli_file_body">This is a HeliBoard or LeanType theme. The app saves its colours as a theme of yours, and does not switch to it.</string>
+    <string name="import_foreign_layout_body">This is a layout from another keyboard (FlorisBoard or Keyman). The app adds its keys as a layout of yours. The layout stays off. To type with it, turn it on in Languages.</string>
+    <string name="import_double_pinyin_title">Use this double pinyin scheme?</string>
+    <string name="import_double_pinyin_body">The app saves <xliff:g id="scheme" example="自然码">%1$s</xliff:g> as your own double pinyin scheme and types with it.</string>
+    <string name="import_double_pinyin_done">The app saved the scheme and switched to it.</string>
+    <string name="import_input_method_body">This is another input method\'s table. The app adds it as a layout of yours. The layout stays off. To type with it, turn it on in Languages.</string>
+    <plurals name="import_dictionary_body">
+        <item quantity="one">This word list has %1$d word. The app adds it to suggestions and autocorrect for the language below.</item>
+        <item quantity="other">This word list has %1$d words. The app adds it to suggestions and autocorrect for the language below.</item>
+    </plurals>
+    <string name="import_emoji_keywords_title">Import emoji keywords?</string>
+    <string name="import_emoji_keywords_body">This file names emoji and the words that find them. The app adds it to emoji search for the language below.</string>
+    <string name="import_anki_title">Import flashcards?</string>
+    <string name="import_anki_body">This is an Anki deck. The app turns it into a vocabulary pack.</string>
 
     <!-- ==== The preview above the confirm dialog. ==== -->
 
@@ -455,11 +481,11 @@
 
     <string name="import_sticker_editor_title">Edit image</string>
     <string name="import_sticker_editor_subtitle">Crop the image, remove the background, and add a border</string>
-    <string name="import_sticker_editor_caption">The keyboard saves a 512 by 512 sticker. Move and pinch the image to select the part to keep, then remove the background and add a border. The app keeps this image on the phone, so you can edit the sticker again later.</string>
+    <string name="import_sticker_editor_shape_caption">The sticker keeps the shape and size of the part that you select, up to 1024 pixels on the longest side. Drag the edges and the corners of the frame to select the part to keep, then remove the background and add a border. WhatsApp and Messenger get a 512 by 512 copy when you send. The app keeps this image on the phone, so you can edit the sticker again later.</string>
     <string name="import_sticker_editor_resumed_caption">The app opened the image that you made this sticker from, with your crop, your erasures and your border on it. Continue where you stopped. The sticker changes only after you save.</string>
     <string name="import_sticker_editor_original_caption">This is the image that you made the sticker from. The app kept it on this phone for edits like this one. Your crop, your erasures and your border are not in it. The sticker changes only after you save.</string>
     <string name="import_sticker_editor_crop_action">Crop</string>
-    <string name="import_sticker_editor_crop_hint">Drag to move the image. Pinch to make it larger.</string>
+    <string name="import_sticker_editor_frame_hint">Drag an edge or a corner to change the frame. Drag in the frame to move it.</string>
     <string name="import_sticker_editor_erase_action">Erase</string>
     <string name="import_sticker_editor_restore_action">Restore</string>
     <string name="import_sticker_editor_border_action">Border</string>
@@ -471,6 +497,13 @@
     <string name="import_sticker_editor_cutout_download_progress">The app gets the background remover…</string>
     <string name="import_sticker_editor_cutout_none_error">The app found no subject in this image. Use the eraser.</string>
     <string name="import_sticker_editor_cutout_error">The app cannot remove the background now.</string>
+    <string name="import_sticker_editor_upscale_action">Upscale</string>
+    <string name="import_sticker_editor_upscale_subtitle">Redraw it sharp at %1$d times the size: %2$s</string>
+    <string name="import_sticker_editor_upscale_download_subtitle">Redraw it sharp at a larger size: %1$s. Get the upscaler first. It is a %2$s download.</string>
+    <string name="import_sticker_editor_upscale_size">%1$d × %2$d → %3$d × %4$d</string>
+    <string name="import_sticker_editor_upscale_progress">The app upscales the sticker…</string>
+    <string name="import_sticker_editor_upscale_download_progress">The app gets the upscaler…</string>
+    <string name="import_sticker_editor_upscale_error">The app cannot upscale this sticker now.</string>
     <string name="import_sticker_editor_brush_size_label">Brush size</string>
     <string name="import_sticker_editor_border_width_label">Border width</string>
     <!-- Caption over the choice of border color. -->

@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import android.content.Context
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -10,7 +11,6 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
-import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -54,6 +54,8 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import com.wasimaster.wmkeyboard.core.script.ScriptId
+import com.wasimaster.wmkeyboard.core.layout.language
+import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.fonts.LayoutFonts
 import com.wasimaster.wmkeyboard.core.emoji.EmojiFontShaping
 import com.wasimaster.wmkeyboard.core.settings.withRotation
@@ -599,13 +601,46 @@ val LocalEmojiFontFamily = staticCompositionLocalOf<FontFamily?> { null }
  * Same order as the key font, minus the active layout's own face (that one
  * belongs to a single grid): the user's per-script pick, the theme's face for
  * the script, the script's Noto face; then, for the scripts that ride the
- * Latin faces, the user's key font and the theme's. Null leaves the system face.
+ * Latin faces, the user's key font and the theme's; then the system face, named
+ * outright. Not null: a Text given no family takes the typography's, which is
+ * the active layout's face again, and on a script board that face changes a
+ * frame after the switch (script face alone, then chained Latin-first).
  */
 /**
  * The scripts that draw in the user's English font already, so have no script
  * face to chain it in front of (see [KeyboardFonts.latinFirstFamily]).
  */
 private val LATIN_FONT_SCRIPTS = setOf(ScriptId.LATIN, ScriptId.CYRILLIC, ScriptId.GREEK, ScriptId.IPA)
+
+/**
+ * The Latin font and the script face [KeyboardFonts.latinFirstFamily] chains for
+ * a board in [scriptId], or null where the board draws in one face: a script
+ * that rides the Latin faces, no script face, or the two being one font.
+ */
+private fun latinFirstIds(
+    context: Context,
+    settings: KeyboardSettings,
+    scriptId: ScriptId,
+    layoutFontId: String?,
+    themeFontId: String?,
+    themeScriptFontId: String?,
+    unicodeMyanmar: Boolean,
+): Pair<String, String>? {
+    if (scriptId in LATIN_FONT_SCRIPTS) return null
+    val latinId = settings.keyFontId.takeIf {
+        it != KeyboardFonts.DEFAULT_ID && KeyboardFonts.family(context, it) != null
+    } ?: themeFontId?.takeIf { KeyboardFonts.family(context, it) != null }
+        ?: KeyboardFonts.DEFAULT_ID
+    val scriptFontId = KeyboardFonts.scriptFontId(
+        context,
+        scriptId,
+        settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
+        layoutFontId,
+        themeScriptFontId,
+        unicodeMyanmar,
+    ) ?: return null
+    return (latinId to scriptFontId).takeIf { latinId != scriptFontId }
+}
 
 internal val LocalScriptLabelFont = staticCompositionLocalOf<(ScriptId) -> FontFamily?> { { null } }
 
@@ -1403,8 +1438,9 @@ fun KeyboardThemeProvider(
     // picked for it, or its dedicated Noto face, so its glyphs stay correct even
     // when the key font is a Latin-only display face. Latin (and Cyrillic/Greek,
     // which ride the Latin faces) use the user's key font. Bengali is no
-    // different from the rest — its faces simply also carry Latin glyphs, which
-    // is what keeps Avro's romanized keys and mixed strips in one face.
+    // different from the rest. Its faces also carry Latin glyphs, but the Latin
+    // on such a board (Avro's romanized keys, an English suggestion) still comes
+    // from the English font, chained in front below.
     val scriptId = settings.script.id
     // A theme may carry its own key font, by id. It sits below both the
     // per-script face and the user's own English pick: script correctness still
@@ -1428,6 +1464,9 @@ fun KeyboardThemeProvider(
     // A layout's own face may still be on its way ([LayoutFonts]): when it
     // lands the id is the same, so this is what tells the face to resolve again.
     val layoutFontsInstalled by LayoutFonts.installs.collectAsState()
+    // Burmese's Unicode key font: Myanmar in the keyboard's own Noto face, for
+    // a phone whose Myanmar font is a Zawgyi one.
+    val unicodeMyanmar = settings.suggestionStrip.burmeseUnicodeKeysOn
     val keyFontFamily = remember(
         scriptId,
         layoutFontId,
@@ -1438,6 +1477,7 @@ fun KeyboardThemeProvider(
         settings.scriptFontIds,
         settings.customFontName,
         settings.customScriptFontNames,
+        unicodeMyanmar,
     ) {
         KeyboardFonts.scriptFamily(
             context,
@@ -1445,6 +1485,7 @@ fun KeyboardThemeProvider(
             settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
             layoutFontId,
             themeScriptFontId,
+            unicodeMyanmar,
         ) // The Latin/Cyrillic/Greek side of the same order: the user's own
             // pick, then the layout's face, then the theme's. Only a deliberate
             // pick counts — "default" is the absence of one and lets the layout
@@ -1460,9 +1501,11 @@ fun KeyboardThemeProvider(
     // looks for a glyph in another font, so every Latin character on it — an
     // English suggestion, a copied word in the clipboard chip — lost the user's
     // English font (#591). Where there is both a Latin pick (the user's, else
-    // the theme's) and a script face, the two are chained per glyph instead,
-    // Latin first. Built off the main thread: a Google face is a provider
-    // round trip. Until it lands, and below Android 10, the script face alone.
+    // the theme's, else the system's own Latin font) and a script face, the two
+    // are chained per glyph instead, Latin first. System default counts too: a
+    // ROM or font app may have replaced the system's Latin font, and an Avro
+    // board drew its keys in the Bengali face's Latin instead (#670). Below
+    // Android 10 (12 for the system font), the script face alone.
     val latinFirstIds = remember(
         scriptId,
         layoutFontId,
@@ -1473,33 +1516,69 @@ fun KeyboardThemeProvider(
         settings.scriptFontIds,
         settings.customFontName,
         settings.customScriptFontNames,
+        unicodeMyanmar,
     ) {
-        if (scriptId in LATIN_FONT_SCRIPTS) return@remember null
-        val latinId = settings.keyFontId.takeIf {
-            it != KeyboardFonts.DEFAULT_ID && KeyboardFonts.family(context, it) != null
-        } ?: themeFontId?.takeIf { KeyboardFonts.family(context, it) != null }
-            ?: return@remember null
-        val scriptFontId = KeyboardFonts.scriptFontId(
-            context,
-            scriptId,
-            settings.scriptFontIds[scriptId.name] ?: KeyboardFonts.DEFAULT_ID,
-            layoutFontId,
-            themeScriptFontId,
-        ) ?: return@remember null
-        (latinId to scriptFontId).takeIf { latinId != scriptFontId }
+        latinFirstIds(context, settings, scriptId, layoutFontId, themeFontId, themeScriptFontId, unicodeMyanmar)
     }
-    val chainedFontFamily by produceState<FontFamily?>(null, latinFirstIds) {
-        val (latinId, scriptFontId) = latinFirstIds ?: run {
-            value = null
-            return@produceState
-        }
-        // Already built once this process: no frame in the script face alone.
-        value = KeyboardFonts.cachedLatinFirstFamily(latinId, scriptFontId)
-        if (value != null) return@produceState
-        value = withContext(Dispatchers.IO) {
-            KeyboardFonts.latinFirstFamily(context, latinId, scriptFontId)
+    // The same pair for every other enabled layout, built ahead off the main
+    // thread. Bengali's face is a Google one, a provider round trip: built on
+    // the switch itself, the first Avro board of a process drew its Latin keys
+    // in the Bengali face's Latin for a third of a second, then jumped.
+    LaunchedEffect(
+        settings.enabledLayoutIds,
+        settings.customLayouts,
+        themeFontId,
+        settings.keyFontId,
+        settings.scriptFontIds,
+        settings.customFontName,
+        settings.customScriptFontNames,
+        darkSlot,
+        unicodeMyanmar,
+    ) {
+        val themeSpec = settings.activeThemeSpec(darkSlot)
+        withContext(Dispatchers.IO) {
+            for (id in settings.enabledLayoutIds) {
+                val layout = resolveLayout(settings.customLayouts, id)
+                val script = layout.language().script
+                val (latinId, scriptFontId) = latinFirstIds(
+                    context,
+                    settings,
+                    script,
+                    layout.appearance?.fontId,
+                    themeFontId,
+                    themeSpec?.scriptFontIds?.get(script.name),
+                    unicodeMyanmar,
+                ) ?: continue
+                KeyboardFonts.latinFirstFamily(context, latinId, scriptFontId)
+            }
         }
     }
+    // Settled in the very composition that switched the board whenever it can
+    // be: one frame in the script face alone, then the chain, made every Latin
+    // label jump on a switch to Avro. Built from local files that takes a few
+    // milliseconds, once per process. A Google face is a provider round trip,
+    // so that pair alone is built off the main thread and lands a frame late.
+    val chainNow = remember(latinFirstIds) {
+        latinFirstIds?.let { (latinId, scriptFontId) ->
+            KeyboardFonts.cachedLatinFirstFamily(latinId, scriptFontId)
+                ?: if (KeyboardFonts.isLocal(latinId) && KeyboardFonts.isLocal(scriptFontId)) {
+                    KeyboardFonts.latinFirstFamily(context, latinId, scriptFontId)
+                } else {
+                    null
+                }
+        }
+    }
+    // Keyed by the pair it was built for: produceState keeps its last value
+    // until the effect runs, and a chain for the previous board must not draw
+    // a frame of this one.
+    val chainLate by produceState<Pair<Pair<String, String>, FontFamily?>?>(null, latinFirstIds) {
+        val ids = latinFirstIds ?: return@produceState
+        if (chainNow != null) return@produceState
+        value = ids to withContext(Dispatchers.IO) {
+            KeyboardFonts.latinFirstFamily(context, ids.first, ids.second)
+        }
+    }
+    val chainedFontFamily = chainNow ?: chainLate?.takeIf { it.first == latinFirstIds }?.second
     val boardFontFamily = chainedFontFamily ?: keyFontFamily
     // See [LocalScriptLabelFont]. Resolved per script on first ask, then kept
     // for as long as the font settings and the theme stay what they are.
@@ -1513,6 +1592,8 @@ fun KeyboardThemeProvider(
         settings.scriptFontIds,
         settings.customFontName,
         settings.customScriptFontNames,
+        unicodeMyanmar,
+        layoutFontsInstalled,
     ) {
         val latin by lazy {
             settings.keyFontId.takeIf { it != KeyboardFonts.DEFAULT_ID }
@@ -1531,7 +1612,8 @@ fun KeyboardThemeProvider(
                         settings.scriptFontIds[script.name] ?: KeyboardFonts.DEFAULT_ID,
                         null,
                         themeScriptFonts[script.name],
-                    ) ?: latin
+                        unicodeMyanmar,
+                    ) ?: latin ?: FontFamily.Default
                 ).also { resolved[script] = it }
             }
         }
@@ -1846,10 +1928,10 @@ fun autoKbTheme(settings: KeyboardSettings): KbTheme {
  * failed to stop.
  */
 @Composable
-fun themeAnimationPhase(animation: ThemeAnimation, speed: Float, reduceMotion: Boolean): Float {
-    if (animation == ThemeAnimation.NONE || reduceMotion) return 0f
+fun themeAnimationPhase(animation: ThemeAnimation, speed: Float, reduceMotion: Boolean): () -> Float {
+    if (animation == ThemeAnimation.NONE || reduceMotion) return NoThemePhase
     val transition = rememberInfiniteTransition(label = "themeAnim")
-    val phase by transition.animateFloat(
+    val phase = transition.animateFloat(
         initialValue = 0f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
@@ -1861,8 +1943,13 @@ fun themeAnimationPhase(animation: ThemeAnimation, speed: Float, reduceMotion: B
         ),
         label = "phase",
     )
-    return phase
+    // Handed out as a reader rather than the value, so the frame-by-frame
+    // change lands in the draw that asks for it. Read here, it recomposed
+    // [BoardBackground] on every frame for as long as the keyboard was up.
+    return remember(phase) { { phase.value } }
 }
+
+private val NoThemePhase: () -> Float = { 0f }
 
 /**
  * The most of the screen the board is ever assumed to take, used to size the
@@ -1965,18 +2052,23 @@ fun BoxScope.BoardBackground(kb: KbTheme) {
     val opacityFloor = frost?.takeIf { it.windowBlur && !blurLive && kind == null }?.fallbackOpacity
     val phase = themeAnimationPhase(kb.animation, kb.animationSpeed, kb.reduceMotion)
     val gradient = kb.boardGradient?.let { if (opacityFloor == null) it else it.withAlphaFloor(opacityFloor) }
+    val animation = kb.animation
     if (gradient != null) {
         Box(
-            modifier = boardModifier.background(gradient.brush(kb.animation, phase)),
+            modifier = boardModifier.drawBehind { drawRect(gradient.brush(animation, phase())) },
         )
     } else {
-        val tinted = if (kb.animation == ThemeAnimation.HUE_CYCLE) {
-            hueShift(kb.board, phase * 360f)
-        } else {
-            kb.board
-        }
-        val board = if (opacityFloor == null) tinted else tinted.copy(alpha = max(tinted.alpha, opacityFloor))
-        Box(modifier = boardModifier.background(board))
+        val base = kb.board
+        Box(
+            modifier = boardModifier.drawBehind {
+                val tinted = if (animation == ThemeAnimation.HUE_CYCLE) {
+                    hueShift(base, phase() * 360f)
+                } else {
+                    base
+                }
+                drawRect(if (opacityFloor == null) tinted else tinted.copy(alpha = max(tinted.alpha, opacityFloor)))
+            },
+        )
     }
 }
 

@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.Intent
+import android.net.Uri
 import android.text.format.Formatter
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Row
@@ -7,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -30,9 +33,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.modules.NativeConsent
 import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.tools.TranslateClient
+import com.wasimaster.wmkeyboard.core.translate.BergamotLanguages
+import com.wasimaster.wmkeyboard.core.translate.BergamotTranslator
+import com.wasimaster.wmkeyboard.core.translate.NllbTranslator
 import com.wasimaster.wmkeyboard.core.translate.OfflineModelState
+import com.wasimaster.wmkeyboard.core.translate.OfflineTranslation
 import com.wasimaster.wmkeyboard.core.translate.OfflineTranslateLanguages
 import com.wasimaster.wmkeyboard.core.translate.OnDeviceTranslator
 import com.wasimaster.wmkeyboard.core.translate.TranslateModuleState
@@ -171,6 +179,228 @@ internal fun TranslateModelManager(settings: LiveSettings) {
     if (blockedMetered) MeteredBlockedDialog { blockedMetered = false }
 }
 
+/**
+ * Bergamot's models (Mozilla's Firefox Translations): one row per language
+ * direction, with what it costs to download, and the engine's own library
+ * first where this build fetches it. Grouped like ML Kit's list: what this
+ * user is likely to want, then a fold with the rest.
+ *
+ * State comes from [BergamotTranslator.models], which the keyboard reads too.
+ * A direction downloaded here fetches the library on the way if it is not
+ * here yet; nothing on this screen owns a download.
+ */
+@Composable
+internal fun BergamotModelManager(settings: LiveSettings) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val models by BergamotTranslator.models.collectAsState()
+    LaunchedEffect(Unit) { BergamotTranslator.refresh(context.applicationContext) }
+    val downloadDecision = rememberDownloadDecision(settings)
+    var confirmMetered by remember { mutableStateOf<String?>(null) }
+    var blockedMetered by remember { mutableStateOf(false) }
+    val offerPermission = rememberNotificationPermissionOffer()
+    val engineName = stringResource(R.string.tooldetail_translate_bergamot_engine)
+    val label: (String) -> String = { key -> OfflineTranslation.label(key, TranslateClient::languageName, engineName) }
+    val start: (String) -> Unit = { key ->
+        offerPermission()
+        OfflineTranslation.downloadNotified(
+            context = context.applicationContext,
+            key = key,
+            title = context.getString(CommonR.string.common_notify_download_translate, label(key)),
+        )
+    }
+    val ask: (String) -> Unit = { key ->
+        when (downloadDecision()) {
+            MeteredDecision.ALLOWED -> start(key)
+            MeteredDecision.ASK -> confirmMetered = key
+            MeteredDecision.BLOCKED -> blockedMetered = true
+        }
+    }
+    val wanted = settings.watch { s ->
+        (listOf(s.translateTargetLang) + s.enabledLanguages.map { it.id })
+            .mapNotNull { BergamotLanguages.modelCode(it) }
+            .filter { it != BergamotLanguages.PIVOT }
+            .toSet()
+    }
+    val (near, far) = BergamotLanguages.directions.partition { direction ->
+        val key = BergamotTranslator.keyOf(direction)
+        direction.from in wanted || direction.to in wanted ||
+            models[key].let { it is OfflineModelState.Downloaded || it is OfflineModelState.Downloading }
+    }
+    val row: @Composable (String) -> Unit = { key ->
+        TranslateModelRow(
+            code = key,
+            name = label(key),
+            state = models[key],
+            sizeBytes = BergamotTranslator.downloadBytes(key),
+            builtIn = false,
+            onDownload = { ask(key) },
+            onCancel = { OfflineTranslation.cancelDownload(context.applicationContext, key) },
+            onDelete = { scope.launch { BergamotTranslator.delete(context.applicationContext, key) } },
+        )
+    }
+    SettingsGroup(
+        stringResource(R.string.tooldetail_translate_bergamot_group),
+        info = stringResource(R.string.tooldetail_translate_bergamot_info),
+    ) {
+        // The library, on a build that downloads it: the one piece every
+        // direction needs. Gone from the list once it is here.
+        if (models[BergamotTranslator.ENGINE_KEY].let { it != null && it !is OfflineModelState.Downloaded }) {
+            item { row(BergamotTranslator.ENGINE_KEY) }
+        }
+        for (direction in near) item { row(BergamotTranslator.keyOf(direction)) }
+    }
+    if (far.isNotEmpty()) {
+        SettingsGroup(
+            stringResource(R.string.tooldetail_translate_bergamot_more_group),
+            foldKey = "translate_bergamot_more",
+        ) {
+            for (direction in far) item { row(BergamotTranslator.keyOf(direction)) }
+        }
+    }
+    confirmMetered?.let { key ->
+        MeteredDownloadDialog(
+            detail = stringResource(
+                R.string.tooldetail_translate_model_metered_body,
+                label(key),
+                Formatter.formatShortFileSize(context, BergamotTranslator.downloadBytes(key)),
+            ),
+            onConfirm = {
+                confirmMetered = null
+                start(key)
+            },
+            onDismiss = { confirmMetered = null },
+        )
+    }
+    if (blockedMetered) MeteredBlockedDialog { blockedMetered = false }
+}
+
+/**
+ * The NLLB-200 model: one row for the 630 MB model, and the CTranslate2
+ * library first where this build fetches it. The model's licence (CC BY-NC
+ * 4.0) is shown before the first download, and agreeing is remembered
+ * ([NllbTranslator.licenceAccepted]); the panel asks the same way.
+ */
+@Composable
+internal fun NllbModelManager(settings: LiveSettings) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val models by NllbTranslator.models.collectAsState()
+    LaunchedEffect(Unit) { NllbTranslator.refresh(context.applicationContext) }
+    val downloadDecision = rememberDownloadDecision(settings)
+    var confirmMetered by remember { mutableStateOf<String?>(null) }
+    var blockedMetered by remember { mutableStateOf(false) }
+    var asking by remember { mutableStateOf<String?>(null) }
+    val offerPermission = rememberNotificationPermissionOffer()
+    val modelName = stringResource(R.string.tooldetail_translate_nllb_model)
+    val label: (String) -> String = { key ->
+        if (key == NllbTranslator.MODEL_KEY) modelName else OfflineTranslation.NLLB_ENGINE_NAME
+    }
+    val start: (String) -> Unit = { key ->
+        offerPermission()
+        NllbTranslator.downloadNotified(
+            context = context.applicationContext,
+            key = key,
+            title = context.getString(CommonR.string.common_notify_download_translate, label(key)),
+        )
+    }
+    val ask: (String) -> Unit = { key ->
+        when {
+            !NllbTranslator.licenceAccepted -> asking = key
+            else -> when (downloadDecision()) {
+                MeteredDecision.ALLOWED -> start(key)
+                MeteredDecision.ASK -> confirmMetered = key
+                MeteredDecision.BLOCKED -> blockedMetered = true
+            }
+        }
+    }
+    val row: @Composable (String) -> Unit = { key ->
+        TranslateModelRow(
+            code = key,
+            name = label(key),
+            state = models[key],
+            sizeBytes = NllbTranslator.downloadBytes(key),
+            builtIn = false,
+            onDownload = { ask(key) },
+            onCancel = { NllbTranslator.cancelDownload(key) },
+            onDelete = { scope.launch { NllbTranslator.delete(context.applicationContext) } },
+        )
+    }
+    SettingsGroup(
+        stringResource(R.string.tooldetail_translate_nllb_group),
+        info = stringResource(R.string.tooldetail_translate_nllb_info),
+    ) {
+        if (models[NllbTranslator.ENGINE_KEY].let { it != null && it !is OfflineModelState.Downloaded }) {
+            item { row(NllbTranslator.ENGINE_KEY) }
+        }
+        item { row(NllbTranslator.MODEL_KEY) }
+    }
+    asking?.let { key ->
+        NllbLicenceDialog { accepted ->
+            asking = null
+            if (accepted) ask(key)
+        }
+    }
+    confirmMetered?.let { key ->
+        MeteredDownloadDialog(
+            detail = stringResource(
+                R.string.tooldetail_translate_model_metered_body,
+                label(key),
+                Formatter.formatShortFileSize(context, NllbTranslator.downloadBytes(key)),
+            ),
+            onConfirm = {
+                confirmMetered = null
+                start(key)
+            },
+            onDismiss = { confirmMetered = null },
+        )
+    }
+    if (blockedMetered) MeteredBlockedDialog { blockedMetered = false }
+}
+
+/**
+ * NLLB-200's licence, before the phone fetches the model. It comes from a
+ * Hugging Face repository under Meta's terms rather than from this project,
+ * so the user receives it under them and agrees here. [onDone] is called
+ * with whether they accepted.
+ */
+@Composable
+private fun NllbLicenceDialog(onDone: (Boolean) -> Unit) {
+    val context = LocalContext.current
+    AlertDialog(
+        onDismissRequest = { onDone(false) },
+        title = { Text(stringResource(R.string.tooldetail_translate_nllb_licence_title)) },
+        text = {
+            Text(
+                stringResource(
+                    R.string.tooldetail_translate_nllb_licence_body,
+                    Formatter.formatShortFileSize(context, NllbTranslator.modelBytes),
+                ),
+            )
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                NativeConsent.set(NativeConsent.NLLB, true)
+                onDone(true)
+            }) { Text(stringResource(R.string.tooldetail_translate_nllb_licence_accept)) }
+        },
+        dismissButton = {
+            Row {
+                TextButton(onClick = {
+                    NativeConsent.licenceUrls[NativeConsent.NLLB]?.let { url ->
+                        runCatching {
+                            context.startActivity(
+                                Intent(Intent.ACTION_VIEW, Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                            )
+                        }
+                    }
+                }) { Text(stringResource(R.string.tooldetail_translate_nllb_licence_view)) }
+                TextButton(onClick = { onDone(false) }) { Text(stringResource(CommonR.string.common_cancel)) }
+            }
+        },
+    )
+}
+
 /** Stands in for a model code in the metered confirm, for the module itself. */
 private const val MODULE_CONFIRM = "\u0000module"
 
@@ -219,14 +449,22 @@ private fun TranslateModelRow(
     onDownload: () -> Unit,
     onCancel: () -> Unit,
     onDelete: () -> Unit,
+    sizeBytes: Long = OfflineTranslateLanguages.APPROX_MODEL_BYTES,
+    builtIn: Boolean = code == OfflineTranslateLanguages.PIVOT,
 ) {
     val context = LocalContext.current
-    val builtIn = code == OfflineTranslateLanguages.PIVOT
     val reduceMotion = LocalReduceMotion.current
     // What the model is in now, read at tap time by the actions below.
     val latest = rememberUpdatedState(state)
     WmRow(
         title = name,
+        swipeActions = if (!builtIn && state is OfflineModelState.Downloaded) {
+            listOf(
+                deleteSwipeAction(stringResource(R.string.privacy_handwriting_delete_desc, name), onDelete),
+            )
+        } else {
+            emptyList()
+        },
         subtitle = when {
             // Every model translates through English, so English is part of
             // the engine and not a thing to fetch or remove.
@@ -250,7 +488,7 @@ private fun TranslateModelRow(
                 stringResource(R.string.privacy_handwriting_status_failed)
             else -> stringResource(
                 R.string.privacy_handwriting_status_missing_sized,
-                Formatter.formatShortFileSize(context, OfflineTranslateLanguages.APPROX_MODEL_BYTES),
+                Formatter.formatShortFileSize(context, sizeBytes),
             )
         },
         trailing = {

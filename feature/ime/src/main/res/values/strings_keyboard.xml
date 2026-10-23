@@ -127,6 +127,12 @@
     <!-- Screen reader name for pressing and holding a word on the suggestion
          strip, which opens the menu below. -->
     <string name="ime_suggestion_hold_label">Word options</string>
+    <!-- An alternative on the recent-word row (#842), read by TalkBack as what a tap does. %1$s is the word written, %2$s the one that would replace it. -->
+    <string name="ime_recent_word_replace_desc">Change <xliff:g id="word" example="form">%1$s</xliff:g> to <xliff:g id="offer" example="from">%2$s</xliff:g></string>
+    <!-- Shown over the strip while a held word is slid up or down (#790). %1$s is the word, %2$s its new rank, such as +2 or −3. -->
+    <string name="ime_suggestion_rank_badge">\"<xliff:g id="word" example="mary">%1$s</xliff:g>\" rank <xliff:g id="rank" example="+2">%2$s</xliff:g></string>
+    <!-- The same, slid back to where it started: lifting changes nothing. -->
+    <string name="ime_suggestion_rank_unchanged">\"<xliff:g id="word" example="mary">%1$s</xliff:g>\" unchanged</string>
     <!-- An item in that menu. %1$s is the word the user held. -->
     <string name="ime_suggestion_never_suggest">Never suggest \"<xliff:g id="word" example="mary">%1$s</xliff:g>\"</string>
     <!-- Menu item that takes a word back off the never-suggest list. %1$s is
@@ -137,9 +143,15 @@
     <string name="ime_word_menu_add">Add \"<xliff:g id="word" example="Wasi">%1$s</xliff:g>\"</string>
     <!-- Menu item that forgets a word. %1$s is the word the user held. -->
     <string name="ime_word_menu_delete">Delete \"<xliff:g id="word" example="mary">%1$s</xliff:g>\"</string>
+    <!-- Menu item that forgets what the keyboard learned about a word (how
+         often it was used, its capitals, its rank) but keeps the word, which
+         the word lists still offer. %1$s is the word the user held. -->
+    <string name="ime_word_menu_forget">Forget what you learned about \"<xliff:g id="word" example="Toolbar">%1$s</xliff:g>\"</string>
     <!-- Menu item that decodes the swipe that wrote the word the cursor is in
          again, this time against every word list rather than the narrower set
          the user has glide typing limited to. %1$s is that word. -->
+    <!-- The held-word menu's Retype (#844): takes the word before the cursor back out to type it again. %1$s is that word. -->
+    <string name="ime_word_menu_retype">Retype \"<xliff:g id="word" example="form">%1$s</xliff:g>\"</string>
     <string name="ime_word_menu_search_all">Search all words for \"<xliff:g id="word" example="van">%1$s</xliff:g>\"</string>
     <!-- Menu item that opens the word card, where the word is spelled,
          weighted, ranked, deleted or banned. -->
@@ -254,6 +266,15 @@
     <!-- Screen reader name for the chip that takes an autocorrect back. The
          word on the chip is read after this, so it says what pressing does. -->
     <string name="ime_undo_correction_desc">Put back the word you typed</string>
+    <string name="ime_capture_undo_desc">Undo the last change</string>
+    <string name="ime_capture_redo_desc">Redo the change you undid</string>
+    <!-- Screen reader names of the focus switch on a tool's own field (#665),
+         which sends the keys to the app's field or back. Each says what a
+         press does. -->
+    <string name="ime_capture_focus_to_app_desc">Type in the app instead</string>
+    <string name="ime_capture_focus_to_field_desc">Type in this box again</string>
+    <!-- In a tool's empty box while its keys go to the app's field (#665). -->
+    <string name="ime_capture_focus_app_hint">Typing in the app. Tap to type here</string>
 
     <!-- Shown under a glide's word picker once the finger has slid down away
          from the words: lifting now types nothing. -->
@@ -273,6 +294,8 @@
     <string name="ime_clip_chip_image">Copied image</string>
     <string name="ime_clip_chip_item">Copied item</string>
     <string name="ime_clip_chip_dismiss_desc">Hide the copied text</string>
+    <!-- Accessibility label of a press and hold on a copy's chip on the strip (#612). -->
+    <string name="ime_clip_chip_delete_desc">Delete this copy</string>
     <string name="ime_clip_chip_more_desc">Show more recent copies</string>
     <!-- The ✕ on the chip that offers a code found in a notification. -->
     <string name="ime_otp_chip_dismiss_desc">Hide the code</string>
@@ -335,6 +358,7 @@
 
     <!-- The Modes panel: which keyboard mode is active. -->
     <string name="ime_modes_empty">No modes yet. Create one in Settings → Modes.</string>
+    <string name="ime_modes_none_subtitle">No mode, even where one is bound to this app or field</string>
     <string name="ime_modes_auto_subtitle">Follow the app and field bindings of each mode</string>
     <string name="ime_modes_manual_note">A manual pick lasts until you switch apps.</string>
     <string name="ime_modes_settings_desc">Mode settings</string>
@@ -370,6 +394,11 @@
          the toolbox, the settings screens and the hardware shortcut legend. -->
     <string name="ime_tool_emoji">Emoji</string>
     <string name="ime_tool_clipboard">Clipboard</string>
+    <string name="ime_tool_clipboard_search">Clipboard search</string>
+    <string name="ime_tool_recent_copies">Recent copies</string>
+    <string name="ime_tool_leave_field">Leave field</string>
+    <string name="ime_tool_quick_note">Quick note</string>
+    <string name="ime_tool_read_back">Read back</string>
     <string name="ime_tool_snippets">Snippets</string>
     <string name="ime_tool_text_edit">Text editing</string>
     <string name="ime_tool_trackpad">Trackpad</string>
@@ -406,6 +435,14 @@
     <!-- The strip button on Bengali layouts. ANSI is the name of the encoding, not a word to translate. -->
     <string name="ime_ansi_button" translatable="false">ANSI</string>
     <string name="ime_ansi_output">ANSI output</string>
+    <!-- The strip button on Burmese layouts. Zawgyi is the name of the encoding, not a word to translate. -->
+    <string name="ime_zawgyi_button" translatable="false">Zawgyi</string>
+    <string name="ime_zawgyi_output">Zawgyi output</string>
+    <!-- Strip chip after a paste the keyboard found to be in Zawgyi, the old Burmese font encoding. Tapping it replaces the paste with Unicode. -->
+    <string name="ime_zawgyi_paste_offer">Pasted Zawgyi. Convert to Unicode</string>
+    <!-- Strip chip on a Burmese layout when the text box already holds Zawgyi. Tapping it makes the keyboard write Zawgyi in this text box. -->
+    <string name="ime_zawgyi_field_offer">This text is Zawgyi. Write Zawgyi here</string>
+    <string name="ime_zawgyi_offer_dismiss_desc">Leave it as it is</string>
     <string name="ime_tool_sound_haptics">Sound &amp; haptics</string>
     <string name="ime_tool_numpad">Numpad</string>
     <string name="ime_tool_handwriting">Handwriting</string>
@@ -417,6 +454,9 @@
     <string name="ime_tool_notes">Notes</string>
     <string name="ime_tool_location">Location</string>
     <string name="ime_tool_clock">Clock</string>
+    <string name="ime_tool_home_assistant">Smart home</string>
+    <string name="ime_tool_send_files">Send files</string>
+    <string name="ime_tool_gallery">Gallery</string>
     <!-- Learn from text (#174): the panel that lists words the keyboard does not know yet. -->
     <string name="ime_learn_select_all_action">Select all</string>
     <string name="ime_learn_select_none_action">Select none</string>
@@ -479,6 +519,7 @@
     <string name="ime_tool_currency">Currency</string>
     <string name="ime_tool_qr_gen">QR code</string>
     <string name="ime_tool_password_gen">Password</string>
+    <string name="ime_tool_text_repeat">Repeat</string>
     <string name="ime_tool_typing_test">Typing speed</string>
     <string name="ime_tool_statistics">Statistics</string>
     <string name="ime_tool_media_control">Media</string>
@@ -499,6 +540,7 @@
     <string name="ime_tool_cursor_home">Line start</string>
     <string name="ime_tool_cursor_end">Line end</string>
     <string name="ime_tool_hide_keyboard">Hide</string>
+    <string name="ime_tool_language">Language</string>
     <string name="ime_tool_page_up">Page up</string>
     <string name="ime_tool_page_down">Page down</string>
     <string name="ime_tool_select_word">Select word</string>
@@ -519,6 +561,27 @@
     <string name="ime_toolbox_drag_scope_mode">Changing the tool order for only the %1$s mode</string>
     <string name="ime_toolbox_drag_scope_global">Changing the global tool order outside modes</string>
     <string name="ime_toolbox_empty">Every tool is on the toolbar.</string>
+    <!-- The toolbox search (#687). Typed with the keyboard's own keys. -->
+    <string name="ime_toolbox_search_desc">Search tools</string>
+    <string name="ime_toolbox_search_hint">Search tools…</string>
+    <string name="ime_toolbox_search_clear_desc">Close the search</string>
+    <!-- %1$s is what the user typed. -->
+    <string name="ime_toolbox_search_no_match">No tool is called \"%1$s\".</string>
+    <!-- Toolbox folders (#709): drop one tool on another to make one. -->
+    <string name="ime_toolbox_folder_default_name">Folder</string>
+    <string name="ime_toolbox_folder_rename_desc">Rename the folder</string>
+    <string name="ime_toolbox_folder_rename_done_desc">Keep the name</string>
+    <string name="ime_toolbox_folder_name_hint">Folder name…</string>
+    <string name="ime_toolbox_folder_pin_desc">Pin the folder to the toolbar</string>
+    <string name="ime_toolbox_folder_unpin_desc">Remove the folder from the toolbar</string>
+    <string name="ime_toolbox_folder_ungroup_desc">Ungroup the folder</string>
+    <string name="ime_toolbox_folder_take_out">Drop here to take the tool out of the folder</string>
+    <string name="ime_toolbox_folder_empty">Every tool in this folder is on the toolbar.</string>
+    <!-- Spoken for a folder cell. %1$s is the folder name. -->
+    <plurals name="ime_toolbox_folder_desc">
+        <item quantity="one">%1$s, folder with %2$d tool</item>
+        <item quantity="other">%1$s, folder with %2$d tools</item>
+    </plurals>
 
     <!-- Tool panels that open over the keys. -->
     <string name="ime_translate_hint">Type the text to translate…</string>
@@ -627,6 +690,40 @@
     <string name="ime_emoji_tab_search_desc">Search emoji</string>
     <string name="ime_emoji_tab_kaomoji">Kaomoji</string>
     <string name="ime_emoji_tab_emoticons">Emoticons</string>
+
+    <!-- The kaomoji tab: its tag strip, edit rail, editor and tag list. -->
+    <string name="ime_kaomoji_all">All</string>
+    <string name="ime_kaomoji_favourites">Favourites</string>
+    <string name="ime_kaomoji_recent">Recent</string>
+    <string name="ime_kaomoji_untagged">No tag</string>
+    <string name="ime_kaomoji_search">Search kaomoji</string>
+    <string name="ime_kaomoji_search_hint">Search by tag or face</string>
+    <string name="ime_kaomoji_add">Add a kaomoji</string>
+    <string name="ime_kaomoji_edit_mode">Edit kaomoji</string>
+    <string name="ime_kaomoji_done">Done</string>
+    <string name="ime_kaomoji_tags">Tags</string>
+    <string name="ime_kaomoji_favourite">Add to favourites</string>
+    <string name="ime_kaomoji_unfavourite">Remove from favourites</string>
+    <string name="ime_kaomoji_edit">Edit</string>
+    <string name="ime_kaomoji_copy">Copy</string>
+    <string name="ime_kaomoji_delete">Delete</string>
+    <string name="ime_kaomoji_delete_confirm">Tap again to delete</string>
+    <string name="ime_kaomoji_cancel">Cancel</string>
+    <string name="ime_kaomoji_save">Save</string>
+    <string name="ime_kaomoji_face_hint">Type or paste a face</string>
+    <string name="ime_kaomoji_new_tag">New tag</string>
+    <string name="ime_kaomoji_rename">Rename tag</string>
+    <string name="ime_kaomoji_rename_hint">Tag name</string>
+    <string name="ime_kaomoji_move_up">Move up</string>
+    <string name="ime_kaomoji_move_down">Move down</string>
+    <string name="ime_kaomoji_hide_tag">Hide from the tag strip</string>
+    <string name="ime_kaomoji_show_tag">Show in the tag strip</string>
+    <string name="ime_kaomoji_more_settings">Kaomoji settings</string>
+    <string name="ime_kaomoji_kind_kaomoji">Kaomoji</string>
+    <string name="ime_kaomoji_kind_emoticon">Emoticon</string>
+    <string name="ime_kaomoji_empty">No kaomoji here yet. Add one with +.</string>
+    <string name="ime_kaomoji_empty_favourites">Hold a face and tap the star to keep it here.</string>
+    <string name="ime_kaomoji_empty_recent">The faces you use show up here.</string>
     <string name="ime_emoji_tab_most_used">Most used</string>
     <string name="ime_emoji_tab_recent">Recent</string>
     <string name="ime_emoji_clear_recents">Clear recents</string>
@@ -667,6 +764,19 @@
     <string name="ime_clip_edit_title">Edit clip</string>
     <string name="ime_clip_edit_save">Save</string>
     <string name="ime_clip_edit_placeholder">Type the clip’s text</string>
+    <!-- A clip's own labels (#612): the hold popup's action, and the editor opened on them. -->
+    <string name="ime_clip_tags">Tags</string>
+    <string name="ime_clip_tags_title">Tags</string>
+    <string name="ime_clip_tags_placeholder">Tags, with a comma between them</string>
+    <!-- The hold popup's action and the clip shortcut button that open the QR code tool on a text clip (#766). -->
+    <string name="ime_clip_qr">QR code</string>
+    <!-- A folder of pinned clips (#768), named after a tag. %1$s is the tag, %2$d how many clips it holds. -->
+    <plurals name="ime_clip_folder_open_desc">
+        <item quantity="one">Open folder %1$s, %2$d clip</item>
+        <item quantity="other">Open folder %1$s, %2$d clips</item>
+    </plurals>
+    <!-- The back button over an open folder of pinned clips (#768). -->
+    <string name="ime_clip_folder_back_desc">Back to pinned clips</string>
     <string name="ime_clip_edit_rich_note">Saving a change drops the formatting</string>
     <!-- The bar at the bottom of the clipboard panel after a delete. %1$d is how many clips it would bring back. -->
     <plurals name="ime_clip_deleted">
@@ -680,6 +790,7 @@
     <string name="ime_clip_open_link">Open link</string>
     <string name="ime_clip_view_image">View</string>
     <string name="ime_clip_extract_text">Extract text</string>
+    <string name="ime_clip_translate_image">Translate</string>
     <string name="ime_clip_extract_parts">Extract</string>
     <string name="ime_clip_extract_links">Links</string>
     <string name="ime_clip_extract_places">Places</string>
@@ -723,6 +834,26 @@
     <string name="ime_clip_filter_all">All</string>
     <string name="ime_clip_filter_images">Images</string>
     <string name="ime_clip_filter_files">Files</string>
+    <!-- Filter showing clips with the same text but for case and spacing (#612). -->
+    <string name="ime_clip_filter_duplicates">Duplicates</string>
+    <!-- Hold popup: delete the other clips the duplicates filter groups with this one (#612). -->
+    <string name="ime_clip_keep_only">Keep only this one</string>
+    <!-- Hold popup, while searching: close the search and scroll the history to this clip (#612). -->
+    <string name="ime_clip_show_in_history">Show in history</string>
+    <!-- Selection bar: run the copy rules over the picked clips (#612). -->
+    <string name="ime_clip_tidy">Tidy</string>
+    <string name="ime_clip_tidy_none_toast">The copy rules change nothing in these clips</string>
+    <!-- Clipboard selection bar button: converts the picked clips' Burmese between Zawgyi (the old font encoding) and Unicode. -->
+    <string name="ime_clip_zawgyi">Zawgyi ⇄ Unicode</string>
+    <string name="ime_clip_zawgyi_none_toast">Nothing in these clips needed converting</string>
+    <plurals name="ime_clip_zawgyi_converted_toast">
+        <item quantity="one">Converted %1$d clip</item>
+        <item quantity="other">Converted %1$d clips</item>
+    </plurals>
+    <plurals name="ime_clip_tidied_toast">
+        <item quantity="one">%1$d clip tidied</item>
+        <item quantity="other">%1$d clips tidied</item>
+    </plurals>
     <!-- The button that brings back the folded strip of parts found in clips. %1$d is how many parts it holds. -->
     <plurals name="ime_clip_entity_show_desc">
         <item quantity="one">Show %1$d part found in your clips</item>
@@ -745,8 +876,13 @@
         <item quantity="other">Combine %1$d clips</item>
     </plurals>
     <string name="ime_clip_combine_joiner">Between the clips</string>
-    <string name="ime_clip_combine_base">In front of them all (optional)</string>
-    <string name="ime_clip_combine_append">Keep only the part that matches this pattern (optional)</string>
+    <string name="ime_clip_combine_base">Prefix, in front of them all (optional, $1 is the first clip\'s group)</string>
+    <string name="ime_clip_combine_append">Pattern: keep only the part that matches (optional)</string>
+    <string name="ime_clip_combine_template">Combination: what each match becomes, $1 for its groups (optional)</string>
+    <string name="ime_clip_combine_result">Result, press to edit</string>
+    <string name="ime_clip_combine_result_edited">Result, edited by hand</string>
+    <string name="ime_clip_combine_originals">The clips, with the part each gives marked</string>
+    <string name="ime_clip_combine_delete">Delete these clips after combining</string>
     <string name="ime_clip_combine_bad_pattern">The pattern is not finished, so nothing can be combined yet</string>
     <string name="ime_clip_combine_no_match">No clip has a part that matches the pattern</string>
     <string name="ime_clip_joiner_space">Space</string>
@@ -756,7 +892,7 @@
     <string name="ime_clip_joiner_bar">Bar</string>
     <!-- Dragging clips into an order of the user's own (#612). -->
     <string name="ime_clip_reorder">Reorder</string>
-    <string name="ime_clip_reorder_hint">Drag a clip by its handle to move it. It stays where you put it.</string>
+    <string name="ime_clip_reorder_hint">Drag a clip by its handle, or press and hold it, to move it. It stays where you put it.</string>
     <string name="ime_clip_reorder_done">Done</string>
     <string name="ime_clip_reorder_handle_desc">Drag to move this clip</string>
     <string name="ime_clip_reorder_top_desc">Move to the top</string>
@@ -830,6 +966,7 @@
     <string name="ime_language_picker_language_settings">Language settings</string>
 
     <!-- The chip the suggestion strip shows for a tool. %1$s is a tool name. -->
+    <string name="ime_smart_send_link">Receive the file</string>
     <string name="ime_smart_open_tool">Open %1$s</string>
     <!-- Where a currency chip's converted amount would be, while the exchange
          rates wait for a tap before they are fetched. -->
@@ -852,6 +989,10 @@
     <string name="ime_smart_gif_offer">Find a GIF</string>
     <!-- The message button on a contact chip, for screen readers. %1$s is the contact's name. -->
     <string name="ime_smart_contact_message">Text <xliff:g id="name" example="Jane Doe">%1$s</xliff:g></string>
+    <!-- The repeat chip: the same text typed several times in a row. %1$s is that text. -->
+    <string name="ime_smart_repeat_offer">Repeat “<xliff:g id="text" example="no">%1$s</xliff:g>”</string>
+    <!-- The small count beside it. %1$s is how many copies are in the field so far. -->
+    <string name="ime_smart_repeat_count">×<xliff:g id="count" example="3">%1$s</xliff:g></string>
 
     <!-- Badge on the preview of a theme that moves while you type. -->
     <string name="ime_theme_animated_badge">Animated</string>

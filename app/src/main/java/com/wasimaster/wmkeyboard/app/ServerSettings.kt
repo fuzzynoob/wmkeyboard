@@ -24,8 +24,6 @@ import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceGroup
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceRepo
-import com.wasimaster.wmkeyboard.core.settings.AiProvider
-import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import kotlinx.coroutines.launch
 
@@ -97,69 +95,17 @@ internal fun ServerFieldsGroup(
 }
 
 /**
- * The three services that were settable before this screen existed. Their own
- * fields stay as they were, since blank means "not set up" there rather than
- * "the default"; the Servers screen just shows them with the rest.
+ * The self-hosted services each group carries besides its endpoints. None are
+ * left: LibreTranslate, SearXNG, the MediaWiki, the AI servers (Ollama, LM
+ * Studio, an OpenAI-compatible gateway) and transcription servers are rows of
+ * their tools' provider lists, set up on the tools' own pages.
  */
+@Suppress("UNUSED_PARAMETER", "UnusedReceiverParameter")
 private fun SettingsGroupScope.selfHostedItems(
     group: ServiceGroup,
     repository: SettingsRepository,
     settings: LiveSettings,
-) {
-    when (group) {
-        ServiceGroup.TRANSLATE -> item {
-            TextFieldSetting(
-                label = stringResource(R.string.tooldetail_translate_instance_label),
-                value = settings.watch { it.selfHosted.libreTranslateUrl },
-                hint = stringResource(R.string.tooldetail_translate_instance_hint),
-                default = SettingsDefaults.selfHosted.libreTranslateUrl,
-            ) { repository.setLibreTranslateUrl(it) }
-        }
-        ServiceGroup.SEARCH -> item {
-            TextFieldSetting(
-                label = stringResource(R.string.tooldetail_search_instance_label),
-                value = settings.watch { it.selfHosted.searxUrl },
-                hint = stringResource(R.string.tooldetail_search_instance_hint),
-                default = SettingsDefaults.selfHosted.searxUrl,
-            ) { repository.setSearxUrl(it) }
-        }
-        ServiceGroup.MEDIA -> item {
-            TextFieldSetting(
-                label = stringResource(R.string.tooldetail_media_wiki_label),
-                value = settings.watch { it.selfHosted.commonsUrl },
-                hint = stringResource(R.string.tooldetail_media_wiki_hint),
-                default = SettingsDefaults.selfHosted.commonsUrl,
-            ) { repository.setCommonsUrl(it) }
-        }
-        ServiceGroup.AI -> {
-            item {
-                TextFieldSetting(
-                    label = stringResource(AiProvider.OLLAMA.labelRes),
-                    value = settings.watch { it.ai.ollamaUrl },
-                    hint = stringResource(R.string.toolai_ai_server_address_label),
-                    default = SettingsDefaults.ai.ollamaUrl,
-                ) { repository.setAiOllamaUrl(it) }
-            }
-            item {
-                TextFieldSetting(
-                    label = stringResource(AiProvider.LM_STUDIO.labelRes),
-                    value = settings.watch { it.ai.lmStudioUrl },
-                    hint = stringResource(R.string.toolai_ai_server_address_label),
-                    default = SettingsDefaults.ai.lmStudioUrl,
-                ) { repository.setAiLmStudioUrl(it) }
-            }
-            item {
-                TextFieldSetting(
-                    label = stringResource(AiProvider.OPENAI_COMPATIBLE.labelRes),
-                    value = settings.watch { it.ai.compatibleUrl },
-                    hint = stringResource(R.string.toolai_ai_compatible_url_label),
-                    default = SettingsDefaults.ai.compatibleUrl,
-                ) { repository.setAiCompatibleUrl(it) }
-            }
-        }
-        else -> Unit
-    }
-}
+) = Unit
 
 /** One service's address. Empty means the service's own server, which the hint names. */
 @Composable
@@ -305,6 +251,8 @@ internal val ServiceEndpoint.labelRes: Int
         ServiceEndpoint.TAVILY -> R.string.servers_tavily
         ServiceEndpoint.KLIPY -> R.string.servers_klipy
         ServiceEndpoint.GIPHY -> R.string.servers_giphy
+        ServiceEndpoint.GIFCITIES -> R.string.servers_gifcities
+        ServiceEndpoint.WAYBACK_MACHINE -> R.string.servers_wayback_machine
         ServiceEndpoint.SIGNAL_STICKER_CDN -> R.string.servers_signal_sticker_cdn
         ServiceEndpoint.TELEGRAM_BOT_API -> R.string.servers_telegram_bot_api
         ServiceEndpoint.UNSPLASH -> R.string.servers_unsplash

@@ -1,8 +1,9 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
 import androidx.compose.material.icons.Icons
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoStories
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.History
+import androidx.compose.ui.graphics.vector.ImageVector
+import com.wasimaster.wmkeyboard.core.icons.IconSlots
+import com.wasimaster.wmkeyboard.core.icons.SymbolIcons
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowBack
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowForward
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Assignment
@@ -15,11 +16,14 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Keyboa
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.LastPage
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Redo
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Send
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.StickyNote2
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.TextSnippet
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Undo
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeUp
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Apps
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AspectRatio
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoStories
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.BarChart
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.BatterySaver
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Brush
@@ -39,22 +43,25 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.DirectionsCar
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.DocumentScanner
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Draw
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EditNote
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FormatShapes
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EmojiEmotions
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Extension
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EmojiFlags
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EmojiNature
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EmojiObjects
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EmojiPeople
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EmojiSymbols
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Explore
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Extension
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Fastfood
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FindReplace
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FirstPage
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FlashlightOn
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FormatShapes
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Functions
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.GraphicEq
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.GridView
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HighlightAlt
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.History
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HomeIotDevice
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ImageSearch
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Keyboard
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowDown
@@ -66,6 +73,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardDoubleArrow
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardDoubleArrowUp
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardHide
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Language
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.LocationOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Mic
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MusicNote
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Palette
@@ -73,24 +81,23 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Password
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Pets
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Phonelink
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoCamera
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AspectRatio
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoLibrary
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PictureInPictureAlt
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Public
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PushPin
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCode2
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QueryStats
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FindReplace
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.StickyNote2
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.LocationOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCodeScanner
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QueryStats
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Quickreply
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Repeat
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Schedule
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.School
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SelectAll
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SentimentSatisfied
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Settings
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Speed
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SmartButton
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Speed
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Spellcheck
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SportsSoccer
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapHoriz
@@ -102,10 +109,6 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VerticalSplit
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Vibration
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ViewHeadline
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VisibilityOff
-import androidx.compose.ui.graphics.vector.ImageVector
-import com.wasimaster.wmkeyboard.core.icons.IconSlots
-import com.wasimaster.wmkeyboard.core.icons.SymbolIcons
-import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Quickreply
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.ime.EnterAction
 
@@ -131,6 +134,10 @@ object IconDefaults {
         // two sit side by side on a toolbar often enough that sharing a
         // glyph left only their position to tell them apart (#414).
         ToolbarTool.CLIPBOARD -> Icons.AutoMirrored.Outlined.Assignment
+        ToolbarTool.CLIPBOARD_SEARCH -> Icons.Outlined.Search
+        ToolbarTool.RECENT_COPIES -> Icons.Outlined.History
+        ToolbarTool.LEAVE_FIELD -> Icons.Outlined.Close
+        ToolbarTool.QUICK_NOTE -> Icons.Outlined.EditNote
         ToolbarTool.SNIPPETS -> Icons.AutoMirrored.Outlined.TextSnippet
         ToolbarTool.TEXT_EDIT -> Icons.Outlined.EditNote
         ToolbarTool.TRACKPAD -> SymbolIcons.TrackpadInput
@@ -182,14 +189,19 @@ object IconDefaults {
         ToolbarTool.CURRENCY -> Icons.Outlined.CurrencyExchange
         ToolbarTool.QR_GEN -> Icons.Outlined.QrCode2
         ToolbarTool.PASSWORD_GEN -> Icons.Outlined.Password
+        ToolbarTool.TEXT_REPEAT -> Icons.Outlined.Repeat
+        ToolbarTool.READ_BACK -> Icons.AutoMirrored.Outlined.VolumeUp
         ToolbarTool.TYPING_TEST -> Icons.Outlined.Speed
         // The settings app's own Statistics glyph, so the tool and the row it
         // opens look like the same thing.
         ToolbarTool.STATISTICS -> Icons.Outlined.QueryStats
         ToolbarTool.FIND_REPLACE -> Icons.Outlined.FindReplace
-        ToolbarTool.NOTES -> Icons.Outlined.StickyNote2
+        ToolbarTool.NOTES -> Icons.AutoMirrored.Outlined.StickyNote2
         ToolbarTool.LOCATION -> Icons.Outlined.LocationOn
         ToolbarTool.CLOCK -> Icons.Outlined.Schedule
+        ToolbarTool.HOME_ASSISTANT -> Icons.Outlined.HomeIotDevice
+        ToolbarTool.SEND_FILES -> Icons.AutoMirrored.Outlined.Send
+        ToolbarTool.GALLERY -> Icons.Outlined.PhotoLibrary
         ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
         ToolbarTool.KDE_CONNECT -> Icons.Outlined.Phonelink
         ToolbarTool.PLUGINS -> Icons.Outlined.Extension
@@ -207,6 +219,7 @@ object IconDefaults {
         ToolbarTool.CURSOR_HOME -> Icons.Outlined.FirstPage
         ToolbarTool.CURSOR_END -> Icons.AutoMirrored.Outlined.LastPage
         ToolbarTool.HIDE_KEYBOARD -> Icons.Outlined.KeyboardHide
+        ToolbarTool.LANGUAGE -> Icons.Outlined.Language
         ToolbarTool.PAGE_UP -> Icons.Outlined.KeyboardDoubleArrowUp
         ToolbarTool.PAGE_DOWN -> Icons.Outlined.KeyboardDoubleArrowDown
         ToolbarTool.SELECT_WORD -> Icons.Outlined.HighlightAlt
@@ -315,6 +328,7 @@ object IconDefaults {
         put(IconSlots.CHROME_POWER_SAVING, Icons.Outlined.BatterySaver)
         put(IconSlots.CHROME_SHOW_KEYS, Icons.Outlined.Keyboard)
         put(IconSlots.CHROME_HIDE_KEYS, Icons.Outlined.KeyboardHide)
+        put(IconSlots.CHROME_TOOLBOX_SEARCH, Icons.Outlined.Search)
 
         put(IconSlots.EMOJI_TAB_SEARCH, Icons.Outlined.Search)
         put(IconSlots.EMOJI_TAB_RECENT, Icons.Outlined.Schedule)

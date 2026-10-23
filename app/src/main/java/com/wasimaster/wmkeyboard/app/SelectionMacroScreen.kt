@@ -36,6 +36,7 @@ internal fun SelectionMacroSettingsScreen(
     val scope = rememberCoroutineScope()
     // What decides which rows the groups hold; each row reads its own value.
     val macrosOn = settings.watch { it.selectionMacros.enabled }
+    val ownRow = settings.watch { it.selectionMacros.placement == SelectionMacroPlacement.OWN_ROW }
 
     SettingsGroup {
         item {
@@ -84,6 +85,17 @@ internal fun SelectionMacroSettingsScreen(
                 default = SettingsDefaults.selectionMacros.inEverySelection,
             ) { scope.launch { repository.setSelectionMacrosInEverySelection(it) } }
         }
+        // The always-shown row (#763). Hidden on the strip placement, which it
+        // does not apply to: there it would take the suggestions for good.
+        item(visible = macrosOn && ownRow) {
+            ToggleSetting(
+                R.string.selection_macros_caret_title,
+                stringResource(R.string.selection_macros_caret_subtitle),
+                settings.watch { it.selectionMacros.withoutSelection },
+                info = stringResource(R.string.selection_macros_caret_info),
+                default = SettingsDefaults.selectionMacros.withoutSelection,
+            ) { scope.launch { repository.setSelectionMacrosWithoutSelection(it) } }
+        }
     }
 
     // The whole group goes with the switch above it — SettingsGroup draws
@@ -111,6 +123,14 @@ internal fun SelectionMacroSettingsScreen(
                 ),
                 route = SelectionMacroActionsRoute,
             ) { onNavigate(SelectionMacroActionsRoute) }
+        }
+        item {
+            NavRow(
+                R.string.selection_macros_icons_title,
+                subtitle = stringResource(R.string.selection_macros_icons_subtitle),
+                value = settings.watch { s -> s.selectionMacros.iconOnly.count { it in s.selectionMacros.macros } }.toString(),
+                route = SelectionMacroIconsRoute,
+            ) { onNavigate(SelectionMacroIconsRoute) }
         }
         item {
             NavRow(

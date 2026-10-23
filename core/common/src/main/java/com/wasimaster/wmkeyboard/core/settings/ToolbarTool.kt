@@ -1,7 +1,6 @@
 package com.wasimaster.wmkeyboard.core.settings
 
 import com.wasimaster.wmkeyboard.config.BuildConfig
-import com.wasimaster.wmkeyboard.core.util.PlayServices
 
 // Extracted from SettingsRepository.kt so the low-level modules (icons, tools,
 // media) can reference these types without depending on the settings module —
@@ -117,6 +116,51 @@ enum class ToolbarTool {
     // before the first unlock, but the panel itself waits for the unlock like
     // the other tools that keep files.
     CLOCK,
+    // The user's Home Assistant from the keyboard: rooms of tiles for lights,
+    // switches, covers, climate, media, locks, scenes and sensors, live over
+    // its WebSocket, plus a typed Assist command bar. Talks only to the
+    // server the user signed in to. Needs the token, which is in
+    // credential-encrypted storage, so not before the first unlock.
+    HOME_ASSISTANT,
+    // The phone's photos and videos inside the keyboard, Telegram's attach
+    // sheet: albums, multi-select, a viewer, an editor, and a send that hands
+    // the app only a copy of what was picked (#708). Play builds open
+    // Android's photo picker instead of the grid; see ChannelFeatures.
+    GALLERY,
+    // The next language, as the 🌐 key switches it (issue #667): for a bottom
+    // row with no globe key, or one whose globe sits where a comma is meant.
+    LANGUAGE,
+    // The clipboard opened straight into its search (#612). Action-only: for
+    // a flick, a key or a hold, never a toolbar tile; see [ActionOnlyTools].
+    CLIPBOARD_SEARCH,
+    // The row of the latest copies on the suggestion strip (#612), up until a
+    // key is typed. Action-only, like [CLIPBOARD_SEARCH]: bound to the Copy
+    // tool's hold, it is the last few copies one press away.
+    RECENT_COPIES,
+    // A piece of text written out many times: "ha" fifty times, a numbered
+    // list of one line, "no" with its last letter stretched. Opened by its
+    // chip when the same thing has just been typed a few times in a row.
+    TEXT_REPEAT,
+    // Files to other people (#729): encrypted on the phone and uploaded to a Send
+    // instance as a link with an expiry, a download limit and a password, or
+    // straight to a device nearby over Wi-Fi. Receives both kinds too.
+    SEND_FILES,
+    // Out of the field, not just the keyboard down (#626). Android gives a
+    // keyboard no way to take another app's focus, but Esc does it in the
+    // apps that answer it (a browser's address bar among them): one Esc,
+    // a second if the field is still there, then the keyboard goes.
+    // Action-only, like [CLIPBOARD_SEARCH]: meant for the floating button's
+    // tap while the keyboard is up, a flick or a key.
+    LEAVE_FIELD,
+    // Reads the typed text aloud: the selection, or the field around the
+    // caret, in the keyboard's language. A downloaded MMS voice reads it
+    // offline when there is one, the phone's own voice otherwise. A second
+    // tap stops it.
+    READ_BACK,
+    // A new note, the keys already typing into its body, in the Notes panel
+    // with a row of the latest notes under it to switch to one and add to it
+    // (#864). Action-only, like [CLIPBOARD_SEARCH].
+    QUICK_NOTE,
 }
 
 /** The cursor tools, in the order they read on the toolbar. */
@@ -175,7 +219,7 @@ val HoldRepeatCursorTools: Set<ToolbarTool> = setOf(
 fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.EMOJI, ToolbarTool.TEXT_EDIT, ToolbarTool.TRACKPAD, ToolbarTool.NUMPAD,
     ToolbarTool.SYMBOLS, ToolbarTool.ONE_HANDED, ToolbarTool.SPLIT, ToolbarTool.FLOATING, ToolbarTool.RESIZE,
-    ToolbarTool.HIDE_KEYBOARD, ToolbarTool.PERSISTENT,
+    ToolbarTool.HIDE_KEYBOARD, ToolbarTool.LEAVE_FIELD, ToolbarTool.PERSISTENT,
     ToolbarTool.THEMES, ToolbarTool.AUTOCORRECT, ToolbarTool.SOUND_HAPTICS, ToolbarTool.INCOGNITO,
     ToolbarTool.MODES, ToolbarTool.UNDO, ToolbarTool.REDO, ToolbarTool.POWER_SAVING,
     // The fancy layout ships in the assets and its styles are code, so it
@@ -192,12 +236,17 @@ fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
     // Reads and edits only the field. Its search history is credential-
     // protected and simply reads empty before the first unlock.
     ToolbarTool.FIND_REPLACE,
+    // Writes into the field only; its recent texts are credential-protected
+    // and read empty before the first unlock, like Find and replace's history.
+    ToolbarTool.TEXT_REPEAT,
     ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.PASSWORD_GEN, ToolbarTool.QR_GEN,
     ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     // Copy and cut only touch the field the user is already typing in. Paste is
     // left out: the clipboard is credential-encrypted, so before the first
     // unlock the button would be there and do nothing.
     ToolbarTool.COPY, ToolbarTool.CUT,
+    // Languages are settings, mirrored into the pre-unlock store.
+    ToolbarTool.LANGUAGE,
     -> true
     // The cursor moves only touch the input connection.
     else -> tool in CursorTools
@@ -221,25 +270,25 @@ fun toolOpensScreen(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.RESIZE,
     ToolbarTool.FLASHLIGHT, ToolbarTool.UNDO, ToolbarTool.REDO,
     ToolbarTool.INCOGNITO, ToolbarTool.POWER_SAVING, ToolbarTool.AUTOCORRECT,
-    ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.HIDE_KEYBOARD,
-    ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH,
+    ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.HIDE_KEYBOARD, ToolbarTool.LEAVE_FIELD,
+    ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH, ToolbarTool.LANGUAGE,
+    ToolbarTool.RECENT_COPIES, ToolbarTool.READ_BACK,
     -> false
     // The cursor moves nudge the caret and nothing else, and the clipboard trio
     // acts on the selection in place.
     else -> tool !in CursorTools && tool !in ClipboardTools
 }
 
+// Handwriting is in every build: where ML Kit's recogniser is not
+// (F-Droid's), zinnia still reads Chinese and Japanese, and the panel says
+// so for any other language. So is the QR scanner, which reads with
+// zxing-cpp where ML Kit's barcode reader is not, and text scan, which reads
+// with PaddleOCR on MNN where neither ML Kit nor LiteRT is.
 fun isSupportedTool(tool: ToolbarTool): Boolean = when {
-    !BuildConfig.ENABLE_ML_KIT_HANDWRITING && tool == ToolbarTool.HANDWRITING -> false
-    !BuildConfig.ENABLE_ML_KIT_SCANNERS && tool in setOf(
-        ToolbarTool.OCR, ToolbarTool.QR_SCAN, ToolbarTool.DOC_SCAN
-    ) -> false
     !BuildConfig.ENABLE_GRAMMAR && tool == ToolbarTool.GRAMMAR -> false
-    // The only tool that is not this app's own code: the scanner is an
-    // activity inside Play services, so on a device without it the tool can
-    // do nothing but apologise. OCR and QR stay — their models are in the
-    // APK and run with no Play services at all.
-    !PlayServices.available && tool == ToolbarTool.DOC_SCAN -> false
+    // The document scanner is offered everywhere: Google's (an activity
+    // inside Play services) where it can run, the built-in OpenCV one
+    // everywhere else, F-Droid's build and phones without Play services.
     else -> true
 }
 
@@ -253,12 +302,24 @@ fun isSupportedTool(tool: ToolbarTool): Boolean = when {
 val OptInOnlyTools: Set<ToolbarTool> = setOf(ToolbarTool.LEARN_FROM_TEXT)
 
 /**
+ * Tools that are only ever something a gesture does: a flick arm, a key or its
+ * long press, a toolbar button's hold, the floating button. They never sit on
+ * the toolbar or in the toolbox, have no page on the Tools screen and are
+ * never "enabled": the pickers for those bindings are where they live. The
+ * bindings run through paths that skip the enabled-tools test, so they fire
+ * regardless.
+ */
+val ActionOnlyTools: Set<ToolbarTool> =
+    setOf(ToolbarTool.CLIPBOARD_SEARCH, ToolbarTool.RECENT_COPIES, ToolbarTool.LEAVE_FIELD, ToolbarTool.QUICK_NOTE)
+
+/**
  * The "Everything" preset, and the enabled-tools default before setup swaps
- * it for a persona's set: every tool except [OptInOnlyTools]. Onboarding
+ * it for a persona's set: every tool except [OptInOnlyTools] and [ActionOnlyTools]
+ * (declared above it, since top-level initialisation runs in file order). Onboarding
  * compares the stored set against this one to tell an untouched default from
  * a user's own choice.
  */
-val EverythingTools: List<ToolbarTool> = ToolbarTool.entries.filterNot { it in OptInOnlyTools }
+val EverythingTools: List<ToolbarTool> = ToolbarTool.entries.filterNot { it in OptInOnlyTools || it in ActionOnlyTools }
 
 /**
  * The onboarding starting selection for the "keep it simple" persona: what a
@@ -294,17 +355,20 @@ val RecommendedTools: Set<ToolbarTool> = MinimalTools + setOf(
  * their converters and their calendar already on.
  */
 val PowerTools: Set<ToolbarTool> = RecommendedTools + setOf(
-    ToolbarTool.WIKIPEDIA, ToolbarTool.VOCABULARY, ToolbarTool.NOTES, ToolbarTool.POWER_SAVING, ToolbarTool.MODES,
+    ToolbarTool.WIKIPEDIA, ToolbarTool.VOCABULARY, ToolbarTool.NOTES, ToolbarTool.GALLERY, ToolbarTool.POWER_SAVING,
+    ToolbarTool.MODES,
     ToolbarTool.NUMPAD,
     ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.UNIT_CONVERT, ToolbarTool.CURRENCY,
-    ToolbarTool.PASSWORD_GEN, ToolbarTool.CALENDAR, ToolbarTool.CLOCK, ToolbarTool.WEATHER, ToolbarTool.LOCATION,
-    ToolbarTool.MEDIA_CONTROL, ToolbarTool.KDE_CONNECT, ToolbarTool.APP_LAUNCHER, ToolbarTool.HIDE_KEYBOARD,
+    ToolbarTool.PASSWORD_GEN, ToolbarTool.TEXT_REPEAT, ToolbarTool.CALENDAR, ToolbarTool.CLOCK, ToolbarTool.WEATHER,
+    ToolbarTool.LOCATION,
+    ToolbarTool.MEDIA_CONTROL, ToolbarTool.KDE_CONNECT, ToolbarTool.HOME_ASSISTANT, ToolbarTool.SEND_FILES,
+    ToolbarTool.APP_LAUNCHER, ToolbarTool.HIDE_KEYBOARD,
 )
 
 /**
  * What a starter set gains when part of it cannot run on this device.
  *
- * Handwriting and text scanning are the pair that goes missing — the lite
+ * Handwriting and text scanning are the pair that goes missing — the F-Droid
  * build ships neither, and the document scanner beside them needs Google
  * services — and a "recommended" set that quietly arrives two tools short is
  * a worse set rather than a smaller one. Both stand-ins run anywhere: an
@@ -320,10 +384,10 @@ val ToolTopUps: Set<ToolbarTool> = setOf(ToolbarTool.WIKIPEDIA, ToolbarTool.POWE
 private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH, ToolbarTool.AI_REPLY,
     ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.FIND_REPLACE, ToolbarTool.TYPING_TEST, ToolbarTool.STATISTICS, ToolbarTool.PLUGINS,
-    ToolbarTool.CUSTOM_LAYOUT,
+    ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.LANGUAGE,
     ToolbarTool.FLOATING, ToolbarTool.PERSISTENT, ToolbarTool.RESIZE, ToolbarTool.INCOGNITO,
     ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH, ToolbarTool.SOUND_HAPTICS,
-    ToolbarTool.QR_SCAN, ToolbarTool.QR_GEN, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA,
+    ToolbarTool.QR_SCAN, ToolbarTool.QR_GEN, ToolbarTool.TEXT_REPEAT, ToolbarTool.READ_BACK, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA,
     ToolbarTool.FLASHLIGHT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     // The one-tap cursor moves last: useful, but they would otherwise push
     // every other tool a full row down in the toolbox.
@@ -334,6 +398,8 @@ private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE, ToolbarTool.SELECT_ALL,
     ToolbarTool.SELECT_MODE,
     ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE,
+    ToolbarTool.CLIPBOARD_SEARCH, ToolbarTool.RECENT_COPIES, ToolbarTool.LEAVE_FIELD,
+    ToolbarTool.QUICK_NOTE,
 )
 
 /**

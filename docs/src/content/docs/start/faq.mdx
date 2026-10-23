@@ -15,7 +15,7 @@ Quick answers to the questions people ask before they've read anything else. Eac
 
 No, not by default, and not for typing itself. WM Keyboard's prediction, autocorrect, gesture typing, and dictionaries all run entirely on your device, and there's no analytics SDK anywhere in the app. The one exception worth knowing is Google's ML Kit, which handwriting, OCR and QR/document scanning are built on: it reports its own diagnostics to Google while you use those features, never anything you typed. See [Privacy at a glance](/privacy/overview/).
 
-What does need the internet is a handful of optional toolbar tools that are online services by nature: weather (Open‑Meteo), the dictionary look‑up, translate (the Full edition can also translate on the device, with no connection, once you download the languages), currency conversion, Wikipedia, GIF/sticker search (KLIPY, GIPHY), and web/image search (Brave, Tavily), plus any AI tool you set up with your own API key. Almost all of them make a request only when you open and use the tool. Link previews are the one opt‑in exception. Turn that on and copying a URL anywhere on the device, or scanning a QR code, fetches the page title in the background without any WM Keyboard tool being open. It's off by default, and Power saving can drop it along with the other background network fetches. See [Network policy](/privacy/network/) for the full tool‑by‑tool breakdown of what gets sent where.
+What does need the internet is a handful of optional toolbar tools that are online services by nature: weather (Open‑Meteo), the dictionary look‑up, translate (every build can also translate on the device, with no connection, once you download the languages), currency conversion, Wikipedia, GIF/sticker search (KLIPY, GIPHY), and web/image search (Brave, Tavily), plus any AI tool you set up with your own API key. Almost all of them make a request only when you open and use the tool. Link previews are the one opt‑in exception. Turn that on and copying a URL anywhere on the device, or scanning a QR code, fetches the page title in the background without any WM Keyboard tool being open. It's off by default, and Power saving can drop it along with the other background network fetches. See [Network policy](/privacy/network/) for the full tool‑by‑tool breakdown of what gets sent where.
 
 There is no release without the internet permission, but you can build one: [Building](/development/building/#a-build-with-no-internet-permission) takes one extra property, and everything that runs on the device keeps working in it.
 
@@ -45,7 +45,7 @@ Nothing runs in the background out of the box. The keyboard is a normal Android 
 
 If you're on a storage- or RAM-constrained device, two things help further:
 
-- **Lite edition** drops the ML Kit, Harper, and LiteRT native libraries behind handwriting, OCR/document scanning, grammar checking, offline Whisper, and the local LLM. See [Full vs Lite](/start/editions/) for the full comparison.
+- **Leave heavy features alone.** Their libraries are not in the APK until a feature asks for one, so a tool you never open costs no storage. See [Which build you have](/start/editions/).
 - **Power saving** is a dedicated mode that trims the costliest per-keystroke work: vibration, key sounds, animations, the glide trail, Words on the keys, background network look-ups, screenshot watching, and the on-device voice/handwriting models, either by hand or automatically.
 
 <SettingsPath path="Tools / Power saving" />
@@ -96,7 +96,7 @@ Export a diagnostic report from the app first. Then use one of the two **Feedbac
 
 <SettingsPath path="About / Diagnostics" />
 
-This screen shows what the keyboard has recorded since it last started, plus any crash it didn't survive. The page states plainly that nothing you type is ever recorded here. **Share diagnostics** hands the report to Android's share sheet as a file, so no app that only accepts short text can truncate it. **Copy to clipboard** gives you the same report as plain text. An **Include the system log** toggle, off by default, adds the process's full Android log for a hard-to-reproduce bug. Read that log before you send it anywhere: every library in the app writes to it, not only code the keyboard controls.
+This screen shows what the keyboard has recorded since it last started, plus any crash it didn't survive. That includes the size of the navigation bar the keyboard was handed and any time its window was shorter than the keys, so a report of the keyboard sitting on the navigation bar or cut off at the bottom is worth sending with it. The page states plainly that nothing you type is ever recorded here. **Share diagnostics** hands the report to Android's share sheet as a file, so no app that only accepts short text can truncate it. **Copy to clipboard** gives you the same report as plain text. An **Include the system log** toggle, off by default, adds the process's full Android log for a hard-to-reproduce bug. Read that log before you send it anywhere: every library in the app writes to it, not only code the keyboard controls.
 
 Holding the crash text on that screen copies it on its own, with the `version:` and `android:` lines placed in front of it. Those two lines are worth keeping whatever else you trim, since they say which build and which Android version the crash came from.
 

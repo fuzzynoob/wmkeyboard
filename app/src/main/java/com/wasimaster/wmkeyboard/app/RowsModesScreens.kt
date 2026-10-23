@@ -100,6 +100,7 @@ import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
 import com.wasimaster.wmkeyboard.core.settings.KeyboardModeCodec
 import com.wasimaster.wmkeyboard.core.settings.DefaultKeyboardModes
 import com.wasimaster.wmkeyboard.core.settings.ManualModeDuration
+import com.wasimaster.wmkeyboard.core.settings.RecentWordPlacement
 import com.wasimaster.wmkeyboard.core.settings.SymbolRowHeightRange
 import com.wasimaster.wmkeyboard.core.settings.SymbolRowLinesRange
 import com.wasimaster.wmkeyboard.core.settings.SymbolRowScroll
@@ -161,6 +162,7 @@ private fun barRowTitle(row: BarRow, settings: KeyboardSettings): Int = when (ro
     BarRow.DICTIONARY -> R.string.rows_dictionary_bar_title
     BarRow.MACROS -> R.string.rows_bar_macros_title
     BarRow.STICKERS -> R.string.rows_bar_stickers_title
+    BarRow.RECENT -> R.string.typing_recent_word_bar_title
     BarRow.KEYBOARD -> R.string.rows_bar_keyboard_title
 }
 
@@ -206,6 +208,8 @@ private fun barRowStatus(row: BarRow, settings: KeyboardSettings): Int? = when (
     } else {
         R.string.rows_bar_stickers_button_subtitle
     }
+    // Only listed while it has a row of its own ([barRowsListed]).
+    BarRow.RECENT -> CommonR.string.common_off.takeUnless { settings.suggestionStrip.recentWordBar }
     BarRow.KEYBOARD -> null
 }
 
@@ -224,6 +228,7 @@ private fun barRowShown(row: BarRow, settings: KeyboardSettings): Boolean = when
     BarRow.MACROS -> settings.selectionMacros.enabled &&
         settings.selectionMacros.placement == SelectionMacroPlacement.OWN_ROW
     BarRow.STICKERS -> settings.gif.stickerSuggest
+    BarRow.RECENT -> settings.suggestionStrip.recentWordBar
     BarRow.KEYBOARD -> true
 }
 
@@ -241,6 +246,8 @@ internal fun barRowsListed(order: List<BarRow>, settings: KeyboardSettings): Lis
         when (row) {
             BarRow.TOOLS -> settings.toolbarBehavior.placement.isOwnRow
             BarRow.STICKERS -> settings.gif.stickerSuggest
+            // Inline they are part of the strip's entry, as the tools are.
+            BarRow.RECENT -> settings.rows.recentWordPlacement == RecentWordPlacement.OWN_ROW
             else -> true
         }
     }
@@ -349,6 +356,11 @@ private fun BarRowPreview(row: BarRow, shown: Boolean) {
                     modifier = Modifier.size(12.dp),
                     tint = scheme.onSurfaceVariant,
                 )
+            }
+            // A word and the chips of what else it could be, twice.
+            BarRow.RECENT -> repeat(2) {
+                PreviewGlyph("abc")
+                PreviewPill(22.dp, scheme.secondaryContainer)
             }
             BarRow.KEYBOARD -> PreviewKeys(scheme.outline)
         }
@@ -509,6 +521,42 @@ internal fun RowsSettings(
                 settings.watch { fancyTextOn(it) },
                 info = stringResource(R.string.rows_fancy_info),
             ) { on -> scope.launch { setFancyTextOn(repository, settings.value, on) } }
+        }
+    }
+    // The recent words (#894): the switch the Suggestions screen also has,
+    // and where they go. A row of their own is listed in the order above.
+    val recentOn = settings.watch { it.suggestionStrip.recentWordBar }
+    val recentOwnRow = settings.watch { it.rows.recentWordPlacement == RecentWordPlacement.OWN_ROW }
+    SettingsGroup(stringResource(R.string.typing_recent_word_bar_title)) {
+        item {
+            ToggleSetting(
+                R.string.typing_recent_word_bar_title,
+                stringResource(R.string.typing_recent_word_bar_subtitle),
+                settings.watch { it.suggestionStrip.recentWordBar },
+                info = stringResource(R.string.typing_recent_word_bar_info),
+                default = SettingsDefaults.suggestionStrip.recentWordBar,
+            ) { scope.launch { repository.setRecentWordBar(it) } }
+        }
+        item(visible = recentOn) {
+            ChoiceSetting(
+                title = R.string.rows_recent_words_placement_title,
+                info = stringResource(R.string.rows_recent_words_placement_info),
+                options = listOf(
+                    RecentWordPlacement.OWN_ROW to stringResource(R.string.rows_recent_words_placement_row),
+                    RecentWordPlacement.INLINE to stringResource(R.string.rows_recent_words_placement_inline),
+                ),
+                selected = settings.watch { it.rows.recentWordPlacement },
+                default = SettingsDefaults.rows.recentWordPlacement,
+            ) { scope.launch { repository.setRecentWordPlacement(it) } }
+        }
+        item(visible = recentOn && recentOwnRow) {
+            ToggleSetting(
+                R.string.rows_recent_words_steady_title,
+                stringResource(R.string.rows_recent_words_steady_subtitle),
+                settings.watch { it.rows.recentWordSteady },
+                info = stringResource(R.string.rows_recent_words_steady_info),
+                default = SettingsDefaults.rows.recentWordSteady,
+            ) { scope.launch { repository.setRecentWordSteady(it) } }
         }
     }
     SettingsGroup(stringResource(R.string.rows_dictionary_bar_title)) {
@@ -684,7 +732,7 @@ internal fun SymbolRowSettings(
     ) {
         val allSets = resolveSymbolSets(customSets)
         for (set in allSets) {
-            item {
+            item(key = set.id) {
                 val enabled = settings.watch { set.id in it.symbolRowSetIds }
                 val edited = settings.watch { s -> s.customSymbolSets.any { it.id == set.id } }
                 val builtIn = BuiltInSymbolSets.byId(set.id) != null
@@ -722,6 +770,29 @@ internal fun SymbolRowSettings(
                                 }
                             },
                         )
+                    },
+                    // Delete for a set of your own, Reset for a shipped one you
+                    // changed: the editor's button, without opening the editor.
+                    swipeActions = buildList {
+                        add(
+                            SwipeAction(Icons.Outlined.Edit, stringResource(CommonR.string.common_edit)) {
+                                onNavigate(symbolSetEditRoute(set.id))
+                            },
+                        )
+                        if (edited) {
+                            val remove = { scope.launch { repository.deleteSymbolSet(set.id) }; Unit }
+                            add(
+                                if (builtIn) {
+                                    SwipeAction(
+                                        Icons.Outlined.Refresh,
+                                        stringResource(R.string.rows_symbol_set_reset_action),
+                                        onClick = remove,
+                                    )
+                                } else {
+                                    deleteSwipeAction(stringResource(R.string.rows_symbol_set_delete_action), remove)
+                                },
+                            )
+                        }
                     },
                     // Every set is editable now, built-ins included: editing
                     // one stores an override under the same id, so modes that
@@ -1258,8 +1329,13 @@ private fun ReorderRow(
     }
     val rowShape = MaterialTheme.shapes.medium
     val lift = MaterialTheme.colorScheme.surfaceContainerHigh
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    val removeDesc = stringResource(R.string.rows_reorder_remove_desc, label)
+    // The bin, a swipe away as well as at the row's end. Enabled on what the
+    // row is rather than on whether it is being dragged: flipping it mid-drag
+    // would rebuild the row and drop the grip's gesture under the finger.
+    SwipeActionsRow(
+        actions = if (onDelete != null) listOf(deleteSwipeAction(removeDesc, onDelete)) else emptyList(),
+        enabled = deletable,
         modifier = Modifier
             .fillMaxWidth()
             .height(rowHeight)
@@ -1272,30 +1348,37 @@ private fun ReorderRow(
             }
             .background(if (dragging) lift else Color.Transparent, rowShape),
     ) {
-        Text(
-            stringResource(R.string.rows_reorder_position_label, position),
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            modifier = Modifier.width(28.dp),
-        )
-        content()
-        if (onDelete != null) {
-            IconButton(onClick = onDelete, enabled = deletable) {
-                Icon(
-                    Icons.Outlined.Delete,
-                    contentDescription = stringResource(R.string.rows_reorder_remove_desc, label),
-                    tint = MaterialTheme.colorScheme.error,
-                )
-            }
-        }
-        Icon(
-            Icons.Outlined.DragHandle,
-            contentDescription = stringResource(R.string.rows_reorder_handle_desc, label),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier
-                .padding(start = 8.dp)
-                .size(28.dp)
-                .then(handle),
-        )
+                .fillMaxWidth()
+                .height(rowHeight),
+        ) {
+            Text(
+                stringResource(R.string.rows_reorder_position_label, position),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.width(28.dp),
+            )
+            content()
+            if (onDelete != null) {
+                IconButton(onClick = onDelete, enabled = deletable) {
+                    Icon(
+                        Icons.Outlined.Delete,
+                        contentDescription = stringResource(R.string.rows_reorder_remove_desc, label),
+                        tint = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            Icon(
+                Icons.Outlined.DragHandle,
+                contentDescription = stringResource(R.string.rows_reorder_handle_desc, label),
+                modifier = Modifier
+                    .padding(start = 8.dp)
+                    .size(28.dp)
+                    .then(handle),
+            )
+        }
     }
 }
 
@@ -1468,7 +1551,7 @@ internal fun ModesSettings(
     }
     SettingsGroup(stringResource(R.string.modes_group_title)) {
         for (modeId in modeIds) {
-            item {
+            item(key = modeId) {
                 val mode = settings.watch { s -> s.keyboardModes.firstOrNull { it.id == modeId } }
                     ?: return@item
                 // The switch is the mode's own on/off (#152): off, it stays in
@@ -1496,6 +1579,12 @@ internal fun ModesSettings(
                             ),
                         )
                     },
+                    swipeActions = listOf(
+                        SwipeAction(Icons.Outlined.Edit, stringResource(CommonR.string.common_edit)) {
+                            onNavigate(modeEditRoute(mode.id))
+                        },
+                        deleteSwipeAction(deleteModeDesc) { confirmDelete = mode },
+                    ),
                     trailing = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Switch(
@@ -1738,6 +1827,33 @@ internal fun ModeEditor(
                 selected = settings.watch { modeIn(it).autoSpace },
                 detail = inheritDetail(),
             ) { save(current().copy(autoSpace = it)) }
+        }
+        // The swipes, which every switch above left alone: with them on, a
+        // drifting tap could still start one, so no mode typed exactly the
+        // keys pecked (#753).
+        item {
+            val inherit = stringResource(R.string.modes_inherit_label)
+            val on = stringResource(CommonR.string.common_on)
+            val off = stringResource(CommonR.string.common_off)
+            ChoiceSetting(
+                title = R.string.modes_glide_title,
+                info = stringResource(R.string.modes_glide_info),
+                options = listOf(null to inherit, true to on, false to off),
+                selected = settings.watch { modeIn(it).glide },
+                detail = inheritDetail(),
+            ) { save(current().copy(glide = it)) }
+        }
+        item {
+            val inherit = stringResource(R.string.modes_inherit_label)
+            val on = stringResource(CommonR.string.common_on)
+            val off = stringResource(CommonR.string.common_off)
+            ChoiceSetting(
+                title = R.string.modes_two_thumb_title,
+                info = stringResource(R.string.modes_two_thumb_info),
+                options = listOf(null to inherit, true to on, false to off),
+                selected = settings.watch { modeIn(it).twoThumb },
+                detail = inheritDetail(),
+            ) { save(current().copy(twoThumb = it)) }
         }
         // Only the layouts the user actually has switched on: a mode naming one
         // they have since removed would pin the keyboard to something that
@@ -2028,9 +2144,15 @@ internal fun ModeEditor(
             )
         }
         for (hint in hints) {
-            item {
+            item(key = hint) {
                 WmRow(
                     title = hint,
+                    swipeActions = listOf(
+                        deleteSwipeAction(stringResource(R.string.modes_hint_remove_desc)) {
+                            val mode = current()
+                            save(mode.copy(hints = mode.hints - hint))
+                        },
+                    ),
                     trailing = {
                         IconButton(onClick = {
                             val mode = current()
@@ -2065,7 +2187,7 @@ internal fun ModeEditor(
             }
         }
         for (pkg in apps) {
-            item {
+            item(key = pkg) {
                 val context = LocalContext.current
                 val label = remember(pkg) {
                     runCatching {
@@ -2079,6 +2201,12 @@ internal fun ModeEditor(
                     supporting = if (label != pkg) {
                         { Text(pkg) }
                     } else null,
+                    swipeActions = listOf(
+                        deleteSwipeAction(stringResource(R.string.modes_app_remove_desc)) {
+                            val mode = current()
+                            save(mode.copy(apps = mode.apps - pkg))
+                        },
+                    ),
                     trailing = {
                         IconButton(onClick = {
                             val mode = current()

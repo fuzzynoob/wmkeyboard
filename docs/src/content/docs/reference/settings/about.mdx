@@ -12,24 +12,42 @@ import Shot from '@components/Shot.astro';
 
 About has its own group on the Settings home screen: one tap gets you the build you're running, every licence bundled into the app, and a diagnostics screen for pulling a shareable report when something needs debugging.
 
-<PhoneFrame caption="The About screen: Share, App, Updates, Feedback, Community, Documentation, Third party, and Word lists groups.">
-  <Shot id="reference/settings/about-screen" alt="The About screen: Share, App, Documentation, Third party, and Word lists groups." />
+<PhoneFrame caption="The About screen: Community, Feedback, App, Updates, Documentation, Share, Third party, and Word lists groups.">
+  <Shot id="reference/settings/about-screen" alt="The About screen: Community, Feedback, App, Updates, Documentation, Share, Third party, and Word lists groups." />
 </PhoneFrame>
 
-## Sharing the app
+## Joining the community
 
-The **Share** group at the top has up to three rows: **Share the Play Store link**, **Share the F-Droid link**, and **Share the GitHub link**. Which of them you get depends on where the build came from. A Play Store build drops the F-Droid and GitHub rows. An F-Droid build drops the Play Store row. A sideloaded build belongs to neither store and shows all three. Each row opens the Android share sheet rather than the destination itself, pre-filled with a one-line pitch and the matching link (`play.google.com/store/apps/details?id=com.wasimaster.wmkeyboard`, `f-droid.org/packages/com.wasimaster.wmkeyboard`, or the GitHub repository). Pick whichever app you want to send the recommendation through.
+The **Community** group opens the screen. It has three rows:
+
+- **Join the Telegram group** opens [t.me/wmkeyboard](https://t.me/wmkeyboard). It's the quickest place to ask how to do something, show off a layout or theme you made, and hear about a release before it reaches the stores. With Telegram installed, the link opens straight in the app. Without it, it opens in your browser. Bugs still belong in **Report a bug**, where they can be tracked to a fix instead of scrolling away in a chat.
+- **Follow WM Keyboard** shows one tile per account: [X](https://x.com/wmkeyboard), [Reddit](https://www.reddit.com/r/wmkeyboard), [Instagram](https://www.instagram.com/wmkeyboardapp) and [TikTok](https://www.tiktok.com/@wmkeyboard). Tap a tile to open the account, in the platform's app if you have it. Touch and hold a tile to copy its link instead. Every account is `wmkeyboard` except Instagram, which is `wmkeyboardapp`.
+- **Supporters** lists the people who sponsor WM Keyboard on SupportKori, one-off or monthly, and the people who tipped through Google Play, by the name each gave. A beating heart at the top counts them. The app shows names only; what each person gave, and any message left with a Google Play tip, are on the website's [Supporters](/start/supporters/) page. How you can support it depends on where the app came from. The GitHub and F-Droid builds have a **Support WM Keyboard** card with two buttons that open SupportKori in your browser: **Buy a coffee** for a one-off sponsorship and **Become a monthly member** for the membership. Either way you're credited by name in this list and on the website. The Google Play build can't link out to another payment site under Play's rules, so it has a **Leave a tip** card instead: pick one of seven tiers, from Thanks to Legend, type the name you want listed and an optional message, and press **Tip** to pay through Google Play. Turn on **Stay anonymous** to tip without being listed; the name and message fields fold away and nothing but the payment leaves your phone. A tip unlocks nothing. Once Google Play confirms the payment, the card says thank you and your name appears at the top of the list. The app ships with the list as it stood when that version was built, so it shows offline and in a build with no internet permission. **Check for new supporters** fetches anyone added since; nothing goes out until you press it, and the request shows up in Network activity.
+
+The same accounts are the icons at the top right of every page on this site.
+
+## Reporting a bug
+
+The **Feedback** group, under Community, is where a problem goes. It has two rows:
+
+- **Report a bug** opens the project's GitHub issue tracker in your browser (`github.com/wasi-master/WMKeyboard/issues`). Start here if you can. An issue is public and searchable, so someone else may have already hit the same thing, and it can be tracked to a fix rather than sitting in an inbox.
+- **Email the developer** opens a draft to `arianmollik323@gmail.com` in your mail app, pre-filled with headings for what happened, what you expected, and how to reproduce it, plus the build, Android version, and device model at the bottom. Use this when the report has anything in it you'd rather not post publicly. Only mail apps show up in the chooser, since the row uses a `mailto:` intent rather than a generic share.
+
+Either way, take **Diagnostics** along. It names the exact build and device, and it never contains anything you typed. A phone with no mail app installed shows a toast with the address instead of opening anything.
+
+Something a model wrote isn't a bug in the app, and it has its own button. See [Reporting a result](/tools/ai/#reporting-a-result) in the AI tool.
 
 ## Checking version, licence, and source
 
-The **App** group holds eleven rows:
+The **App** group holds twelve rows:
 
-- **Version** shows the edition, build type and store channel as its subtitle ("Full build (release · Play Store)", or "Lite build (debug)" on something you sideloaded), with the build number after "code," and the version name as the row's trailing value. It navigates nowhere, but it isn't quite inert. Tap it seven times and you get [the hidden mini game](/reference/easter-eggs/#find-the-hidden-mini-game), with a toast counting you down from the fourth tap.
+- **Version** shows the build, build type and store channel as its subtitle ("Standard build (release · Play Store)", "Standard build (release · F-Droid)", or "Offline build (release)" for the GitHub build with no internet permission), with the build number after "code," and the version name as the row's trailing value. It navigates nowhere, but it isn't quite inert. Tap it seven times and you get [the hidden mini game](/reference/easter-eggs/#find-the-hidden-mini-game), with a toast counting you down from the fourth tap.
+- **What's new** opens the release notes of the version you have installed, on every build. See [Reading what changed](#reading-what-changed).
 - **Licence** shows "MIT, © 2026 Wasi Master" and opens the app's own MIT licence text in full underneath it, monospaced and horizontally scrollable.
-- **Source code** opens the GitHub repository directly in your browser; unlike the Share rows above, this one navigates immediately rather than opening a share sheet.
+- **Source code** opens the GitHub repository directly in your browser; unlike the Share rows further down, this one navigates immediately rather than opening a share sheet.
 - **Short app name** is a switch, off by default. Turn it on and your app drawer and home screen call the app **WMK** instead of **WM Keyboard**, so a narrow launcher grid doesn't cut the name short. See [Changing the name under the icon](#changing-the-name-under-the-icon).
 - **Show in app drawer** is a switch, on by default. Turn it off and the icon leaves your app drawer and home screen, while the keyboard keeps working. See [Hiding the icon](#hiding-the-icon). Android TV doesn't show this row.
-- **App language** picks the language the app's menus and settings are shown in, separate from your phone's. On the English-only download from GitHub it says so instead, and offers to fetch the version with every language. See [Changing the app's language](#changing-the-apps-language).
+- **App language** picks the language the app's menus and settings are shown in, separate from your phone's. See [Changing the app's language](#changing-the-apps-language).
 - **Storage** opens the [storage screen](#seeing-what-the-app-is-using) below, which is where you see what the app keeps on your device and delete any of it.
 - **Statistics** opens [Statistics](/reference/settings/statistics/): your level and achievements, a heatmap of where you tap, how much you type day by day, plus the switch that turns the counting off.
 - **Diagnostics** opens the [diagnostics screen](#diagnosing-a-problem) covered below.
@@ -73,20 +91,8 @@ This only changes the words the app shows you. The languages you type in are a s
 - **Android 12 and older** have no such setting, so the app keeps the choice itself and applies it to the settings app. The keyboard stays in your phone's language on these versions.
 - **Play Store builds** download a language the first time you pick it if the Play Store did not install it with the app, so the screen can take a moment to restart. If the download fails, the app shows English until the next try.
 - **F-Droid builds** carry every translation.
-
-### Getting every language on the English-only download
-
-GitHub releases come in two kinds: `intl`, with every translation, and `en`, English only and a good deal smaller. On an `en` install the row reads **This download of the app has English only** and names how many languages the other one adds. Press it to switch:
-
-1. A dialog says what happens next. Press **Download**.
-2. The row finds the `intl` build of the newest release your install can have. That is usually the same version you already run, or a newer one if an update is out. Then it downloads the file for your phone. On a metered connection you're asked first, the same as for any update.
-3. The row changes to **Install every language**. Press it when you're ready. The app and the keyboard restart once, the same as after an update.
-
-It's the same app, signed with the same key and at the same version, so it installs over the English-only one and keeps every setting, word and theme. The download goes through the same checks as an update: the checksum from the release, then the signing key. See [What a GitHub build checks before it installs](#what-a-github-build-checks-before-it-installs).
-
-While the switch is under way the Updates group below hides its status row, because the App language row is showing that download. **Keep English only**, under the row, stops the switch and deletes what it downloaded. A switch that fails and is left alone gives way to the ordinary update check the next time it runs. After the install, the home screen says **Every language is here** once, and App language becomes the ordinary picker.
-
-A copy of the `en` build with no GitHub updater in it, such as one you built yourself, links to the releases page instead.
+- **The standard GitHub build** carries English and fetches every other language as a small download (about 2 MB) on Android 11 and later. It fetches your phone's language by itself a few seconds after the app first starts, and any open settings screen restarts in it, so most people never visit this row. A language you pick here, or under the phone's own per-app setting, is fetched the same way. It needs the internet once; if the download fails the app shows English and tries again the next time it starts. On Android 10 and older the standard build is English only: take the offline all-languages build, which has every language built in.
+- **The offline build** can't download a language. Picking one whose file isn't on the phone names the file to get from the release page, `wmkeyboard-<version>-vc<code>-lang-<code>.apk`, and the app stays in English until you import it under Storage, below. Android 7 to 10 can't load such a file, so there the list is English only; the offline all-languages build has every language built in. See [The offline build](/privacy/offline/#interface-languages).
 
 The setup wizard asks the same question as its very first page when your phone is somewhere English isn't the first language. See [Running the setup wizard](/start/setup/#running-the-setup-wizard).
 
@@ -123,13 +129,15 @@ Wherever an update is offered, on the home-screen card and in the dialog that as
 
 The notes are fetched the moment you press the button, not with the update check, so nothing is downloaded for a release you never asked about. The dialog opens straight away and shows a progress bar until they arrive. A release that never had notes written for it says so instead of opening empty.
 
-GitHub builds only. An F-Droid build has a page to send you to and no notes behind it, so it offers no button, and the Play Store shows its own "What's new" in the store listing.
+That button is on GitHub builds only. An F-Droid build has a page to send you to and no notes behind it, so it offers no button, and the Play Store shows its own "What's new" in the store listing.
+
+The notes for the version you already have are a different matter, and every build has them. After an update, from any store, the app posts an **Updated to** notification; tapping it opens that version's notes over whatever screen the app shows. The same dialog is behind **What's new** in the App group above and behind the button on the **Updated to** card. These notes ship inside the app, so they open offline and send nothing. Only a build cut before its notes were written has none inside, and that one reads them from the version's tag on GitHub instead.
 
 ### What a GitHub build checks before it installs
 
 Downloading an APK and handing it to Android is the one thing in this app that replaces the app, so here is exactly what's checked, and in what order:
 
-1. The file name has to match the release and your phone: the right edition, the same languages build as yours (every language, or English only), and the right CPU, falling back to the universal build if your CPU has no build of its own.
+1. The file name has to match the release and your phone: the standard build, the same languages build as yours (every language, or English only), and the right CPU, falling back to the universal build if your CPU has no build of its own.
 2. The downloaded bytes are hashed and compared against the checksum published in the release. A file that doesn't match is deleted, not installed. A release that publishes no checksum at all is refused rather than trusted.
 3. The APK's signing key is compared against the key your current install is signed with. A mismatch stops there and tells you to fetch the file yourself, which is also what happens if you're running a build you compiled locally.
 4. Android is asked to install it, and shows its own confirmation.
@@ -160,39 +168,27 @@ The figures come from Android's own storage stats rather than from adding up fil
 
 Tap a row to open that piece on its own: what it holds, how big each item in it is, and a delete button per item. **Free up N MB** at the top, which names the amount it would recover, clears every cache in one go and never touches anything you made. Deleting anything else asks first, in wording that matches what you'd lose. A cache is free to delete. A download can be fetched again. Something you made, or the keyboard learned, is gone for good.
 
+**App package** lists the APK, its native libraries and the code your device compiled from the app after installing it, which Android counts in the app's size but keeps out of the app's reach. In the Play Store version, **Play Store modules** sits beside it: the features the app fetched from Play the first time you used them, such as voice typing, translation and on-device AI, one row each with its size, and no longer counted in App package. Removing one asks Play to uninstall it, which Play does later, usually within a day; until then the row stays, marked as on its way out, and the feature downloads again the next time you use it. Under **Caches**, **AI model working files** are what the on-device AI builds from a model on its first load, often gigabytes; clearing them makes the next load slower once. **Sent media** and **Camera and scans** keep each copy for a day, long enough for the app it went to to read it, and then delete it. **Temporary files** holds the app's scratch folders, such as layout pictures for the pickers, sticker sets you browsed and imports in progress, one row per folder. **Other cached files** and **Other data** list what the app can't delete itself, such as code your device compiled and files Google's libraries keep, each with a name saying what it is.
+
 Notes on a few rows:
 
 - **Sticker packs** lists one row per pack, plus **Images you made stickers from**, the photos the [sticker editor](/emoji/stickers/#the-sticker-editor) keeps so you can edit a sticker again later. Deleting that row keeps every sticker and only costs you the ability to resume those edits.
-- **Downloads** covers the things the app fetched and can fetch again: word lists, CJK dictionaries, emoji keyword packs, and (on the full build) the speech and AI models, which are usually the biggest rows on the screen.
+- **Downloads** covers the things the app fetched and can fetch again: word lists, CJK dictionaries, emoji keyword packs, and the speech and AI models, which are usually the biggest rows on the screen.
+- **Search by meaning**, also under Downloads, holds the [Search by meaning](/smart/search-by-meaning/) model, one row for its text half and one for its pictures half, and the search indexes it built from your clipboard, notes, snippets, stickers and photos. Deleting the text model, the indexes, or the whole row turns search by meaning off. Deleting only the pictures model keeps it on Text.
+- **Import downloaded files**, above the groups, installs anything the app would otherwise download from a file you fetched elsewhere: language packs, interface languages, feature libraries, voice and AI models, text recognition data and GIF packs, any number at once. On the offline build its **Get the files** button links this version's release page, for interface languages, and the data repository's feature libraries. See [Using it without internet](/privacy/offline/).
 - **Your data** is the personal end: learned words, clipboard history, snippets, AI history, and your own imported word lists. This group is also where the reset lives, and it asks twice.
 
 Anything the app writes that no row claims lands in **Other data** under The rest, so nothing is invisible; a new feature that stores files is meant to add its own row rather than grow that one.
 
-## Reporting a bug
+## Sharing the app
 
-The **Feedback** group is where a problem goes. It has two rows:
-
-- **Report a bug** opens the project's GitHub issue tracker in your browser (`github.com/wasi-master/WMKeyboard/issues`). Start here if you can. An issue is public and searchable, so someone else may have already hit the same thing, and it can be tracked to a fix rather than sitting in an inbox.
-- **Email the developer** opens a draft to `arianmollik323@gmail.com` in your mail app, pre-filled with headings for what happened, what you expected, and how to reproduce it, plus the build, Android version, and device model at the bottom. Use this when the report has anything in it you'd rather not post publicly. Only mail apps show up in the chooser, since the row uses a `mailto:` intent rather than a generic share.
-
-Either way, take **Diagnostics** along. It names the exact build and device, and it never contains anything you typed. A phone with no mail app installed shows a toast with the address instead of opening anything.
-
-Something a model wrote isn't a bug in the app, and it has its own button. See [Reporting a result](/tools/ai/#reporting-a-result) in the AI tool.
-
-## Joining the community
-
-The **Community** group sits under Feedback. It has two rows:
-
-- **Join the Telegram group** opens [t.me/wmkeyboard](https://t.me/wmkeyboard). It's the quickest place to ask how to do something, show off a layout or theme you made, and hear about a release before it reaches the stores. With Telegram installed, the link opens straight in the app. Without it, it opens in your browser. Bugs still belong in **Report a bug**, where they can be tracked to a fix instead of scrolling away in a chat.
-- **Follow WM Keyboard** shows one tile per account: [X](https://x.com/wmkeyboard), [Reddit](https://www.reddit.com/r/wmkeyboard), [Instagram](https://www.instagram.com/wmkeyboardapp) and [TikTok](https://www.tiktok.com/@wmkeyboard). Tap a tile to open the account, in the platform's app if you have it. Touch and hold a tile to copy its link instead. Every account is `wmkeyboard` except Instagram, which is `wmkeyboardapp`.
-
-The same accounts are the icons at the top right of every page on this site.
+The **Share** group, between Documentation and Third party, has up to three rows: **Share the Play Store link**, **Share the F-Droid link**, and **Share the GitHub link**. Which of them you get depends on where the build came from. A Play Store build drops the F-Droid and GitHub rows. An F-Droid build drops the Play Store row. A sideloaded build belongs to neither store and shows all three. Each row opens the Android share sheet rather than the destination itself, pre-filled with a one-line pitch and the matching link (`play.google.com/store/apps/details?id=com.wasimaster.wmkeyboard`, `f-droid.org/packages/com.wasimaster.wmkeyboard`, or the GitHub repository). Pick whichever app you want to send the recommendation through.
 
 ## Documentation, third-party notices, and word lists
 
-Two more single-purpose groups round out the screen:
+Three more single-purpose groups surround Share at the bottom of the screen:
 
-- **Documentation** links to this documentation site (**User guide**) and to the privacy policy, both opening directly in your browser. The policy row goes to the page that is true of the APK you're holding, so a full build opens [Privacy policy (Google Play edition)](/privacy/policy/) and a lite build opens [Privacy policy (F-Droid edition)](/privacy/policy-fdroid/). Its third row, **Setting links**, is covered [below](#copying-a-link-to-a-setting).
+- **Documentation** links to this documentation site (**User guide**) and to the privacy policy, both opening directly in your browser. The policy row goes to the page that is true of the APK you're holding, so the F-Droid build opens [Privacy policy (F-Droid edition)](/privacy/policy-fdroid/) and every other build opens [Privacy policy (Google Play edition)](/privacy/policy/). Its third row, **Setting links**, is covered [below](#copying-a-link-to-a-setting).
 - **Third party** has one row, **Open-source licences**, which opens the [licence browser](#browsing-the-licences) below.
 - **Word lists** has one row, **Dictionaries**, explaining that the seed bigrams, loanword map, and offensive-word list are hand-curated for this project and covered by its licence, while downloadable wordlists keep their own sources' licences, listed under Open-source licences. Like Version, this row is informational only and doesn't navigate anywhere. See [Every wordlist](/languages/dictionaries/#every-wordlist) for the full, filterable list of what's downloadable per language.
 
@@ -218,11 +214,11 @@ Tapping **Open-source licences** opens a three-group screen: everything bundled 
   <Shot id="reference/settings/licenses-screen" alt="The open-source licences list, grouped by bundled components, downloadable data packs, and online services." />
 </PhoneFrame>
 
-**Inside the app** always lists AndroidX & Jetpack Compose, Kotlin/coroutines/serialization, Coil, OkHttp & Okio, ZXing, and LuaJ, all Apache-2.0 or MIT. <Flavor edition="full" /> adds Harper and its Rust dependencies (grammar checking), Google ML Kit (handwriting and scanning), LiteRT-LM (the local AI models), and LiteRT plus OpenAI Whisper and whisper_android (offline speech-to-text). The <Flavor edition="lite" /> build doesn't link those features, so their licences don't apply to it. A Play build adds one more, Play In-App Updates. It isn't open source, so it opens Google's SDK terms in your browser rather than a bundled text. Both editions also list Unicode CLDR, emoji & Han data (the Han part is the character levels of the 通用规范汉字表 that Pinyin ranks rare characters by), gemoji, Keyman keyboard layouts, the Khipro layout rules, desktop Avro's data behind the Avro candidate list (ibus-avro, MPL-1.1), OpenCC, the LSHK Jyutping table, the bundled editor colour palettes (Dracula, Nord, Solarized, Catppuccin, Tokyo Night), Google Fonts, and Inter & Manrope. Those last two are the faces the settings app itself is set in. They ship as files in the APK, so they carry their own notice rather than the generic one.
+**Inside the app** always lists AndroidX & Jetpack Compose, Kotlin/coroutines/serialization, Coil, OkHttp & Okio, ZXing, and LuaJ, all Apache-2.0 or MIT, plus Harper and its Rust dependencies (grammar checking). Outside the F-Droid build <Flavor edition="google" /> it adds Google ML Kit (handwriting and scanning), LiteRT-LM (the local AI models), and LiteRT plus OpenAI Whisper and whisper_android (offline speech-to-text). The <Flavor edition="fdroid" /> build doesn't link those features, so their licences don't apply to it. A Play build adds one more, Play In-App Updates. It isn't open source, so it opens Google's SDK terms in your browser rather than a bundled text. Every build also lists Unicode CLDR, emoji & Han data (the Han part is the character levels of the 通用规范汉字表 that Pinyin ranks rare characters by), gemoji, Keyman keyboard layouts, the Khipro layout rules, desktop Avro's data behind the Avro candidate list (ibus-avro, MPL-1.1), OpenCC, the LSHK Jyutping table, the bundled editor colour palettes (Dracula, Nord, Solarized, Catppuccin, Tokyo Night), Google Fonts, and Inter & Manrope. Those last two are the faces the settings app itself is set in. They ship as files in the APK, so they carry their own notice rather than the generic one.
 
-That makes 23 bundled components on a full Play build and 15 on a lite F-Droid one. The gap is the seven entries gated behind grammar checking, ML Kit, the local LLM and Whisper, plus the Play updates entry. So a full F-Droid build lists 22, and a lite Play build 16.
+The F-Droid build lists fewer: it leaves out the entries for ML Kit, the local LLM and LiteRT Whisper, and the Play updates entry, which only a Play build has.
 
-**Data packs you can download** covers the frequency wordlists, offensive word lists, emoji keyword dictionaries and Noto Animated Emoji served from the WM Keyboard data repository, plus the CJK-specific conversion data: CC-CEDICT, mozc, rime-cantonese & CC-Canto, a Chinese stroke code table, and the Unicode Unihan database. Ten rows in all, since the AOSP dictionaries have their own. A <Flavor edition="full" /> build adds two more for downloads only it can make: the sticker editor's own U²-Net-P background remover (Apache-2.0) and the on-device AI models (Apache-2.0, or Google's Gemma Terms of Use for Gemma 3). A caption underneath notes these keep their upstream licences whether or not they're actually installed on your device.
+**Data packs you can download** covers the frequency wordlists, offensive word lists, emoji keyword dictionaries and Noto Animated Emoji served from the WM Keyboard data repository, plus the CJK-specific conversion data: CC-CEDICT, mozc, rime-cantonese & CC-Canto, a Chinese stroke code table, and the Unicode Unihan database. Ten rows in all, since the AOSP dictionaries have their own. A build other than F-Droid's <Flavor edition="google" /> adds two more for downloads only it can make: the sticker editor's own U²-Net-P background remover (Apache-2.0) and the on-device AI models (Apache-2.0, or Google's Gemma Terms of Use for Gemma 3). A caption underneath notes these keep their upstream licences whether or not they're actually installed on your device.
 
 **Online services** lists what each network tool talks to and under what terms: Brave Search, Tavily, KLIPY & GIPHY, Wikipedia, Google Translate, Open-Meteo, Frankfurter & ExchangeRate-API, Coinbase & the other coin-price sources, the Free Dictionary API, Wiktionary & kaikki.org, Datamuse, Hugging Face, and the bring-your-own-key AI providers (Anthropic, OpenAI, Google AI, xAI, DeepSeek, Brave Answers, and whichever OpenAI-compatible service you point the escape hatch at). None of their code or data ships inside the app; see [Network policy](/privacy/network/) for what each one actually sends and when.
 
@@ -254,7 +250,7 @@ There are only five switches and two pickers in this whole tree. Everything else
 |---|---|---|
 | Short app name | Toggle | Off |
 | Show in app drawer | Toggle | On |
-| App language | Choice | System default (on the English-only build, an offer to switch) |
+| App language | Choice | System default |
 
 <SettingsPath path="About / Documentation" />
 
@@ -281,7 +277,7 @@ See [Privacy at a glance](/privacy/overview/) and [Network policy](/privacy/netw
 ## Details & edge cases
 
 - **The licence-text screen's title is always "Licence," never the specific component's name.** Tapping into AndroidX's Apache-2.0 text or the app's own MIT text lands on a top bar that says "Licence" either way, so rely on the row you tapped (or the text itself) to know which one you're reading.
-- **Several bundled components share one licence asset.** Every Apache-2.0 entry opens the same Apache-2.0 text rather than a per-project copy: AndroidX, Kotlin, Coil, OkHttp & Okio, ZXing, OpenCC, and, on a full build, Harper and LiteRT/LiteRT-LM. The per-project attribution (name, what it's used for, copyright line) is what you saw on the list row before tapping in.
+- **Several bundled components share one licence asset.** Every Apache-2.0 entry opens the same Apache-2.0 text rather than a per-project copy: AndroidX, Kotlin, Coil, OkHttp & Okio, ZXing, OpenCC, Harper, and, outside the F-Droid build, LiteRT/LiteRT-LM. The per-project attribution (name, what it's used for, copyright line) is what you saw on the list row before tapping in.
 - **Licence texts don't reflow.** They're hard-wrapped at a fixed column width and rendered monospaced, so long lines scroll sideways instead of wrapping to the screen width.
 - **The word-list attribution splits by kind, not by download status.** The three word lists that ship as source (seed bigrams, loanword map, offensive-word list) are covered by the app's own MIT licence. Every wordlist you download separately keeps its own upstream licence, listed under Open-source licences whether or not you've actually downloaded it yet.
 - **Sharing a link isn't the same as opening one.** The three Share rows always hand off to the system share sheet with a pre-filled message. Source code, Report a bug, User guide and Privacy policy open a browser tab directly, and so does any row inside the licence browser without a bundled text. Email the developer is the odd one out again: it opens a mail composer, not a browser or a share sheet.

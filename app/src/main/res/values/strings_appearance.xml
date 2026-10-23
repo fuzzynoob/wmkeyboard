@@ -134,6 +134,12 @@
     <string name="appearance_toolbox_paginate_title">Swipe the toolbox in pages</string>
     <string name="appearance_toolbox_paginate_subtitle">Fixed pages that you swipe sideways, and not one grid that scrolls</string>
     <string name="appearance_toolbox_paginate_info">When this is off, the toolbox is one grid that scrolls up and down. When it is on, the toolbox becomes pages that you swipe between. Dots below the grid show your position. Every tool then keeps the same place, so you can find it from memory. To move a tool to another page, drag it and hold it against the side edge of the toolbox until the page turns.</string>
+    <string name="appearance_toolbox_search_button_title">Toolbox search</string>
+    <string name="appearance_toolbox_search_button_subtitle">A search button on the toolbar while the toolbox is open</string>
+    <string name="appearance_toolbox_search_button_info">While the toolbox is open, the toolbar shows a search button. Tapping it opens the search over the whole keyboard, with a back button that returns to the toolbox. Type a tool\'s name to find it, wherever it is, folders included. Turn this off to leave the toolbox without a search.</string>
+    <string name="appearance_toolbox_search_at_end_title">Search button at the far end</string>
+    <string name="appearance_toolbox_search_at_end_subtitle">Put the toolbox search at the far end of the toolbar, away from the back button</string>
+    <string name="appearance_toolbox_search_at_end_info">When this is on, the search button sits at the far end of the toolbar, after your pinned tools, so a tap meant for the back button does not open the search. When it is off, the search button sits right next to the back button.</string>
     <string name="appearance_toolbox_page_size_title">Tools per page</string>
     <string name="appearance_toolbox_page_size_subtitle">How many tools each toolbox page holds</string>
     <string name="appearance_toolbox_page_size_info">Select a multiple of your row size to fill the last row of every page. If you select more tools than the panel can show, the page scrolls as well as swipes.</string>
@@ -184,5 +190,9 @@
     <string name="appearance_reset_toolbox_order_confirm">The tools in the toolbox grid go back to the order they shipped in. Which tools are switched on, and which are pinned to the toolbar, are not affected.</string>
     <string name="appearance_toolbar_drag_title">Rearrange by dragging</string>
     <string name="appearance_toolbar_drag_subtitle">Press and hold a tool on the toolbar, then drag it to a new place</string>
+    <string name="appearance_toolbar_hold_delay_title">Press and hold delay</string>
+    <string name="appearance_toolbar_hold_delay_subtitle">How long you hold a tool before the hold counts</string>
+    <string name="appearance_toolbar_hold_delay_info">This sets how long you press a tool on the toolbar or in the toolbox before the press counts as a hold. A hold runs the action you chose under Press and hold on the toolbar on the tool\'s own settings page, opens that settings page, or picks the tool up to move it. At System, the keyboard uses the touch and hold delay from your phone\'s accessibility settings.</string>
+    <string name="appearance_toolbar_hold_delay_system">System</string>
     <string name="appearance_toolbar_drag_info">When this is on, a press and hold that moves picks the tool up so you can drop it elsewhere on the toolbar. When it is off, a press and hold that moves stays a press and hold, and the toolbox is where you rearrange the toolbar. Turn it off if a hold keeps turning into a drag by accident.</string>
 </resources>

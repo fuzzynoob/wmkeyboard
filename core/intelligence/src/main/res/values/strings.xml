@@ -7,8 +7,8 @@
   com.wasimaster.wmkeyboard.intelligence.R.string.core_intel_llm_tier_recommended_label.
   The R classes are non-transitive, so the import has to name this module.
 
-  Both product flavours read this one file, so a string a lite stub and its
-  full counterpart share stays here and not in a flavour resource folder.
+  The src/google code and its F-Droid stand-ins in src/nogoogle both read this
+  one file, so a string they share stays here.
 
   Data stays in the Kotlin sources and never comes here: model names, parameter
   counts, Hugging Face repository paths and file names, handwriting language
@@ -38,6 +38,14 @@
     <string name="core_intel_llm_model_qwen25_05b_subtitle">A general-purpose model that still fits on a basic device.</string>
     <string name="core_intel_llm_model_gemma3_270m_subtitle">The smallest Gemma from Google. It is fast on all devices.</string>
     <string name="core_intel_llm_model_smollm2_135m_subtitle">Very small and fast. It is good for quick rewrites, but the reasoning is limited.</string>
+    <!-- GGUF models, run by llama.cpp. Rows that share a model with a
+         LiteRT-LM row above reuse its description. -->
+    <string name="core_intel_llm_model_gguf_qwen3_17b_subtitle">A recent mid-size model that thinks before it answers. It needs a mid-range device.</string>
+    <string name="core_intel_llm_model_gguf_llama32_1b_subtitle">Meta\'s small Llama. It writes clear English and follows instructions well.</string>
+    <string name="core_intel_llm_model_gguf_gemma3_1b_subtitle">A small Gemma from the previous generation. No Hugging Face token is needed for this file.</string>
+    <string name="core_intel_llm_model_gguf_qwen25_vl_3b_subtitle">Reads pictures and screenshots well, the text in them too. It needs a high-end device. Its licence allows research use only.</string>
+    <string name="core_intel_llm_model_gguf_smolvlm_500m_subtitle">A very small model that can read pictures. It describes a picture, but often misreads the text in a screenshot.</string>
+    <string name="core_intel_llm_model_gguf_smollm2_360m_subtitle">Small and fast. It is good for quick rewrites on a basic device.</string>
 
     <!-- ================================================================== -->
     <!-- On-device model download: why a download stopped.                  -->
@@ -54,6 +62,8 @@
     <!-- A dropped connection uses the shared common_error_network line. -->
     <!-- Resume is the button on the model row. -->
     <string name="core_intel_llm_download_error_truncated">The connection stopped during the download. Press Resume to continue.</string>
+    <!-- The finished file is not the one the catalog names. -->
+    <string name="core_intel_llm_download_error_checksum">The downloaded file is not the expected one, so it was deleted. Download it again.</string>
 
     <!-- ================================================================== -->
     <!-- On-device model runtime: why a request to the model stopped.       -->
@@ -61,9 +71,31 @@
 
     <string name="core_intel_llm_engine_error_load">The model did not load. The file is probably damaged. Delete the model in settings and download it again.</string>
     <!-- Compute is the name of the setting that selects the GPU or the CPU. -->
-    <string name="core_intel_llm_engine_error_vision">This model can\'t read pictures. Gemma 4 can.</string>
+    <string name="core_intel_llm_engine_error_vision">This model can\'t read pictures. Gemma 4 can, and so can Qwen 2.5 VL and SmolVLM. A GGUF model that you imported also needs its mmproj file.</string>
     <string name="core_intel_llm_engine_error_gpu">The model failed on the GPU. The GPU memory is much smaller than the system memory. The next try uses the CPU. To always use the CPU, set Compute to CPU in settings. You can also select a smaller model.</string>
     <string name="core_intel_llm_engine_error_memory">The model ran out of memory, or it failed. Select a smaller model.</string>
+    <!-- NPU is the phone's AI accelerator, a hardware acronym that stays in
+         English. The NPU build and the standard build are the two files a
+         model can have: one compiled for this phone's chip, one that runs on
+         the CPU or GPU. -->
+    <string name="core_intel_llm_engine_error_npu">The model failed on the NPU. The next try uses the GPU or the CPU. A long text can be too much for the NPU build of a model.</string>
+    <string name="core_intel_llm_engine_error_npu_build_only">Only the NPU build of this model is on your phone, and only the NPU can run it. Set Compute to NPU, or download the standard build of the model in settings.</string>
+    <string name="core_intel_llm_engine_error_npu_runtime_missing">The NPU part of the keyboard is not ready. If it is downloading, try again in a moment. To use the GPU or the CPU now, download the standard build of the model in settings.</string>
+    <!-- llama.cpp runs GGUF models. The prompt and the answer share one
+         window of tokens; Context size is the setting that sets it. -->
+    <string name="core_intel_llm_engine_error_too_long">The text is too long for this model. Use a shorter text, or raise Context size in settings.</string>
+    <string name="core_intel_llm_engine_error_template">This model\'s chat template could not be read. Try another GGUF file of the model.</string>
+    <!-- %1$s is the memory the model needs and %2$s the memory free now,
+         both formatted like "1.2 GB". -->
+    <string name="core_intel_llm_engine_error_low_memory">This model needs about <xliff:g id="needed" example="1.8 GB">%1$s</xliff:g> of memory, and <xliff:g id="free" example="900 MB">%2$s</xliff:g> is free. Close other apps, or select a smaller model.</string>
+    <string name="core_intel_llm_llama_missing">This build can\'t run GGUF models: the llama.cpp part is missing.</string>
+    <!-- Settings › Privacy › Download feature libraries is the switch that
+         lets the F-Droid build fetch native libraries. -->
+    <string name="core_intel_llm_llama_consent_needed">GGUF models need the llama.cpp part, and feature library downloads are off. Turn them on in Settings › Privacy › Download feature libraries.</string>
+    <string name="core_intel_llm_llama_import_needed">GGUF models need the llama.cpp part, which this offline build cannot download. Get it and import it in Settings › Privacy › Feature libraries.</string>
+    <string name="core_intel_handwriting_zinnia_import_needed">Chinese and Japanese handwriting needs the zinnia part, which this offline build cannot download. Get it and import it in Settings › Privacy › Feature libraries.</string>
+    <string name="core_intel_handwriting_zinnia_consent_needed">Chinese and Japanese handwriting needs the zinnia part, and feature library downloads are off. Turn them on in Settings › Privacy › Download feature libraries.</string>
+    <string name="core_intel_llm_engine_error_npu_no_standard">The NPU build of this model did not start on your phone. To use the model on the GPU or the CPU, download its standard build in settings.</string>
 
     <!-- ================================================================== -->
     <!-- On-device runtime delivery: Play installs fetch the AI runtime as  -->
@@ -71,7 +103,8 @@
     <!-- it built in and never show these.                                  -->
     <!-- ================================================================== -->
 
-    <string name="core_intel_llm_module_downloading">The AI part of the keyboard is downloading from Google Play. Try again in a moment.</string>
+    <string name="core_intel_llm_module_downloading">The AI part of the keyboard is downloading. Try again in a moment.</string>
+    <string name="core_intel_llm_litert_unavailable">This build runs GGUF models only. Pick a GGUF model under On-device AI.</string>
     <string name="core_intel_llm_module_restart">The AI part just finished installing. Close and reopen the keyboard to use it.</string>
 
     <!-- Scan text tool: downloading the language data Tesseract reads with. -->
@@ -81,8 +114,28 @@
          the site the language data comes from. -->
     <string name="core_intel_ocr_download_error_http">The GitHub server did not send the file. The error code is HTTP <xliff:g id="status_code" example="404">%1$s</xliff:g>.</string>
     <string name="core_intel_ocr_download_error_interrupted">The connection stopped during the download. Try again.</string>
-    <string name="core_intel_ocr_module_error">Google Play did not deliver the text reader. Check the connection and that the Play Store works, then try again.</string>
+    <!-- A downloaded PaddleOCR model file is not the file the app expects. -->
+    <string name="core_intel_ocr_download_error_mismatch">The downloaded file is not the expected one. Try again.</string>
+    <string name="core_intel_ocr_module_error">The text reader did not download. Check the connection, then try again.</string>
     <!-- The language data is on the device, but Tesseract could not load it. -->
     <string name="core_intel_ocr_pack_error_broken">The downloaded language data is damaged, so the scanner could not use it. Download it again.</string>
+
+    <!-- Search by meaning: downloading EmbeddingGemma 2, the model that
+         finds clips, notes, snippets, emoji and stickers by what they mean. -->
+    <string name="core_intel_imagegen_module_error">The sticker generator\'s engine did not download. Check the connection, then try again.</string>
+    <string name="core_intel_semantic_module_error">The search engine part did not download. Check the connection, then try again.</string>
+    <!-- The data repository is set (Servers screen) to a host other than GitHub, where the model files are not published. -->
+    <string name="core_intel_semantic_no_source">The model files are only published on GitHub. Set the data repository back to GitHub in Servers.</string>
+
+    <!-- Neural suggestions on the phonetic layouts: downloading IndicXlit and
+         the ONNX Runtime part that runs it. -->
+    <string name="core_intel_xlit_module_error">The part that runs the model did not download. Check the connection, then try again.</string>
+
+    <!-- Grammar check through a LanguageTool server. Shown in the grammar
+         panel when a check fails; the status code is the HTTP one. -->
+    <string name="core_intel_languagetool_error_request">LanguageTool could not check this text. The server may not have this language (HTTP <xliff:g id="status" example="400">%1$d</xliff:g>).</string>
+    <string name="core_intel_languagetool_error_account">LanguageTool did not accept the username and API key (HTTP <xliff:g id="status" example="403">%1$d</xliff:g>).</string>
+    <string name="core_intel_languagetool_error_too_long">The text is too long for this LanguageTool server (HTTP <xliff:g id="status" example="413">%1$d</xliff:g>).</string>
+    <string name="core_intel_languagetool_error_rate_limit">The LanguageTool server has had as many checks from this phone as it takes in a minute. Edit the text in a moment to check again (HTTP <xliff:g id="status" example="429">%1$d</xliff:g>).</string>
 
 </resources>

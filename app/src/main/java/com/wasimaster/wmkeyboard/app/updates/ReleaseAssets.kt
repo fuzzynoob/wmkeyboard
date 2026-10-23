@@ -10,8 +10,9 @@ import java.util.TimeZone
  *
  * The release workflow builds these names, in `.github/workflows/release.yml`:
  * `wmkeyboard-<versionName>-vc<versionCode>-<flavor>-<languages>-<abi>.apk`,
- * where [flavor] is the `capabilities` flavour (full, lite) and [languages] the
- * `languages` one (intl, en). Releases before 0.5.10 had no languages part and
+ * where [flavor] is the edition (full, or lite up to 0.6.2; see
+ * [ReleaseAssets.STANDARD_FLAVOR]) and [languages] the `languages` flavour
+ * (intl, en). Releases before 0.5.10 had no languages part and
  * were English only, so a name without one reads as `en`. Reading the version
  * out of the name rather than out of the tag is what lets this compare
  * versions exactly: the tag is a version *name*, and names are not ordered.
@@ -53,6 +54,15 @@ internal object ReleaseAssets {
      */
     const val UNIVERSAL = "universal"
 
+    /**
+     * The edition token in the standard build's asset names, which every
+     * install moves onto. The app has had no `capabilities` flavour since
+     * 0.6.3, but every install out there only parses names that carry `full`
+     * or `lite` here, so the release workflow keeps writing `full` and this
+     * app asks for it.
+     */
+    const val STANDARD_FLAVOR = "full"
+
     /** The `languages` flavour that carries English only. GitHub is the only place it ships. */
     const val LANGUAGES_EN = "en"
 
@@ -72,12 +82,54 @@ internal object ReleaseAssets {
 
     private val SHA256 = Regex("""^[0-9a-f]{64}$""")
 
+    /**
+     * The dex metadata the release workflow publishes beside the APKs:
+     * `wmkeyboard-<versionName>-vc<versionCode>-<flavor>-<languages>-api<minApi>.dm`,
+     * one per variant and API range (the ABI splits share one dex).
+     */
+    private val DEX_METADATA = Regex(
+        """^wmkeyboard-(.+?)-vc(\d+)-(full|lite)-(intl|en)-api(\d+)\.dm$""",
+    )
+
+    /**
+     * The first API level each published profile is for, newest first. AGP
+     * writes one for 31 and up and one for 28 to 30; below 28 there is nothing
+     * Android would compile with.
+     */
+    private val DEX_METADATA_MIN_APIS = listOf(31, 28)
+
+    /** The "abi" a parsed dex metadata name reports, so it never matches an APK's. */
+    const val DEX_METADATA_ABI = "dm"
+
     /** What [name] says about itself, or null when it is not one of our APKs. */
     fun parseAssetName(name: String): AssetName? {
         val match = ASSET.matchEntire(name) ?: return null
         val (versionName, versionCode, flavor, languages, abi) = match.destructured
         val code = versionCode.toIntOrNull() ?: return null
         return AssetName(versionName, code, flavor, abi, languages.ifEmpty { LANGUAGES_EN })
+    }
+
+    /** What a dex metadata name says about itself, or null when it is not one of ours. */
+    fun parseDexMetadataName(name: String): AssetName? {
+        val match = DEX_METADATA.matchEntire(name) ?: return null
+        val (versionName, versionCode, flavor, languages) = match.destructured
+        val code = versionCode.toIntOrNull() ?: return null
+        return AssetName(versionName, code, flavor, DEX_METADATA_ABI, languages)
+    }
+
+    /**
+     * The dex metadata that goes with [apkAssetName] on a device at [sdkInt],
+     * or null when there is none to want: an APK name this app does not
+     * write, or an Android older than any published profile.
+     *
+     * Derived from the APK's name rather than read off the release, so the
+     * updater needs nothing more than it already has; a release published
+     * before these existed simply answers the download with a 404.
+     */
+    fun dexMetadataName(apkAssetName: String, sdkInt: Int): String? {
+        val apk = parseAssetName(apkAssetName) ?: return null
+        val api = DEX_METADATA_MIN_APIS.firstOrNull { sdkInt >= it } ?: return null
+        return "wmkeyboard-${apk.versionName}-vc${apk.versionCode}-${apk.flavor}-${apk.languages}-api$api.dm"
     }
 
     /**
@@ -102,9 +154,8 @@ internal object ReleaseAssets {
      * is the right answer. The universal APK is the last resort, and it is why
      * a 32-bit x86 device is not left out even though no x86 split is built.
      *
-     * [flavor] and [languages] are the two flavour names on their own
-     * (`BuildConfig.FLAVOR_capabilities` and `FLAVOR_languages`), never the
-     * combined `BuildConfig.FLAVOR`, which reads `fullIntl` and matches nothing.
+     * [flavor] is the edition token, [STANDARD_FLAVOR] for this app, and
+     * [languages] the `languages` flavour (`BuildConfig.FLAVOR`, the only dimension).
      */
     fun pickAsset(
         release: GithubRelease,
@@ -112,11 +163,16 @@ internal object ReleaseAssets {
         supportedAbis: List<String>,
         languages: String = LANGUAGES_EN,
     ): GithubAsset? {
-        val ours = release.assets.mapNotNull { asset ->
+        fun matching(wantFlavor: String, wantLanguages: String) = release.assets.mapNotNull { asset ->
             parseAssetName(asset.name)
-                ?.takeIf { it.flavor == flavor && it.languages == languages }
+                ?.takeIf { it.flavor == wantFlavor && it.languages == wantLanguages }
                 ?.let { it to asset }
         }
+        // From 0.6.3 GitHub publishes one build, the standard one (full ·
+        // English, which fetches its other languages and feature libraries).
+        // A lite or all-languages install moves onto it rather than stopping
+        // at the last release that carried its own variant.
+        val ours = matching(flavor, languages).ifEmpty { matching(STANDARD_FLAVOR, LANGUAGES_EN) }
         if (ours.isEmpty()) return null
         for (abi in supportedAbis) {
             ours.firstOrNull { it.first.abi == abi }?.let { return it.second }

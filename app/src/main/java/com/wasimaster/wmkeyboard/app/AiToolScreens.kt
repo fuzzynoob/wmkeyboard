@@ -9,7 +9,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
+import com.wasimaster.wmkeyboard.app.assistant.SettingsAssistantGate
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
@@ -46,10 +46,16 @@ import com.wasimaster.wmkeyboard.core.tools.AiInsertMode
 import com.wasimaster.wmkeyboard.core.tools.BuiltInAiActions
 import com.wasimaster.wmkeyboard.core.tools.orderedAiActions
 import com.wasimaster.wmkeyboard.core.tools.visibleAiActions
+import androidx.compose.ui.platform.LocalContext
+import com.wasimaster.wmkeyboard.core.providers.ProviderTool
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
+import com.wasimaster.wmkeyboard.core.settings.AiProviders
+import com.wasimaster.wmkeyboard.core.settings.aiRows
 import com.wasimaster.wmkeyboard.core.settings.AiToolRoundsRange
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.settings.hasSearchKey
+import com.wasimaster.wmkeyboard.core.settings.toolBlocker
+import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
 import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
 import com.wasimaster.wmkeyboard.BuildConfig
@@ -58,6 +64,116 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
 import androidx.compose.runtime.saveable.rememberSaveable
+
+/**
+ * The AI screen on the settings root (#759): the two AI tools, the chat and
+ * the history, which were otherwise reached only through the Tools list.
+ *
+ * It holds doors, not settings. The provider, key and model stay on the AI
+ * writing tools page, because AI reply, the chat and the settings assistant
+ * all read them from there, and a second copy here would be two places to
+ * keep in step.
+ */
+@Composable
+internal fun AiHubSettings(
+    repository: SettingsRepository,
+    settings: LiveSettings,
+    onNavigate: (String) -> Unit,
+) {
+    val scope = rememberCoroutineScope()
+    val optionsDesc = stringResource(R.string.tools_has_options_desc)
+    SettingsGroup(
+        stringResource(R.string.toolai_hub_tools_title),
+        info = stringResource(R.string.toolai_hub_tools_info),
+    ) {
+        for (tool in AiHubTools) {
+            item {
+                // The Tools list's own row, switch and all, so a tool turned
+                // on here is the same tool turned on there.
+                ToolRow(
+                    tool = tool,
+                    paint = settings.watch { toolAccentPaint(tool, it) },
+                    blocker = settings.watch { toolBlocker(tool, it) },
+                    enabled = settings.watch { tool in it.enabledTools },
+                    optionsDesc = optionsDesc,
+                    onToggle = { on -> scope.launch { repository.setToolEnabled(tool, on) } },
+                    onOpen = { onNavigate(toolRoute(tool)) },
+                )
+            }
+        }
+    }
+    // Not an AI tool, but the same kind of thing: a model on the device, and
+    // nobody looks for it under Clipboard or Emoji, which it serves alike.
+    SemanticSearchGroup(repository, settings)
+    val assistant = settings.watch { SettingsAssistantGate.offered(it) }
+    SettingsGroup(stringResource(R.string.toolai_ai_chat_group_title)) {
+        item {
+            NavRow(
+                title = R.string.toolai_ai_chat_nav_title,
+                subtitle = stringResource(R.string.toolai_ai_chat_nav_subtitle),
+                route = "ai_chat",
+                onClick = { onNavigate("ai_chat") },
+            )
+        }
+        // The assistant's own off switch (#830), and its row while it is on.
+        item {
+            ToggleSetting(
+                R.string.toolai_hub_settings_assistant_title,
+                stringResource(R.string.toolai_hub_settings_assistant_subtitle),
+                assistant,
+                default = SettingsDefaults.appUi.settingsAssistant,
+            ) { on ->
+                // Off sends nothing more (#877): a question still out is
+                // retired, and its late answer goes nowhere.
+                if (!on) com.wasimaster.wmkeyboard.app.assistant.SettingsAssistantSession.stop()
+                scope.launch { repository.setSettingsAssistant(on) }
+            }
+        }
+        item(visible = assistant) {
+            NavRow(
+                title = R.string.settings_assistant_title,
+                subtitle = stringResource(R.string.settings_assistant_nav_subtitle),
+                route = "settings_assistant",
+                onClick = { onNavigate("settings_assistant") },
+            )
+        }
+    }
+    SettingsGroup(stringResource(R.string.toolai_memory_group_title)) {
+        item {
+            NavRow(
+                title = R.string.toolai_memory_screen_title,
+                subtitle = stringResource(R.string.toolai_memory_nav_subtitle),
+                route = "ai_memory",
+                onClick = { onNavigate("ai_memory") },
+            )
+        }
+    }
+    SettingsGroup(stringResource(R.string.toolai_ai_history_group_title)) {
+        item {
+            NavRow(
+                title = R.string.toolai_ai_history_nav_title,
+                subtitle = stringResource(R.string.toolai_ai_history_nav_subtitle),
+                onClick = { onNavigate("ai_history") },
+            )
+        }
+    }
+    SettingsGroup(stringResource(R.string.toolai_hub_button_group_title)) {
+        item {
+            ToggleSetting(
+                R.string.toolai_hub_chat_button_everywhere_title,
+                stringResource(R.string.toolai_hub_chat_button_everywhere_subtitle),
+                settings.watch { it.appUi.aiChatButtonEverywhere },
+                default = SettingsDefaults.appUi.aiChatButtonEverywhere,
+            ) { scope.launch { repository.setAiChatButtonEverywhere(it) } }
+        }
+    }
+    // This screen's own action, whatever the switch above says: the frame
+    // leaves the everywhere button off this route so there is only one.
+    RegisterFab { AiChatFab({ onNavigate("ai_chat") }) }
+}
+
+/** The tools the AI screen lists, in the order the Tools list has them. */
+private val AiHubTools = listOf(ToolbarTool.AI, ToolbarTool.AI_REPLY)
 
 /** The AI tool's settings: provider, credentials, output and prompts. */
 @Composable
@@ -71,6 +187,7 @@ internal fun AiToolSettings(
     // here and captured. The format also puts the number through the locale,
     // which is what gives Bengali or Arabic digits.
     val numberFormat = stringResource(R.string.values_number)
+    val assistantOn = settings.watch { SettingsAssistantGate.offered(it) }
     // What decides which groups and rows the screen holds; each row reads its
     // own value.
     val aiProvider = settings.watch { it.ai.provider }
@@ -84,260 +201,43 @@ internal fun AiToolSettings(
     // MCP servers (#573): a turned-on server's tools take rounds like the
     // built-in two, so the rounds slider shows for them too.
     val mcpOn = settings.watch { s -> s.ai.mcpServers.any { it.enabled } }
-    // What the chosen provider needs, and where the text goes, both ride on
-    // the heading's "?" rather than as paragraphs between the controls.
-    val setupNote = when (aiProvider) {
-        AiProvider.OLLAMA, AiProvider.LM_STUDIO -> stringResource(R.string.toolai_ai_local_server_info)
-        AiProvider.OPENAI_COMPATIBLE -> stringResource(R.string.toolai_ai_compatible_info)
-        AiProvider.BRAVE -> stringResource(R.string.toolai_ai_brave_info)
-        else -> null
-    }
+    // The keyboard's own tools (#698), counted the way the runner offers them.
+    val builtInsOn = settings.watch { builtInToolsOn(it.ai.toolPolicies) }
+    // Where the text goes rides on the list's "?" rather than as a paragraph
+    // between the controls. What each kind needs is in its own description.
     val privacyNote = stringResource(
         if (aiProvider == AiProvider.ON_DEVICE) R.string.toolai_ai_on_device_info
         else R.string.toolai_ai_cloud_info,
     )
-    SectionHeader(
-        stringResource(R.string.toolai_ai_provider_title),
-        info = listOfNotNull(setupNote, privacyNote).joinToString("\n\n"),
-    )
-    // Ten providers no longer fit a segmented row; chips wrap instead. The
-    // order is displayOrder, not the enum's own: new entries can only be
-    // appended there, which would put them after "On your device".
-    FlowRow(
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 16.dp, vertical = 4.dp),
-    ) {
-        val providers = AiProvider.displayOrder.filter {
-            it != AiProvider.ON_DEVICE || BuildConfig.ENABLE_LOCAL_LLM
-        }
-        for (provider in providers) {
-            FilterChip(
-                selected = aiProvider == provider,
-                onClick = { scope.launch { repository.setAiProvider(provider) } },
-                label = { Text(stringResource(provider.labelRes), maxLines = 1) },
-            )
-        }
-    }
-    when (aiProvider) {
-        AiProvider.ANTHROPIC -> SettingsGroup(
-            stringResource(R.string.toolai_ai_anthropic_group_title),
-        ) {
-            item {
-                ApiKeyField(
-                    label = stringResource(R.string.toolai_ai_anthropic_key_label),
-                    value = settings.watch { it.ai.anthropicKey },
-                    builtInAvailable = false,
-                    emptyHint = stringResource(R.string.toolai_ai_anthropic_key_hint),
-                ) { repository.setAiAnthropicKey(it) }
-            }
-            item {
-                TextFieldSetting(
-                    label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.watch { it.ai.anthropicModel },
-                    hint = stringResource(
-                        R.string.toolai_ai_model_hint,
-                        AiClient.DefaultModels.ANTHROPIC,
-                    ),
-                    default = SettingsDefaults.ai.anthropicModel,
-                ) { repository.setAiAnthropicModel(it) }
-            }
-        }
-        AiProvider.OPENAI -> SettingsGroup(
-            stringResource(R.string.toolai_ai_openai_group_title),
-        ) {
-            item {
-                ApiKeyField(
-                    label = stringResource(R.string.toolai_ai_openai_key_label),
-                    value = settings.watch { it.ai.openAiKey },
-                    builtInAvailable = false,
-                    emptyHint = stringResource(R.string.toolai_ai_openai_key_hint),
-                ) { repository.setAiOpenAiKey(it) }
-            }
-            item {
-                TextFieldSetting(
-                    label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.watch { it.ai.openAiModel },
-                    hint = stringResource(
-                        R.string.toolai_ai_model_hint,
-                        AiClient.DefaultModels.OPENAI,
-                    ),
-                    default = SettingsDefaults.ai.openAiModel,
-                ) { repository.setAiOpenAiModel(it) }
-            }
-        }
-        AiProvider.GEMINI -> SettingsGroup(
-            stringResource(R.string.toolai_ai_gemini_group_title),
-        ) {
-            item {
-                ApiKeyField(
-                    label = stringResource(R.string.toolai_ai_gemini_key_label),
-                    value = settings.watch { it.ai.geminiKey },
-                    builtInAvailable = false,
-                    emptyHint = stringResource(R.string.toolai_ai_gemini_key_hint),
-                ) { repository.setAiGeminiKey(it) }
-            }
-            item {
-                TextFieldSetting(
-                    label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.watch { it.ai.geminiModel },
-                    hint = stringResource(
-                        R.string.toolai_ai_model_hint,
-                        AiClient.DefaultModels.GEMINI,
-                    ),
-                    default = SettingsDefaults.ai.geminiModel,
-                ) { repository.setAiGeminiModel(it) }
-            }
-        }
-        AiProvider.OLLAMA -> SettingsGroup(
-            stringResource(R.string.toolai_ai_ollama_group_title),
-        ) {
-            item {
-                TextFieldSetting(
-                    label = stringResource(R.string.toolai_ai_server_address_label),
-                    value = settings.watch { it.ai.ollamaUrl },
-                    hint = stringResource(R.string.toolai_ai_ollama_url_hint),
-                    default = SettingsDefaults.ai.ollamaUrl,
-                ) { repository.setAiOllamaUrl(it) }
-            }
-            item {
-                TextFieldSetting(
-                    label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.watch { it.ai.ollamaModel },
-                    hint = stringResource(
-                        R.string.toolai_ai_model_hint,
-                        AiClient.DefaultModels.OLLAMA,
-                    ),
-                    default = SettingsDefaults.ai.ollamaModel,
-                ) { repository.setAiOllamaModel(it) }
-            }
-        }
-        AiProvider.LM_STUDIO -> SettingsGroup(
-            stringResource(R.string.toolai_ai_lm_studio_group_title),
-        ) {
-            item {
-                TextFieldSetting(
-                    label = stringResource(R.string.toolai_ai_server_address_label),
-                    value = settings.watch { it.ai.lmStudioUrl },
-                    hint = stringResource(R.string.toolai_ai_lm_studio_url_hint),
-                    default = SettingsDefaults.ai.lmStudioUrl,
-                ) { repository.setAiLmStudioUrl(it) }
-            }
-            item {
-                TextFieldSetting(
-                    label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.watch { it.ai.lmStudioModel },
-                    hint = stringResource(R.string.toolai_ai_lm_studio_model_hint),
-                    default = SettingsDefaults.ai.lmStudioModel,
-                ) { repository.setAiLmStudioModel(it) }
-            }
-        }
-        AiProvider.XAI -> SettingsGroup(
-            stringResource(R.string.toolai_ai_xai_group_title),
-        ) {
-            item {
-                ApiKeyField(
-                    label = stringResource(R.string.toolai_ai_xai_key_label),
-                    value = settings.watch { it.ai.xaiKey },
-                    builtInAvailable = false,
-                    emptyHint = stringResource(R.string.toolai_ai_xai_key_hint),
-                ) { repository.setAiXaiKey(it) }
-            }
-            item {
-                TextFieldSetting(
-                    label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.watch { it.ai.xaiModel },
-                    hint = stringResource(
-                        R.string.toolai_ai_model_hint,
-                        AiClient.DefaultModels.XAI,
-                    ),
-                    default = SettingsDefaults.ai.xaiModel,
-                ) { repository.setAiXaiModel(it) }
-            }
-        }
-        AiProvider.DEEPSEEK -> SettingsGroup(
-            stringResource(R.string.toolai_ai_deepseek_group_title),
-        ) {
-            item {
-                ApiKeyField(
-                    label = stringResource(R.string.toolai_ai_deepseek_key_label),
-                    value = settings.watch { it.ai.deepSeekKey },
-                    builtInAvailable = false,
-                    emptyHint = stringResource(R.string.toolai_ai_deepseek_key_hint),
-                ) { repository.setAiDeepSeekKey(it) }
-            }
-            item {
-                TextFieldSetting(
-                    label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.watch { it.ai.deepSeekModel },
-                    hint = stringResource(
-                        R.string.toolai_ai_model_hint,
-                        AiClient.DefaultModels.DEEPSEEK,
-                    ),
-                    default = SettingsDefaults.ai.deepSeekModel,
-                ) { repository.setAiDeepSeekModel(it) }
-            }
-        }
-        AiProvider.BRAVE -> SettingsGroup(
-            stringResource(R.string.toolai_ai_brave_group_title),
-        ) {
-            item {
-                // No model field: Brave's Answers API has exactly one model.
-                val hasSearchKey = settings.watch { it.webSearch.braveApiKey.isNotBlank() }
-                ApiKeyField(
-                    label = stringResource(R.string.toolai_ai_brave_key_label),
-                    value = settings.watch { it.ai.braveKey },
-                    builtInAvailable = false,
-                    emptyHint = stringResource(
-                        if (hasSearchKey) R.string.toolai_ai_brave_key_search_hint
-                        else R.string.toolai_ai_brave_key_hint,
-                    ),
-                ) { repository.setAiBraveKey(it) }
-            }
-        }
-        AiProvider.OPENAI_COMPATIBLE -> SettingsGroup(
-            stringResource(R.string.toolai_ai_compatible_group_title),
-        ) {
-            item {
-                TextFieldSetting(
-                    label = stringResource(R.string.toolai_ai_compatible_url_label),
-                    value = settings.watch { it.ai.compatibleUrl },
-                    hint = stringResource(R.string.toolai_ai_compatible_url_hint),
-                    default = SettingsDefaults.ai.compatibleUrl,
-                ) { repository.setAiCompatibleUrl(it) }
-            }
-            item {
-                // No default model: there is nothing sensible to guess for a
-                // service the app knows nothing about.
-                TextFieldSetting(
-                    label = stringResource(R.string.toolai_ai_model_label),
-                    value = settings.watch { it.ai.compatibleModel },
-                    hint = stringResource(R.string.toolai_ai_compatible_model_hint),
-                    default = SettingsDefaults.ai.compatibleModel,
-                ) { repository.setAiCompatibleModel(it) }
-            }
-            item {
-                ApiKeyField(
-                    label = stringResource(R.string.toolai_ai_compatible_key_label),
-                    value = settings.watch { it.ai.compatibleKey },
-                    builtInAvailable = false,
-                    emptyHint = stringResource(R.string.toolai_ai_compatible_key_hint),
-                ) { repository.setAiCompatibleKey(it) }
-            }
-        }
-        AiProvider.ON_DEVICE -> LocalLlmModelManager(repository, settings)
-    }
-    // Every provider reached over HTTP can take extra headers (#648).
-    if (aiProvider != AiProvider.ON_DEVICE) AiProviderHeadersGroup(repository, settings, aiProvider)
-    ServerFieldsGroup(
+    // The services, keys, addresses and models are a provider list, like
+    // translate's and search's. One row answers at a time: the one in use.
+    ProvidersGroup(
         repository,
         settings,
-        endpoints = listOf(
-            ServiceEndpoint.ANTHROPIC, ServiceEndpoint.OPENAI, ServiceEndpoint.GEMINI,
-            ServiceEndpoint.XAI, ServiceEndpoint.DEEPSEEK, ServiceEndpoint.BRAVE_SEARCH,
-        ),
+        ProviderTool.AI,
+        titleRes = R.string.toolai_ai_providers_title,
+        info = stringResource(R.string.toolai_ai_providers_info) + "\n\n" + privacyNote,
     )
+    val rows = settings.watch { it.aiRows() }
+    val inUse = settings.watch { it.ai.providerKey }
+    if (rows.size > 1) {
+        val context = LocalContext.current
+        SettingsGroup {
+            item {
+                ChoiceSetting(
+                    R.string.toolai_ai_in_use_title,
+                    subtitle = stringResource(R.string.toolai_ai_in_use_subtitle),
+                    options = rows.map { it.key to providerTitle(context, it) },
+                    selected = inUse,
+                ) { key ->
+                    val provider = rows.firstOrNull { it.key == key }?.let { AiProviders.of(it.typeId) } ?: return@ChoiceSetting
+                    scope.launch { repository.setAiProviderKey(key, provider) }
+                }
+            }
+        }
+    }
+    // The on-device model manager, each service's extra headers and its
+    // F-Droid server address are on that provider's own screen.
     SettingsGroup(stringResource(R.string.toolai_ai_output_title)) {
         if (aiProvider != AiProvider.ON_DEVICE) {
             item {
@@ -441,6 +341,15 @@ internal fun AiToolSettings(
             ) { scope.launch { repository.setAiToolWebFetch(it) } }
         }
         item {
+            NavRow(
+                title = R.string.toolai_ai_builtin_title,
+                subtitle = stringResource(R.string.toolai_ai_builtin_subtitle),
+                value = numberFormat.format(builtInsOn),
+                route = AI_BUILT_IN_TOOLS_ROUTE,
+                onClick = { onNavigate(AI_BUILT_IN_TOOLS_ROUTE) },
+            )
+        }
+        item {
             // The count is of the servers that are on, which is what decides
             // whether the model is offered anything from them at all.
             val enabledServers = settings.watch { s -> s.ai.mcpServers.count { it.enabled } }
@@ -452,7 +361,7 @@ internal fun AiToolSettings(
                 onClick = { onNavigate("ai_mcp") },
             )
         }
-        item(visible = toolFetch || (toolSearch && searchReady) || mcpOn) {
+        item(visible = toolFetch || (toolSearch && searchReady) || mcpOn || builtInsOn > 0) {
             SliderSetting(
                 R.string.toolai_ai_tool_rounds_title,
                 subtitle = stringResource(R.string.toolai_ai_tool_rounds_subtitle),
@@ -473,6 +382,15 @@ internal fun AiToolSettings(
                 onClick = { onNavigate("ai_chat") },
             )
         }
+        // Gone while the assistant is turned off (#830).
+        item(visible = assistantOn) {
+            NavRow(
+                title = R.string.settings_assistant_title,
+                subtitle = stringResource(R.string.settings_assistant_nav_subtitle),
+                route = "settings_assistant",
+                onClick = { onNavigate("settings_assistant") },
+            )
+        }
         // The chat on the keyboard's AI panel (#280). Off by default: a prompt
         // is often more than one line, and the panel has a Send button.
         item {
@@ -482,6 +400,25 @@ internal fun AiToolSettings(
                 settings.watch { it.ai.chatEnterSends },
                 default = SettingsDefaults.ai.chatEnterSends,
             ) { scope.launch { repository.setAiChatEnterSends(it) } }
+        }
+        // The model that answered names the chat (#882), on both chats.
+        item {
+            ToggleSetting(
+                R.string.toolai_chat_auto_rename_title,
+                stringResource(R.string.toolai_chat_auto_rename_subtitle),
+                settings.watch { it.ai.chatAutoRename },
+                default = SettingsDefaults.ai.chatAutoRename,
+            ) { scope.launch { repository.setAiChatAutoRename(it) } }
+        }
+        // "Ask AI" in other apps' selection menus (#897). AskAiSelectionMenu
+        // switches the entry from the setting, here or from a backup alike.
+        item {
+            ToggleSetting(
+                R.string.toolai_ai_selection_menu_title,
+                stringResource(R.string.toolai_ai_selection_menu_subtitle),
+                settings.watch { it.ai.selectionMenu },
+                default = SettingsDefaults.ai.selectionMenu,
+            ) { scope.launch { repository.setAiSelectionMenu(it) } }
         }
     }
     SettingsGroup(stringResource(R.string.toolai_ai_actions_group_title)) {
@@ -635,8 +572,16 @@ internal fun AiActionsSettings(
         }
         for (action in ordered) {
             if (reordering) break
-            item {
+            item(key = action.id) {
                 val on = settings.watch { action.id !in it.ai.hiddenActions }
+                // Delete for an action of your own; for a shipped one that you
+                // changed, Reset, which is the same call bringing it back.
+                val stored = settings.watch { s -> s.ai.customActions.any { it.id == action.id } }
+                val shipped = BuiltInAiActions.byId(action.id) ?: BuiltInAiReplyTones.byId(action.id)
+                val editLabel = stringResource(R.string.toolai_ai_action_edit_desc)
+                val removeLabel = stringResource(
+                    if (shipped != null) R.string.toolai_ai_action_reset_action else R.string.toolai_ai_action_delete_action,
+                )
                 WmRow(
                     title = names[action.id].orEmpty(),
                     supporting = {
@@ -663,6 +608,16 @@ internal fun AiActionsSettings(
                                 }
                             },
                         )
+                    },
+                    swipeActions = buildList {
+                        add(SwipeAction(Icons.Outlined.Edit, editLabel) { onNavigate("ai_action_edit/${action.id}") })
+                        if (stored) {
+                            val remove = { scope.launch { repository.deleteAiAction(action.id) }; Unit }
+                            add(
+                                if (shipped != null) SwipeAction(Icons.Outlined.Refresh, removeLabel, onClick = remove)
+                                else deleteSwipeAction(removeLabel, remove),
+                            )
+                        }
                     },
                     trailing = {
                         IconButton(onClick = { onNavigate("ai_action_edit/${action.id}") }) {

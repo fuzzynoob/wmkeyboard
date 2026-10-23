@@ -1,5 +1,7 @@
 package com.wasimaster.wmkeyboard.core.prediction
 
+import java.util.TreeMap
+
 /**
  * Read-only view over a frequency-weighted word index: prefix completion plus
  * exact frequency/membership lookup. Implemented by the mutable node-based
@@ -36,7 +38,13 @@ interface WordSource {
 class Trie : WordSource {
 
     private class Node {
-        val children = HashMap<Char, Node>()
+        /**
+         * Sorted by label, so a walk lists children in the same order on
+         * every run and in every implementation (the Rust user lexicon's
+         * trie, which the parity tests hold to this one). A hash map listed
+         * them in an order that hung on insertion history.
+         */
+        val children = TreeMap<Char, Node>()
         var frequency = 0
         var isWord = false
         /** Highest word frequency anywhere in this node's subtree (incl. self). */
@@ -48,6 +56,10 @@ class Trie : WordSource {
 
     private val root = Node()
     private val nodesById = ArrayList<Node>().apply { add(root) }
+
+    /** Bumped by every [insert] and [reinforce], so a copy can tell it is stale. */
+    var version = 0L
+        private set
 
     private fun newNode(): Node = Node().also { node ->
         node.id = nodesById.size
@@ -63,6 +75,7 @@ class Trie : WordSource {
         node.isWord = true
         node.frequency = maxOf(node.frequency, frequency)
         bumpMaxSubtree(word, node.frequency)
+        version++
     }
 
     /** Bumps a word's frequency, inserting it if absent. */
@@ -75,6 +88,7 @@ class Trie : WordSource {
         node.isWord = true
         node.frequency += boost
         bumpMaxSubtree(word, node.frequency)
+        version++
     }
 
     /** Raise maxSubtreeFreq to [freq] along [word]'s path so it stays a valid upper bound. */
@@ -106,7 +120,10 @@ class Trie : WordSource {
     /** Walker over the live node graph. Mutation during a walk has the same
      * (pre-existing) hazard as mutation during [complete]; callers invalidate
      * on lexicon change. */
-    private inner class NodeWalker : TrieWalker {
+    internal inner class NodeWalker : TrieWalker {
+        /** The trie this walks, for code that keeps a copy of it elsewhere. */
+        val trie: Trie get() = this@Trie
+
         override fun child(node: Int, label: Char): Int =
             nodesById[node].children[label]?.id ?: -1
 

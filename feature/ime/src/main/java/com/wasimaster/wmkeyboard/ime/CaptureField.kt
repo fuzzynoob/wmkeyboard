@@ -191,6 +191,15 @@ data class CaretText(
         // A pick with text selected replaces the selection, as typing would.
         if (hasSelection) return withoutSelection().typed(if (spaceAfter) "$word " else word)
         val span = wordAtCaret()
+        // Letters typed in front of a word already there (#612): `ab|out` in
+        // a clip being edited is a new word written before `out`, unless the
+        // pick ends the way the word does and so finishes it. Swallowing the
+        // tail overwrote text the user never touched.
+        val rest = text.substring(at, span.end)
+        if (rest.isNotEmpty() && !word.endsWith(rest, ignoreCase = true)) {
+            val head = text.substring(0, span.start) + word
+            return CaretText("$head ${text.substring(at)}", head.length + 1)
+        }
         val tail = text.substring(span.end)
         val head = text.substring(0, span.start) + word
         if (!spaceAfter) return CaretText(head + tail, head.length)
@@ -216,7 +225,10 @@ data class CaretText(
         val i = at
         val head = text.substring(0, i)
         val tail = text.substring(i)
-        val lead = if (head.isNotEmpty() && isWordChar(head.last())) " " else ""
+        // Spaced off a word, and off the mark that ends one (#880): a glide
+        // after `hello,` is the next word, not `hello,world`. An opening
+        // bracket or quote keeps the word against it.
+        val lead = if (head.isNotEmpty() && (isWordChar(head.last()) || head.last() in SPACED_BEFORE_GLIDE)) " " else ""
         val body = head + lead + word
         return when {
             tail.isEmpty() -> CaretText(body, body.length)
@@ -258,6 +270,9 @@ data class CaretText(
          */
         fun isWordChar(c: Char): Boolean =
             c.isLetterOrDigit() || c == '\'' || c == '’' || c == '-'
+
+        /** The marks a glided word is spaced off when it lands right after one: clause ends and closers. */
+        private const val SPACED_BEFORE_GLIDE = ".,!?;:।)]}”»…"
 
         /**
          * The word [index] is on or just after, as a range of [text], or null
@@ -313,17 +328,24 @@ enum class CaptureTarget(
      * against a word it was never typed into.
      */
     val movableCaret: Boolean = true,
+    /**
+     * Whether the field is written in sentences, so a punctuation mark typed
+     * into it is followed by a space the way it is in a message (#880). Not
+     * the searches, where a trailing space holds the results back a word
+     * (#300), and not the one-word boxes.
+     */
+    val prose: Boolean = false,
 ) {
     TYPING_TEST(takesWords = false, movableCaret = false),
-    AI_CUSTOM(takesWords = true),
+    AI_CUSTOM(takesWords = true, prose = true),
     /** The AI panel's chat composer (#280): free text, newlines and all. */
-    AI_CHAT(takesWords = true),
+    AI_CHAT(takesWords = true, prose = true),
 
     /**
      * The reply panel's own message box (#234): what the other person said,
      * typed or pasted in. Free text — a message runs to more than one line.
      */
-    AI_REPLY(takesWords = true),
+    AI_REPLY(takesWords = true, prose = true),
 
     /** The KDE Connect panel's "add by address" box: an IP address or a host name. */
     KDE_HOST(takesWords = false),
@@ -337,7 +359,7 @@ enum class CaptureTarget(
     KDE_REMOTE(takesWords = true, movableCaret = false),
 
     /** The same panel in compose mode: a line edited here and sent whole on Enter. */
-    KDE_COMPOSE(takesWords = true),
+    KDE_COMPOSE(takesWords = true, prose = true),
     PLUGIN(takesWords = true),
     FIND_QUERY(takesWords = true),
     FIND_REPLACEMENT(takesWords = true),
@@ -350,7 +372,7 @@ enum class CaptureTarget(
     DICTIONARY_SEARCH(takesWords = true),
     CLIPBOARD_SEARCH(takesWords = true),
     /** The clipboard panel's clip editor: free text, newlines and all. */
-    CLIP_EDIT(takesWords = true),
+    CLIP_EDIT(takesWords = true, prose = true),
 
     /** The clipboard's Combine (#612): what goes between the clips. Punctuation, not words. */
     CLIP_JOINER(takesWords = false),
@@ -370,7 +392,7 @@ enum class CaptureTarget(
     NOTE_TITLE(takesWords = true),
 
     /** A note's body: free text, newlines and all, like [CLIP_EDIT]. */
-    NOTE_BODY(takesWords = true),
+    NOTE_BODY(takesWords = true, prose = true),
 
     /** A new tag being typed in the note editor's tag row; Enter adds it. */
     NOTE_TAG(takesWords = true),
@@ -380,6 +402,61 @@ enum class CaptureTarget(
 
     /** A label in the Clock panel: an alarm's, a timer's, a countdown's, a city's own name. */
     CLOCK_LABEL(takesWords = true),
+
+    /** The Home Assistant panel's search: filters tiles as it is typed, Enter opens the first. */
+    HA_SEARCH(takesWords = true),
+
+    /** A sentence for Home Assistant's Assist: Enter sends it. */
+    HA_ASSIST(takesWords = true, prose = true),
+
+    /** A lock or alarm code, or a text entity's value, in the Home Assistant panel. */
+    HA_TEXT(takesWords = true),
+
+    /**
+     * The gallery panel's text (#708): the caption that goes with what is
+     * sent, or a text box being written on a photo in the editor.
+     */
+    GALLERY_TEXT(takesWords = true, prose = true),
+
+    /** A calendar event's title in the Calendar composer: one line, Enter moves on to the place. */
+    CALENDAR_TITLE(takesWords = true),
+
+    /** An event's place: one line. */
+    CALENDAR_LOCATION(takesWords = true),
+
+    /** An event's notes: free text, newlines and all, like [CLIP_EDIT]. */
+    CALENDAR_NOTES(takesWords = true, prose = true),
+
+    /** A guest being added: a name to look up in the contacts, or an address. Enter adds it. */
+    CALENDAR_GUEST(takesWords = false),
+    /**
+     * The Send files panel's boxes (#729). None takes words: a password must
+     * not be guessed at, and a link or an address is not prose.
+     */
+    SEND_PASSWORD(takesWords = false),
+    SEND_LINK(takesWords = false),
+    SEND_INSTANCE(takesWords = false),
+
+    /** The toolbox's search (#687): matches tool names as it is typed, Enter opens the first. */
+    TOOLBOX_SEARCH(takesWords = true),
+
+    /** A toolbox folder's name (#709): one line, Enter keeps it. */
+    TOOLBOX_FOLDER_NAME(takesWords = true),
+
+    /** The kaomoji tab's search: filters by tag and face as it is typed, Enter puts the first in. */
+    KAOMOJI_SEARCH(takesWords = true),
+
+    /** A face being added or changed in the kaomoji tab. Punctuation, not words. */
+    KAOMOJI_FACE(takesWords = false),
+
+    /** A kaomoji tag's name: a new one in the editor, or a rename. Enter keeps it. */
+    KAOMOJI_TAG(takesWords = true),
+
+    /** The Text repeat panel's text: free text, newlines and all, like [CLIP_EDIT]. */
+    REPEAT_TEXT(takesWords = true),
+
+    /** The Text repeat panel's custom separator: punctuation and spaces, not words. */
+    REPEAT_SEPARATOR(takesWords = false),
     ;
 
     /**
@@ -387,6 +464,16 @@ enum class CaptureTarget(
      * Only the word card, whose [WordSpell] carries anchor and cursor for #204.
      */
     val ownsCaret: Boolean get() = this == WORD_SPELL
+
+    /**
+     * Whether the focus switch (#665) can hand this field's keys to the app's
+     * field and back. Not the typing test, whose run is the keys; not the
+     * word card, a card over the keyboard rather than a tool's field; and not
+     * the toolbox's own boxes, which take the whole keyboard and are gone the
+     * moment a tool is picked.
+     */
+    val handsKeysToApp: Boolean
+        get() = this != TYPING_TEST && this != WORD_SPELL && this != TOOLBOX_SEARCH && this != TOOLBOX_FOLDER_NAME
 
     /**
      * Whether the field's own strip carries a microphone that dictates into it
@@ -404,7 +491,8 @@ enum class CaptureTarget(
     val isSearch: Boolean
         get() = this == EMOJI_SEARCH || this == MEDIA_SEARCH || this == DICTIONARY_SEARCH ||
             this == CLIPBOARD_SEARCH || this == FIND_QUERY || this == SNIPPET_SEARCH ||
-            this == NOTE_SEARCH || this == NOTE_TAG || this == CLOCK_SEARCH
+            this == NOTE_SEARCH || this == NOTE_TAG || this == CLOCK_SEARCH || this == TOOLBOX_SEARCH ||
+            this == HA_SEARCH || this == KAOMOJI_SEARCH || this == KAOMOJI_TAG
 }
 
 /**
@@ -426,7 +514,20 @@ enum class CaptureTarget(
 data class CaptureCaret(val key: String, val at: Int, val text: String, val anchor: Int = at)
 
 /** What the selection bar over a keyboard-owned field can do with its text (#352). */
-enum class CaptureSelectionAction { CUT, COPY, PASTE, SELECT_ALL }
+enum class CaptureSelectionAction { CUT, COPY, PASTE, SELECT_ALL, UNDO, REDO }
+
+/**
+ * A keyboard-owned field that has edits to undo or redo (#665): the field's key
+ * and the text it held when the history last saw it. The buttons show only
+ * while both still describe the field that has the keys, each while it has a
+ * step to take.
+ */
+data class CaptureUndoMark(
+    val key: String,
+    val text: String,
+    val canUndo: Boolean = true,
+    val canRedo: Boolean = false,
+)
 
 /** What the microphone on a keyboard-owned field's strip was asked to do (#353). */
 enum class CaptureVoiceAction {

@@ -9,7 +9,7 @@ import com.wasimaster.wmkeyboard.config.BuildConfig
  * grant the installed APK cannot hold. The keyboard side needs no gate: both
  * features already check the grant at runtime and stand aside without it.
  *
- * Both came out of Play's review of version code 26 (2026-09-28).
+ * The first two came out of Play's review of version code 26 (2026-09-28).
  */
 object ChannelFeatures {
     /**
@@ -25,6 +25,13 @@ object ChannelFeatures {
      * it, Gestures mode is Explore by another name, so the mode goes too.
      */
     val GESTURE_PASSTHROUGH: Boolean = !BuildConfig.ENABLE_PLAY_STORE
+
+    /**
+     * The floating AI button's screen reading (#697), behind
+     * ScreenContextService. Same Play rule as the pass-through service. The
+     * button itself stays: its chat opens without the screen's text.
+     */
+    val SCREEN_CONTEXT: Boolean = !BuildConfig.ENABLE_PLAY_STORE
 
     /**
      * The clock tool's ring service, a foreground service of type
@@ -43,4 +50,21 @@ object ChannelFeatures {
      * whose tap opens the ring screen.
      */
     val CLOCK_FULL_SCREEN: Boolean = !BuildConfig.ENABLE_PLAY_STORE
+
+    /**
+     * The gallery tool's own grid of the photo library (#708), behind
+     * READ_MEDIA_IMAGES and READ_MEDIA_VIDEO: the same permissions Play
+     * refused for the screenshot watcher. Without them the tool opens
+     * Android's photo picker instead, which needs no permission at all, and
+     * sends what is picked the same way.
+     */
+    val GALLERY_BROWSER: Boolean = !BuildConfig.ENABLE_PLAY_STORE
+
+    /**
+     * The SupportKori link on About › Supporters. Play's Payments policy lets
+     * an app lead users to no payment method but Play's own billing, so the
+     * Play build offers tips through Play billing instead (app/.../tips).
+     * Those tippers join the same Supporters list.
+     */
+    val SUPPORTKORI_LINK: Boolean = !BuildConfig.ENABLE_PLAY_STORE
 }

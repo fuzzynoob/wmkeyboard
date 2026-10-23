@@ -53,15 +53,19 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Checklist
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EditNote
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Inventory2
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Label
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Lock
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PushPin
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Restore
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.UnfoldLess
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.UnfoldMore
 import com.wasimaster.wmkeyboard.core.notes.Note
 import com.wasimaster.wmkeyboard.core.notes.NoteTag
 import com.wasimaster.wmkeyboard.core.notes.NoteTagPalette
 import com.wasimaster.wmkeyboard.core.theme.FrostSurface
+import com.wasimaster.wmkeyboard.core.ui.SwipeAction
+import com.wasimaster.wmkeyboard.core.ui.SwipeTone
 import com.wasimaster.wmkeyboard.ime.FocusRegion
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.NoteEdit
@@ -122,6 +126,8 @@ data class NotesCallbacks(
     val onHold: (Long?) -> Unit = {},
     val onUndo: () -> Unit = {},
     val onUndoDismiss: () -> Unit = {},
+    /** A chip on the Quick note row (#864): a note to add to, or null for a new one. */
+    val onQuickPick: (Long?) -> Unit = {},
 )
 
 /** Settings routes the panel links to; `SettingsRoutesTest` scans these constants. */
@@ -162,7 +168,7 @@ internal fun NotesPanelHost(
         extraHeight = if (reading && notes.readExpanded) LocalConfiguration.current.screenHeightDp.dp else 0.dp,
         compact = state.notesTypingActive,
         compactHeight = when {
-            editing != null -> notesEditCompactHeight(lineHeightDp)
+            editing != null -> notesEditCompactHeight(lineHeightDp, quickRow = notes.quick)
             // Searching: the pill, and a few rows of results under it.
             else -> FullBleedHeaderHeight + lineHeightDp * 7
         },
@@ -538,6 +544,38 @@ private fun NoteRow(
             progress?.let { add("${it.done}/${it.total}") }
         }.joinToString(". ")
     }
+    // The held row's chips, a swipe away: pin, archive and delete for a
+    // note, restore for one in the trash. A long swipe trashes outright, since
+    // the panel's Undo bar brings the note back.
+    val trash = kbDeleteSwipeAction(stringResource(CommonR.string.common_delete)) { callbacks.onTrash(note.id) }
+    val swipeActions = if (note.inTrash) {
+        listOf(
+            SwipeAction(Icons.Outlined.Restore, stringResource(R.string.ime_notes_restore_action), SwipeTone.ACCENT) {
+                callbacks.onRestore(note.id)
+            },
+        )
+    } else {
+        listOf(
+            SwipeAction(
+                Icons.Outlined.PushPin,
+                stringResource(if (note.pinned) R.string.ime_notes_unpin_action else R.string.ime_notes_pin_action),
+                SwipeTone.ACCENT,
+            ) { callbacks.onPin(note.id, !note.pinned) },
+            SwipeAction(
+                Icons.Outlined.Inventory2,
+                stringResource(if (note.archived) R.string.ime_notes_unarchive_action else R.string.ime_notes_archive_action),
+            ) { callbacks.onArchive(note.id, !note.archived) },
+            trash,
+        )
+    }
+    KbSwipeActionsRow(
+        actions = swipeActions,
+        reduceMotion = state.settings.reduceMotion,
+        fullSwipe = trash.takeIf { !note.inTrash },
+        // A held row is showing its chips, and a sideways drag there is the
+        // chip row scrolling.
+        enabled = !held,
+    ) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -610,6 +648,7 @@ private fun NoteRow(
                 }
             }
         }
+    }
     }
 }
 

@@ -10,6 +10,7 @@ import com.wasimaster.wmkeyboard.core.gesture.GlideToken
 import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
 import com.wasimaster.wmkeyboard.core.gesture.GlideKeyMap
 import com.wasimaster.wmkeyboard.core.gesture.GlideWorkspace
+import com.wasimaster.wmkeyboard.core.gesture.GlideDecoder
 import com.wasimaster.wmkeyboard.core.gesture.RomanizedIndex
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.transliteration.PhoneticIndex
@@ -99,6 +100,14 @@ class SuggestionEngine(
      * discrete adjacency weights, so hardware keyboards, pasted text and
      * re-armed words behave exactly as before.
      */
+    /**
+     * Whether a reading that mixes slips with a real edit may be applied
+     * ([SlipFixes]). [SlipFixes.OFF] is the touch model's business (no slip
+     * reach at all); here it reads like [SlipFixes.CAREFUL].
+     */
+    @Volatile
+    var slipFixes: SlipFixes = SlipFixes.CAREFUL
+
     @Volatile
     private var touchModelField: KeyTouchModel? = null
     var touchModel: KeyTouchModel?
@@ -244,6 +253,23 @@ class SuggestionEngine(
             primaryLanguageIdField = value
             generation.incrementAndGet()
         }
+
+    /**
+     * The spelling checker for the language being typed: Hunspell over the
+     * `.aff` and `.dic` the user imported for it, a GiellaLT speller
+     * downloaded or imported for it, or both, when the library is here, and
+     * [WordChecker.NONE] otherwise, which leaves every decision to the word
+     * lists exactly as before.
+     *
+     * A word it accepts is never autocorrected away and keeps the strip's
+     * corrections off, like a listed word; that is what lets German, Dutch,
+     * Hungarian and Finnish compounds stand, and North Sámi or Greenlandic
+     * inflections. Its spellings of a word it does
+     * not accept join the strip on the background pass (see [suggest]).
+     * Outside the walk's [generation]: the walk never reads it.
+     */
+    @Volatile
+    var wordChecker: WordChecker = WordChecker.NONE
 
     /**
      * True when English is a secondary language and the primary is not: the
@@ -789,6 +815,9 @@ class SuggestionEngine(
      */
     private fun suppressed(word: String): Boolean = blacklisted(word) || offensive(word)
 
+    /** Whether the strip would hold [word] back: on the blacklist, or a blocked offensive word. */
+    fun suppresses(word: String): Boolean = suppressed(word)
+
     /** The bundled dictionary, or an empty one when [englishSources] is off. */
     private val activeDictionary: WordSource
         get() = if (englishSources) dictionary else emptyTrie
@@ -1058,6 +1087,18 @@ class SuggestionEngine(
     private var deepGlideBeam = GlideBeam(glideTuning.copy(vocabularyRank = 0))
 
     /**
+     * The glide engine the user picked in place of [glideBeam] (FUTO Swipe
+     * for English on QWERTY, or Google's gesture library they imported), or
+     * null for the built-in decoder. The keyboard service sets it before each
+     * decode from the setting, the language and whether the engine's files
+     * are here, so it is null whenever the engine does not apply; [glide]
+     * still falls back to [glideBeam] for a stroke it cannot read (a layout
+     * that is not QWERTY, a dictionary still being built, a model error).
+     */
+    @Volatile
+    var externalGlide: GlideDecoder? = null
+
+    /**
      * The two-thumb decoder (issue #638), on the same stroke weights as
      * [glideBeam] so a setting that moves a radius moves both.
      */
@@ -1237,12 +1278,32 @@ class SuggestionEngine(
     ): List<GlideBeam.Candidate> {
         val romanization = glideRomanization
         val sources = if (romanization.isEmpty) {
-            (walkSources() + glideTriggerSources() + glideContractionSources())
+            (walkSources() + glideTriggerSources() + glideContractionSources() + glideApostropheSources())
                 .let { all -> if (tiers == null) all else all.filter { it.tier in tiers } }
         } else {
             romanization.walkSources()
         }
         if (sources.isEmpty()) return emptyList()
+        // The other engines read the layout's own spellings only, so never
+        // on a phonetic layout, where the answer is the romanization's own.
+        val neural = externalGlide?.takeIf { romanization.isEmpty }?.decode(
+            path = path,
+            keys = keys,
+            keyWidth = keyWidth,
+            sources = sources,
+            limit = maxOf(limit, if (deep) GLIDE_DEEP_POOL else GLIDE_RERANK_POOL),
+            deep = deep,
+            vocabularyRank = glideTuning.vocabularyRank,
+            lookAhead = lookAhead,
+            shapes = shapes,
+            tuning = glideTuning,
+        )
+        if (neural != null) {
+            return finishGlide(
+                withApostrophes(neural, romanization), romanization, limit,
+                previousWord, previousWord2, previousWord3, recentWords,
+            )
+        }
         val decoded = (if (deep) deepGlideBeam else glideBeam).decode(
             path = path,
             keys = keys,
@@ -1259,7 +1320,8 @@ class SuggestionEngine(
             lookAhead = if (romanization.isEmpty) lookAhead else 0,
         )
         return finishGlide(
-            decoded, romanization, limit, previousWord, previousWord2, previousWord3, recentWords,
+            withApostrophes(decoded, romanization), romanization, limit,
+            previousWord, previousWord2, previousWord3, recentWords,
         )
     }
 
@@ -1291,7 +1353,7 @@ class SuggestionEngine(
     ): List<GlideBeam.Candidate> {
         val romanization = glideRomanization
         val sources = if (romanization.isEmpty) {
-            walkSources() + glideTriggerSources() + glideContractionSources()
+            walkSources() + glideTriggerSources() + glideContractionSources() + glideApostropheSources()
         } else {
             romanization.walkSources()
         }
@@ -1307,7 +1369,8 @@ class SuggestionEngine(
         )
         if (partial) return decoded.take(limit)
         return finishGlide(
-            decoded, romanization, limit, previousWord, previousWord2, previousWord3, recentWords,
+            withApostrophes(decoded, romanization), romanization, limit,
+            previousWord, previousWord2, previousWord3, recentWords,
         )
     }
 
@@ -1572,7 +1635,7 @@ class SuggestionEngine(
             FuzzyBeamSearch.ScoredCandidate(
                 c.word, c.score - LANG_MISMATCH_DAMP, c.editCost, c.edits,
                 c.completedChars, c.tier, c.dictScore, c.userScore - LANG_MISMATCH_DAMP,
-                c.accents,
+                c.accents, c.slips,
             )
         }
         if (!changed) return ranked
@@ -1660,6 +1723,12 @@ class SuggestionEngine(
      * contraction it is drawn for. Only the unambiguous table, so `its` and
      * `were` are still read as themselves, and only while the repair is on:
      * without it the stroke would commit `doesnt`.
+     *
+     * A bare spelling the list does hold stands here too when the
+     * contraction outnumbers it (#784). `ill` is a word, but a rare one next
+     * to *I'll*, and the stroke commits *I'll* either way; walked at `ill`'s
+     * own count it lost to whatever commoner word the stroke also passed. The walk
+     * keeps the better of the two counts for a spelling in both.
      */
     private fun glideContractionSources(): List<FuzzyBeamSearch.WalkSource> {
         if (!apostropheFixes || mixLanguageIds().none(Apostrophes::servesLanguage)) return emptyList()
@@ -1667,8 +1736,9 @@ class SuggestionEngine(
         val cached = glideContractions?.takeIf { it.first == stamp }?.second ?: run {
             val repairs = mixLanguageIds().flatMap { Apostrophes.repairs(it).entries }
             val entries = repairs.mapNotNull { (bare, fixed) ->
-                if (inDictionaries(bare)) return@mapNotNull null
-                dictionaryFrequencyOf(fixed.lowercase()).takeIf { it > 0 }?.let { bare to it }
+                val count = dictionaryFrequencyOf(fixed.lowercase()).takeIf { it > 0 } ?: return@mapNotNull null
+                if (inDictionaries(bare) && dictionaryFrequencyOf(bare) >= count) return@mapNotNull null
+                bare to count
             }
             (if (entries.isEmpty()) PackedTrie.EMPTY else PackedTrie.of(entries))
                 .also { glideContractions = stamp to it }
@@ -1681,6 +1751,54 @@ class SuggestionEngine(
     /** [glideContractionSources]' trie, with the [generation] it was built at. */
     @Volatile
     private var glideContractions: Pair<Long, WordSource>? = null
+
+    /**
+     * The user's own words with an apostrophe in them, in the walk without it
+     * (#854). A word saved as *Jenny's* could only be glided through an
+     * apostrophe key, while the contractions #451 and #784 read without one;
+     * a saved name's possessive is no more ambiguous than *doesn't*. So
+     * `jennys` stands in the walk at *Jenny's*'s count, and a reading of it
+     * is handed back as *Jenny's* ([withApostrophes]).
+     *
+     * Only where the bare spelling is no word of its own, in any list or in
+     * the lexicon: `its` against *it's* and `were` against *we're* stay the
+     * coin tosses the docs say they are, and keep their own key.
+     */
+    private fun glideApostropheSources(): List<FuzzyBeamSearch.WalkSource> =
+        apostropheFree().trie.walkers().map {
+            FuzzyBeamSearch.WalkSource(it, LOG_USER_WORD_WEIGHT, FuzzyBeamSearch.Tier.USER)
+        }
+
+    /** [glideApostropheSources]' trie and the words it stands for, by the state it was built from. */
+    private class ApostropheFree(val stamp: Pair<Long, Long>, val trie: WordSource, val words: Map<String, String>)
+
+    @Volatile
+    private var apostropheFreeCache: ApostropheFree? = null
+
+    private fun apostropheFree(): ApostropheFree {
+        val stamp = generation.get() to userLexicon.mutationCount()
+        apostropheFreeCache?.takeIf { it.stamp == stamp }?.let { return it }
+        val words = HashMap<String, String>()
+        val entries = ArrayList<Pair<String, Int>>()
+        for ((word, count) in userLexicon.allWords()) {
+            if (word.none(WordContext::isApostrophe)) continue
+            val bare = word.filterNot(WordContext::isApostrophe).lowercase()
+            if (bare.length < 2 || bare.none { it.isLetter() }) continue
+            if (inDictionaries(bare) || userLexicon.contains(bare)) continue
+            if (words.putIfAbsent(bare, word) == null) entries += bare to count.coerceAtLeast(1)
+        }
+        return ApostropheFree(stamp, if (entries.isEmpty()) PackedTrie.EMPTY else PackedTrie.of(entries), words)
+            .also { apostropheFreeCache = it }
+    }
+
+    /** [decoded] with each reading of an apostrophe-free stand-in spelled as the word it stands for (#854). */
+    private fun withApostrophes(decoded: List<GlideBeam.Candidate>, romanization: RomanizedIndex): List<GlideBeam.Candidate> {
+        if (!romanization.isEmpty) return decoded
+        val words = apostropheFreeCache?.words?.takeIf { it.isNotEmpty() } ?: return decoded
+        return decoded.map { c ->
+            words[c.word.lowercase()]?.let { GlideBeam.Candidate(it, c.score, c.shapeCost, c.tier, c.ahead) } ?: c
+        }
+    }
 
     /** [glideTriggers] as walk sources, at the user tier. */
     private fun glideTriggerSources(): List<FuzzyBeamSearch.WalkSource> =
@@ -1764,7 +1882,79 @@ class SuggestionEngine(
     fun isKnownWord(word: String): Boolean {
         val lower = word.lowercase()
         return inDictionaries(lower) || userLexicon.contains(lower) ||
-            contacts.contains(lower) || apps.contains(lower)
+            contacts.contains(lower) || apps.contains(lower) || spellAccepted(word)
+    }
+
+    /**
+     * Whether [wordChecker] accepts [word] as typed, case and all: Hunspell
+     * knows German `Haus` and not `haus`. Short words are left to the lists,
+     * which answer them better than rules do.
+     */
+    private fun spellAccepted(word: String): Boolean {
+        val checker = wordChecker
+        if (checker === WordChecker.NONE || word.length < MIN_SPELL_CHECK_LENGTH) return false
+        return checker.accepts(word)
+    }
+
+    /**
+     * [wordChecker]'s spellings of [composing], which it does not accept,
+     * merged into [merged]. A spelling a list holds scores as that list word
+     * reached by one far substitution, so it ranks with the walk's own
+     * corrections; one no list holds (a compound, mostly) scores as an
+     * imported Hunspell stem the same distance away, below the counted words
+     * and above nothing. Each later spelling steps down a little, keeping
+     * Hunspell's own order. A word still on its way to a listed one is not
+     * asked about: the completions are what the strip wants then, and
+     * Hunspell's run takes up to a quarter of a second.
+     */
+    private fun spellCandidates(composing: String, lower: String, merged: HashMap<String, Double>) {
+        val checker = wordChecker
+        if (checker === WordChecker.NONE || composing.length < MIN_SPELL_CHECK_LENGTH) return
+        if (isLivePrefix(lower)) return
+        val sources = walkSources()
+        val unlisted = ln(CUSTOM_WORD_WEIGHT.toDouble()) + ln(1.0 + Hunspell.STEM_FREQUENCY) -
+            FuzzyBeamSearch.COST_SUB_FAR
+        checker.suggestions(composing, SPELL_SUGGESTIONS).forEachIndexed { i, spelling ->
+            // A split ("Donau dampfschiff") only where the user wants splits offered at all.
+            if (' ' in spelling && !autocorrectSplits) return@forEachIndexed
+            val listed = dictionaryScore(spelling.lowercase(), sources)
+            val score = (if (listed.isFinite()) listed - FuzzyBeamSearch.COST_SUB_FAR else unlisted) -
+                i * SPELL_SUGGESTION_STEP
+            merged.merge(spelling, score, ::maxOf)
+        }
+    }
+
+    /**
+     * Whether some word the keyboard knows starts with [prefix], or is it: the
+     * loaded dictionaries and the personal lexicon. The two-thumb keyboard asks
+     * it before taking back the space it typed after a word, so a letter typed
+     * straight after "car" carries the word on only when "car" and that letter
+     * still lead somewhere ("carp…" does, "cardo…" does not) (#747).
+     *
+     * One descent per source and no completion walk, so it is cheap enough for
+     * the main thread on every keystroke. A source without walkers is asked
+     * for one completion instead.
+     */
+    fun isLivePrefix(prefix: String): Boolean {
+        if (prefix.isEmpty()) return false
+        val lower = prefix.lowercase()
+        fun descends(walkers: List<TrieWalker>): Boolean = walkers.any { walker ->
+            var node = walker.root
+            for (ch in lower) {
+                node = walker.child(node, ch)
+                if (node < 0) return@any false
+            }
+            true
+        }
+        fun leads(source: WordSource): Boolean {
+            val walkers = source.walkers()
+            if (walkers.isEmpty()) return source.contains(lower) || source.complete(lower, 1).isNotEmpty()
+            return descends(walkers)
+        }
+        return leads(activeDictionary) || leads(customDictionary) || leads(systemDictionary) ||
+            (englishAsSecondary && !englishSources && leads(dictionary)) ||
+            secondaryDictionaries.any { leads(it.source) } ||
+            descends(userLexicon.walkers())
     }
 
     /**
@@ -1868,6 +2058,15 @@ class SuggestionEngine(
 
         /** The further step down for each later ending. */
         private const val KLINGON_SUFFIX_STEP = 0.2
+
+        /** Shorter words are left to the word lists; see [spellAccepted]. */
+        private const val MIN_SPELL_CHECK_LENGTH = 3
+
+        /** How many of [wordChecker]'s spellings a word may add to the strip. */
+        private const val SPELL_SUGGESTIONS = 4
+
+        /** The step down between consecutive spellings, keeping Hunspell's order. */
+        private const val SPELL_SUGGESTION_STEP = 0.1
 
         /**
          * Log-score worth of one step of [rankOffsets]. One nat, the same
@@ -2089,6 +2288,12 @@ class SuggestionEngine(
 
         /** Shortest fused spelling [hyphenReading] tries to split. */
         private const val HYPHEN_READING_MIN_LENGTH = 4
+
+        /** The one-letter ending [joinCandidate] puts back on the word before it. */
+        private const val PLURAL_SUFFIX = "s"
+
+        /** What a compound completed a part at a time gives up against one the lists hold whole. */
+        private const val COMPOUND_TAIL_DAMP = 0.5
 
         /** Most parts [knownCompound] vouches for: `mother-in-law`, not a sentence of hyphens. */
         private const val MAX_COMPOUND_PARTS = 4
@@ -2365,6 +2570,9 @@ class SuggestionEngine(
      * @param phoneticSlots how many chips the strip shows, on a phonetic layout
      *        that mixes English in: the other script's best is pinned to the
      *        last of them rather than left somewhere off the end
+     * @param spellSuggestions whether [wordChecker] may add its spellings,
+     *        which can take a quarter of a second. Off wherever [allowRerank]
+     *        is, the synchronous main-thread call sites.
      */
     fun suggest(
         composing: String,
@@ -2379,6 +2587,7 @@ class SuggestionEngine(
         previousWord3: String? = null,
         phoneticSlots: Int = DEFAULT_PHONETIC_SLOTS,
         completionLanguage: String? = null,
+        spellSuggestions: Boolean = allowRerank,
     ): List<String> {
         if (composing.isEmpty()) {
             return nextWords(previousWord, previousWord2, limit, previousWord3)
@@ -2414,11 +2623,20 @@ class SuggestionEngine(
         val ambiguous = keys?.isAmbiguous == true
         // A typo the corpus kept is not known: the strip has to show the fix
         // the space bar is about to make (#244).
+        // A word the spelling checker accepts is known too, which is what
+        // keeps a made-up German compound from being offered corrections.
         val known = !ambiguous && (
             (inDictionaries(lower) || userLexicon.contains(lower)) && !typoShadowed(lower, touch, keys) ||
-                knownCompound(lower)
+                knownCompound(lower) || spellAccepted(composing)
             )
         val merged = HashMap<String, Double>()
+
+        // A compound typed a part at a time ("auto-sp", "seventy-ni"): the
+        // lists hold only the commonest compounds whole, so the part after the
+        // last hyphen is completed as a word of its own and offered behind the
+        // parts already typed (#679). Walked before the whole word, so the
+        // memoised walk [octopusWords] reads afterwards is the whole word's.
+        if (!ambiguous) compoundTailCandidates(lower, limit, touch, merged)
 
         // One fuzzy walk covers completions AND corrections over every trie
         // source. Corrections (edited paths) are admitted only when the typed
@@ -2434,10 +2652,16 @@ class SuggestionEngine(
         // hold the fused misspelling as a word and the real spelling hardly
         // at all (#215, #240).
         if (!ambiguous) {
-            apostropheReading(lower)?.let { merged.merge(it.spelling, it.score, ::maxOf) }
+            apostropheReading(lower)?.let {
+                merged.merge(it.spelling, it.score, ::maxOf)
+                it.typedScore?.let { lifted -> merged.merge(lower, lifted, ::maxOf) }
+            }
             // The same for a compound typed without its hyphen: "чтото" is
             // *что-то*, "wellpaid" is *well-paid*.
             hyphenReading(lower)?.let { (spelling, score) -> merged.merge(spelling, score, ::maxOf) }
+            // Hunspell's spellings, for a word it does not accept and no list
+            // leads to: a misspelt compound has nothing else to offer it.
+            if (!known && spellSuggestions) spellCandidates(composing, lower, merged)
         }
         // The prefix sources read the buffer literally, so they sit out an
         // ambiguous decode: `adg` is not the start of anybody's name, and
@@ -2812,7 +3036,7 @@ class SuggestionEngine(
         val prev = previousWord?.lowercase() ?: return null
         if (WordContext.isSentinel(prev)) return null
         val lower = composing.lowercase()
-        if (lower.length < 2 || prev.isEmpty()) return null
+        if (prev.isEmpty()) return null
         if (!prev.all { it.isLetter() } || !lower.all { it.isLetter() }) return null
         val joined = prev + lower
         if (joined.length > JOIN_MAX_LENGTH || suppressed(joined)) return null
@@ -2820,6 +3044,14 @@ class SuggestionEngine(
             dictionaryFrequencyOf(word),
             weighted(userLexicon.frequencyOf(word), USER_WORD_WEIGHT),
         )
+        // A lone "s" after a word is that word's plural left off before the
+        // space: "capital s" offers "capitals" (#679). No margin over the
+        // parts, since "s" is no word to weigh against; the plural only has to
+        // be one the lists or the user know, and so does the word it is of.
+        if (lower == PLURAL_SUFFIX) {
+            return joined.takeIf { prev.length >= 2 && freqOf(prev) > 0 && freqOf(joined) > 0 }
+        }
+        if (lower.length < 2) return null
         val joinedFreq = freqOf(joined)
         if (joinedFreq < JOIN_MIN_FREQ) return null
         val rarerPart = minOf(freqOf(prev), freqOf(lower))
@@ -3126,6 +3358,62 @@ class SuggestionEngine(
         val backend = phoneticBackend(languageId) ?: return emptyList()
         return PhoneticCandidates.build(backend, composing, limit, avroDesktop, ::suppressed)
     }
+
+    /**
+     * [strip], a phonetic layout's list for a word typed on [languageId], with
+     * a neural model's [readings] of that word joined in after the reading a
+     * space commits; see [NeuralReadings]. The readings are put in the form
+     * the language's word lists use, and any the user blacklisted or the
+     * offensive filter holds back are left out. [strip] itself when
+     * [languageId] has no phonetic scheme.
+     *
+     * With [lead] (the language's setting that lets the model choose the space
+     * bar's word), a listed reading also takes the first place from a head
+     * that is not a known word, unless the spelling map has an entry for
+     * [composing]: see [NeuralReadings.leader].
+     */
+    fun withNeuralReadings(
+        languageId: String,
+        strip: List<String>,
+        readings: List<String>,
+        composing: String = "",
+        lead: Boolean = false,
+    ): List<String> {
+        if (readings.isEmpty()) return strip
+        val backend = phoneticBackend(languageId) ?: return strip
+        val scheme = backend.scheme
+        val words = readings.map(scheme.normalize).filterNot(::suppressed)
+        return NeuralReadings.merge(
+            strip,
+            words,
+            isNative = { w -> w.isNotEmpty() && w.all { scheme.isNative(it) || it == '\u200C' || it == '\u200D' } },
+            isListed = { knownPhoneticWord(backend, it) },
+            lead = lead && composing.isNotEmpty() && !backend.spellings.contains(composing),
+        )
+    }
+
+    /**
+     * What a space writes for [composing] in place of [head], the reading it
+     * was about to commit: the reading [withNeuralReadings] would have led the
+     * strip with, or null to keep [head]. [readings] is asked for only when
+     * the model could change anything (a native [head] that is not a known
+     * word, and no spelling map entry), since getting them may mean waiting.
+     * For the commit that comes before the strip was drawn with the model's
+     * answer, so both agree.
+     */
+    fun neuralCommit(languageId: String, composing: String, head: String, readings: () -> List<String>): String? {
+        if (composing.isEmpty() || head.isEmpty()) return null
+        val backend = phoneticBackend(languageId) ?: return null
+        if (backend.spellings.contains(composing) || knownPhoneticWord(backend, head)) return null
+        val scheme = backend.scheme
+        if (!head.all { scheme.isNative(it) || it == '\u200C' || it == '\u200D' }) return null
+        val words = readings().map(scheme.normalize).filterNot(::suppressed)
+        return NeuralReadings.leader(head, words) { knownPhoneticWord(backend, it) }
+    }
+
+    /** In [backend]'s word list, or one of the user's own words. */
+    private fun knownPhoneticWord(backend: PhoneticBackend, word: String): Boolean =
+        backend.index.frequencyOf(word) > 0 || userLexicon.contains(word)
 
     /**
      * The layout's own words for the strip: [phoneticSuggestions], or — with
@@ -3856,7 +4144,8 @@ class SuggestionEngine(
      * they were correcting. The engine's own decision stands when it agrees.
      * A spelling that is itself a word gives way only after
      * [CorrectionMemory.APPLY_KNOWN_AT] fixes and with the bigram context as a
-     * second witness ([RevisionAdvisor.precedes]); a pair the user has since
+     * second witness ([RevisionAdvisor.precedes]), unless the user has put it
+     * on Never suggest; a pair the user has since
      * undone is the penalty memory's to hold back, and is left to it.
      */
     private fun withTaughtFix(
@@ -3869,9 +4158,13 @@ class SuggestionEngine(
         val fixed = taught.fixed
         if (fixed == lower || fixed.split(' ').any { suppressed(it) }) return ordinary
         if (correctionStats.penalty(lower, fixed) != CorrectionStats.Penalty.NONE) return ordinary
-        val knownTyped = inDictionaries(lower) ||
-            userLexicon.isEstablished(lower, learnedWordMinCount) ||
-            contacts.contains(lower) || apps.contains(lower)
+        // A spelling the user put on Never suggest is one they do not mean,
+        // whatever list holds it (#881): their fix is taught as for a typo.
+        val knownTyped = !blacklisted(lower) && (
+            inDictionaries(lower) ||
+                userLexicon.isEstablished(lower, learnedWordMinCount) ||
+                contacts.contains(lower) || apps.contains(lower) || spellAccepted(word)
+            )
         fun applied() = CorrectionDecision(
             apply = matchCase(word, fixed),
             // Two fixes is sure enough to act on and unsure enough to show the
@@ -4124,6 +4417,47 @@ class SuggestionEngine(
             parts.all { it.isNotEmpty() && (inDictionaries(it) || userLexicon.contains(it)) }
     }
 
+    /**
+     * Completions of the part after [lower]'s last hyphen, each put back
+     * behind the parts in front of it, into [merged]. Only when every part in
+     * front is a word, so a dash inside a code or an address completes nothing,
+     * and corrections of the last part only when it is not a word already.
+     * Damped by [COMPOUND_TAIL_DAMP] so a compound the lists know whole still
+     * leads its made-up neighbours.
+     */
+    private fun compoundTailCandidates(
+        lower: String,
+        limit: Int,
+        touch: List<TouchPoint?>?,
+        merged: HashMap<String, Double>,
+    ) {
+        val cut = lower.lastIndexOf('-')
+        if (cut <= 0 || cut == lower.length - 1) return
+        val head = lower.substring(0, cut + 1)
+        val tail = lower.substring(cut + 1)
+        val parts = head.dropLast(1).split('-')
+        if (parts.size >= MAX_COMPOUND_PARTS) return
+        if (!parts.all { it.isNotEmpty() && (inDictionaries(it) || userLexicon.contains(it)) }) return
+        val tailKnown = inDictionaries(tail) || userLexicon.contains(tail)
+        val tailTouch = touch?.takeIf { it.size == lower.length }?.subList(cut + 1, lower.length)
+        val k = maxOf(limit * 2, WALK_K)
+        val model = touchModelField
+        val scoring = if (model != null && tailTouch != null && tailTouch.any { it != null }) {
+            FuzzyBeamSearch.TouchScoring(model, tailTouch)
+        } else {
+            null
+        }
+        val walked = beam.search(
+            walkSources(), tail, proximity, k / 2, beamWorkspace.get(),
+            touch = scoring, habits = editHabitsField,
+        )
+        for (c in dampMismatchedLanguages(walked)) {
+            if (c.edits > 0 && tailKnown) continue
+            if ('-' in c.word || ' ' in c.word) continue
+            merged.merge(head + WordKey.of(c.word), c.score - COMPOUND_TAIL_DAMP, ::maxOf)
+        }
+    }
+
     private fun apostropheReading(lower: String): ElisionReading? {
         if (!apostropheFixes) return null
         var best: ElisionReading? = null
@@ -4209,6 +4543,13 @@ class SuggestionEngine(
      * completions without the strip preferring a reading the space bar will
      * not make.
      *
+     * The pair stands on the commoner of the two. `id` is rarer than
+     * *identify*, *idiot* and *ideas*, but *I'd* is commoner than all three;
+     * held behind `id`'s own count it fell off a three-slot strip with `id`.
+     * So where the contraction outranks the typed word, the typed word is
+     * lifted to the contraction's standing ([ElisionReading.typedScore]) and
+     * the contraction sits just behind it.
+     *
      * [fixed] is the table's own answer for a repair the user has undone,
      * which drops to exactly this standing.
      */
@@ -4216,13 +4557,13 @@ class SuggestionEngine(
         if (fixed == null) return null
         val typed = dictionaryScore(lower)
         val own = dictionaryScore(fixed.lowercase())
-        val score = if (typed == Double.NEGATIVE_INFINITY) {
-            own
-        } else {
-            minOf(maxOf(own, typed - ln(DECLARED_TRAIL)), typed - DECLARED_BEHIND)
+        if (typed == Double.NEGATIVE_INFINITY) {
+            if (own == Double.NEGATIVE_INFINITY) return null
+            return ElisionReading(fixed, own, shadowed = false)
         }
-        if (score == Double.NEGATIVE_INFINITY) return null
-        return ElisionReading(fixed, score, shadowed = false)
+        val standing = maxOf(typed, own)
+        val score = minOf(maxOf(own, standing - ln(DECLARED_TRAIL)), standing - DECLARED_BEHIND)
+        return ElisionReading(fixed, score, shadowed = false, typedScore = standing.takeIf { it > typed })
     }
 
     /** [dictionaryScore] with an unknown word's negative infinity read as zero. */
@@ -4282,7 +4623,13 @@ class SuggestionEngine(
         return best
     }
 
-    private class ElisionReading(val spelling: String, val score: Double, val shadowed: Boolean)
+    private class ElisionReading(
+        val spelling: String,
+        val score: Double,
+        val shadowed: Boolean,
+        /** The strip score the typed word is lifted to, when this reading holds it up; see [declaredReading]. */
+        val typedScore: Double? = null,
+    )
 
     /**
      * The apostrophe [word] was typed without, or null when it needs none:
@@ -4297,6 +4644,18 @@ class SuggestionEngine(
     fun elide(word: String): String? {
         val reading = apostropheReading(word.lowercase()) ?: return null
         if (!reading.shadowed) return null
+        return matchCase(word, reading.spelling).takeIf { it != word }
+    }
+
+    /**
+     * The apostrophe spelling [word] may have been meant as, when it is a
+     * word of its own and so is left alone: "id" → "I'd", "lune" → "l'une"
+     * (#384). The other half of [elide]: the reading the strip offers right
+     * behind what was typed, and the space bar never commits.
+     */
+    fun apostropheOffer(word: String): String? {
+        val reading = apostropheReading(word.lowercase()) ?: return null
+        if (reading.shadowed) return null
         return matchCase(word, reading.spelling).takeIf { it != word }
     }
 
@@ -4317,6 +4676,9 @@ class SuggestionEngine(
         if (known && !accentShadowed(lower, touch) && !typoShadowed(lower, touch, keys)) {
             return NO_CORRECTION
         }
+        // A word the spelling checker accepts stands, shadowed or not: its
+        // rules vouch for it where a frequency list only counted it.
+        if (spellAccepted(word)) return NO_CORRECTION
         // A verb form (-s, -ed, -ing) the list left out while keeping the verb (#395).
         if (!known && (englishSources || englishAsSecondary) &&
             Inflections.isVerbForm(lower) { inDictionaries(it) }
@@ -4350,7 +4712,16 @@ class SuggestionEngine(
             // one-extra-letter pure completion. An edited-then-completed
             // inflection ("questiom" -> "questions") must be neither a target
             // nor the runner-up that blocks the real fix.
-            val correctionShaped = when (c.edits) {
+            // Slips are the exception to "one edit": a word whose taps each
+            // landed a little wide ("rgw" for "the") is one kind of error made
+            // several times, so any number of slips plus at most one real
+            // edit is a fix in place, as long as nothing was completed.
+            // Slips mixed with a real edit apply only when eager: that mix
+            // is what rewrites a correctly typed new word (see [SlipFixes]).
+            val correctionShaped = if (c.slips > 0) {
+                c.completedChars == 0 && c.edits - c.slips <= 1 &&
+                    (slipFixes == SlipFixes.EAGER || !mixesSlips(c))
+            } else when (c.edits) {
                 // The typed word with its accents put back is a fix in place:
                 // same letters, same length.
                 0 -> if (c.accents > 0) {
@@ -4392,7 +4763,7 @@ class SuggestionEngine(
                 CorrectionStats.Penalty.PENALIZED -> FuzzyBeamSearch.ScoredCandidate(
                     c.word, c.score - PAIR_PENALTY, c.editCost, c.edits,
                     c.completedChars, c.tier,
-                    Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, c.accents,
+                    Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, c.accents, c.slips,
                 )
                 // A pair on probation keeps its honest score, because the only
                 // thing it is here to do is clear the offer margin, and a
@@ -4403,7 +4774,7 @@ class SuggestionEngine(
                 CorrectionStats.Penalty.PROBATION -> FuzzyBeamSearch.ScoredCandidate(
                     c.word, c.score, c.editCost, c.edits,
                     c.completedChars, c.tier,
-                    Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, c.accents,
+                    Double.NEGATIVE_INFINITY, Double.NEGATIVE_INFINITY, c.accents, c.slips,
                 )
                 CorrectionStats.Penalty.NONE -> c
             }
@@ -4455,10 +4826,17 @@ class SuggestionEngine(
         // With no runner-up, a synthetic floor stands in: an unopposed but weak
         // candidate (rare word reached by an expensive edit) must not fire just
         // because nothing else was nearby.
+        // An eager mixed reading never stands as the runner-up that blocks a
+        // cleaner fix: it is the speculative one of the two.
+        val runnerUp = if (top != null && !mixesSlips(top)) {
+            candidates.drop(1).firstOrNull { !mixesSlips(it) }
+        } else {
+            candidates.getOrNull(1)
+        }
         val margin = if (top == null) {
             Double.NEGATIVE_INFINITY
         } else {
-            top.score - (candidates.getOrNull(1)?.score ?: SOLO_RUNNER_UP_SCORE)
+            top.score - (runnerUp?.score ?: SOLO_RUNNER_UP_SCORE)
         }
         // A candidate the user has already rejected once. It still ranks, but
         // it neither fires nor gets asked about: being told twice is worse
@@ -4519,6 +4897,9 @@ class SuggestionEngine(
         return CorrectionDecision(offer = offer?.let { matchCase(word, it) })
     }
 
+    /** A reading that spends slips and a real edit together. */
+    private fun mixesSlips(c: FuzzyBeamSearch.ScoredCandidate): Boolean = c.slips > 0 && c.edits > c.slips
+
     /**
      * How far a correction cleared its bar, mapped onto 0..1.
      *
@@ -4548,7 +4929,11 @@ class SuggestionEngine(
         lower: String,
         candidate: FuzzyBeamSearch.ScoredCandidate,
     ): Double {
-        val shape = (candidate.editCost / FuzzyBeamSearch.COST_SUB_FAR).coerceIn(0.0, 1.0)
+        // A slip spends nothing of the edit budget, so editCost never sees it;
+        // each one counts as half a far substitution here, which puts a word
+        // rewritten at two or more keys at the top of the scale.
+        val spent = candidate.editCost + candidate.slips * FuzzyBeamSearch.COST_SUB_FAR / 2
+        val shape = (spent / FuzzyBeamSearch.COST_SUB_FAR).coerceIn(0.0, 1.0)
         val length = ((lower.length - PLAIN_WORD_LENGTH) / PLAIN_WORD_SPAN).coerceIn(0.0, 1.0)
         return COMPLEXITY_SHAPE_WEIGHT * shape + (1.0 - COMPLEXITY_SHAPE_WEIGHT) * length
     }

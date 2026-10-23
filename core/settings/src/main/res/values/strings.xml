@@ -41,12 +41,13 @@
     <string name="core_settings_ai_provider_on_device_label">On your device</string>
 
     <!-- ================================================================== -->
-    <!-- AI tool: which processor runs a model on the device. Both are      -->
+    <!-- AI tool: which processor runs a model on the device. All three are -->
     <!-- hardware acronyms and stay in English in every language.           -->
     <!-- ================================================================== -->
 
     <string name="core_settings_ai_backend_cpu_label" translatable="false">CPU</string>
     <string name="core_settings_ai_backend_gpu_label" translatable="false">GPU</string>
+    <string name="core_settings_ai_backend_npu_label" translatable="false">NPU</string>
 
     <!-- The AI actions moved to :core:tools as core_tools_ai_action_*, with  -->
     <!-- the rest of the action model. They are a list the user owns now, so  -->
@@ -132,6 +133,9 @@
     <string name="core_settings_suggestion_hotkey_leader_digit_label">After the shortcut key</string>
     <!-- Alt is the name of the key on a physical keyboard. -->
     <string name="core_settings_suggestion_hotkey_alt_digit_label">Alt + number</string>
+    <!-- When F1 to F10 press the toolbar buttons. "Pick mode" is the mode where the number keys select suggestions. -->
+    <string name="core_settings_function_keys_pick_mode_label">In pick mode</string>
+    <string name="core_settings_function_keys_always_label">Always</string>
 
     <!-- ================================================================== -->
     <!-- Clipboard: what the history does with a clip that holds a secret.  -->
@@ -162,6 +166,11 @@
     <string name="core_settings_clip_swipe_pin_off_label">Both ways delete</string>
     <string name="core_settings_clip_swipe_pin_right_label">Right pins, left deletes</string>
     <string name="core_settings_clip_swipe_pin_left_label">Left pins, right deletes</string>
+    <string name="core_settings_clip_shortcut_edited_label">Edited mark</string>
+    <string name="core_settings_clip_shortcut_none_label">Nothing</string>
+    <string name="core_settings_clip_shortcut_edit_label">Edit</string>
+    <string name="core_settings_clip_shortcut_select_label">Select</string>
+    <string name="core_settings_clip_shortcut_qr_label">QR code</string>
     <string name="core_settings_copied_code_chip_code_fields_label">Code boxes only</string>
     <string name="core_settings_copied_code_chip_any_field_label">Any field</string>
 
@@ -236,6 +245,11 @@
     <string name="core_settings_glide_lookahead_off_label">Off</string>
     <string name="core_settings_glide_lookahead_confident_label">When sure</string>
     <string name="core_settings_glide_lookahead_eager_label">Eager</string>
+
+    <!-- Which decoder reads a glide. "FUTO Swipe" is a product name: keep it as is. -->
+    <string name="core_settings_glide_engine_built_in_label">Built-in</string>
+    <string name="core_settings_glide_engine_futo_label">FUTO Swipe (English, QWERTY)</string>
+    <string name="core_settings_glide_engine_google_label">Google\'s gesture library (imported)</string>
 
     <!-- Which word a stroke being drawn is coloured rather than only bolded. -->
     <string name="core_settings_glide_commit_color_off_label">Never</string>

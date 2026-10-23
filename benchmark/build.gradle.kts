@@ -15,9 +15,7 @@ plugins {
 android {
     namespace = "com.wasimaster.wmkeyboard.benchmark"
     compileSdk {
-        version = release(36) {
-            minorApiLevel = 1
-        }
+        version = release(37)
     }
 
     defaultConfig {
@@ -28,13 +26,11 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    // The same two dimensions :app has, so every app variant has a producer
-    // variant to pair with. Only fullIntl is ever worth running; the others
-    // exist so the pairing resolves.
-    flavorDimensions += listOf("capabilities", "languages")
+    // The same dimension :app has, so every app variant has a producer
+    // variant to pair with. Only intl is ever worth running; en exists so
+    // the pairing resolves.
+    flavorDimensions += "languages"
     productFlavors {
-        create("full") { dimension = "capabilities" }
-        create("lite") { dimension = "capabilities" }
         create("intl") { dimension = "languages" }
         create("en") { dimension = "languages" }
     }

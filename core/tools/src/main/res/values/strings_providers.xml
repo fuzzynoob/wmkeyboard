@@ -1,0 +1,157 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tools that keep a list of providers -->
+    <string name="core_tools_provider_tool_gif">GIFs</string>
+    <string name="core_tools_provider_tool_sticker">Stickers</string>
+    <string name="core_tools_provider_tool_translate">Translate</string>
+    <string name="core_tools_provider_tool_dictionary">Dictionary</string>
+    <string name="core_tools_provider_tool_synonyms">Synonyms</string>
+    <string name="core_tools_provider_tool_vocab">Vocabulary</string>
+    <string name="core_tools_provider_tool_search">Web and image search</string>
+    <string name="core_tools_provider_tool_photos">Background photos</string>
+    <string name="core_tools_provider_tool_currency_fiat">Currency rates</string>
+    <string name="core_tools_provider_tool_currency_crypto">Coin prices</string>
+    <string name="core_tools_provider_tool_ocr">Read text online</string>
+    <string name="core_tools_provider_tool_photo_translate">Translate photos</string>
+
+    <!-- How a tool uses its list -->
+    <string name="core_tools_provider_mode_fallback">One at a time</string>
+    <string name="core_tools_provider_mode_fallback_desc">Ask the first provider. If it fails or has no results, ask the next one.</string>
+    <string name="core_tools_provider_mode_mix">Mixed</string>
+    <string name="core_tools_provider_mode_mix_desc">Ask all providers at the same time and mix their results in one grid.</string>
+    <string name="core_tools_provider_mode_tabs">Tabs</string>
+    <string name="core_tools_provider_mode_tabs_desc">Each provider gets its own chip. Tap a chip to see its results.</string>
+    <string name="core_tools_provider_mode_pick">Choose in the panel</string>
+    <string name="core_tools_provider_mode_pick_desc">The panel shows the providers that are on. Choose one there, and only that one is asked.</string>
+
+    <!-- Two rows of one kind on a list that is not one at a time -->
+    <string name="core_tools_provider_same_kind_fallback">As backups</string>
+    <string name="core_tools_provider_same_kind_fallback_desc">Providers of the same kind act as one. The first is asked, and the next only when it fails, for example when a key runs out of quota.</string>
+    <string name="core_tools_provider_same_kind_separate">Separately</string>
+    <string name="core_tools_provider_same_kind_separate_desc">Each one is its own provider: its own chip, its own choice in the panel, its own share of a mixed grid.</string>
+
+    <!-- A tool whose list has nothing switched on -->
+    <string name="core_tools_provider_none_on">No provider is on. Turn one on in this tool\'s settings.</string>
+
+    <!-- Provider types -->
+    <string name="core_tools_provider_klipy_desc">GIFs and stickers. Needs a KLIPY API key, unless this build has one.</string>
+    <string name="core_tools_provider_giphy_desc">GIFs and stickers. Always in its own tab: GIPHY does not let apps mix its results with others.</string>
+    <string name="core_tools_provider_commons" translatable="false">Wikimedia Commons</string>
+    <string name="core_tools_provider_commons_desc">Free GIFs and photos from Wikimedia Commons, or from your own MediaWiki. No key. The GIFs are mostly educational.</string>
+    <string name="core_tools_provider_gifcities_desc">Old GeoCities GIFs from the Internet Archive. No key. The results have no content rating.</string>
+    <string name="core_tools_provider_offline_gifs">Offline GIF packs</string>
+    <string name="core_tools_provider_offline_gifs_desc">GIF packs that you imported. They work with no connection.</string>
+    <string name="core_tools_provider_sticker_packs_desc">Your sticker packs on this phone.</string>
+    <string name="core_tools_provider_mlkit">On device (ML Kit)</string>
+    <string name="core_tools_provider_mlkit_desc">Translates on the phone with Google\'s ML Kit. Your text stays on the phone. Each language needs a model download first.</string>
+    <string name="core_tools_provider_bergamot">On device (Firefox Translations)</string>
+    <string name="core_tools_provider_bergamot_desc">Translates on the phone with Mozilla\'s Bergamot engine and the Firefox Translations models. Free software, no Google services, and your text stays on the phone. Each direction (French to English, English to French) is its own download of 14 to 37 MB. Needs a 64-bit phone with Android 9 or later.</string>
+    <string name="core_tools_provider_nllb">On device (NLLB-200)</string>
+    <string name="core_tools_provider_nllb_desc">Translates on the phone with Meta\'s NLLB-200 model on CTranslate2: 200 languages, between any two of them, for the pairs the other engines cannot do. One download of 630 MB, and a sentence takes a few seconds. Your text stays on the phone. The model is licensed for non-commercial use only (CC BY-NC 4.0). Needs a 64-bit phone with 6 GB of memory or more.</string>
+    <string name="core_tools_provider_translate_server">Your translation server</string>
+    <string name="core_tools_provider_translate_server_desc">A server that answers OpenAI chat requests: llama.cpp, Ollama, LM Studio, vLLM or a gateway.</string>
+    <string name="core_tools_provider_deepl" translatable="false">DeepL</string>
+    <string name="core_tools_provider_deepl_desc">Needs your DeepL API key, or the address of a proxy that adds one.</string>
+    <string name="core_tools_provider_libretranslate" translatable="false">LibreTranslate</string>
+    <string name="core_tools_provider_libretranslate_desc">A LibreTranslate server: your own or a public one. Public servers usually need a key.</string>
+    <string name="core_tools_provider_mozhi" translatable="false">Mozhi</string>
+    <string name="core_tools_provider_mozhi_desc">A Mozhi server: a free front end to Google, DeepL, DuckDuckGo, Yandex and Reverso. Choose the engine. DeepL and Reverso need a source language.</string>
+    <string name="core_tools_provider_simplytranslate" translatable="false">SimplyTranslate</string>
+    <string name="core_tools_provider_simplytranslate_desc">A SimplyTranslate server: a free front end to Google and other engines.</string>
+    <string name="core_tools_provider_lingva" translatable="false">Lingva</string>
+    <string name="core_tools_provider_lingva_desc">A Lingva server: a free front end to Google Translate.</string>
+    <string name="core_tools_provider_translite" translatable="false">Translite</string>
+    <string name="core_tools_provider_translite_desc">A Translite server: a free front end to Google Translate.</string>
+    <string name="core_tools_provider_rens" translatable="false">Rens</string>
+    <string name="core_tools_provider_rens_desc">A Rens server: a free front end to Google Lens. It reads the text in a photo for you, in most scripts.</string>
+    <string name="core_tools_provider_rens_translate_desc">A Rens server: a free front end to Google Lens. It gives the photo back with its text translated.</string>
+    <string name="core_tools_provider_vision_ocr">Your vision model</string>
+    <string name="core_tools_provider_vision_ocr_desc">A model that reads images, through a server that answers OpenAI chat requests. Needs the address and the model name.</string>
+    <string name="core_tools_provider_google_translate">Google Translate</string>
+    <string name="core_tools_provider_google_translate_desc">Google\'s free endpoint, or Cloud Translation when you add a key.</string>
+    <string name="core_tools_provider_searxng" translatable="false">SearXNG</string>
+    <string name="core_tools_provider_searxng_desc">A SearXNG instance that allows JSON results. Most public instances do not.</string>
+    <string name="core_tools_provider_tavily" translatable="false">Tavily</string>
+    <string name="core_tools_provider_tavily_desc">Web search with a short answer. Needs your Tavily key.</string>
+    <string name="core_tools_provider_brave">Brave Search</string>
+    <string name="core_tools_provider_brave_desc">Web and image search. Needs a Brave Search API key, unless this build has one.</string>
+    <string name="core_tools_provider_unsplash_desc">Photos from Unsplash. Needs an API key, unless this build has one.</string>
+    <string name="core_tools_provider_pexels_desc">Photos from Pexels. Needs an API key, unless this build has one.</string>
+    <string name="core_tools_provider_er_api" translatable="false">ExchangeRate-API</string>
+    <string name="core_tools_provider_er_api_desc">Daily rates for most currencies. No key.</string>
+    <string name="core_tools_provider_frankfurter" translatable="false">Frankfurter</string>
+    <string name="core_tools_provider_frankfurter_desc">European Central Bank rates for the main currencies. Free software, no key.</string>
+    <string name="core_tools_provider_coinbase" translatable="false">Coinbase</string>
+    <string name="core_tools_provider_coinbase_desc">Currencies and coins from Coinbase. No key.</string>
+    <string name="core_tools_provider_currency_api" translatable="false">currency-api</string>
+    <string name="core_tools_provider_currency_api_desc">Open data for most currencies and many coins. No key.</string>
+    <string name="core_tools_provider_coingecko" translatable="false">CoinGecko</string>
+    <string name="core_tools_provider_coingecko_desc">Coin prices from CoinGecko. No key.</string>
+
+    <!-- Smart home: the homes the panel lists. -->
+    <string name="core_tools_provider_tool_smart_home">Smart home</string>
+    <string name="core_tools_provider_home_assistant" translatable="false">Home Assistant</string>
+    <string name="core_tools_provider_home_assistant_desc">Your own Home Assistant server. Every kind of thing, live, with Assist.</string>
+    <string name="core_tools_provider_google_home">Google Home</string>
+    <string name="core_tools_provider_google_home_desc">The devices in your Google Home, through Play services. One home at a time; you choose which in Google\'s own screen.</string>
+    <string name="core_tools_provider_smartthings" translatable="false">SmartThings</string>
+    <string name="core_tools_provider_smartthings_desc">Your SmartThings devices, rooms and scenes, through Samsung\'s cloud. States refresh while the panel is open.</string>
+    <string name="core_tools_provider_hue">Philips Hue bridge</string>
+    <string name="core_tools_provider_hue_desc">Lights, rooms, scenes and sensors straight from a Hue bridge on your Wi-Fi. Nothing leaves the house.</string>
+    <string name="core_tools_provider_openhab" translatable="false">openHAB</string>
+    <string name="core_tools_provider_openhab_desc">An openHAB server: its items, live, with rooms from the semantic model.</string>
+    <string name="core_tools_provider_tuya">Smart Life / Tuya</string>
+    <string name="core_tools_provider_tuya_desc">Smart Life and Tuya Smart devices, rooms and scenes, through a free Tuya developer project linked to your app account. States refresh while the panel is open.</string>
+    <string name="core_tools_provider_switchbot" translatable="false">SwitchBot</string>
+    <string name="core_tools_provider_switchbot_desc">Your SwitchBot devices, infrared remotes and scenes, through SwitchBot\'s cloud with the token from its app. States refresh once a minute while the panel is open.</string>
+    <!-- AI and voice typing as provider lists -->
+    <string name="core_tools_provider_tool_ai">AI</string>
+    <string name="core_tools_provider_tool_voice">Voice typing</string>
+
+    <string name="core_tools_provider_anthropic" translatable="false">Anthropic (Claude)</string>
+    <string name="core_tools_provider_anthropic_desc">Claude models through Anthropic\'s API, with your own key.</string>
+    <string name="core_tools_provider_openai" translatable="false">OpenAI</string>
+    <string name="core_tools_provider_openai_desc">GPT models through OpenAI\'s API, with your own key.</string>
+    <string name="core_tools_provider_gemini" translatable="false">Google Gemini</string>
+    <string name="core_tools_provider_gemini_desc">Gemini models through Google\'s API, with your own key from AI Studio.</string>
+    <string name="core_tools_provider_xai" translatable="false">xAI (Grok)</string>
+    <string name="core_tools_provider_xai_desc">Grok models through xAI\'s API, with your own key.</string>
+    <string name="core_tools_provider_deepseek" translatable="false">DeepSeek</string>
+    <string name="core_tools_provider_deepseek_desc">DeepSeek models through DeepSeek\'s API, with your own key.</string>
+    <string name="core_tools_provider_brave_answers">Brave Answers</string>
+    <string name="core_tools_provider_brave_answers_desc">Answers grounded in a Brave web search. Needs a key with the Answers plan. Left blank, the Brave Search key you typed for web search is tried.</string>
+    <string name="core_tools_provider_ollama" translatable="false">Ollama</string>
+    <string name="core_tools_provider_ollama_desc">Models on an Ollama server you run, on your computer or your network. Add one for each server.</string>
+    <string name="core_tools_provider_lm_studio" translatable="false">LM Studio</string>
+    <string name="core_tools_provider_lm_studio_desc">Models served by LM Studio on your computer. Add one for each computer.</string>
+    <string name="core_tools_provider_openai_compatible">OpenAI-compatible service</string>
+    <string name="core_tools_provider_openai_compatible_desc">Any other service with OpenAI\'s chat API: OpenRouter, Groq, Mistral, Together, or a gateway of your own. Give the address up to the version, such as https://openrouter.ai/api/v1.</string>
+    <string name="core_tools_provider_on_device_ai">On your device</string>
+    <string name="core_tools_provider_on_device_ai_desc">A model downloaded to this phone. Nothing you write leaves it. Pick and download the model on the AI page.</string>
+
+    <string name="core_tools_provider_system_recognizer">Phone\'s recognizer</string>
+    <string name="core_tools_provider_system_recognizer_desc">The speech recognizer that comes with the phone, usually Google\'s. Words appear as you speak.</string>
+    <string name="core_tools_provider_whistle" translatable="false">Whistle</string>
+    <string name="core_tools_provider_whistle_desc">A small, fast model that runs on the phone. Download it on the Voice typing page.</string>
+    <string name="core_tools_provider_whisper" translatable="false">Whisper</string>
+    <string name="core_tools_provider_whisper_desc">OpenAI\'s Whisper models, run on the phone. Many languages; download a model on the Voice typing page.</string>
+    <string name="core_tools_provider_asr4all" translatable="false">Asr4All</string>
+    <string name="core_tools_provider_asr4all_desc">English dictation on the phone, with words appearing as you speak.</string>
+    <string name="core_tools_provider_parakeet" translatable="false">Parakeet</string>
+    <string name="core_tools_provider_parakeet_desc">A large model that runs on the phone and understands 25 European languages.</string>
+    <string name="core_tools_provider_moonshine" translatable="false">Moonshine</string>
+    <string name="core_tools_provider_moonshine_desc">A tiny, quick English model that runs on the phone.</string>
+    <string name="core_tools_provider_sherpa" translatable="false">Sherpa</string>
+    <string name="core_tools_provider_sherpa_desc">Streaming models for 13 languages, Bangla among them, that type as you speak, on the phone.</string>
+    <string name="core_tools_provider_omnilingual" translatable="false">Omnilingual</string>
+    <string name="core_tools_provider_omnilingual_desc">Meta\'s one model for 1,600 languages, hundreds of them with no other voice typing, on the phone. Each phrase arrives at the pause after it.</string>
+    <string name="core_tools_provider_transcription_server">Transcription server</string>
+    <string name="core_tools_provider_transcription_server_desc">A server that speaks OpenAI\'s audio transcription API: speaches, whisper.cpp\'s server, LocalAI, Groq or OpenAI. Each clip is sent to it when you stop speaking.</string>
+
+    <!-- Grammar as a provider list -->
+    <string name="core_tools_provider_tool_grammar">Grammar check</string>
+    <string name="core_tools_provider_harper" translatable="false">Harper</string>
+    <string name="core_tools_provider_harper_desc">The grammar engine built into the keyboard. English only, and nothing you type leaves the phone.</string>
+    <string name="core_tools_provider_languagetool" translatable="false">LanguageTool</string>
+    <string name="core_tools_provider_languagetool_desc">Grammar, spelling and style in more than 30 languages. Your text is sent to a LanguageTool server to be checked: the public one at api.languagetool.org unless you enter your own.</string>
+</resources>

@@ -13,13 +13,15 @@ import KeyCap from '@components/KeyCap.astro';
 
 You do not need the KDE Connect app on the phone. The keyboard shows up on the computer as a device of its own, named after the phone's model followed by **WM Keyboard**, for example *Pixel 8 - WM Keyboard*. If you do have the app, both keep working side by side, as two devices, and the name tells you which is which.
 
+To move a file to another phone, or to anyone as a link, see the [Send files](/tools/send/) tool: its Nearby mode runs on this same engine, and its direct link joins two phones with no Wi-Fi between them.
+
 <PhoneFrame caption="The Input tab: a touchpad for the computer, the three mouse buttons, and the switch that sends your typing there.">
   {/* shot: tools/kde-connect-input */}
 </PhoneFrame>
 
 ## Turning it on
 
-Open **KDE Connect** from the toolbox and press **Turn on**. Until you do, the tool does nothing at all on your network: it sends nothing and listens for nothing.
+**Use KDE Connect** is on from the start, but being on sends nothing by itself. The keyboard only goes on your network once a computer is paired, or while a device list is open in the panel or in settings. Turn the switch off under <SettingsPath path="Tools / KDE Connect" /> and it does nothing at all on your network: it sends nothing and listens for nothing.
 
 After that the panel lists the computers it can see. On the computer, KDE Connect (or GSConnect, or Valent) has to be running.
 
@@ -32,6 +34,12 @@ After that the panel lists the computers it can see. On the computer, KDE Connec
 You can also start from the computer: pick the phone there, press pair, and accept on the phone. That only works while the keyboard's device list is open, because that is the only time the keyboard talks to computers it has not paired with.
 
 The code is what makes pairing safe. It is calculated from both devices' keys, so a match means the computer on your screen is the one in front of you and not something else on the Wi-Fi. After pairing, the computer's certificate is remembered and nothing else is accepted under its name.
+
+### Pairing with WM Keyboard on a computer
+
+WMK Desktop, WM Keyboard for the Mac, shows a pairing code under **Backup & restore › Sync devices › Pair a phone**, and on its setup page. Point the phone's camera, or any QR scanner, at the code and open the link it shows, and WM Keyboard opens on the devices screen. Or press **Scan a code** in this panel, next to **Add by address**, which opens the keyboard's own [QR scanner](/tools/scanner/) (not in the F-Droid build). A link opened from the camera or another app first asks whether to pair, naming the computer and its address, because any web page or app can open such a link; press **Pair** only for a code you scanned from your own computer. The keyboard's scanner pairs at once. Either way there is no code to compare. The link holds the computer's address and its certificate fingerprint, so the phone pairs only with the computer that showed it, and its one-time token works once.
+
+Once paired, the two sync through each other: see [Sync between devices](/privacy/backup/#sync-between-devices).
 
 ### If the computer does not show up
 
@@ -61,6 +69,8 @@ The big area is a **touchpad** for the computer.
 | Two finger drag | Scroll |
 | Hold still, then drag | Drag with the button held. Lift to drop |
 | Tap, then drag straight away | The same drag, without the wait |
+
+Slow, careful movement moves the pointer by single pixels rather than not at all, and a steady drag keeps a steady pointer speed, so the pointer glides rather than stepping.
 
 The <KeyCap>L</KeyCap> <KeyCap>M</KeyCap> <KeyCap>R</KeyCap> buttons beside it are the mouse buttons, for when a tap is not precise enough.
 
@@ -108,9 +118,9 @@ Big **previous** and **next** buttons for a presentation, **Start** (F5) and **E
 
 <SettingsPath path="Tools / KDE Connect" />
 
-**Use KDE Connect**: off by default. The master switch.
+**Use KDE Connect**: on by default. The master switch. Nothing goes on the network until a computer is paired or a device list is open.
 
-**Devices**: paired computers and the ones nearby, with a switch per computer for clipboard, typing, files, phone media and battery. Also the list of addresses added by hand, and this phone's certificate fingerprint.
+**Devices**: paired computers and the ones nearby, with a switch per computer for clipboard, typing, files, phone media, battery and sync. Also the list of addresses added by hand, and this phone's certificate fingerprint.
 
 **Name shown on the computer**: blank uses the phone's model followed by *WM Keyboard*, shortened to *WMK* when the model name is long. Up to 32 characters, and the protocol does not allow punctuation.
 
@@ -123,6 +133,8 @@ Big **previous** and **next** buttons for a presentation, **Start** (F5) and **E
 
 **Receive the computer's clipboard** and **Send this phone's clipboard**: both default on.
 
+**Clear received passwords**: default **1 minute**, up to 30, or *Never*. Text from the computer that looks like a password or a one-time code is taken off the phone's clipboard after this long, along with its unpinned copy in clipboard history. It is only cleared if it is still the latest clip, so something you copied since stays. Ordinary text from the computer is never cleared.
+
 **Let the computer type here**: default on.
 
 **Use the keyboard language**: default off. Off, what the computer sends is typed exactly. On, its keys go through the keyboard's layout the way a [hardware keyboard's](/typing/hardware-keyboard/) do, so a Latin keyboard on your desk can write Bengali through Avro, with suggestions and autocorrect.
@@ -133,7 +145,13 @@ Big **previous** and **next** buttons for a presentation, **Start** (F5) and **E
 
 **Show in the share menu**: default on. Adds **Send to computer** to other apps' share sheets. The entry only exists once a computer is paired, so it never appears for someone who does not use the tool.
 
+With more than one computer paired, **Send to computer** asks which one. Computers that are still connecting are listed greyed out and become selectable as they connect.
+
+Only files another app shares from its own storage go through. A share that names a file inside WM Keyboard's own storage is ignored, so an app cannot use **Send to computer** to send out the keyboard's settings or clipboard history.
+
 **Report battery level** and **Offer this phone's media**: both default on. Media needs the same notification access as the [media controls](/tools/media/) tool, and does nothing without it.
+
+**Send one-time codes**: default off. A verification code that arrives in a notification goes to the paired computer, the code alone and never the message around it. WM Keyboard for the desktop offers it above the cursor; a KDE Connect desktop shows it as a notification. It needs **Codes from notifications** on under <SettingsPath path="Typing" />, which is what reads them.
 
 Notifications for a pair request, a file or a ping that arrives while the keyboard is hidden have their own switch under <SettingsPath path="Notifications" />.
 
@@ -141,6 +159,7 @@ Notifications for a pair request, a file or a ping that arrives while the keyboa
 
 - Everything stays on your local network. There is no account and no server. Both ends encrypt the connection with TLS, and each side pins the other's certificate at pairing.
 - Passwords and one-time codes are never sent on their own, even with clipboard sending on. Nothing is sent from a password field, or while [incognito](/privacy/incognito/) pauses the clipboard. **Send › Clipboard** still sends whatever is there, because you asked.
+- A password or code from the computer is marked sensitive on the phone, the way a password manager marks one, so Android 13 and later hide it in the copy preview and clipboard history treats it as a secret.
 - Clipboard sync is separate from clipboard history. Turning history off does not stop the sync, and the other way round.
 - Computers you have not paired with are only contacted while a device list is open, in the panel or in settings. The rest of the time the keyboard only talks to computers it already knows.
 - The tool is hidden on the lock screen and before the first unlock after a restart. A computer cannot type into a locked phone.
