@@ -99,12 +99,34 @@ version from GitHub and keeps all your settings.
 **In your language:** on Android 11 or later the app switches to your phone's
 language by itself a few seconds after it first opens (a small download, so it
 needs the internet once). To pick a different one: **Settings › About › App
-language**. On Android 7 to 10 the app is in English: get **Offline, all
-languages** below instead, which has every language built in.
+language**. On Android 7 to 10, or to have every language without a download,
+get **All languages** below, which has all 48 built in.
 
 **Keyboard languages are not affected:** every layout and dictionary is in every
 download.
 
+EOF
+if [ -f "$dist/${prefix}-full-intl-arm64-v8a.apk" ]; then
+cat <<EOF
+<details>
+<summary><b>All languages, other processors, or it won't install?</b></summary>
+
+| Your device | Standard | All languages |
+|:---|:---|:---|
+| Almost every phone (arm64-v8a) | $(cell "${prefix}-full-en-arm64-v8a.apk") | $(cell "${prefix}-full-intl-arm64-v8a.apk") |
+| Older 32-bit phone or watch (armeabi-v7a) | $(cell "${prefix}-full-en-armeabi-v7a.apk") | $(cell "${prefix}-full-intl-armeabi-v7a.apk") |
+| Chromebook, emulator, x86 tablet (x86_64) | $(cell "${prefix}-full-en-x86_64.apk") | $(cell "${prefix}-full-intl-x86_64.apk") |
+| Not sure, just make it work (universal) | $(cell "${prefix}-full-en-universal.apk") | $(cell "${prefix}-full-intl-universal.apk") |
+
+**All languages** is the same app with all 48 interface languages built in
+instead of fetched. Both are signed with the same key, so either installs over
+the other without losing a setting, and each one's updater stays on its own kind.
+
+</details>
+
+EOF
+else
+cat <<EOF
 <details>
 <summary><b>It won't install, or not an ordinary phone?</b></summary>
 
@@ -114,12 +136,10 @@ download.
 | Chromebook, emulator, x86 tablet | x86_64, $(cell "${prefix}-full-en-x86_64.apk") |
 | Not sure, just make it work | universal, $(cell "${prefix}-full-en-universal.apk") |
 
-The files named \`full-intl-…\` and \`lite-…\` are this same app under the names
-older versions look for, so their built-in updater can find it. You don't need them.
-
 </details>
 
 EOF
+fi
 
 # The no-internet builds, from the `offline` job. Releases before it existed
 # carry none of these files, and get no section rather than one saying "not
@@ -253,7 +273,7 @@ row() { # <file> <what it is>
 "
 }
 row "${prefix}-full-en-mapping.txt.gz" 'R8 mapping, **standard build**. Retraces a stack trace'
-row "${prefix}-full-intl-mapping.txt.gz" 'R8 mapping, **all-languages build**: the one the language packs are cut from, and the offline all-languages build, which it is apart from its manifest'
+row "${prefix}-full-intl-mapping.txt.gz" 'R8 mapping, **all-languages build**, which the language packs are cut from. Also fits the offline all-languages build, which it is apart from its manifest'
 row "${prefix}-full-en-nointernet-mapping.txt.gz" 'R8 mapping, **offline build**. Only attached when it differs from the standard build'"'"'s, which otherwise serves both'
 row "${prefix}-full-intl-nointernet-mapping.txt.gz" 'R8 mapping, **offline all-languages build**. Only attached when it differs from the all-languages one, which otherwise serves both'
 row "${prefix}-full-intl-native-symbols.zip" 'Native debug symbols, **full · all languages**'
