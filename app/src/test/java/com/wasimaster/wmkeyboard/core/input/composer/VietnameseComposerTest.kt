@@ -4,6 +4,7 @@ import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.script.ScriptRegistry
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -197,9 +198,15 @@ class VietnameseComposerTest {
     fun telexSecondWTakesTheMarkOffAndTypesTheLetter() {
         val c = VietnameseTelexComposer
         assertEquals("row", c.composeBuffer("roww"))
-        assertEquals("draw", c.composeBuffer("draww"))
-        assertEquals("show", c.composeBuffer("showw"))
-        assertEquals("flow", c.composeBuffer("floww"))
+        // `draw`, `show` and `flow` never had a ư to take back — `draư`,
+        // `shoư` and `floư` begin no word — so the second w is one more
+        // letter, as in UniKey.
+        assertEquals("draw", c.composeBuffer("draw"))
+        assertEquals("draww", c.composeBuffer("draww"))
+        assertEquals("show", c.composeBuffer("show"))
+        assertEquals("showw", c.composeBuffer("showw"))
+        assertEquals("flow", c.composeBuffer("flow"))
+        assertEquals("floww", c.composeBuffer("floww"))
         assertEquals("ow", c.composeBuffer("oww"))
         assertEquals("uw", c.composeBuffer("uww"))
         // A w typed on its own made the ư, so a second one gives the w back (#467).
@@ -255,6 +262,84 @@ class VietnameseComposerTest {
         assertEquals("nghiêng", c.composeBuffer("nghieeng"))
         assertEquals("hello", c.composeBuffer("hello"))
         assertEquals("row", c.composeBuffer("roww"))
+    }
+
+    @Test
+    fun telexMarkKeyDoesNotReachIntoARhymeThatTakesNoCoda() {
+        val c = VietnameseTelexComposer
+        // `ây`, `ai`, `ao` end on a glide and so take no coda: `pâyp` is not
+        // the beginning of any word, so the second `a` of `paypa` is a letter.
+        // UniKey gives `paypa` for the same keys.
+        assertEquals("paypa", c.composeBuffer("paypa"))
+        assertEquals("paypal", c.composeBuffer("paypal"))
+        assertEquals("tayta", c.composeBuffer("tayta"))
+        assertEquals("caucau", c.composeBuffer("caucau"))
+        assertEquals("daypd", c.composeBuffer("daypd"))
+        // A rhyme that does take a coda is still reached, and an open one with
+        // nothing after it still takes the mark.
+        assertEquals("nân", c.composeBuffer("nana"))
+        assertEquals("tây", c.composeBuffer("taya"))
+    }
+
+    @Test
+    fun telexMarkKeyTakesOffAMarkItReachedEarlier() {
+        val c = VietnameseTelexComposer
+        // A key that reaches a letter already carrying its mark takes the mark
+        // off and types the letter, as the key in front does for `aaa`: `ama`
+        // is `âm`, so `amaa` is `ama` and `amaazon` is `amazon`. UniKey gives
+        // the same for all of these.
+        assertEquals("ama", c.composeBuffer("amaa"))
+        assertEquals("amazon", c.composeBuffer("amaazon"))
+        assertEquals("tata", c.composeBuffer("taata"))
+        assertEquals("tonoo", c.composeBuffer("toonoo"))
+        assertEquals("dod", c.composeBuffer("ddod"))
+        assertEquals("dôd", c.composeBuffer("dodod"))
+        val was = VietnameseConfig.strictTones
+        VietnameseConfig.strictTones = true
+        try {
+            assertEquals("amazon", c.composeBuffer("amaazon"))
+        } finally {
+            VietnameseConfig.strictTones = was
+        }
+    }
+
+    @Test
+    fun telexBareWIsUOnlyWhereUCouldStand() {
+        val c = VietnameseTelexComposer
+        // A w with no vowel to horn spells a new ư, but only where a ư could
+        // go: `aiư`, `inư` and `uanư` begin no word, so the w is the letter
+        // it is drawn as. UniKey gives the same for these keys.
+        assertEquals("aiw", c.composeBuffer("aiw"))
+        assertEquals("uanw", c.composeBuffer("uanw"))
+        assertEquals("inw", c.composeBuffer("inw"))
+        assertEquals("ew", c.composeBuffer("ew"))
+        assertEquals("tiw", c.composeBuffer("tiw"))
+        assertEquals("brw", c.composeBuffer("brw"))
+        // Where it can stand, it still does.
+        assertEquals("ư", c.composeBuffer("w"))
+        assertEquals("tư", c.composeBuffer("tw"))
+        assertEquals("ngư", c.composeBuffer("ngw"))
+        assertEquals("ưa", c.composeBuffer("wa"))
+        assertEquals("tưng", c.composeBuffer("twng"))
+    }
+
+    @Test
+    fun orthographyKnowsWhichRhymesTakeACoda() {
+        fun closed(w: String) = VietnameseOrthography.isSyllablePrefix(w, closedRhymes = true)
+        // Without the flag these still pass, which is what letters typed after
+        // a mark rely on (`wan` stays `ưan`); with it they do not.
+        for (w in listOf("pâyp", "tain", "ưan")) {
+            assertTrue(w, VietnameseOrthography.isSyllablePrefix(w))
+            assertFalse(w, closed(w))
+        }
+        // The rhymes that need their coda still have it, unfinished or not.
+        assertTrue(closed("nuoc"))
+        assertTrue(closed("tien"))
+        assertTrue(closed("nươc"))
+        assertTrue(closed("xoong"))
+        assertTrue(closed("huych"))
+        assertTrue(closed("tây"))
+        assertTrue(closed("tâ"))
     }
 
     @Test

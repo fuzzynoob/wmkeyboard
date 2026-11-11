@@ -50,6 +50,26 @@ object VietnameseOrthography {
     )
 
     /**
+     * The nuclei that end a syllable on their own and take no coda.
+     *
+     * Most of them end on a glide (`ai`, `ây`, `ao`, `iêu`), which already is
+     * the syllable's ending; the rest are the open diphthongs `ia`, `ua`, `ưa`
+     * and their kin, whose closed forms are spelled `iê`, `uô`, `ươ` instead.
+     * So `pâyp` and `tain` are not the beginning of anything, which is what
+     * keeps the second `a` of `paypa` from reaching back over `yp`. See
+     * [isSyllablePrefix]'s `closedRhymes`.
+     */
+    private val OPEN_NUCLEI = hashSetOf(
+        "ai", "ao", "au", "ay", "ây", "âu",
+        "eo", "êu",
+        "ia", "iu", "iêu",
+        "oai", "oay", "oeo", "oi", "ôi", "ơi",
+        "ua", "uay", "uây", "uôi", "uơ", "ui", "uya", "uyu",
+        "ưa", "ưi", "ưu", "ươi", "ươu",
+        "ya", "yêu",
+    )
+
+    /**
      * The onsets the open nucleus `uơ` may follow.
      *
      * It is the most restricted nucleus in the language, and the one place the
@@ -138,8 +158,14 @@ object VietnameseOrthography {
      * answer for a buffer that is not a word yet. It is not a word test either
      * way: `bl` passes the onset rule the way `blup` fails it, and neither is
      * claimed to be a word.
+     *
+     * With [closedRhymes] the nucleus must also be one a coda may follow, that
+     * is, not one of [OPEN_NUCLEI]. That is the question a mark key asks before
+     * it is spent — `pâyp` is no word's beginning, so the second `a` of `paypa`
+     * stays a letter — and only that one: letters typed after a mark has landed are not
+     * held to it, which is how `wan` stays `ưan` the way UniKey leaves it.
      */
-    fun isSyllablePrefix(word: String): Boolean {
+    fun isSyllablePrefix(word: String, closedRhymes: Boolean = false): Boolean {
         var tone: Char? = null
         val bare = StringBuilder(word.length)
         for (ch in Normalizer.normalize(word.trim().lowercase(), Normalizer.Form.NFD)) {
@@ -168,6 +194,10 @@ object VietnameseOrthography {
                 if (!couldBeNucleus(nucleus)) continue
                 if (coda.isEmpty()) return true
                 if (!couldBeCoda(coda)) continue
+                // Letters after the nucleus close it, so it has to be whole by
+                // now and one that takes a coda: `nuoc` reads as `nuôc`, but
+                // `pâyp` has nothing to grow into.
+                if (closedRhymes && !couldTakeCoda(nucleus)) continue
                 // Sắc and nặng are the only tones a stop coda can carry, and a
                 // coda that can still grow into one counts against the tone now:
                 // `c` may yet be `ch`, and both are stops, so `nưỡc` is refused
@@ -205,6 +235,10 @@ object VietnameseOrthography {
     /** [part] is a nucleus, or the beginning of one. */
     private fun couldBeNucleus(part: String): Boolean =
         NUCLEI.any { reaches(part, it) }
+
+    /** [part] is a whole nucleus, short only of marks, that a coda may follow. */
+    private fun couldTakeCoda(part: String): Boolean =
+        NUCLEI.any { it.length == part.length && it !in OPEN_NUCLEI && reaches(part, it) }
 
     /** [part] is a coda, or the beginning of one. */
     private fun couldBeCoda(part: String): Boolean =

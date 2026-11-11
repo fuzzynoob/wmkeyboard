@@ -152,6 +152,9 @@ class VietnameseStrictTonesTest {
      * `oo` of `daboo` is two letters and not the one `ô` would have spent; and
      * a key whose mark *lived* stays spent even after the mark is taken back
      * off, so `daaabooo` is one letter shorter than the keys that spelled it.
+     * That holds while no mark is left in the word; one that still carries a
+     * mark and is no word is given back as every key typed, which is what
+     * UniKey restores when the word ends.
      */
     @Test
     fun aMarkKeyIsSpentOnlyWhenItsMarkCouldStand() {
@@ -192,13 +195,16 @@ class VietnameseStrictTonesTest {
             assertEquals("dd", c.composeBuffer("ddd"))
             assertEquals("dđ", c.composeBuffer("dddd"))
             assertEquals("ddaa", c.composeBuffer("dddaa"))
-            // Not UniKey's answers, these: a word the rules cannot spell is
-            // given back as its keys, which is this keyboard's own reading and
-            // not UniKey's — `banana` is `bânna` there. Left as they are; the
-            // fallback is a separate question from the one this test asks.
+            // A word that still carries a mark and is no word is given back as
+            // every key typed — UniKey's answer once the word ends, though its
+            // preedit shows `bânna` until then. A mark key that was taken back
+            // off comes back too: `dodod` is `dôd` with the `đ` taken off again,
+            // and `ddaaud` is `dâud` with it taken off.
             assertEquals("banana", c.composeBuffer("banana"))
             assertEquals("rhees", c.composeBuffer("rhees"))
             assertEquals("dodod", c.composeBuffer("dodod"))
+            assertEquals("dododo", c.composeBuffer("dododo"))
+            assertEquals("ddaaud", c.composeBuffer("ddaaud"))
             assertEquals("nanan", c.composeBuffer("nanan"))
             // A bare `w` is its own case: the ư it stands for was never typed,
             // so taking the letter back takes the key with it. `ww` is `w`, and

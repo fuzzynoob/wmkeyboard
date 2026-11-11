@@ -38,18 +38,7 @@ private class VLetter(
     var mark: VMark,
     val upper: Boolean,
     val synthesized: Boolean = false,
-) {
-    /**
-     * The key in front of the mark [mark] carries, or -1 when no key does — a
-     * mark the user typed as itself, one the engine worked out on the finished
-     * letters, or one on a [synthesized] letter, which *is* its key rather than
-     * a mark that key spent.
-     *
-     * It is what lets the strict fallback spell the word back without putting a
-     * spent key back: see [compose].
-     */
-    var markKey: Int = -1
-}
+)
 
 internal object VietnameseEngine {
 
@@ -227,7 +216,7 @@ internal object VietnameseEngine {
         // it, and a resume armed on one holds the field's text where its keys
         // belong. `compose` is the question actually being asked: does this
         // spelling make that word?
-        if (compose(raw, vni).first != word) return null
+        if (compose(raw, vni) != word) return null
         // The word's own first key has to spell its first letter as well, or
         // the resume arms a region whose first backspace is not the letter it
         // looks like. `Web` is spelled by its own keys now that a leading `w`
@@ -237,7 +226,7 @@ internal object VietnameseEngine {
         // the harm this guard is here for. No Vietnamese word opens with `w`,
         // so nothing the language spells is turned away by it.
         val head = word.first().toString()
-        return if (compose(head, vni).first == head) raw else null
+        return if (compose(head, vni) == head) raw else null
     }
 
     /**
@@ -330,6 +319,24 @@ internal object VietnameseEngine {
     }
 
     /**
+     * The index of the nearest letter drawn as [base] when it already carries
+     * [mark], or -1.
+     *
+     * The key that reached it then takes the mark back off and types its
+     * letter, as the key in front does for `aaa`: `ama` is `âm`, so `amaa` is
+     * `ama` and `amaazon` is `amazon`, where passing the `â` over left `âma`.
+     * UniKey answers the same for `taata`, `ddod` and `dodod`.
+     *
+     * Only while the letters are still a word: in `bânn` and `đc` the mark is
+     * no longer part of a syllable the key could be editing, so `banana` stays
+     * `bânna` and `ddcd` stays `đcd` — UniKey's answers too.
+     */
+    private fun reachedMark(letters: List<VLetter>, base: Char, mark: VMark): Int {
+        val i = letters.indexOfLast { it.base == base }
+        return if (i >= 0 && letters[i].mark == mark && spellsAWord(letters)) i else -1
+    }
+
+    /**
      * The index of a letter [mark] may go on even though it is not the one in
      * front of the key, or -1 when there is none.
      *
@@ -337,8 +344,8 @@ internal object VietnameseEngine {
      * letter before it: `dod` is `đo` and `tono` is `tôn`, where the key and
      * its letter are separated by a vowel and a coda. The search runs backwards
      * so the nearest letter has the first say, and a letter already carrying
-     * that mark is passed over — a second key with nothing left to mark is the
-     * letter it is drawn as.
+     * that mark is passed over here: when it is the nearest letter of its kind,
+     * [reachedMark] has already taken the mark off.
      *
      * Only a letter that leaves the word one Vietnamese could still spell
      * counts ([VietnameseOrthography.isSyllablePrefix]), which is what keeps
@@ -353,35 +360,11 @@ internal object VietnameseEngine {
             if (letter.base != base || letter.mark == mark) continue
             val was = letter.mark
             letter.mark = mark
-            val valid = VietnameseOrthography.isSyllablePrefix(render(letters, VTone.NONE))
+            val valid = VietnameseOrthography.isSyllablePrefix(render(letters, VTone.NONE), closedRhymes = true)
             letter.mark = was
             if (valid) return i
         }
         return -1
-    }
-
-    /**
-     * Takes [letter]'s mark off and, with it, the key that put it there.
-     *
-     * A mark key is not a letter: `aa` is `â` and two keys long, and the second
-     * key lives on only as the circumflex. So when the mark goes — because the
-     * key was pressed again, or because a later key aimed at the same letter —
-     * the key goes with it, and the word's spelling is one key shorter. That is
-     * what [compose]'s fallback reads, and what keeps the letters on screen from
-     * growing a letter the user watched the mark spend.
-     */
-    private fun retire(letter: VLetter, dead: BooleanArray) {
-        // A [VLetter.synthesized] letter *is* its key — a bare `w` stands for ư,
-        // and the ư is that key's letter. Taking the horn off such a letter (`w`
-        // then `o` then `w`) leaves a letter standing, so the key is still spent
-        // on it; only taking the letter away spends the key, and that is done
-        // where the letter is removed. A mark on a letter the user typed is the
-        // whole of what its key typed, so it goes with the mark.
-        if (!letter.synthesized) {
-            val key = letter.markKey
-            if (key >= 0) dead[key] = true
-        }
-        letter.markKey = -1
     }
 
     /**
@@ -402,26 +385,23 @@ internal object VietnameseEngine {
     private fun markKeepsTheWord(letters: List<VLetter>, letter: VLetter, mark: VMark): Boolean {
         val was = letter.mark
         letter.mark = mark
-        val ok = VietnameseOrthography.isSyllablePrefix(render(letters, VTone.NONE))
+        val ok = VietnameseOrthography.isSyllablePrefix(render(letters, VTone.NONE), closedRhymes = true)
         letter.mark = was
         return ok
     }
 
-    /** Apply [mark], spelled by the key at [index], to the last letter whose base is in [targets]; returns success. */
-    private fun applyMark(
-        letters: List<VLetter>,
-        targets: String,
-        mark: VMark,
-        index: Int,
-        dead: BooleanArray,
-    ): Boolean {
+    /** Whether [letters] are a word Vietnamese could still spell, read with no tone. */
+    private fun spellsAWord(letters: List<VLetter>): Boolean =
+        VietnameseOrthography.isSyllablePrefix(render(letters, VTone.NONE), closedRhymes = true)
+
+    /** Apply [mark] to the last letter whose base is in [targets]; returns success. */
+    private fun applyMark(letters: List<VLetter>, targets: String, mark: VMark): Boolean {
         for (i in letters.indices.reversed()) {
             if (letters[i].base in targets) {
                 // A second press of the same mark key cancels it (Telex `aa` then
                 // `a`, VNI double 6): toggle back to plain.
                 val letter = letters[i]
                 if (letter.mark == mark) {
-                    retire(letter, dead)
                     letter.mark = VMark.NONE
                     return true
                 }
@@ -430,11 +410,7 @@ internal object VietnameseEngine {
                 // and a key that finds none is the letter it is drawn as. The
                 // stroke is exempt — see the `d` key.
                 if (mark != VMark.STROKE && !markKeepsTheWord(letters, letter, mark)) continue
-                // A mark already standing there was spelled by some other key,
-                // and that key is spent by this one replacing it.
-                retire(letter, dead)
                 letter.mark = mark
-                letter.markKey = index
                 return true
             }
         }
@@ -461,19 +437,18 @@ internal object VietnameseEngine {
      * The last resort is the keys rather than the letters with their marks taken
      * off, because the two are not the same word: `rhees` was never `rhês` with
      * a mark removed, and giving back `rhees` is what leaves the user with what
-     * they typed. That is also why the keys are not the raw ones: a mark key is
-     * not a letter, and a mark that has since been taken off took its key with
-     * it. Spelling the word back raw would put those keys on screen again, so
-     * the field grew a letter the user had watched the mark spend — `daaaboo`
-     * is one key longer than the `daaboo` the same keys leave in `daaabooo`,
-     * and pressing one more key cannot be what shortens a word. See [compose].
+     * they typed. Every key is given back, a mark key that has since been taken
+     * off included, because that is what UniKey restores when a word ends:
+     * `dodod` is `dôd` with the `đ` taken off again, and it comes back as
+     * `dodod`. A word whose marks have all come off has nothing to restore and
+     * keeps its letters, which is how `amaazon` is `amazon` and `aaaa` is `aaa`.
      *
      * A word with no Vietnamese mark in it is left alone entirely, which is what
      * keeps the repeated-key cancellation: `hass` is `has` and stays `has`,
      * because there is no mark there for the keyboard to have made.
      */
     fun transduce(raw: String, vni: Boolean): String {
-        val (composed, _, keys) = compose(raw, vni)
+        val composed = compose(raw, vni)
         if (!VietnameseConfig.strictTones) return composed
         if (!VietnameseOrthography.hasVietnameseMark(composed)) return composed
         if (VietnameseOrthography.isSyllable(composed)) return composed
@@ -491,7 +466,7 @@ internal object VietnameseEngine {
         ) {
             return composed
         }
-        return keys
+        return raw
     }
 
     /**
@@ -507,15 +482,9 @@ internal object VietnameseEngine {
      * applied whatever the strict rule says: a word that is not Vietnamese is
      * answered for whole by [transduce], not key by key.
      */
-    private fun compose(raw: String, vni: Boolean): Triple<String, VTone, String> {
+    private fun compose(raw: String, vni: Boolean): String {
         val letters = ArrayList<VLetter>()
         var tone = VTone.NONE
-        // The keys a mark has spent and given back. Every key starts as a letter
-        // of the spelling; one that a mark was spelled with stops being one the
-        // moment that mark is taken off again, because the mark was the whole of
-        // what it typed. Kept per raw index so the fallback below can spell the
-        // word back without it — see [transduce].
-        val dead = BooleanArray(raw.length)
 
         fun toggleTone(t: VTone) { tone = if (tone == t) VTone.NONE else t }
 
@@ -604,10 +573,10 @@ internal object VietnameseEngine {
                     // tone is not marking one, so the strict rule has nothing to
                     // say about it either way.
                     '0' -> if (tone != VTone.NONE) { tone = VTone.NONE; continue }
-                    '6' -> { if (applyMark(letters, "aeo", VMark.CIRCUMFLEX, index, dead)) continue }
-                    '7' -> { if (applyMark(letters, "ou", VMark.HORN, index, dead)) continue }
-                    '8' -> { if (applyMark(letters, "a", VMark.BREVE, index, dead)) continue }
-                    '9' -> { if (applyMark(letters, "d", VMark.STROKE, index, dead)) continue }
+                    '6' -> { if (applyMark(letters, "aeo", VMark.CIRCUMFLEX)) continue }
+                    '7' -> { if (applyMark(letters, "ou", VMark.HORN)) continue }
+                    '8' -> { if (applyMark(letters, "a", VMark.BREVE)) continue }
+                    '9' -> { if (applyMark(letters, "d", VMark.STROKE)) continue }
                 }
                 letters.add(VLetter(lc, VMark.NONE, upper))
                 continue
@@ -693,8 +662,6 @@ internal object VietnameseEngine {
                         // the last one, which horns both.
                         val glide = isQuGlide(letters, uIdx)
                         if (letters[uIdx].mark == VMark.HORN && letters[oIdx].mark == VMark.HORN) {
-                            retire(letters[uIdx], dead)
-                            retire(letters[oIdx], dead)
                             letters[uIdx].mark = VMark.NONE
                             letters[oIdx].mark = VMark.NONE
                             letters.add(VLetter('w', VMark.NONE, upper))
@@ -705,13 +672,10 @@ internal object VietnameseEngine {
                             // there the first w simply comes back off: `quoww`
                             // is `quow`.
                             if (glide) {
-                                retire(letters[oIdx], dead)
                                 letters[oIdx].mark = VMark.NONE
                                 letters.add(VLetter('w', VMark.NONE, upper))
                             } else {
-                                retire(letters[uIdx], dead)
                                 letters[uIdx].mark = VMark.HORN
-                                letters[uIdx].markKey = index
                             }
                         } else if (letters[uIdx].mark == VMark.NONE &&
                             (glide || !codaFollows(letters, oIdx, raw, index))
@@ -721,16 +685,10 @@ internal object VietnameseEngine {
                             // horned by a key of its own. The open `uơ` is what
                             // the keys spell — and the glide is always this
                             // case, a coda or not.
-                            retire(letters[oIdx], dead)
                             letters[oIdx].mark = VMark.HORN
-                            letters[oIdx].markKey = index
                         } else {
-                            retire(letters[uIdx], dead)
-                            retire(letters[oIdx], dead)
                             letters[uIdx].mark = VMark.HORN
-                            letters[uIdx].markKey = index
                             letters[oIdx].mark = VMark.HORN
-                            letters[oIdx].markKey = index
                         }
                     } else {
                         val marked = letters.indexOfLast {
@@ -753,22 +711,17 @@ internal object VietnameseEngine {
                             val replacementUpper = if (taken) letters[marked].upper else upper
                             if (taken) {
                                 // The ư was never typed — no finger pressed a `u`
-                                // — so the letter and the key that stood for it go
-                                // together, and the key is spent now that it leaves
-                                // nothing behind. `wwaa` is the `waa` those four
-                                // keys spell, not a word that keeps the `w` the
-                                // ư was taken from.
-                                val key = letters[marked].markKey
-                                if (key >= 0) dead[key] = true
+                                // — so the letter goes with the mark. `wwaa` is
+                                // the `waa` those four keys spell, not a word that
+                                // keeps the `w` the ư was taken from.
                                 letters.removeAt(marked)
                             } else {
-                                retire(letters[marked], dead)
                                 letters[marked].mark = VMark.NONE
                             }
                             letters.add(VLetter('w', VMark.NONE, replacementUpper))
                         } else {
-                            val applied = applyMark(letters, "a", VMark.BREVE, index, dead) ||
-                                applyMark(letters, "ou", VMark.HORN, index, dead)
+                            val applied = applyMark(letters, "a", VMark.BREVE) ||
+                                applyMark(letters, "ou", VMark.HORN)
                             // A bare w is ư, which is Telex as it is written —
                             // but only the first of a run. The w after it takes
                             // that ư back and types the letter (above), and every
@@ -780,17 +733,16 @@ internal object VietnameseEngine {
                                 // takes its own case: only the first key of a
                                 // sentence is capitalised, so `Www` is `Ww` —
                                 // the capital on the first `w` and nowhere else.
-                                if (letters.lastOrNull()?.base == 'w') {
+                                val u = VLetter('u', VMark.HORN, upper, synthesized = true)
+                                if (letters.lastOrNull()?.base == 'w' || !spellsAWord(letters + u)) {
+                                    // Nor is a ư that would begin no word a
+                                    // mark worth spending the key on: `aiw`,
+                                    // `inw` and `uanw` keep their w, as in UniKey.
                                     letters.add(VLetter('w', VMark.NONE, upper))
                                 } else {
                                     // The key is the letter as much as the mark —
-                                    // a `u` no finger pressed, standing for this
-                                    // `w` — so it is remembered as the letter's
-                                    // own. See [retire].
-                                    letters.add(
-                                        VLetter('u', VMark.HORN, upper, synthesized = true)
-                                            .apply { markKey = index },
-                                    )
+                                    // a `u` no finger pressed, standing for this `w`.
+                                    letters.add(u)
                                 }
                             }
                         }
@@ -799,16 +751,11 @@ internal object VietnameseEngine {
                 'a', 'e', 'o' -> {
                     val last = letters.lastOrNull()
                     if (last != null && last.base == lc) {
-                        // The cancel spells the key too, so the one that went
-                        // missing is the key *behind* the mark, not this one.
                         if (last.mark == VMark.CIRCUMFLEX) {
-                            retire(last, dead)
                             last.mark = VMark.NONE
                             letters.add(VLetter(lc, VMark.NONE, upper))
                         } else if (markKeepsTheWord(letters, last, VMark.CIRCUMFLEX)) {
-                            retire(last, dead)
                             last.mark = VMark.CIRCUMFLEX
-                            last.markKey = index
                         } else {
                             // The mark would leave a word nobody spells, so the
                             // key is the letter it is drawn as: `daboo` keeps
@@ -819,11 +766,13 @@ internal object VietnameseEngine {
                         // Not the letter in front — the key may still name one
                         // further back, as it does in `tono` (`tôn`) and
                         // `nana` (`nân`).
-                        val target = distantMarkTarget(letters, lc, VMark.CIRCUMFLEX)
-                        if (target >= 0) {
-                            retire(letters[target], dead)
+                        val marked = reachedMark(letters, lc, VMark.CIRCUMFLEX)
+                        val target = if (marked >= 0) -1 else distantMarkTarget(letters, lc, VMark.CIRCUMFLEX)
+                        if (marked >= 0) {
+                            letters[marked].mark = VMark.NONE
+                            letters.add(VLetter(lc, VMark.NONE, upper))
+                        } else if (target >= 0) {
                             letters[target].mark = VMark.CIRCUMFLEX
-                            letters[target].markKey = index
                         } else {
                             letters.add(VLetter(lc, VMark.NONE, upper))
                         }
@@ -833,7 +782,6 @@ internal object VietnameseEngine {
                     val last = letters.lastOrNull()
                     if (last != null && last.base == 'd') {
                         if (last.mark == VMark.STROKE) {
-                            retire(last, dead)
                             last.mark = VMark.NONE
                             letters.add(VLetter('d', VMark.NONE, upper))
                         } else {
@@ -843,18 +791,18 @@ internal object VietnameseEngine {
                             // in are the abbreviations `đc`, `đt`, `đh` — which
                             // no spell test has an opinion about. `dddd` is `dđ`
                             // in UniKey for the same reason.
-                            retire(last, dead)
                             last.mark = VMark.STROKE
-                            last.markKey = index
                         }
                     } else {
                         // `dod` is `đo`: the stroke lands on the `d` the key is
                         // spelled with, not on the vowel in front of it.
-                        val target = distantMarkTarget(letters, 'd', VMark.STROKE)
-                        if (target >= 0) {
-                            retire(letters[target], dead)
+                        val marked = reachedMark(letters, 'd', VMark.STROKE)
+                        val target = if (marked >= 0) -1 else distantMarkTarget(letters, 'd', VMark.STROKE)
+                        if (marked >= 0) {
+                            letters[marked].mark = VMark.NONE
+                            letters.add(VLetter('d', VMark.NONE, upper))
+                        } else if (target >= 0) {
                             letters[target].mark = VMark.STROKE
-                            letters[target].markKey = index
                         } else {
                             letters.add(VLetter('d', VMark.NONE, upper))
                         }
@@ -913,14 +861,7 @@ internal object VietnameseEngine {
         // A `w` that opened a word is a `ư` only while the word can still be
         // one the language spells.
         keepEnglishW(letters, tone)
-        // The word spelled back as keys, which is what the strict rule hands over
-        // for a word it cannot read ([transduce]). The raw keystrokes, less the
-        // ones a mark spent and gave back: `rhees` is five keys and spells
-        // itself, while `daaaboo` — whose third `a` went into taking the
-        // circumflex off the second — is six, because that key typed no letter
-        // the user can still see.
-        val keys = if (dead.any { it }) raw.filterIndexed { i, _ -> !dead[i] } else raw
-        return Triple(render(letters, tone), tone, keys)
+        return render(letters, tone)
     }
 
     /**

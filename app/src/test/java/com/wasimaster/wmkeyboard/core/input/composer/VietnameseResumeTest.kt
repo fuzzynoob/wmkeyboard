@@ -81,11 +81,11 @@ class VietnameseResumeTest {
     @Test
     fun `a word the engine would rewrite reads as nothing`() {
         // Not every Latin word survives being read back: `as` spells `á` on a
-        // Telex board, `new` spells `neư`, and `www` is three bare `w`s that are
-        // each `ư`. A resume over any of them would compose something the user
-        // never typed, so the answer is none — the caret keeps the read-only
+        // Telex board, and `www` is three bare `w`s, the first of them `ư`. A
+        // resume over any of them would compose something the user never
+        // typed, so the answer is none — the caret keeps the read-only
         // treatment it has today.
-        for (word in listOf("as", "new", "www", "café", "row", "show")) {
+        for (word in listOf("as", "www", "café", "row")) {
             assertNull("`$word` should not be readable", telexKeys(word))
         }
     }
