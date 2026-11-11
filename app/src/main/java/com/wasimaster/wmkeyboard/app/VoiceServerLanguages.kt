@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -51,7 +52,8 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun VoiceServerLanguages(repository: SettingsRepository, settings: LiveSettings) {
     val scope = rememberCoroutineScope()
-    val languages = settings.watch { it.enabledLanguages }
+    // As dictation hears them; see voiceLanguages.
+    val languages = settings.watch { voiceLanguages(it.enabledLanguages) }
     if (languages.size < 2) return
     val byLang = settings.watch { it.whisper.serverByLang }
     var editing by remember { mutableStateOf<LanguageDef?>(null) }
@@ -155,6 +157,8 @@ private fun VoiceServerLanguageDialog(
                             key,
                             stringResource(R.string.voice_server_key_hint),
                             secret = true,
+                            // The server is the service: its host names the key in WM Pass.
+                            wmPassTitle = Uri.parse(url.trim()).host ?: url.trim(),
                         ) { key = it }
                     }
                     VoiceServerLanguageTest { resolve(draft()) }
@@ -184,6 +188,7 @@ private fun DialogField(
     hint: String,
     keyboardType: KeyboardType = KeyboardType.Text,
     secret: Boolean = false,
+    wmPassTitle: String? = null,
     onChange: (String) -> Unit,
 ) {
     OutlinedTextField(
@@ -192,6 +197,7 @@ private fun DialogField(
         label = { Text(label) },
         supportingText = { Text(hint) },
         singleLine = true,
+        trailingIcon = wmPassTitle?.let { title -> { WmPassKeyButton(title, value, onFill = onChange) } },
         visualTransformation = if (secret) PasswordVisualTransformation() else
             androidx.compose.ui.text.input.VisualTransformation.None,
         keyboardOptions = KeyboardOptions(

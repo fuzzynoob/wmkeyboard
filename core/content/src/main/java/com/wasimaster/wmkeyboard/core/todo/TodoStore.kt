@@ -6,6 +6,7 @@ import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.util.SnapshotFile
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
+import java.time.ZoneId
 import java.io.File
 
 /**
@@ -152,6 +153,17 @@ class TodoStore(private val storageFile: File?) {
     fun setDone(id: Long, done: Boolean, now: Long = System.currentTimeMillis()): List<TodoTask> {
         val task = item(id) ?: return emptyList()
         val changed = ArrayList<TodoTask>()
+        // A repeating task is never finished: this time is, and it comes round
+        // again with its steps open.
+        val repeat = task.repeat
+        val due = task.due
+        if (done && repeat != null && due != null) {
+            val zone = ZoneId.of(if (task.dueAllDay) "UTC" else ZoneId.systemDefault().id)
+            change(id, now) { it.copy(due = TodoDue.nextAfter(TodoDue.step(due, repeat, zone), repeat, now, zone), snoozedUntil = null) }
+                ?.let(changed::add)
+            for (step in tasks.filter { it.parentId == id && it.done }) tick(step, false, now)?.let(changed::add)
+            return changed
+        }
         tick(task, done, now)?.let(changed::add)
         if (done && task.parentId == null) {
             for (step in tasks.filter { it.parentId == task.id && !it.done }) tick(step, true, now)?.let(changed::add)
@@ -164,7 +176,27 @@ class TodoStore(private val storageFile: File?) {
 
     @Synchronized
     fun setDue(id: Long, due: Long?, allDay: Boolean = false, now: Long = System.currentTimeMillis()): TodoTask? =
-        change(id, now) { it.copy(due = due, dueAllDay = due != null && allDay) }
+        change(id, now) {
+            it.copy(
+                due = due,
+                dueAllDay = due != null && allDay,
+                snoozedUntil = null,
+                repeat = it.repeat.takeIf { due != null },
+            )
+        }
+
+    /** Sets how [id] repeats; one with no date yet is first due one repeat from now. */
+    @Synchronized
+    fun setRepeat(id: Long, repeat: TodoRepeat?, now: Long = System.currentTimeMillis()): TodoTask? =
+        change(id, now) { task ->
+            val due = task.due ?: repeat?.let { TodoDue.step(now, it, ZoneId.systemDefault()) }
+            task.copy(repeat = repeat, due = due)
+        }
+
+    /** Holds [id]'s reminders off until [until]. */
+    @Synchronized
+    fun snooze(id: Long, until: Long, now: Long = System.currentTimeMillis()): TodoTask? =
+        change(id, now) { it.copy(snoozedUntil = until) }
 
     /**
      * Deletes a task and its steps. Returns what went, the task first, for an
@@ -183,6 +215,34 @@ class TodoStore(private val storageFile: File?) {
     fun clearDone(): List<TodoTask> {
         val doneTops = tasks.filter { it.parentId == null && it.done }.map { it.id }.toSet()
         val gone = tasks.filter { it.done || it.parentId in doneTops }
+        remove(gone)
+        return gone
+    }
+
+    /**
+     * Deletes every task that repeats an older one word for word, with the
+     * same tick and due date, and the steps under each copy; a step that
+     * repeats an older step under the same task goes too. For the copies a
+     * task-app sync made before #1164: a copy the task app holds is
+     * remembered in [pendingDeletes], so the next sync deletes it there.
+     * Returns what went, for [restore].
+     */
+    @Synchronized
+    fun removeCopies(): List<TodoTask> {
+        val oldestFirst = tasks.sortedWith(compareBy<TodoTask> { it.createdAt }.thenBy { it.id })
+        val seen = HashSet<List<Any?>>()
+        val copies = HashSet<Long>()
+        for (task in oldestFirst.filter { it.parentId == null }) {
+            if (!seen.add(listOf(null, task.text, task.done, task.due))) copies += task.id
+        }
+        val gone = ArrayList<TodoTask>()
+        for (task in oldestFirst) {
+            val copy = when (val parent = task.parentId) {
+                null -> task.id in copies
+                else -> parent in copies || !seen.add(listOf(parent, task.text, task.done, task.due))
+            }
+            if (copy) gone += task
+        }
         remove(gone)
         return gone
     }

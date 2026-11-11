@@ -34,6 +34,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Checklist
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ChevronLeft
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ChevronRight
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Screenshot
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentCopy
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentCut
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentPaste
@@ -65,6 +66,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.History
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HomeIotDevice
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ImageSearch
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Interests
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Key
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Keyboard
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowDown
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowUp
@@ -140,6 +142,7 @@ object IconDefaults {
         ToolbarTool.CLIPBOARD_SEARCH -> Icons.Outlined.Search
         ToolbarTool.RECENT_COPIES -> Icons.Outlined.History
         ToolbarTool.LEAVE_FIELD -> Icons.Outlined.Close
+        ToolbarTool.SCREENSHOT -> Icons.Outlined.Screenshot
         ToolbarTool.QUICK_NOTE -> Icons.Outlined.EditNote
         ToolbarTool.SNIPPETS -> Icons.AutoMirrored.Outlined.TextSnippet
         ToolbarTool.TEXT_EDIT -> Icons.Outlined.EditNote
@@ -204,6 +207,7 @@ object IconDefaults {
         ToolbarTool.FIND_REPLACE -> Icons.Outlined.FindReplace
         ToolbarTool.NOTES -> Icons.AutoMirrored.Outlined.StickyNote2
         ToolbarTool.TODO -> Icons.Outlined.Checklist
+        ToolbarTool.WM_PASS -> Icons.Outlined.Key
         ToolbarTool.LOCATION -> Icons.Outlined.LocationOn
         ToolbarTool.CLOCK -> Icons.Outlined.Schedule
         ToolbarTool.HOME_ASSISTANT -> Icons.Outlined.HomeIotDevice

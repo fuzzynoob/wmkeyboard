@@ -119,19 +119,28 @@ private fun GlideEngineRow(settings: LiveSettings, repository: SettingsRepositor
         when (val s = status) {
             is FutoSwipe.Status.Failed -> StateBanner(
                 if (s.messageArg.isEmpty()) stringResource(s.messageRes) else stringResource(s.messageRes, s.messageArg),
-                action = stringResource(CommonR.string.common_retry),
+                action = if (offlineBuild) null else stringResource(CommonR.string.common_retry),
                 tone = BannerTone.WARNING,
                 onAction = ::fetch,
             )
             FutoSwipe.Status.NotDownloaded -> StateBanner(
                 stringResource(R.string.typing_glide_engine_missing),
-                action = stringResource(CommonR.string.common_download),
+                action = if (offlineBuild) null else stringResource(CommonR.string.common_download),
                 onAction = ::fetch,
             )
             else -> Unit
         }
         // Where the build fetches the runtime rather than carrying it.
         SpeechModuleBanner(settings, FeatureModules.executorch, "executorch")
+        // For a phone that cannot download (#1002): the two files, fetched
+        // elsewhere and imported here.
+        if (status != FutoSwipe.Status.Downloaded) {
+            OfflineImportRow(
+                subtitle = stringResource(R.string.offline_import_futo_subtitle),
+                links = remember { FutoSwipe.files.map { OfflineLink(it.path, it.url) } },
+                onImported = { FutoSwipe.refresh(filesDir) },
+            )
+        }
     }
     if (asking) {
         FutoSwipeLicenceDialog { accepted ->

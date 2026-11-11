@@ -47,8 +47,11 @@ The Key layouts screen has its own, differently scoped **Your layouts** section:
 | Symbols on shift | Toggle | On / Off | Off |
 | Number row in symbols | Toggle | On / Off | On |
 | Symbol row on number pads | Toggle | On / Off | On |
+| Number row keys | Screen | Any keys | The built-in digits |
 
 **Number row** adds a dedicated 1–0 row above the letters, so digits don't need a long-press. It's on out of the box on every device, phones included. Turning it on drops the top row's digit long-press alternate, which is redundant once the row exists. The four sub-settings only appear once Number row is on. **Number row height** sizes the digit row independently of the letter keys. **Symbols on shift** swaps the row to `= \ < > [ ] { } | ~` while <KeyCap>Shift</KeyCap> is held, instead of showing digits. A tap of Shift, or the automatic capital at a sentence start, leaves the digits in place. **Number row in symbols** keeps the digit row on the ?123 layer too, and turning it off shrinks the keyboard by a row there. **Symbol row on number pads** keeps that same row over the keypad you get in a number, phone, date or time field, where it carries symbols rather than a second set of digits: `+ * # , ; ( ) - / .` on a phone field, `+ - * / = ( ) % : .` on the others. Turn it off for the bare keypad, one row shorter; the digit row over the letters is untouched either way.
+
+**Number row keys** sets the row's keys once, for every layout and every language. It opens the row drawn as keys: tap one to change it with the same settings a key in the [layout editor](/reference/settings/keymaps/#the-rows-around-the-grid) has, hold and drag one to move it, and use **Add a key to this row** for more. **Edit as JSON** shows the row as a list of keys, in the same format a layout's `numberRow` takes, so a row copied out of a layout's JSON pastes straight in. **Use the built-in row** puts the digits back. The row stands in for the digits above the letters, the symbols and an authored Fn layer; the second symbols page keeps its arrows and comparison signs. A layout that has its own number row (set in its layout editor, or brought in by an imported file) keeps that one, so the keyboard-wide row fills in only where a layout has none. Symbols on shift and the symbol row on number pads still take the row's place when they apply.
 
 The tablet heights in the table are what you get until you touch the slider. Set it yourself and your value applies on every device. See [On a tablet](/typing/size-position/#on-a-tablet). If you want the digit row on some screen shapes but not others (landscape is the usual one), Per-screen sizing below has its own **Number row** toggle per shape.
 
@@ -61,9 +64,11 @@ See [Number row and numerals](/typing/basics/#number-row-and-numerals) for the f
 | Setting | Control | Range | Default |
 |---|---|---|---|
 | Arrow keys row | Toggle | On / Off | Off |
-| Arrow order | Drag list | Left, Up, Down, Right in any order | Left, Up, Down, Right |
+| Arrow keys on top *(only while Arrow keys row is on)* | Toggle | On / Off | Off |
+| Arrow keys row keys *(same visibility gate)* | Screen | Any keys | The four arrows |
+| Arrow order *(same gate, and only while the row is the built-in one)* | Drag list | Left, Up, Down, Right in any order | Left, Up, Down, Right |
 
-**Arrow keys row** adds a row of four arrow keys under the spacebar, so you can move the cursor without a toolbar tool or a drag on the spacebar. Each key sends a real arrow key press, and holding one keeps moving the cursor. The row shows on every layer except a secondary layout, which stays exactly as its author built it. It takes the height of the number row (the **Number row height** slider above, or a screen shape's own override), so the resize handle and one-handed mode scale it with the rest of the keyboard, and the keyboard grows by that much. **Arrow order** appears once the row is on: drag the handles to put the four keys in the order you want, left to right. A layout can put keys of its own on the row instead, such as Word left or a second Shift: the [layout editor](/reference/settings/keymaps/#the-rows-around-the-grid) draws the row under the grid while it's on, and editing a key there gives that layer its own row.
+**Arrow keys row** adds a row of four arrow keys under the spacebar, so you can move the cursor without a toolbar tool or a drag on the spacebar. Each key sends a real arrow key press, and holding one keeps moving the cursor. The row shows on every layer except a secondary layout, which stays exactly as its author built it. It takes the height of the number row (the **Number row height** slider above, or a screen shape's own override), so the resize handle and one-handed mode scale it with the rest of the keyboard, and the keyboard grows by that much. **Arrow keys on top** and **Arrow order** appear once the row is on. **Arrow keys on top** moves the row to the top of the keyboard, above the number row when that's on, with the same keys, order and height. **Arrow order** has handles you drag to put the four keys in the order you want, left to right. **Arrow keys row keys** sets the row's keys once, for every layout and every language, on the same kind of screen as **Number row keys**: any key can go on it, such as Word left or a second Shift, and **Edit as JSON** takes the format a layout's `arrowRow` uses. While the row is your own, **Arrow order** is hidden, since the order is the row's; **Use the built-in row** brings the four arrows and the order list back. A layout can also put keys of its own on the row, and those win on that layout: the [layout editor](/reference/settings/keymaps/#the-rows-around-the-grid) draws the row in the same place the keyboard does while it's on, and editing a key there gives that layer its own row.
 
 ### Symbols layer
 
@@ -97,15 +102,18 @@ Only single-character keys count, so a `.com` key or an emoticon key never trigg
 
 <SettingsPath path="Layout & size / Size and position" />
 
+At the Simple settings depth this page shows **Resize by dragging**, **Key height** and **Bottom padding**. Set the depth under About › App to see the rest. A setting you reach from a link or search stays on the page until you leave it, whatever the depth.
+
 | Setting | Control | Range | Default |
 |---|---|---|---|
 | Resize by dragging *(hidden while the keyboard test button is off)* | Button | Opens the keyboard in [resize mode](/tools/resize/) | |
 | Key height | Slider | 32–100 dp | 48 dp (**46** small tablet / **44** large) |
 | Bottom row height | Slider | 0–96 dp | 0 dp ("Follow keys") |
+| Toolbar height | Slider | 24–80 dp | 44 dp |
 | Left padding | Slider | 0–30% | 0% |
 | Right padding | Slider | 0–30% | 0% |
 | Key spacing | Slider | 0–200% | 100% |
-| Extend edge keys into the gaps | Toggle | On / Off | On |
+| Extend edge keys into the gaps | Toggle | On / Off | Off |
 | Bottom padding | Slider | 0–160 dp | 32 dp (Android 15+ with gesture navigation) / 8 dp (three-button navigation, or older) |
 | Hide the system keyboard bar *(Android 16 and up)* | Toggle | On / Off | Off |
 | Round top corners | Slider | Square, or 1–40 dp | Square |
@@ -113,10 +121,13 @@ Only single-character keys count, so a `.com` key or an emoticon key never trigg
 | Which corners *(shown once either corner slider is above Square)* | Filter chips | Top left, Top right, Bottom left, Bottom right | All four |
 | Keyboard width | Slider | 50–100% | 100% |
 | Keyboard position *(shown only below 100% width)* | Choice | Left / Centre / Right | Centre |
+| Full-width toolbar *(shown once width or a padding narrows the keys)* | Toggle | On / Off | Off |
+
+**Toolbar height** sizes the toolbar and suggestion row above the keys, and a theme with its own toolbar height pins it. **Full-width toolbar** keeps that row, the suggestion strip and open panels at the screen's full width while **Keyboard width** and the two paddings narrow only the key rows, Samsung Keyboard's tablet arrangement. It has no effect in one-handed mode, while floating, or on a television.
 
 These sliders set the everyday shape of the keyboard: how tall the keys and the space/enter row are, how much air sits around each key and along the edges, and whether the keyboard docks narrower than the full screen width. For the full breakdown of each one, including how they interact with one-handed mode and split, see [Size, position & one-handed use](/typing/size-position/).
 
-Once you've moved anything in this group, a **Reset size and position** row appears at the bottom of it. It asks first, then puts every slider here back at once. Two sliders it reaches that don't sit in this group come with them: **Number row height** from the top of this screen, and **Key corner radius** over on [Appearance](/reference/settings/appearance/), which is sizing even though it doesn't live here. The per-screen overrides below are left alone.
+Once you've moved anything in this group, a **Reset size and position** row appears at the bottom of it. It asks first, then puts every slider and switch here back at once, **Toolbar height** included (the Toolbar page's own reset clears that one too). Two sliders it reaches that don't sit in this group come with them: **Number row height** from the top of this screen, and **Key corner radius** over on [Appearance](/reference/settings/appearance/), which is sizing even though it doesn't live here. The per-screen overrides below are left alone.
 
 ### Per-screen sizing
 
@@ -131,6 +142,8 @@ The Size & position values above are your portrait sizes, and the in-app caption
 | Number row height *(only if Number row is on)* | 32–100 dp | base Number row height (42 dp); **29 dp** on landscape |
 | Bottom padding | 0–160 dp | base Bottom padding |
 | Keyboard width | 50–100% | base Keyboard width (100%) |
+| Full-width toolbar *(only if this shape's keys are narrowed)* | On / Off | base Full-width toolbar (Off) |
+| Toolbar height | 24–80 dp | base Toolbar height (44 dp); **70%** of it on landscape |
 | Font size | 0.7×–2.0× | global Key label font size (1.0×) |
 | Key spacing | 0–200% | base Key spacing (100%) |
 | Left padding | 0–30% | base Left padding (0%) |
@@ -177,7 +190,7 @@ Landscape is also the one shape that doesn't fall back to portrait for the three
 | Full-screen typing in landscape | Toggle | On / Off | On |
 | Keep the keyboard on screen | Toggle | On / Off | Off |
 
-One-handed mode tunes separately per orientation. The rail's arrow inside the keyboard flips the side, and it remembers the answer here for whichever orientation you're in. **Portrait only** switches the mode off while the phone is sideways and back on when it is upright again, so a thumb-sized portrait keyboard and a split landscape one can coexist. Split divides every row into left and right halves with a gap between them, and **Split only on wide screens** holds that back until you're in landscape or on an unfolded screen, so rotating out of landscape doesn't leave a portrait phone split in two. Floating detaches the keyboard into a movable, resizable panel. While it's active it replaces the width, position and bottom-padding logic above, though split still works alongside it. **Full-screen typing in landscape** off keeps the app in view while a phone is sideways, instead of Android's full-screen text box with its Done button. **Keep the keyboard on screen** stops the keyboard from closing when a text field loses focus, so it stays up over screens with no field at all until you hide it yourself. See [Keeping the keyboard on screen](/typing/size-position/#keeping-the-keyboard-on-screen) for what reaches the app and how to close it. The floating button that opens the keyboard without a text field used to sit here too; it has its own screen now, [Advanced › Floating button](/reference/settings/floating-button/).
+One-handed mode tunes separately per orientation. The rail's arrow inside the keyboard flips the side, and it remembers the answer here for whichever orientation you're in. **Portrait only** switches the mode off while the phone is sideways and back on when it is upright again, so a thumb-sized portrait keyboard and a split landscape one can coexist. Split divides every row into left and right halves with a gap between them, and **Split only on wide screens** holds that back until you're in landscape or on an unfolded screen, so rotating out of landscape doesn't leave a portrait phone split in two. Floating detaches the keyboard into a movable, resizable panel. While it's active it replaces the width, position and bottom-padding logic above, though split still works alongside it. The app behind keeps its full size, except for the strip at the bottom where Android draws its own keyboard bar (the arrow that hides the keyboard): the app's text field moves up above that strip, so a full-screen game's chat box isn't left under it. **Full-screen typing in landscape** off keeps the app in view while a phone is sideways, instead of Android's full-screen text box with its Done button. **Keep the keyboard on screen** stops the keyboard from closing when a text field loses focus, so it stays up over screens with no field at all until you hide it yourself. See [Keeping the keyboard on screen](/typing/size-position/#keeping-the-keyboard-on-screen) for what reaches the app and how to close it. The floating button that opens the keyboard without a text field used to sit here too; it has its own screen now, [Advanced › Floating button](/reference/settings/floating-button/).
 
 <PhoneFrame side caption="One-handed mode set to Right, with the Portrait width, height, and side sliders below it.">
   <Shot id="reference/settings/layout-one-handed-split-floating" alt="One-handed mode set to Right, with the Portrait width, height, and side sliders below it." />
@@ -195,6 +208,7 @@ Full detail on all three (plus the floating panel's drag pill and resize grip) i
 | 1234 key on the symbol pages | Toggle | Off |
 | Show the 🌐 key | Toggle | On |
 | Emoji key instead of 🌐 | Toggle | On |
+| Key in place of 🌐 *(shown while Emoji key instead of 🌐 is on)* | Tool picker | Emoji |
 | Swap the comma and 🌐 keys | Toggle | On |
 | Keep the 🌐 key in one place | Toggle | On |
 | Ignore 🌐 right after typing | Slider, Off or 50–1000 ms | Off |
@@ -203,7 +217,7 @@ Full detail on all three (plus the floating panel's drag pill and resize grip) i
   <Shot id="reference/settings/layout-bottom-row-keys" alt="The Bottom-row keys group: Comma key opens emoji and Emoji key instead of the globe key." />
 </PhoneFrame>
 
-**Emoji key instead of 🌐** is on by default. The bottom-row <KeyCap>🌐</KeyCap> key opens the emoji panel instead of switching language, and language switching moves to a spacebar swipe (Language, by default). **Comma key opens emoji** takes over the comma key the same way, with comma demoted to a long-press alternate. Turning it on also removes the emoji tool from the toolbar, since the key is meant to replace it.
+**Emoji key instead of 🌐** is on by default. The bottom-row <KeyCap>🌐</KeyCap> key opens the emoji panel instead of switching language, and language switching moves to a spacebar swipe (Language, by default). **Key in place of 🌐** picks what that key opens: the emoji panel, or any tool, such as Stickers, Clipboard or Translate, whose icon the key then wears. **Comma key opens emoji** takes over the comma key the same way, with comma demoted to a long-press alternate. Turning it on also removes the emoji tool from the toolbar, since the key is meant to replace it.
 
 **1234 key on the symbol pages** is off by default. Turn it on and both symbol pages get a <KeyCap>1234</KeyCap> key straight after <KeyCap>ABC</KeyCap>, as in Gboard, which opens the [number pad](/tools/text-editing/#the-numeric-keypad) over the current field. The spacebar gives up one key's width to make room, so the row keeps its length. A layout that already has a number pad key, a symbol page you arranged by hand in the layout editor, and a spacebar too narrow to give up the width are all left as they are.
 

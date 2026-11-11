@@ -38,6 +38,7 @@ import com.wasimaster.wmkeyboard.core.vocab.VocabPacks
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtCatalog
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtDownloadManager
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtEngine
+import com.wasimaster.wmkeyboard.core.voice.executorch.EtModel
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCatalog
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperDownloadManager
 import com.wasimaster.wmkeyboard.core.voice.whistle.WhistleModelDownloadManager
@@ -195,9 +196,10 @@ private fun kindSummary(row: ResolvedProvider, type: ProviderType, settings: Key
             ),
         )
         ProviderTypes.WHISPER.id, ProviderTypes.WHISTLE.id, ProviderTypes.ASR4ALL.id, ProviderTypes.PARAKEET.id,
-        ProviderTypes.MOONSHINE.id, ProviderTypes.SHERPA.id, ProviderTypes.OMNILINGUAL.id, ProviderTypes.NLLB.id,
+        ProviderTypes.MOONSHINE.id, ProviderTypes.SHERPA.id, ProviderTypes.OMNILINGUAL.id, ProviderTypes.VOSK.id,
+        ProviderTypes.NLLB.id,
         ProviderTypes.ON_DEVICE_AI.id, ProviderTypes.OFFLINE_WIKTIONARY.id, ProviderTypes.OFFLINE_WORDNET.id,
-        ProviderTypes.OFFLINE_BENGALI.id,
+        ProviderTypes.OFFLINE_BENGALI.id, ProviderTypes.OFFLINE_LANGUAGES.id,
         ProviderTypes.ML_KIT.id, ProviderTypes.BERGAMOT.id, ProviderTypes.OFFLINE_GIFS.id,
         ProviderTypes.IMPORTED_DICTIONARIES.id, ProviderTypes.VOCAB_PACKS.id,
         -> facts?.let(::factsSummary)
@@ -212,6 +214,15 @@ private fun kindSummary(row: ResolvedProvider, type: ProviderType, settings: Key
                 SummaryPart.Phrase(tavilyDepthLabel(settings.webSearch.tavilyDepth))
                     .takeIf { settings.webSearch.tavilyDepth != TavilyDepth.BASIC },
             ),
+        )
+        // Where the encryption happens, said in words that never claim the
+        // attestation was checked on the phone: it is not (#1145).
+        ProviderTypes.PRIVATEMODE.id -> ProviderSummary(
+            listOf(
+                SummaryPart.Phrase(
+                    if (row.url.isBlank()) R.string.providers_summary_privatemode_phone else R.string.providers_summary_privatemode_proxy,
+                ),
+            ) + setupParts(row, type),
         )
         // Harper is English only, so the kind of English is its choice.
         ProviderTypes.HARPER.id -> ProviderSummary(listOf(SummaryPart.Phrase(settings.grammarDialect.labelRes)))
@@ -320,7 +331,7 @@ internal fun whisperFacts(modelId: String, states: Map<String, WhisperDownloadMa
 internal fun etFacts(engine: EtEngine, states: Map<String, EtDownloadManager.Status>): ProviderFacts {
     val models = EtCatalog.forEngine(engine).filterNot { it.punctuation }
     val onPhone = models.filter { states[it.id] == EtDownloadManager.Status.Downloaded }
-    onPhone.maxByOrNull { it.millions }?.let { best ->
+    onPhone.maxWithOrNull(EtModel.ORDER)?.let { best ->
         return ProviderFacts.Model(best.label, best.bytes, ModelState.Ready, others = onPhone.size - 1)
     }
     models.firstNotNullOfOrNull { model ->
@@ -428,7 +439,7 @@ internal fun rememberProviderFacts(kinds: Set<String>, settings: LiveSettings): 
         LaunchedEffect(Unit) { withContext(Dispatchers.IO) { LocalLlmDownloadManager.refresh(filesDir) } }
         facts[ProviderTypes.ON_DEVICE_AI.id] = localLlmFacts(settings.watch { it.ai.localModelId }, states)
     }
-    if (ProviderTypes.ML_KIT.id in kinds && OnDeviceTranslator.AVAILABLE) {
+    if (ProviderTypes.ML_KIT.id in kinds && OnDeviceTranslator.offered) {
         val models by OnDeviceTranslator.models.collectAsState()
         val module by OnDeviceTranslator.moduleState.collectAsState()
         LaunchedEffect(module) { OnDeviceTranslator.refresh(context.applicationContext) }
@@ -458,6 +469,12 @@ internal fun rememberProviderFacts(kinds: Set<String>, settings: LiveSettings): 
         val states by OfflineDictionaryDownloads.states.collectAsState()
         LaunchedEffect(Unit) { withContext(Dispatchers.IO) { OfflineDictionaryDownloads.refresh(filesDir) } }
         for ((kind, pack) in dictionaries) facts[kind] = offlineDictionaryFacts(states[pack.id])
+    }
+    if (ProviderTypes.OFFLINE_LANGUAGES.id in kinds) {
+        val states by OfflineDictionaryDownloads.states.collectAsState()
+        LaunchedEffect(Unit) { withContext(Dispatchers.IO) { OfflineDictionaryDownloads.refresh(filesDir) } }
+        val installed = OfflineDictionaryCatalog.LANGUAGES.count { states[it.id] is OfflineDictionaryDownloads.Status.Downloaded }
+        facts[ProviderTypes.OFFLINE_LANGUAGES.id] = ProviderFacts.Installed(installed, InstalledUnit.DICTIONARIES)
     }
     // The rest are counts of files, read off the main thread.
     if (ProviderTypes.OFFLINE_GIFS.id in kinds) {

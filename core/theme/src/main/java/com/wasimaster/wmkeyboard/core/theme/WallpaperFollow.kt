@@ -50,6 +50,48 @@ data class WallpaperTones(
          * `_50`, `_100` … `_1000` suffixes of the system colour resources.
          */
         val TONES = listOf(100, 99, 95, 90, 80, 70, 60, 50, 40, 30, 20, 10, 0)
+
+        /**
+         * A shade of one of the palettes at any [tone] from 0 to 100. Android
+         * publishes thirteen, so a tone between two is mixed from them.
+         */
+        fun shade(palette: List<Long>, tone: Int): Long {
+            val wanted = tone.coerceIn(0, 100)
+            val upper = TONES.indexOfLast { it >= wanted }
+            val lower = (upper + 1).coerceAtMost(TONES.lastIndex)
+            val span = TONES[upper] - TONES[lower]
+            val share = if (span == 0) 0f else (TONES[upper] - wanted).toFloat() / span
+            fun channel(shift: Int): Long {
+                val from = (palette[upper] shr shift) and 0xFF
+                val to = (palette[lower] shr shift) and 0xFF
+                return (from + (to - from) * share).roundToInt().toLong() shl shift
+            }
+            return 0xFF000000L or channel(16) or channel(8) or channel(0)
+        }
+    }
+
+    /** The palettes in the order a picker offers them. */
+    val palettes: List<List<Long>> get() = listOf(primary, secondary, tertiary, neutral, neutralVariant)
+
+    /** The palette, by its place in [palettes], and the tone closest to [argb]. */
+    fun nearestShade(argb: Long): Pair<Int, Int> {
+        var best = 0 to 0
+        var bestDistance = Long.MAX_VALUE
+        palettes.forEachIndexed { index, palette ->
+            for (tone in 0..100) {
+                val shade = shade(palette, tone)
+                var distance = 0L
+                for (shift in intArrayOf(16, 8, 0)) {
+                    val gap = ((shade shr shift) and 0xFF) - ((argb shr shift) and 0xFF)
+                    distance += gap * gap
+                }
+                if (distance < bestDistance) {
+                    bestDistance = distance
+                    best = index to tone
+                }
+            }
+        }
+        return best
     }
 }
 
@@ -147,10 +189,35 @@ private fun ThemeSpec.anchorHue(): Float? =
         .firstOrNull { it.chroma >= CHROMATIC }
         ?.hue
 
-private fun toneRemap(tones: WallpaperTones, anchorHue: Float?): (Long) -> Long = remap@{ color ->
-    // Fully transparent draws nothing, and the black it usually carries is
-    // not a colour anybody chose.
-    if (color and ALPHA == 0L) return@remap color
+private fun toneRemap(tones: WallpaperTones, anchorHue: Float?): (Long) -> Long {
+    val shades = paletteShades(tones)
+    return remap@{ color ->
+        // Fully transparent draws nothing, and the black it usually carries is
+        // not a colour anybody chose.
+        if (color and ALPHA == 0L) return@remap color
+        // Already one of the wallpaper's own shades: picked off the colour
+        // picker's Palette tab, which shows exactly these. Moving it again by
+        // chroma and lightness put a different palette or tone on the keys
+        // from the swatch the user chose.
+        if ((color and RGB) in shades) return@remap color
+        toneMoved(tones, anchorHue, color)
+    }
+}
+
+/**
+ * Every shade the colour picker's Palette tab can offer from [tones]: each of
+ * the five palettes at each whole tone, as [WallpaperTones.shade] mixes them.
+ */
+private fun paletteShades(tones: WallpaperTones): Set<Long> {
+    val shades = HashSet<Long>()
+    for (palette in tones.palettes) {
+        if (palette.size != WallpaperTones.TONES.size) continue
+        for (tone in 0..100) shades += WallpaperTones.shade(palette, tone) and RGB
+    }
+    return shades
+}
+
+private fun toneMoved(tones: WallpaperTones, anchorHue: Float?, color: Long): Long {
     val lab = Lab.of(color)
     val palette = when {
         lab.chroma < NEUTRAL -> tones.neutral
@@ -159,7 +226,7 @@ private fun toneRemap(tones: WallpaperTones, anchorHue: Float?): (Long) -> Long 
         anchorHue != null && hueDistance(lab.hue, anchorHue) > FAR_HUE -> tones.tertiary
         else -> tones.primary
     }
-    (color and ALPHA) or (atTone(palette, lab.l) and RGB)
+    return (color and ALPHA) or (atTone(palette, lab.l) and RGB)
 }
 
 /** The palette's colour at [tone], between the two published shades around it. */

@@ -4,8 +4,8 @@ package com.wasimaster.wmkeyboard.core.layout.json
  * One short paragraph for each property and each action a layout document can
  * hold, shown in the JSON editor's doc strip for the name under the caret.
  *
- * Kept in Kotlin rather than in string resources, for the reason `LuaApiDocs`
- * gives: this documents a file format whose property names are never translated,
+ * Kept in Kotlin rather than in string resources, for the reason the plugin API docs
+ * give: this documents a file format whose property names are never translated,
  * and a hundred paragraphs in the translation pipeline would cost more than they
  * give. Filed by [PropertyShape.docKey]; an action is `action:<tag>` and its
  * fields `action:<tag>.<field>`. `LayoutJsonSchemaDriftTest` checks that every
@@ -60,6 +60,9 @@ object LayoutJsonDocs {
             "The imported input method (a .cin table, a Rime schema or an m17n file) whose files decide what the keys " +
             "type. Only a layout made by importing one has it.",
         "LayoutSpec.appearance" to "This layout's own label font and size, over the theme and the settings.",
+        "LayoutSpec.landscapeLayoutId" to
+            "The id of the layout drawn instead while the screen is sideways. Only its keys are used, so what they type stays this layout's. " +
+            "Leave it out, or name a layout that is gone, to draw this one.",
         "LayoutSpec.script" to
             "The script the keys write, when it is not the language's, such as PIQAD for Klingon pIqaD. It decides the font the keys use.",
         "LayoutSpec.secondary" to
@@ -68,6 +71,9 @@ object LayoutJsonDocs {
         "LayoutSpec.handwriting" to
             "A writing area in place of the letter keys, recognised in this layout's language. The letters layer is then only " +
             "the bottom row under it.",
+        "LayoutSpec.strip" to
+            "A one-row strip of letters, Minuum style: the letters row keeps one key's height, so the keyboard is short, and " +
+            "its letters are drawn without key faces, at one size. The other layers keep their own height.",
         "LayoutSpec.themeId" to "A theme of this layout's own, used while the layout is on screen. A layer's themeId beats it.",
         "LayoutSpec.version" to "The revision of the layout format. The app brings an older one up to date when it reads it.",
         "LayoutSpec.basedOn" to "The repository addon this layout was installed from, so a copy edited from it still credits the original when shared. Set by the app.",
@@ -89,11 +95,18 @@ object LayoutJsonDocs {
         "LayerSpec.themeId" to "A theme for while this layer is on screen, over the layout's theme and the settings.",
         "LayerSpec.flickHints" to
             "Whether this layer's flick keys draw their arms on the key face. Leave it out to follow the keyboard's setting.",
+        "LayerSpec.afterConsonant" to
+            "On the letters layer of an Indic layout, the page of vowel signs to show after a consonant. Its keys show the " +
+            "consonant with each sign, and a tap replaces the vowel sign already there.",
 
         "LayoutAppearance.fontId" to
             "The label font: \"default\", \"google:<Name>\", \"installed:<name>\" or \"custom\". A font this device does not have falls " +
             "back to the usual one.",
         "LayoutAppearance.fontScale" to "Multiplies the label size the settings chose. 0.8 draws the labels a fifth smaller.",
+        "LayoutAppearance.keyHeightDp" to "This layout's own key height in dp. Leave it out to follow the theme and the Layout & size settings.",
+        "LayoutAppearance.keyGapScale" to "Multiplies the spacing between keys, for this layout only. Leave it out to follow the setting.",
+        "LayoutAppearance.sidePadLeftScale" to "Multiplies the padding on the left of the board, for this layout only. Leave it out to follow the setting.",
+        "LayoutAppearance.sidePadRightScale" to "Multiplies the padding on the right of the board, for this layout only. Leave it out to follow the setting.",
 
         "Key.label" to "What the key shows, and what it types unless output says something else.",
         "Key.output" to "What the key types, when that is not the label.",
@@ -101,6 +114,7 @@ object LayoutJsonDocs {
         "Key.action" to "What a tap does. Leave it out for a key that types its text.",
         "Key.width" to "How wide the key is, in standard keys. A space bar is often 4 and Shift 1.5.",
         "Key.rowSpan" to "How many rows the key covers, its own included. 2 makes a tall key, and the row below fits around it.",
+        "Key.showOn" to "Which way up the screen has to be for this key to exist: ALWAYS, PORTRAIT or LANDSCAPE. A row left with no keys goes, with its height.",
         "Key.longPress" to
             "The characters a press and hold offers, in order. The first one is also the small hint in the corner of the key.",
         "Key.actionAlternates" to
@@ -128,6 +142,8 @@ object LayoutJsonDocs {
         "Key.flick" to
             "What a short swipe in each of the eight directions (left, up, right, down, up_left, up_right, " +
             "down_left, down_right) types instead of the tap, for a kana pad or a MessagEase-style board.",
+        "Key.bendsVowels" to
+            "A Moakey consonant: bending a flick partway turns its vowel into the next one, and the key's own letter starts the syllable.",
         "Key.flickShift" to
             "What a flick in each direction types while Shift is on. Leave a direction out and Shift makes its flick a " +
             "capital letter.",
@@ -137,6 +153,11 @@ object LayoutJsonDocs {
         "Key.multitap" to "What tapping the key again types in place of the last tap, in order. After the last entry the cycle goes back to the key itself.",
         "Key.labelScale" to "This key's label size, as a multiple of a letter's. Leave it out and the keyboard decides.",
         "Key.hintScale" to "This key's corner hint size, as a multiple of every hint's size, from 0.5 to 3. Leave it out to follow the setting.",
+        "Key.flickScale" to "The size of the flick arms drawn on this key, as a multiple of their usual size, from 0.5 to 3. Leave it out to follow the setting.",
+        "Key.flickInsetDp" to "How much further in from the key's edges its flick arms sit, in dp. Negative moves them out.",
+        "Key.hintShiftXDp" to "How far this key's corner hint moves in from the corner, in dp. Negative moves it out.",
+        "Key.hintShiftYDp" to "How far this key's corner hint moves down, in dp. Negative moves it up.",
+        "Key.labelShiftY" to "How far this key's label moves down from the middle, as a fraction of the key height. Negative moves it up.",
         "Key.letters" to "Every letter this key stands for, such as \"abc\" on a T9 key. The prediction works out which one you meant.",
         "Key.repeatOnHold" to
             "Holding the key does its action over and over, the way holding delete does. It spends the press and hold, so " +
@@ -167,6 +188,9 @@ object LayoutJsonDocs {
 
         ACTION_TYPE to "Which action the key runs. The other fields of this object depend on it.",
         "action:text" to "Types the key's output, or its label. It is the default, so it is usually left out.",
+        "action:han_script" to "Switches Chinese conversion between Simplified and Traditional.",
+        "action:edit_sequence" to "Runs a list of text edits in order, from one press of the key.",
+        "action:edit_sequence.ops" to "The edits to run, first to last.",
         "action:shift" to "Shift. One tap gives one capital letter, a double tap gives caps lock.",
         "action:caps_lock" to "Turns caps lock on or off in one tap, with no one-letter step.",
         "action:delete" to "Deletes the character before the caret. It repeats while held, and a swipe deletes words.",

@@ -7,14 +7,18 @@ import com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliGraphemes
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliPhoneticIndex
 import com.wasimaster.wmkeyboard.core.transliteration.BengaliRomanizer
+import com.wasimaster.wmkeyboard.core.transliteration.BornoPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.DevanagariRomanizer
 import com.wasimaster.wmkeyboard.core.transliteration.DravidianRomanizer
+import com.wasimaster.wmkeyboard.core.transliteration.GreekPhonetic
+import com.wasimaster.wmkeyboard.core.transliteration.GreekPhoneticIndex
 import com.wasimaster.wmkeyboard.core.transliteration.HindiPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.HindiPhoneticIndex
 import com.wasimaster.wmkeyboard.core.transliteration.IndicPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.IndicPhoneticIndex
 import com.wasimaster.wmkeyboard.core.transliteration.IndicProfile
 import com.wasimaster.wmkeyboard.core.transliteration.IndicProfiles
+import com.wasimaster.wmkeyboard.core.transliteration.MinorPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.PersianPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.PhoneticIndex
 import com.wasimaster.wmkeyboard.core.transliteration.PhoneticTables
@@ -86,6 +90,19 @@ object PhoneticSchemes {
         romanizeWord = BengaliRomanizer::romanizeWord,
     )
 
+    /** Bangla's list and index read through Borno Phonetic's rules: its literal reading, not Avro's. */
+    val BENGALI_BORNO = PhoneticScheme(
+        languageId = BENGALI.languageId,
+        romanizedListId = BENGALI.romanizedListId,
+        spellingAssets = BENGALI.spellingAssets,
+        transliterate = BornoPhonetic::transliterate,
+        variants = { listOf(BornoPhonetic.transliterate(it)) },
+        buildIndex = BENGALI.buildIndex,
+        isNative = BENGALI.isNative,
+        normalize = BENGALI.normalize,
+        romanizeWord = BENGALI.romanizeWord,
+    )
+
     /**
      * Hindi has no bundled word list, so its index is built over whatever the
      * user downloaded or imported — and is empty until they have. That is why
@@ -136,7 +153,12 @@ object PhoneticSchemes {
         return PhoneticScheme(
             languageId = id,
             romanizedListId = "${id}_rom",
-            spellingAssets = listOf("dictionaries/en_$id.tsv", "dictionaries/${id}_rom.tsv"),
+            // Only the eight with rules of their own have curated spellings.
+            spellingAssets = if (profile in IndicProfiles.all) {
+                listOf("dictionaries/en_$id.tsv", "dictionaries/${id}_rom.tsv")
+            } else {
+                emptyList()
+            },
             transliterate = engine::transliterate,
             variants = engine::variants,
             buildIndex = { PhoneticTables.index(id, PhoneticTables.build(id, it)) },
@@ -150,8 +172,8 @@ object PhoneticSchemes {
         )
     }
 
-    /** Marathi, Gujarati, Punjabi, Odia, Tamil, Telugu, Kannada, Malayalam. */
-    val INDIC: List<PhoneticScheme> = IndicProfiles.all.map(::indic)
+    /** Marathi, Gujarati, Punjabi, Odia, Tamil, Telugu, Kannada, Malayalam, and the plain [IndicProfiles.minor]. */
+    val INDIC: List<PhoneticScheme> = (IndicProfiles.all + IndicProfiles.minor).map(::indic)
 
     /** Assamese: Avro's rules with ৰ for র, and Bangla's index over the list in Bangla letters. */
     val ASSAMESE = PhoneticScheme(
@@ -192,7 +214,40 @@ object PhoneticSchemes {
         romanizeWord = UrduRomanizer::romanizeWord,
     )
 
-    val all: List<PhoneticScheme> = listOf(BENGALI, HINDI, URDU) + INDIC + listOf(ASSAMESE, PERSIAN, ARABIC)
+    /** Greek: every spelling of a sound folds to one key, so the word list settles which it is. No curated spellings yet. */
+    val GREEK = PhoneticScheme(
+        languageId = "el",
+        romanizedListId = "el_rom",
+        spellingAssets = emptyList(),
+        transliterate = GreekPhonetic::transliterate,
+        variants = { listOf(GreekPhonetic.transliterate(it)) },
+        buildIndex = ::GreekPhoneticIndex,
+        isNative = GreekPhonetic::isGreek,
+        normalize = { Normalizer.normalize(it, Normalizer.Form.NFC) },
+        romanizeWord = GreekPhonetic::romanize,
+    )
+
+    /**
+     * The table-only languages ([MinorPhonetic]): nothing curated, and most of
+     * them no list to download, so a word list ranks them only where one exists
+     * or the user imports one. The Arabic-script ones read a word through
+     * Urdu's skeleton fold and the others through their alphabet's.
+     */
+    val MINOR: List<PhoneticScheme> = MinorPhonetic.languages.map { (id, letters) ->
+        PhoneticScheme(
+            languageId = id,
+            romanizedListId = "${id}_rom",
+            spellingAssets = emptyList(),
+            transliterate = { MinorPhonetic.transliterate(id, it) },
+            variants = { MinorPhonetic.variants(id, it) },
+            buildIndex = { PhoneticTables.index(id, PhoneticTables.build(id, it)) },
+            isNative = { it.code in letters },
+            normalize = { Normalizer.normalize(it, Normalizer.Form.NFC) },
+            romanizeWord = { MinorPhonetic.romanize(id, it) },
+        )
+    }
+
+    val all: List<PhoneticScheme> = listOf(BENGALI, HINDI, URDU) + INDIC + listOf(ASSAMESE, PERSIAN, ARABIC, GREEK) + MINOR
 
     fun forLanguage(languageId: String?): PhoneticScheme? =
         all.firstOrNull { it.languageId == languageId }
@@ -204,7 +259,21 @@ object PhoneticSchemes {
  * can arrive (a download, an import) under a running engine.
  */
 class PhoneticBackend(
-    val scheme: PhoneticScheme,
+    @Volatile var scheme: PhoneticScheme,
     @Volatile var index: PhoneticIndex,
     val spellings: SpellingMap = SpellingMap.EMPTY,
-)
+) {
+    /**
+     * Whether a capital in [composing] changes what the rules spell. On Avro
+     * `N` is ণ where `n` is ন, so `moN` asks for one exact letter: the map and
+     * the word list, which both fold case, must not answer it as `mon`. A
+     * capital that spells nothing of its own (`Mon`) does not count.
+     */
+    fun spellsExactly(composing: String): Boolean =
+        composing.any(Char::isUpperCase) &&
+            scheme.transliterate(composing) != scheme.transliterate(composing.lowercase())
+
+    /** The spelling map's forms for [composing], best first; none for one that [spellsExactly]. */
+    fun listedForms(composing: String): List<String> =
+        if (spellsExactly(composing)) emptyList() else spellings.lookup(composing)
+}

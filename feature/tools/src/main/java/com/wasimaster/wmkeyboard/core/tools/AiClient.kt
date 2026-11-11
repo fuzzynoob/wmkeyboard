@@ -5,10 +5,13 @@ import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoints
 import com.wasimaster.wmkeyboard.core.netlog.NetLog
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
 import com.wasimaster.wmkeyboard.core.settings.AiProvider
+import com.wasimaster.wmkeyboard.core.settings.AiProviders
 import com.wasimaster.wmkeyboard.core.settings.AiSettings
+import com.wasimaster.wmkeyboard.core.tools.privatemode.PrivatemodeClient
 import com.wasimaster.wmkeyboard.tools.feature.R
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonObjectBuilder
 import kotlinx.serialization.json.JsonPrimitive
@@ -191,6 +194,9 @@ object AiClient {
          * Set only on a round that asked for tools.
          */
         val replay: JsonObject? = null,
+        /** Tokens the provider says the request read and wrote (#1135); 0 when it did not say. */
+        val inputTokens: Long = 0,
+        val outputTokens: Long = 0,
     )
 
     internal const val REPLAY_GEMINI = "geminiParts"
@@ -220,6 +226,9 @@ object AiClient {
 
         /** Brave's Answers API has one model, and this is its name. */
         const val BRAVE = "brave"
+
+        /** Privatemode's large general model; the model list offers the rest. */
+        const val PRIVATEMODE = "openai/gpt-oss-120b"
     }
 
     /**
@@ -248,7 +257,52 @@ object AiClient {
         // The user gives the address up to and including any version segment,
         // because those differ between services (/v1, /openai/v1, /api/v1).
         AiProvider.OPENAI_COMPATIBLE -> "${config.baseUrl.trimEnd('/')}/chat/completions"
+        // The user's own privatemode-proxy: its address with or without /v1.
+        AiProvider.PRIVATEMODE -> privatemodeProxyBase(config.baseUrl) + "/chat/completions"
         else -> error("${config.provider} does not use the OpenAI request shape")
+    }
+
+    /**
+     * The model ids [config]'s provider offers, as it lists them (#1038). Throws
+     * when it can't be reached or turns the key down. Blocking.
+     */
+    fun listModels(config: Config): List<String> {
+        val (url, headers) = when (config.provider) {
+            AiProvider.ANTHROPIC -> ServiceEndpoints.base(ServiceEndpoint.ANTHROPIC) + "/v1/models" to
+                mapOf("x-api-key" to config.apiKey, "anthropic-version" to "2023-06-01")
+            AiProvider.GEMINI -> ServiceEndpoints.base(ServiceEndpoint.GEMINI) + "/v1beta/models" to
+                mapOf("x-goog-api-key" to config.apiKey)
+            AiProvider.OLLAMA -> "${config.baseUrl.trimEnd('/')}/api/tags" to emptyMap()
+            AiProvider.ON_DEVICE, AiProvider.BRAVE -> return emptyList()
+            // Their model list is not encrypted, in their own client either.
+            AiProvider.PRIVATEMODE -> if (config.baseUrl.isBlank()) {
+                PrivatemodeClient.listModelsUrl() to mapOf("Authorization" to "Bearer ${config.apiKey}")
+            } else {
+                privatemodeProxyBase(config.baseUrl) + "/models" to
+                    if (config.apiKey.isBlank()) emptyMap() else mapOf("Authorization" to "Bearer ${config.apiKey}")
+            }
+            else -> openAiCompatibleUrl(config).removeSuffix("/chat/completions") + "/models" to
+                if (config.apiKey.isBlank()) emptyMap() else mapOf("Authorization" to "Bearer ${config.apiKey}")
+        }
+        val body = ToolHttp.getWithHeaders(
+            url,
+            headers = requestHeaders(config, headers),
+            source = config.netSource,
+            route = NetLog.pathOf(url),
+        ).body
+        return parseModelList(body)
+    }
+
+    /** Ids out of a model list: OpenAI's and Anthropic's `data[].id`, Gemini's and Ollama's `models[].name`. */
+    internal fun parseModelList(body: String): List<String> {
+        val root = Json.parseToJsonElement(body) as? JsonObject ?: return emptyList()
+        fun strings(key: String, field: String) = (root[key] as? JsonArray).orEmpty().mapNotNull { item ->
+            ((item as? JsonObject)?.get(field) as? JsonPrimitive)?.content
+        }
+        return (strings("data", "id") + strings("models", "name"))
+            .map { it.removePrefix("models/") }
+            .distinct()
+            .sorted()
     }
 
     fun config(settings: AiSettings): Config =
@@ -301,6 +355,29 @@ object AiClient {
             AiProvider.ON_DEVICE, "",
             settings.localModelId, "",
         )
+        // A blank address encrypts on the phone; an address is the user's own proxy.
+        AiProvider.PRIVATEMODE -> Config(
+            AiProvider.PRIVATEMODE, settings.privatemodeKey,
+            settings.privatemodeModel.ifBlank { DefaultModels.PRIVATEMODE },
+            settings.privatemodeProxyUrl,
+        )
+    }
+
+    /**
+     * The address of a privatemode-proxy up to its `/v1`, from what the user
+     * typed: the proxy's own address, or one that already ends in `/v1`.
+     */
+    internal fun privatemodeProxyBase(url: String): String = url.trim().trimEnd('/').removeSuffix("/v1") + "/v1"
+
+    /**
+     * How far a request to the provider in use is kept private on its way
+     * (#1145), for the lock the AI screens show. Only Privatemode is ever
+     * anything but [AiPrivacy.PLAIN]: every other cloud provider reads the
+     * text, whatever TLS hides from the network.
+     */
+    fun privacy(settings: AiSettings): AiPrivacy {
+        if (settings.provider != AiProvider.PRIVATEMODE) return AiPrivacy.PLAIN
+        return if (settings.privatemodeProxyUrl.isNotBlank()) AiPrivacy.PROXY else AiPrivacy.ENCRYPTED
     }
 
     /**
@@ -429,6 +506,8 @@ object AiClient {
             AiProvider.OPENAI_COMPATIBLE ->
                 config.baseUrl.isNotBlank() && config.model.isNotBlank()
             AiProvider.ON_DEVICE -> config.model.isNotBlank()
+            // A proxy may hold the key itself, so either one will do.
+            AiProvider.PRIVATEMODE -> config.apiKey.isNotBlank() || config.baseUrl.isNotBlank()
             else -> config.apiKey.isNotBlank()
         }
     }
@@ -456,6 +535,7 @@ object AiClient {
                     (settings.provider == AiProvider.BRAVE && settings.braveSearchKey.isNotBlank())
                 AiProvider.OPENAI_COMPATIBLE ->
                     settings.compatibleUrl.isNotBlank() && settings.compatibleModel.isNotBlank()
+                AiProvider.PRIVATEMODE -> settings.privatemodeKey.isNotBlank() || settings.privatemodeProxyUrl.isNotBlank()
                 AiProvider.ON_DEVICE -> false
             }
         }
@@ -475,7 +555,7 @@ object AiClient {
     fun supportsNativeTools(provider: AiProvider): Boolean = when (provider) {
         AiProvider.ANTHROPIC, AiProvider.GEMINI, AiProvider.OLLAMA,
         AiProvider.OPENAI, AiProvider.LM_STUDIO, AiProvider.XAI,
-        AiProvider.DEEPSEEK, AiProvider.OPENAI_COMPATIBLE,
+        AiProvider.DEEPSEEK, AiProvider.OPENAI_COMPATIBLE, AiProvider.PRIVATEMODE,
         -> true
         AiProvider.BRAVE, AiProvider.ON_DEVICE -> false
     }
@@ -546,7 +626,7 @@ object AiClient {
     ): Completion {
         val chat = normalizedTurns(turns)
         require(chat.isNotEmpty()) { "No user message to answer" }
-        return when (config.provider) {
+        val completion = when (config.provider) {
             AiProvider.ANTHROPIC ->
                 anthropicStream(config, system, chat, maxTokens, tools, onPhase, onPartial, isActive)
             AiProvider.GEMINI ->
@@ -562,10 +642,28 @@ object AiClient {
                 openAiCompatibleUrl(config),
                 config, system, chat, maxTokens, tools, onPhase, onPartial, isActive,
             )
+            AiProvider.PRIVATEMODE -> if (config.baseUrl.isNotBlank()) {
+                openAiCompatibleStream(
+                    openAiCompatibleUrl(config),
+                    config, system, chat, maxTokens, tools, onPhase, onPartial, isActive,
+                )
+            } else {
+                privatemodeStream(config, system, chat, maxTokens, tools, onPhase, onPartial, isActive)
+            }
             AiProvider.ON_DEVICE ->
                 error("On-device models run locally, not over HTTP")
         }
+        // What this request cost, counted on the phone (#1135).
+        ServiceUsage.record(usageKey(config), completion.inputTokens, completion.outputTokens)
+        return completion
     }
+
+    /**
+     * Where [ServiceUsage] files [config]'s requests: the kind, and for a
+     * kind with an address of its own (a server, a gateway, a proxy) the
+     * host too, so two OpenAI-compatible services keep two counts.
+     */
+    fun usageKey(config: Config): String = ServiceUsage.key(AiProviders.type(config.provider).id, config.baseUrl)
 
     /**
      * [completeStreaming], driven round after round until the model stops
@@ -611,7 +709,7 @@ object AiClient {
             anthropicStream(
                 config, roundSystem, normalizedTurns(roundTurns), maxTokens, tools,
                 onPhase, roundPartial, isActive, answerOnly = true,
-            )
+            ).also { ServiceUsage.record(usageKey(config), it.inputTokens, it.outputTokens) }
         } else {
             completeStreaming(
                 config, roundSystem, roundTurns, maxTokens, roundTools,
@@ -780,6 +878,17 @@ object AiClient {
 
         fun markTruncated() {
             truncated = true
+        }
+
+        /** The latest token counts the provider sent; each stream reports running totals. */
+        var inputTokens = 0L
+            private set
+        var outputTokens = 0L
+            private set
+
+        fun usage(input: Long?, output: Long?) {
+            if (input != null && input > 0) inputTokens = input
+            if (output != null && output > 0) outputTokens = output
         }
 
         /** [field] is the OpenAI-shaped field it arrived in, to send it back under. */
@@ -998,7 +1107,7 @@ object AiClient {
                 text.append(THINK_CLOSE)
                 inThink = false
             }
-            return Completion(text.toString(), truncated, toolCalls, replay())
+            return Completion(text.toString(), truncated, toolCalls, replay(), inputTokens, outputTokens)
         }
 
         private companion object {
@@ -1039,20 +1148,43 @@ object AiClient {
         isActive: () -> Boolean,
         apply: (String, StreamBuffer) -> Unit,
         fallback: (String) -> Completion,
-    ): Completion {
-        val buffer = StreamBuffer()
-        val collected = StringBuilder()
-        onPhase(AiPhase.CONNECTING)
+        /** The [ServiceUsage] key a rate-limit header is filed under; blank reads none. */
+        usage: String = "",
+    ): Completion = collectStream(onPhase, onPartial, isActive, apply, fallback) { sent, onLine ->
         ToolHttp.postJsonStream(
             url = url,
             body = body,
             timeoutMs = timeoutMs,
             headers = headers,
-            onRequestSent = { onPhase(AiPhase.WAITING) },
+            onRequestSent = sent,
             source = source,
             // Provider paths name the model at most, never the prompt.
             route = NetLog.pathOf(url),
-        ) { line ->
+            wantHeaders = if (usage.isEmpty()) emptySet() else ServiceUsage.AI_HEADERS,
+            onHeaders = { kept ->
+                ServiceUsage.aiHeaders(kept, System.currentTimeMillis())?.let { ServiceUsage.report(usage, it) }
+            },
+            onLine = onLine,
+        )
+    }
+
+    /**
+     * [runStream] for any transport that hands over a response a line at a
+     * time: [transport] is called with the callback that marks the request
+     * as sent and the one that takes each line.
+     */
+    private fun collectStream(
+        onPhase: (AiPhase) -> Unit,
+        onPartial: (String) -> Unit,
+        isActive: () -> Boolean,
+        apply: (String, StreamBuffer) -> Unit,
+        fallback: (String) -> Completion,
+        transport: (sent: () -> Unit, onLine: (String) -> Boolean) -> Unit,
+    ): Completion {
+        val buffer = StreamBuffer()
+        val collected = StringBuilder()
+        onPhase(AiPhase.CONNECTING)
+        transport({ onPhase(AiPhase.WAITING) }) { line ->
             collected.append(line).append('\n')
             val before = buffer.partial
             apply(line, buffer)
@@ -1294,6 +1426,7 @@ object AiClient {
             isActive = isActive,
             apply = { line, buffer -> sseData(line)?.let { applyAnthropicEvent(it, buffer) } },
             fallback = { Completion(parseAnthropic(it), anthropicTruncated(it)) },
+            usage = usageKey(config),
         )
     }
 
@@ -1301,6 +1434,8 @@ object AiClient {
     internal fun applyAnthropicEvent(data: String, buffer: StreamBuffer) {
         val event = data.asJsonObject() ?: return
         when (event["type"]?.jsonPrimitive?.contentOrNull) {
+            // What the request read, and what it has written so far (#1135).
+            "message_start" -> event["message"]?.jsonObject?.get("usage")?.let { buffer.usage(it.count("input_tokens"), it.count("output_tokens")) }
             // A tool_use block names the call up front; its arguments then
             // arrive as input_json_delta fragments against the same index.
             // Every block is recorded, not only tool_use: a thinking block has
@@ -1331,6 +1466,7 @@ object AiClient {
             // The stop reason rides on the final message_delta, not on any
             // content block.
             "message_delta" -> {
+                event["usage"]?.let { buffer.usage(it.count("input_tokens"), it.count("output_tokens")) }
                 val delta = event["delta"]?.jsonObject ?: return
                 if (delta.text("stop_reason") == "max_tokens") buffer.markTruncated()
             }
@@ -1353,6 +1489,11 @@ object AiClient {
         // for. Sending a huge number instead would be rejected by some.
         if (maxTokens != null) put(outputCeilingField(config), maxTokens)
         put("stream", true)
+        // Asks for the token totals on the last chunk, where the service is
+        // known to take the field; another server might refuse it (#1135).
+        if (config.provider in STREAM_USAGE_PROVIDERS) {
+            putJsonObject("stream_options") { put("include_usage", true) }
+        }
         // The chat's Reasoning switch off (#882): the least effort every
         // OpenAI reasoning model accepts. On leaves the model's default.
         if (config.reasoning == false && controlsReasoning(config.provider, config.model)) {
@@ -1482,7 +1623,42 @@ object AiClient {
             isActive = isActive,
             apply = { line, buffer -> sseData(line)?.let { applyOpenAiEvent(it, buffer) } },
             fallback = { Completion(parseOpenAi(it), openAiTruncated(it)) },
+            usage = usageKey(config),
         )
+    }
+
+    /**
+     * Privatemode with no proxy (#1145): the OpenAI-shaped body, encrypted on
+     * the phone by [PrivatemodeClient] and opened again as it streams back.
+     * The user's extra headers are not sent: everything Privatemode reads
+     * outside the encryption is fixed by its protocol.
+     */
+    private fun privatemodeStream(
+        config: Config,
+        system: String,
+        turns: List<ChatTurn>,
+        maxTokens: Int?,
+        tools: List<AiToolSpec>,
+        onPhase: (AiPhase) -> Unit,
+        onPartial: (String) -> Unit,
+        isActive: () -> Boolean,
+    ): Completion {
+        val body = openAiCompatibleBody(config, system, turns, maxTokens, tools)
+        return collectStream(
+            onPhase, onPartial, isActive,
+            apply = { line, buffer -> sseData(line)?.let { applyOpenAiEvent(it, buffer) } },
+            fallback = { Completion(parseOpenAi(it), openAiTruncated(it)) },
+        ) { sent, onLine ->
+            PrivatemodeClient.streamChat(
+                apiKey = config.apiKey,
+                model = config.model,
+                body = body,
+                source = config.netSource,
+                timeoutMs = 120_000,
+                onRequestSent = sent,
+                onLine = onLine,
+            )
+        }
     }
 
     /** Folds one OpenAI-compatible SSE payload into [buffer]. */
@@ -1491,6 +1667,8 @@ object AiClient {
         event["error"]?.jsonObject?.let { error ->
             throw streamFailure(error.text("message").ifEmpty { error.text("detail") })
         }
+        // The last chunk carries the totals when the server sends them (#1135).
+        (event["usage"] as? JsonObject)?.let { buffer.usage(it.count("prompt_tokens"), it.count("completion_tokens")) }
         val delta = event["choices"]?.jsonArray?.firstOrNull()
             ?.jsonObject?.get("delta")?.jsonObject ?: return
         // Reasoning models behind an OpenAI-compatible server put the think
@@ -1675,6 +1853,10 @@ object AiClient {
         event["error"]?.jsonObject?.let { error ->
             throw streamFailure(error.text("message"))
         }
+        (event["usageMetadata"] as? JsonObject)?.let { meta ->
+            val written = (meta.count("candidatesTokenCount") ?: 0) + (meta.count("thoughtsTokenCount") ?: 0)
+            buffer.usage(meta.count("promptTokenCount"), written)
+        }
         val candidate = event["candidates"]?.jsonArray?.firstOrNull()?.jsonObject
         if (candidate?.text("finishReason") == "MAX_TOKENS") buffer.markTruncated()
         val parts = candidate?.get("content")?.jsonObject?.get("parts")?.jsonArray ?: return
@@ -1818,6 +2000,7 @@ object AiClient {
         }
         // Rides on the final object, alongside "done": true.
         if (event.text("done_reason") == "length") buffer.markTruncated()
+        buffer.usage(event.count("prompt_eval_count"), event.count("eval_count"))
         val message = event["message"]?.jsonObject ?: return
         buffer.reasoning(message.text("thinking"))
         buffer.answer(message.text("content"))
@@ -2027,6 +2210,13 @@ object AiClient {
     private fun JsonObject.text(key: String): String =
         (this[key] as? JsonPrimitive)?.takeIf { it.isString }?.content.orEmpty()
 
+    /** A whole-number member, or null. */
+    private fun JsonElement.count(key: String): Long? =
+        ((this as? JsonObject)?.get(key) as? JsonPrimitive)?.takeIf { !it.isString }?.content?.toLongOrNull()
+
+    /** The services whose streams take `stream_options.include_usage`. */
+    private val STREAM_USAGE_PROVIDERS = setOf(AiProvider.OPENAI, AiProvider.XAI, AiProvider.DEEPSEEK)
+
     /** The `index` an Anthropic stream event names its content block by. */
     private fun JsonObject.index(): Int = (this["index"] as? JsonPrimitive)?.intOrNull ?: 0
 
@@ -2041,4 +2231,25 @@ object AiClient {
     private fun argumentsObject(arguments: String): JsonObject =
         runCatching { json.parseToJsonElement(arguments).jsonObject }
             .getOrDefault(JsonObject(emptyMap()))
+}
+
+/** How far one AI request is kept private on its way; see [AiClient.privacy]. */
+enum class AiPrivacy {
+    /** Readable by the provider, as every cloud AI is. */
+    PLAIN,
+
+    /**
+     * Privatemode through the user's own privatemode-proxy, which encrypts
+     * the request and checks the service's hardware attestation before it
+     * does. Only as private as the hop from the phone to that proxy.
+     */
+    PROXY,
+
+    /**
+     * Privatemode encrypted end to end on the phone, to a key signed by the
+     * mesh CA the service attested. The hardware report itself is not
+     * checked against AMD's or Intel's certificates, so this is never shown
+     * as verified.
+     */
+    ENCRYPTED,
 }

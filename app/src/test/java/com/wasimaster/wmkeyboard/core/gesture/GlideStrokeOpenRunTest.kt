@@ -50,7 +50,18 @@ class GlideStrokeOpenRunTest {
         assertTrue(GlideStroke.openRun(walked, keyWidth, atEnd = true) >= 20)
         // "the" ends with a shallow climb from h to e: no walk, however level it runs.
         assertEquals(0, GlideStroke.openRun(swipe("the"), keyWidth, atEnd = true))
-        assertEquals(0, GlideStroke.openRun(swipe("cat"), keyWidth, atEnd = false))
+    }
+
+    @Test
+    fun aDiagonalWalkIsARunAndItStopsAtTheCorner() {
+        // "top" ends far right of the bar; the walk from p makes for its end.
+        val walked = swipe("top")
+        val drawn = walked.size
+        val last = walked.last()
+        line(walked, last.x to last.y, last.x - 2f * keyWidth to barTop)
+        // The whole walk, and at most the sample the corner is drawn from.
+        val run = GlideStroke.openRun(walked, keyWidth, atEnd = true)
+        assertTrue("$run", run in walked.size - drawn..walked.size - drawn + 1)
     }
 
     @Test
@@ -62,6 +73,27 @@ class GlideStrokeOpenRunTest {
         assertTrue(GlideStroke.openRun(begun, keyWidth, atEnd = false) >= 4)
         // Never so long that fewer than three samples stay closed.
         assertTrue(GlideStroke.openRun(begun, keyWidth, atEnd = false) <= begun.size - 3)
+    }
+
+    @Test
+    fun aSegmentThatIsOnlyItsWalksTurnsAtItsLetter() {
+        val a = centre('a')
+        val walked = mutableListOf(GesturePoint(a.first + keyWidth, barTop))
+        line(walked, a.first + keyWidth to barTop, a)
+        line(walked, a, a.first + keyWidth to barTop)
+        val head = GlideStroke.openRun(walked, keyWidth, atEnd = false)
+        val tail = GlideStroke.openRun(walked, keyWidth, atEnd = true)
+        val turn = GlideStroke.walkTurn(walked, head, tail, keyWidth)
+        assertEquals(a.second, turn!!.y, 1f)
+    }
+
+    @Test
+    fun aWordBetweenItsWalksHasNoTurn() {
+        val walked = swipe("as")
+        val last = walked.last()
+        line(walked, last.x to last.y, last.x to barTop)
+        val tail = GlideStroke.openRun(walked, keyWidth, atEnd = true)
+        assertEquals(null, GlideStroke.walkTurn(walked, 0, tail, keyWidth))
     }
 
     @Test

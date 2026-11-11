@@ -29,7 +29,7 @@ The exported file is the whole theme, written as plain JSON with no wrapper or f
 
 ## Importing a theme
 
-There are three ways a theme gets imported, and they don't all behave the same way: two apply the theme immediately, one doesn't. Five more buttons on the same row, **FlorisBoard**, **HeliBoard**, **FUTO**, **Multiling O** and **Gboard**, read someone else's format rather than this one. They're covered separately below.
+There are three ways a theme gets imported, and they don't all behave the same way: two apply the theme immediately, one doesn't. Seven more buttons on the same row, **FlorisBoard**, **HeliBoard**, **FUTO**, **Multiling O**, **Kinetica**, **Clink** and **Gboard**, read someone else's format rather than this one, and **Screenshot** reads a picture. They're covered separately below.
 
 ### From the Import button
 
@@ -38,6 +38,14 @@ There are three ways a theme gets imported, and they don't all behave the same w
 The **Import** button, first of the row above the cards, opens a file picker scoped to JSON-ish files. It's intentionally permissive about the exact MIME type, since file providers report a `.json` file as `text/plain` or `application/octet-stream` about as often as they get it right. Pick a `.wmtheme.json` file and it's added to Your themes under a freshly generated ID. The ID stored inside the file itself is discarded, so importing the same file twice creates two separate custom themes rather than updating one in place. Any embedded background image is written back out to local storage as part of the import.
 
 Importing this way both adds the theme and switches the keyboard to it immediately: there's no separate confirmation step for "use it now."
+
+### Several files at once
+
+Every import button that opens a file picker takes more than one file: **Import**, **FlorisBoard**, **FUTO**, **Kinetica**, **Clink**, **Gboard**, and **Open a file** under **HeliBoard** and **Multiling O**. Hold a file in the picker to start selecting, tick the rest, then confirm. The files are read one after another through the same reader a single file goes through, and the import ends on one message instead of a dialog per file: how many themes came in (*"The app imported 7 themes"*), then, under it, the names of any files that could not be read (*"The app could not read 1 file: notes.txt"*). A file that fails doesn't stop the ones after it.
+
+A batch saves without switching the keyboard to anything, even from the **Import** button, which applies a single file straight away. There's no theme in a batch you picked over the others, so the keyboard keeps what it's wearing until you tap a card. A Gboard file skips its preview in a batch, and an Rboard pack in the batch adds every theme inside it, the way **Add all** does. **Screenshot** isn't a batch import: the pictures it takes are views of one keyboard, read together into one theme.
+
+To send several themes the other way, long-press a card in Your themes, tick the others, and press the upload icon in the bar at the bottom. It saves one `.zip` holding a `.wmtheme.json` file per theme. **Import** takes that zip back as it is: every theme in it is added, none switched to, and one message counts them. Each file inside is an ordinary theme file, so one taken out of the zip by hand imports on its own too.
 
 ### By opening the file elsewhere
 
@@ -71,6 +79,30 @@ The **FUTO** button reads a FUTO Keyboard theme `.zip`, the hand-written `theme.
 
 The **Multiling O** button reads the colours of a Multiling O Keyboard theme. That keyboard shares a theme as a block of text from its settings export, starting with `OK_Settings_Begin`, or as a link with the block in it. The button asks for **Paste** or **Open a file**, the same as the HeliBoard one. The theme is saved without being switched on, and the result message says how many of its colours landed. See [Importing other keyboards](/reference/importing-other-keyboards/#multiling-o-themes).
 
+### From a Kinetica backup
+
+Kinetica has no theme file: its look is a handful of settings (where the colours come from, light or dark, one typed colour, key borders and the swipe trail), and they travel in its backup. So the **Kinetica** button opens a file picker for that backup, the `kinetica_backup_….txt` that **Backup**, then **Export a backup**, saves in Kinetica's settings. Only the theme is read out of it; the words and the rest stay where they are. The colours are worked out by Kinetica's own rules, so a typed colour spreads over the keys, the bar and the popups as it did there. A theme set to follow the phone's light or dark mode comes across as one theme with a dark and a light look, and Material You comes across as a theme that follows the wallpaper. The theme is saved without being switched on, and the result message says what did not come across: a rainbow trail takes the theme's colour, and keys that light up under a swipe aren't drawn. Kinetica leaves its background picture out of its backup, so the picture has to be added again in the theme editor. A Kinetica backup also opens from a file manager. See [Importing other keyboards](/reference/importing-other-keyboards/#kinetica-themes).
+
+### From a Clink theme
+
+The **Clink** button reads a `.clinktheme`, the file that **Export** in the theme menu of Clink (a keyboard for iPhone and iPad) saves, and the file its theme repositories publish. Newer versions of Clink wrap what **Export** saves in an encrypted package that only Clink opens. WM Keyboard recognises one and says so instead of importing it; the plain files Clink's theme repositories publish still import. The colours, gradients, key borders, shadows, key shape and bold labels come across, and a theme that switched with the phone's light and dark mode becomes one theme with a dark and a light look. The finish a Clink theme is drawn with (metal, stitched cloth, ceramic glaze, raised 3D caps, holographic foil and the rest) becomes the [key material](/themes/editor/#key-material) of the same kind, and its moving background (snow, bokeh, embers, a nebula) the [moving background](/themes/editor/#moving-background) of the same name. The theme is saved without being switched on. A `.clinktheme` also opens from a file manager, and a whole Clink theme repository can be added under Addons. See [Importing other keyboards](/reference/importing-other-keyboards/#clink-themes).
+
+### From a screenshot of a keyboard
+
+The **Screenshot** button makes a theme from a picture of a keyboard: yours, another app's, or one somebody posted. Pick an image that shows all the letter keys. It works on the phone, with nothing uploaded, and it isn't a trained model: it finds the key grid and measures what it sees.
+
+It reads the board (one color, a gradient, or a photo rebuilt from what shows around the keys), the key, modifier and enter colors, translucent keys, the key shape and corner radius, borders, key shadows, a sheen or texture on the keys, label and hint colors, the bars above and below the keys, and tool backgrounds. A key with a color of its own keeps it, as long as the rows follow QWERTY. A font and the icons on the keys can't be copied, and neither can frosted glass, which shows up as a plain translucent color.
+
+Keys that don't look like the rest get their own entry: a pill enter key or space bar on a board of rounded keys, a different color on shift, delete, the mode key, the comma or a single letter. On a board with no key backgrounds at all, the keys that do have one still come out as shapes.
+
+You can pick up to three screenshots of the same keyboard. Letters and symbols have different labels, so what one label hides another shows, and a photo behind the keys comes back cleaner. If the keys can't be found, or the copy doesn't match the picture, the letters read by the Paddle text scan model say where the keys are, when that model is already on the phone. It isn't downloaded just for this.
+
+The dialog shows a preview before anything is saved, and a warning if the theme redrawn over the picture doesn't match it closely. A small picture gets a note too, since thin lines and small labels are lost in it. Key shape and key opacity can be corrected right there before you save. A screenshot with a busy photo behind translucent keys is the hardest case, so check that kind first. Like the other conversions, the theme is saved without being switched on.
+
+**Also copy the sizes** takes the proportions from the picture too, off by default. Key height, gaps, side padding, toolbar height, label size and weight are pinned on the theme, so they leave when you pick another theme. Whether the number row shows, its height, the bottom row's height and the space under the keys are your global settings, and the option changes them. Sizes are worked out for this phone's screen from the proportions of the key grid, so a picture from a tablet gives the same look at this width. A landscape screenshot has no portrait height to offer, so the option isn't shown for one.
+
+The reader is in the same library as the built-in document scanner, so the button offers that download the first time on a build that doesn't carry it.
+
 ### From a Gboard theme or the Rboard collection
 
 The **Gboard** button asks where the theme is. **Open a file** reads a Gboard theme `.zip`: the file Gboard itself exports, and the format the Rboard community shares hundreds of themes in. A ZIP that holds several themes (an Rboard *pack*) lists them so you can pick one, or **Add all**. **Browse Rboard** opens a list of the packs in the Rboard repository on GitHub; the list is fetched only when you open that screen, and a pack only when you press it. The Google Play build has no Browse Rboard, so there the button opens the file picker straight away. Every theme ends on a dialog with a preview, the count of style rules that came across, and a line for each thing that could not. Like the other two conversions, a theme is saved without being switched on. Gboard draws a theme with or without key borders, and a theme that ships both becomes one theme with two looks. You can also open a Gboard theme or an Rboard pack straight from a file manager. See [Importing other keyboards](/reference/importing-other-keyboards/#gboard-themes-and-rboard-packs).
@@ -83,7 +115,7 @@ To run a repository of your own instead, publishing requires no extra packaging.
 
 ## Details and edge cases
 
-- **No limit on custom themes.** Unlike sticker packs or plugins, there's no cap on how many themes you can import or create.
+- **No limit on custom themes.** Unlike sticker packs or plugins, there's no cap on how many themes you can import or create, and none on how many files one batch import takes.
 - **Re-importing a file always creates a new theme.** Because the ID inside the file is discarded on import, editing a file externally and re-importing it adds another entry rather than replacing the original; delete the old one yourself if you don't want both.
 - **Deleting the active theme falls back to Default.** If you delete a custom theme that's currently applied, the keyboard falls back to the Default (system) theme. Its background image files stay on disk for now: two themes can share an image file, so only a later housekeeping pass removes the ones nothing points at any more, and only once they've gone a full day unreferenced.
 - **Import and export work the same in every build.** There's no feature gap between builds for exporting, importing, or installing themes from a repository.

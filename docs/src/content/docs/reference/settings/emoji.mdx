@@ -42,7 +42,7 @@ The Emoji screen collects every setting behind emoji access, suggestions, the pa
 
 **Buttons beside the suggestions** picks which tools stay beside the suggestions, and how many. Emoji is the default. Tap **Add** to add Clipboard, Voice input or any other tool; the list under it holds the chosen buttons, where you drag the handle to change their order and tap the bin to take one off. A tool must be turned on under Tools to show. A tool that is also pinned on the toolbar slides between its two spots when the bar flips between the suggestions and the tools, the way the emoji button always has. With the tools on a row of their own, a button already on that open row is left off the strip.
 
-**Toolbox button** puts the toolbox launcher first among these buttons, so the toolbox is one tap away while the suggestions show, the same as from the toolbar.
+**Toolbox button** puts the toolbox launcher first among these buttons, so the toolbox is one tap away while the suggestions show, the same as from the toolbar. A swipe up on it brings the pinned tools and a swipe down puts them away. With it on, the toolbar can drop its own toolbox button and the strip its arrow, under [Toolbar](/reference/settings/appearance/#toolbar), and **Where the tools go** can be **On a swipe**.
 
 **Buttons on the right** moves these buttons from the strip's start, before the words, to its far end, after them. On a right-to-left layout (Arabic, Hebrew, Urdu) the words run from the right, but the buttons stay on the side and in the order you set, as the toolbar's tools do. Turn on **Reverse the order for right-to-left languages** under [Toolbar](/reference/settings/appearance/) to have both follow the script instead.
 
@@ -127,7 +127,7 @@ This group is a page of its own, opened from the Emoji panel row in the Access g
 
 **One long list** turns the panel into a single list you scroll from top to bottom, with each category's name as a short heading over it, instead of a page per category that you swipe sideways through. A swipe runs from one category into the next. The tabs still jump: tap one and the list moves to that heading, and the tab bar follows the list as you scroll. Your history comes first, and with **Kaomoji and Emoticons** on, those two come last. Only the rows on screen are drawn, so the whole catalog in one list scrolls as smoothly as one page.
 
-**Panel height** makes the emoji, GIF and sticker panels open taller than the keyboard, so more of them fit on screen at once, while the letters keep their own, more compact height. The three panels share it, so going from one to another never moves the top of the keyboard. The bar across the top of the GIF and sticker panels drags this same setting, and the GIF and sticker tool pages show it too. The panel never covers more than most of the screen, so on a short screen or a phone held sideways it can stay shorter than you set. While you type a search, the panel shrinks as before so the keys fit under it.
+**Panel height** makes the emoji, GIF and sticker panels open taller than the keyboard, so more of them fit on screen at once, while the letters keep their own, more compact height. The three panels share it, so going from one to another never moves the top of the keyboard. The bar across the top of the emoji, GIF and sticker panels drags this same setting, and the GIF and sticker tool pages show it too. The panel never covers more than most of the screen, so on a short screen or a phone held sideways it can stay shorter than you set. While you type a search, the panel shrinks as before so the keys fit under it.
 
 **History tab** sets what the panel's first tab shows. **Recent** lists emoji in the order you last used them, and **Most used** ranks by frequency. **Both** puts your 16 most used at the top under their own heading, then the recents. Favourited emoji are pinned to the front of either list. **Off** removes the tab, and the panel opens on the first emoji category.
 
@@ -190,7 +190,9 @@ When Emoji row is set to **Own row**, a caption on this screen points to **Rows 
 | Emoji font | Choice | System / Google / Installed / Custom | System |
 | Get the newest emoji *(only while there's something to download)* | Card with a Download button | n/a | n/a |
 | Download more | Opens the addon catalogue, filtered to emoji fonts | n/a | n/a |
-| Hide emoji that your device cannot show | Toggle | On / Off | Off |
+| Hide emoji that your device cannot show | Toggle | On / Off | On |
+| Find any character by its Unicode name *(advanced)* | Toggle | On / Off | Off |
+| Suggest characters by their Unicode name *(advanced)* | Toggle | On / Off | Off |
 
 <PhoneFrame side caption="The Emoji style group, with the live font preview row and font choices.">
   <Shot id="reference/settings/emoji-style-group" alt="The Emoji style group, with the live font preview row and font choices." />
@@ -210,7 +212,9 @@ While the download runs the button becomes a progress bar, and a failure leaves 
 
 **Download more** opens the addon catalogue filtered to emoji fonts, for faces like Twemoji or OpenMoji from whichever repositories you've added. See [Installing addons](/addons/installing/).
 
-**Hide emoji that your device cannot show** is off by default. It hides an emoji from the panel, search, and suggestions only when *neither* the chosen font *nor* the phone's own system font can draw it. An emoji missing from just the chosen font is drawn quietly in the system font instead, in a different style.
+**Hide emoji that your device cannot show** is on by default, because the keyboard's emoji list is newer than the font on most phones. It hides an emoji from the panel, search, and suggestions only when *neither* the chosen font *nor* the phone's own system font can draw it. An emoji missing from just the chosen font is drawn quietly in the system font instead, in a different style.
+
+**Find any character by its Unicode name** lets the emoji panel's search reach symbols, letters and marks by the words of their official names, after the emoji. **Suggest characters by their Unicode name** puts a character on the suggestion strip when the words you just typed are exactly its name, such as `snowman` or `em dash`, and a tap swaps the name for the character. Both are explained under [Emoji picker & search](/emoji/picker/#characters-on-the-suggestion-strip).
 
 Long-pressing any emoji in the panel opens its favourite and skin-tone controls: two-person emoji like 🤝 let you set each person's tone independently.
 

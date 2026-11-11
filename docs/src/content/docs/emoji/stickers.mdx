@@ -48,7 +48,7 @@ Long-pressing a KLIPY or GIPHY result opens a menu with three kinds of row. Abov
 - **Copy** puts the sticker on the system clipboard instead of into the field, to paste wherever you like.
 - **Report** opens a mail draft to the maintainer naming the provider, your search term, and the sticker's id and URL, with room at the top to say what's wrong with it. Nothing leaves the device on its own. The draft sits in your mail app for you to read, edit, or drop. KLIPY and GIPHY search their own catalogues, so results arrive unvetted, and this is where a bad one goes. [GIFs](/emoji/gifs/) have the same menu, minus the save rows.
 
-Long-pressing a sticker from **My stickers** starts with what the sticker is and what finds it: its title (or "No title"), the pack it's in, its keywords, and its emoji. Below that it shows "Manage packs" (which jumps straight to the pack management screen covered below) and **Copy**. There's no save row, since you already have it, and no report row, since it's your own file and there's nobody to report it to.
+Long-pressing a sticker from **My stickers** starts with what the sticker is and what finds it: its title (or "No title"), the pack it's in, its keywords, and its emoji. Below that it shows **Change title and keywords**, which opens the app on that sticker's pack with its title and keywords already up to edit, so a keyword you think of mid-chat is two taps away; save, and Back returns you to the chat. Then "Manage packs" (which jumps straight to the pack management screen covered below) and **Copy**. There's no save row, since you already have it, and no report row, since it's your own file and there's nobody to report it to.
 
 <PhoneFrame caption="Long-press menu over a KLIPY result: save to a pack, copy, or report.">
   <Shot id="emoji/sticker-long-press-save" alt="Long-press menu over a KLIPY result: save to a pack, copy, or report." />
@@ -75,7 +75,20 @@ Building and managing packs happens in the app, not the keyboard, under <Setting
 - Per sticker, you can set its **title** and its **keywords**, reorder it within the pack, move it to a different pack, or delete it. The title is the sticker's name, and it's what a screen reader reads out for it. Keywords are anything else you'd want to type to find it: words, short phrases or emoji. Put a comma between words and phrases ("cat, good night"). Emoji need nothing between them, so "😂🐱" is two keywords. Both fields feed the search in **My stickers**, and both can [offer the sticker while you type](#stickers-as-you-type).
 - To delete several stickers at once, press and hold one in the pack. That starts selecting: each tick shows in the sticker's corner, a tap adds or removes another sticker, and a bar along the bottom counts them. **Select all** ticks the whole pack, and **Delete** asks once, with the count, before removing them all. Back or the cross leaves selection without deleting anything.
 - Per pack, you can rename it, **export** it as a `.wmstickers` file to share or back up, or delete it. Deleting warns you to export first if you want to keep a copy.
+- To act on several packs, long-press one to start picking, then tap the others, or use **Select all** in the bar at the bottom. The upload icon saves the ticked packs in one `.zip` holding a `.wmstickers` file per pack; the trash icon deletes them after asking once. While picking, a tap ticks a pack instead of opening it, and the close button or Back stops picking.
+- A pack with stickers in it also has **Share with everyone** (the globe), which sends it to the [community repository](/addons/community/) for anyone to install. Only share pictures you made or may pass on.
 - A pack tops out at 200 stickers. You can have up to 50 packs in total.
+
+### Keywords from AI
+
+A pack you imported often comes with no keywords at all, which leaves its stickers out of [stickers as you type](#stickers-as-you-type). **Suggest keywords with AI** fills them in, using the provider picked in the [AI tool](/tools/ai/). It's on a pack's page, for every sticker in it or, while you're selecting, for the ones you picked. On the **Sticker packs** list it covers every pack, or the packs you picked.
+
+- A sheet opens first and sends nothing until you press **Start**. It names the provider and how many requests the run takes: one per sticker. **Anything to add** is passed on to the model, for example "these are for my family chat" or "add Bengali slang".
+- The model is asked for up to ten keywords per sticker, in the [languages you type in](/languages/overview/): the feeling or situation the sticker fits, what it shows, and a few emoji. It doesn't repeat the keywords the sticker already has.
+- Claude, OpenAI, Gemini, Grok, Ollama, LM Studio and OpenAI-compatible services see the sticker itself, sent as a still picture up to 512 pixels wide. An animated sticker sends its first frame. The model on your phone sees it too if it can read pictures, and otherwise works from the words. Brave Answers, DeepSeek and Privatemode only get the sticker's title and its pack's name, and each card says when a suggestion came from the words alone.
+- Each suggestion is a chip. Tap the ones you want, and type your own in **Your own keywords** under it. **Save** adds what you chose to each sticker's keywords and keeps the ones it had. Stickers you chose nothing for stay as they were.
+- **Stop** ends the run. The suggestions that already came back stay, and **Start** carries on with the rest.
+- With [Data saver](/privacy/data-saver/) holding cloud AI back, the run stops at the first sticker and says why.
 
 ### The sticker editor
 
@@ -129,7 +142,7 @@ The sticker goes out the same way it would from the sticker panel, with **Send s
 
 ### Importing a `.wmstickers` file
 
-A `.wmstickers` file is a ZIP with a `pack.json` manifest and one image per sticker. Opening one, from **Import a pack** or from a file manager, first shows every sticker in it on a page of its own, all ticked. Tap a sticker to leave it out, or use **Select none** and tick the few you want. Only the ticked stickers are converted and added when you press **Add**, which matters for a pack of animated stickers: each animation takes a while to convert, and the ones you leave out cost nothing. The same page opens for a `.wastickers` file.
+A `.wmstickers` file is a ZIP with a `pack.json` manifest and one image per sticker. Opening one, from **Import a pack** or from a file manager, first shows every sticker in it on a page of its own, all ticked. Tap a sticker to leave it out, or use **Select none** and tick the few you want. Only the ticked stickers are converted and added when you press **Add**, which matters for a pack of animated stickers: each animation takes a while to convert, and the ones you leave out cost nothing. The same page opens for a `.wastickers` file. Pick several files at once, or a `.zip` of packs saved with the bar's upload icon, and the page is skipped: every sticker of every pack is added, and one message counts the packs and names any file it could not read.
 
 Import forgives hand-written or slightly malformed manifests, repairing what it can rather than rejecting the whole file, and it reports what happened:
 

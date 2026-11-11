@@ -281,6 +281,56 @@ class SuggestionEngineTest {
         assertNull(e.joinCandidate("some", "thing"))
     }
 
+    // #1107: a space typed where the letter above it was meant.
+
+    @Test fun aSpaceTypedForALetterIsJoinedBack() {
+        val dictionary = Trie().apply {
+            insert("enough", 5000)
+            insert("e", 900)
+            insert("to", 50000)
+            insert("into", 20000)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        assertEquals("enough", e.joinCandidate("e", "ough"))
+        // A word after the space was a space: `i to` is not *into*.
+        assertNull(e.joinCandidate("i", "to"))
+    }
+
+    @Test fun `two spaces typed for two letters join back across the full stop`() {
+        // The reporter's `lo. y`: both b's of *lobby* hit the space bar, and
+        // the double space became a full stop (#1107). The bundled list's
+        // numbers; `y` is no word there, and a downloaded list's count for a
+        // lone letter does not stop it either.
+        val dictionary = Trie().apply {
+            insert("lo", 1991)
+            insert("lobby", 1810)
+            insert("y", 5000)
+            insert("hello", 7000)
+            insert("yes", 8000)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        assertEquals("lobby", e.periodSlipJoin("lo", "y"))
+        assertEquals("lobby", e.periodSlipJoin("lo", "Y"))
+        // A sentence that really ended: nothing joins `hello` and `yes`.
+        assertNull(e.periodSlipJoin("hello", "yes"))
+        assertNull(e.periodSlipJoin(WordContext.SENTENCE_START, "y"))
+    }
+
+    @Test fun `a fragment some list knows does not take the bridged join away`() {
+        // A downloaded list counts `ough` from the text it was built on, and
+        // typing the slip a few times teaches it to the personal dictionary;
+        // either one used to stop `e ough` offering *enough* (#1107).
+        val dictionary = Trie().apply {
+            insert("enough", 5778)
+            insert("ough", 40)
+            insert("to", 9493)
+            insert("into", 7000)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        assertEquals("enough", e.joinCandidate("e", "ough"))
+        assertNull(e.joinCandidate("i", "to"))
+    }
+
     @Test fun prefixCompletion() {
         val suggestions = engine().suggest("th", previousWord = null)
         assertEquals("the", suggestions.first())
@@ -327,6 +377,42 @@ class SuggestionEngineTest {
         assertNull(engine().shouldAutocorrect("xy")) // too short
         // "helo" is ambiguous between "hello" and "help": suggest, don't force.
         assertNull(engine().shouldAutocorrect("helo"))
+    }
+
+    // #1105: two letters typed the wrong way round.
+
+    private fun swapEngine(): SuggestionEngine {
+        val dictionary = Trie().apply {
+            insert("what", 250)
+            insert("want", 120)
+            insert("and", 250)
+            insert("an", 150)
+            insert("dan", 20)
+            insert("who", 120)
+            insert("how", 120)
+        }
+        return SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+    }
+
+    @Test fun aSwappedPairIsPutBackOverACommonerSlip() {
+        // `what` reads `wnat` as an n slipped for an h and is the commoner
+        // word; `want` keeps every letter typed.
+        assertEquals("want", swapEngine().shouldAutocorrect("wnat"))
+    }
+
+    @Test fun theLikeliestOfTwoSwapsIsPutBack() {
+        // `adn` is `and` or `dan` swapped back, and `an` with a stray d.
+        assertEquals("and", swapEngine().shouldAutocorrect("adn"))
+    }
+
+    @Test fun twoSwapsAsLikelyAsEachOtherStayAsTyped() {
+        assertNull(swapEngine().shouldAutocorrect("hwo"))
+    }
+
+    @Test fun aSwapIsNotPutBackAtTheMostCarefulSetting() {
+        val e = swapEngine()
+        e.autocorrectConfidence = SuggestionEngine.MAX_AUTOCORRECT_CONFIDENCE
+        assertNull(e.shouldAutocorrect("wnat"))
     }
 
     @Test fun blacklistedWordNeverSuggested() {
@@ -650,6 +736,20 @@ class SuggestionEngineTest {
         )
         assertEquals("কিবোর্ড", e.suggest("keyboard", null, phoneticLanguage = "bn").first())
         assertEquals("চেয়ার", e.suggest("chair", null, phoneticLanguage = "bn").first())
+    }
+
+    @Test fun avroCapitalsAreNotFoldedOntoAListedSpelling() {
+        // Capital N is ণ. The map and the word list both fold case, so `moN`
+        // used to come out as whatever they say for `mon`.
+        val map = SpellingMap.load("mon\tমোন\n".byteInputStream(Charsets.UTF_8))
+        val bengali = BengaliPhoneticIndex(listOf("মন" to 5000, "মণ" to 10))
+        val e = SuggestionEngine(Trie(), bengali, UserLexicon(null), map)
+        assertEquals("মোন", e.suggest("mon", null, phoneticLanguage = "bn").first())
+        assertEquals("মণ", e.suggest("moN", null, phoneticLanguage = "bn").first())
+        assertEquals(null, e.phoneticSpelling("bn", "moN"))
+        // A capital that spells nothing of its own is the same spelling.
+        assertEquals("মোন", e.suggest("Mon", null, phoneticLanguage = "bn").first())
+        assertEquals("মোন", e.phoneticSpelling("bn", "Mon"))
     }
 
     @Test fun avroLiteralHoldsAgainstNearTieSibling() {
@@ -1166,6 +1266,66 @@ class SuggestionEngineTest {
         assertEquals("the wprld", e.decideCorrection("thebwprld", touch = low).apply)
     }
 
+    // #1107's space slips, on the reporter's own sentence, with the bundled
+    // list's frequencies and a phone's rows (a row is 1.13 key widths tall).
+
+    private val qwertyCenters: Map<Char, TouchPoint> = buildMap {
+        listOf("qwertyuiop" to 0f, "asdfghjkl" to 0.5f, "zxcvbnm" to 1.5f).forEachIndexed { r, (keys, offset) ->
+            keys.forEachIndexed { c, ch -> put(ch, TouchPoint(offset + c, r * 1.13f)) }
+        }
+    }
+
+    private fun spaceSlipEngine(): SuggestionEngine {
+        val dictionary = Trie().apply {
+            insert("i", 9941)
+            insert("want", 7379)
+            insert("to", 9493)
+            insert("the", 9771)
+            insert("ton", 1955)
+        }
+        val seeds = SeedBigrams.load("i want 78\nto the 92\n".byteInputStream())
+        return SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null), seedBigrams = seeds)
+            .apply {
+                autocorrectSplits = true
+                touchModel = KeyTouchModel(qwertyCenters)
+            }
+    }
+
+    /** Taps on each key's centre, but the one at [slip], [drop] key widths below it. */
+    private fun tapsFor(word: String, slip: Int, drop: Float): List<TouchPoint?> =
+        word.mapIndexed { i, ch ->
+            val c = qwertyCenters.getValue(ch)
+            TouchPoint(c.x, c.y + if (i == slip) drop else 0f)
+        }
+
+    @Test fun `a space slip tapped well down its key is applied`() {
+        val e = spaceSlipEngine()
+        assertEquals("i want", e.decideCorrection("ibwant", touch = tapsFor("ibwant", 1, 0.4f)).apply)
+        assertEquals("to the", e.decideCorrection("tonthe", touch = tapsFor("tonthe", 2, 0.4f)).apply)
+    }
+
+    @Test fun `a space slip in the lower half of its key is offered`() {
+        // The reporter's `ibwant` and `tonthe` got nothing at all, not even a
+        // chip: their `b` and `n` had not landed a quarter key low.
+        val e = spaceSlipEngine()
+        val ib = e.decideCorrection("ibwant", touch = tapsFor("ibwant", 1, 0.1f))
+        assertNull(ib.apply)
+        assertEquals("i want", ib.offer)
+        assertTrue("i want" in e.suggest("ibwant", null, touch = tapsFor("ibwant", 1, 0.1f)))
+        val ton = e.decideCorrection("tonthe", touch = tapsFor("tonthe", 2, 0.1f))
+        assertNull(ton.apply)
+        assertEquals("to the", ton.offer)
+    }
+
+    @Test fun `a letter tapped high on its key is no space slip at all`() {
+        val e = spaceSlipEngine()
+        val high = tapsFor("ibwant", 1, -0.1f)
+        val decision = e.decideCorrection("ibwant", touch = high)
+        assertNull(decision.apply)
+        assertNull(decision.offer)
+        assertTrue("i want" !in e.suggest("ibwant", null, touch = high))
+    }
+
     @Test fun `single-word fix always outranks a split`() {
         val e = engine().apply { autocorrectSplits = true }
         assertEquals("world", e.shouldAutocorrect("wprld"))
@@ -1241,8 +1401,69 @@ class SuggestionEngineTest {
         assertNull(digitEngine().shouldAutocorrect("help3"))
     }
 
+    @Test fun `a digit is only the letters next to it on the number row`() {
+        // The bundled list's numbers: `tony` is commoner than `tone`, and read
+        // as a far slip for the `3` it stood close enough behind to block the
+        // fix (#1107). A `3` is the `w`, `e` or `r` under it, never the `y`.
+        val dictionary = Trie().apply {
+            insert("tone", 2596)
+            insert("tony", 3621)
+            insert("tons", 2149)
+            insert("ton", 1955)
+            insert("voice", 4426)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null)).apply {
+            digitSlipCorrections = true
+            proximity = KeyProximity.forLayout(
+                com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts.QWERTY,
+                numberRow = true,
+            )
+        }
+        assertEquals("tone", e.shouldAutocorrect("ton3"))
+        assertEquals("voice", e.shouldAutocorrect("vo8ce"))
+    }
+
     @Test fun `two digits mean deliberate input`() {
         assertNull(digitEngine().shouldAutocorrect("h3lp4"))
+    }
+
+    /** A list with the words the fast-typing cases aim at, and near rivals. */
+    private fun fastDigitEngine(): SuggestionEngine {
+        val dictionary = Trie().apply {
+            insert("you", 9000)
+            insert("yon", 300)
+            insert("typed", 2500)
+            insert("types", 2400)
+            insert("the", 9500)
+            insert("help", 3000)
+        }
+        return SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null)).apply {
+            digitSlipCorrections = true
+            proximity = KeyProximity.forLayout(
+                com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts.QWERTY,
+                numberRow = true,
+            )
+        }
+    }
+
+    @Test fun `typed fast, two digits are both number-row slips`() {
+        assertEquals("you", fastDigitEngine().decideCorrection("y97", fastTyping = true).apply)
+        assertNull(fastDigitEngine().decideCorrection("y97").apply)
+    }
+
+    @Test fun `typed fast, a leading digit is the letter under it`() {
+        assertEquals("typed", fastDigitEngine().decideCorrection("5yped", fastTyping = true).apply)
+    }
+
+    @Test fun `a number in front of what follows numbers stays`() {
+        val e = digitEngine()
+        for (typed in listOf("5pm", "4th", "10am", "3kg", "2nd")) {
+            assertNull(typed, e.decideCorrection(typed, fastTyping = true).apply)
+        }
+    }
+
+    @Test fun `typed fast, still never more than two digits`() {
+        assertNull(digitEngine().decideCorrection("h3l4p5", fastTyping = true).apply)
     }
 
     // ---- word sources ----

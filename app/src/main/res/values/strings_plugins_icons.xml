@@ -44,6 +44,22 @@
     <string name="plugins_installed_title">Installed</string>
     <string name="plugins_installed_empty">No plugins are installed yet.</string>
 
+    <!-- Group shown after an update removed plugins written in Lua. -->
+    <string name="plugins_retired_title">Removed Lua plugins</string>
+    <!-- %1$s is a comma-separated list of plugin names. -->
+    <string name="plugins_retired_notice">Plugins are now written in Python, so these were removed: %1$s. Their saved data is kept below. Install the Python version of a plugin and it gets its data back.</string>
+    <string name="plugins_retired_dismiss">Got it</string>
+    <!-- Subtitle of a removed plugin's kept data. %1$d is kilobytes, %2$d is days left before it is deleted. -->
+    <plurals name="plugins_parked_subtitle">
+        <item quantity="one">%1$d KB kept, deleted in %2$d day</item>
+        <item quantity="other">%1$d KB kept, deleted in %2$d days</item>
+    </plurals>
+    <!-- Content description of the delete button on a removed plugin's kept data. %1$s is the plugin name. -->
+    <string name="plugins_parked_delete">Delete the data %1$s kept</string>
+    <!-- Dialog title. %1$s is the plugin name. -->
+    <string name="plugins_parked_delete_confirm_title">Delete the data %1$s kept?</string>
+    <string name="plugins_parked_delete_confirm_body">This cannot be undone. Installing the plugin again will start it empty.</string>
+
     <!-- Row subtitle under a plugin name. %1$s is the version the plugin states. -->
     <string name="plugins_row_version">Version %1$s</string>
     <!-- %1$s is the version, %2$s is the author name. -->
@@ -76,6 +92,12 @@
     <string name="plugins_permissions_title">What it can do</string>
     <string name="plugins_permissions_none">Nothing outside its own panel</string>
     <string name="plugins_permissions_info">The plugin declares this when you install it. A plugin cannot ask for more while it runs, because there is nothing more to ask for.</string>
+    <!-- Heading over the buttons a plugin adds to the bar over selected text. -->
+    <string name="plugins_actions_title">Selection actions</string>
+    <string name="plugins_actions_info">Buttons this plugin adds to the bar over text you select. Tapping one hands the plugin that text, and it puts back what it made of it. Undo on the bar takes the change back.</string>
+    <string name="plugins_actions_settings_link">Choose which ones the bar shows</string>
+    <!-- Before installing: followed by a bulleted list of the plugin's selection actions. -->
+    <string name="plugins_install_actions_intro">It adds these to the bar over text you select:</string>
 
     <string name="plugins_storage_title">Stored data</string>
     <!-- %1$d is the space the plugin uses, %2$d is the space it may use. Both are in kilobytes.
@@ -231,4 +253,50 @@
     <!-- A hat and glasses, the usual picture for private browsing. -->
     <string name="plugins_icons_variant_mask">Hat and glasses</string>
 
+    <!-- ================================================================== -->
+    <!-- Your icons: the library of pictures the user imported.            -->
+    <!-- ================================================================== -->
+
+    <!-- Segmented buttons at the top of the icon picker. -->
+    <string name="plugins_icons_tab_builtin">Built-in</string>
+    <string name="plugins_icons_tab_yours">Your icons</string>
+    <string name="plugins_icons_tab_packs">Packs</string>
+    <string name="plugins_icons_packs_empty">No installed pack has an icon for this.</string>
+    <string name="plugins_icons_yours_empty">Pictures you add stay here. You can put them back on any icon with one tap.</string>
+    <!-- The first cell of the grid. It opens the file picker. -->
+    <string name="plugins_icons_library_add">Add</string>
+    <string name="plugins_icons_library_title">Your icons</string>
+    <!-- %1$d is how many pictures the library holds. -->
+    <plurals name="plugins_icons_library_subtitle">
+        <item quantity="one">%1$d picture. Use it on any icon or key</item>
+        <item quantity="other">%1$d pictures. Use them on any icon or key</item>
+    </plurals>
+    <string name="plugins_icons_library_subtitle_empty">Keep your own pictures here to use on any icon or key</string>
+    <string name="plugins_icons_library_info">Every SVG, PNG, WebP, JPEG or GIF you add is kept here, also when no icon uses it. Pick it again from the Your icons tab of any icon picker, the layout editor, or the theme editor. Touch and hold a picture to rename it, set its colours, or delete it.</string>
+    <!-- %1$d is the largest number of pictures the library holds. -->
+    <plurals name="plugins_icons_library_full">
+        <item quantity="one">Your icons is full. It holds %1$d picture. Delete one to add another.</item>
+        <item quantity="other">Your icons is full. It holds %1$d pictures. Delete one to add another.</item>
+    </plurals>
+    <!-- %1$s is a comma-separated list of file names. %2$d is the size limit in kilobytes. -->
+    <string name="plugins_icons_library_rejected" tools:ignore="PluralsCandidate">The app cannot use these files: %1$s. A file must be an SVG, PNG, WebP, JPEG or GIF smaller than %2$d KB.</string>
+    <string name="plugins_icons_library_export_title">Export as an icon pack</string>
+    <string name="plugins_icons_library_export_subtitle">A .wmicons file with every icon that wears one of your pictures</string>
+    <string name="plugins_icons_library_export_empty">No icon wears one of your pictures, so there is nothing to export.</string>
+    <!-- Name of the pack that the export makes. -->
+    <string name="plugins_icons_library_pack_name">Your icons</string>
+    <!-- Long-press menu for one picture. -->
+    <string name="plugins_icons_library_rename">Rename</string>
+    <string name="plugins_icons_library_name_label">Name</string>
+    <string name="plugins_icons_library_colours_title">Colours</string>
+    <string name="plugins_icons_library_colours_auto">Automatic</string>
+    <string name="plugins_icons_library_colours_auto_body">A picture in one colour follows the theme. A picture in more colours keeps them.</string>
+    <string name="plugins_icons_library_colours_keep">Keep its own colours</string>
+    <string name="plugins_icons_library_colours_tint">Follow the theme</string>
+    <string name="plugins_icons_library_delete">Delete</string>
+    <!-- %1$s is the picture name. -->
+    <string name="plugins_icons_library_delete_title">Delete %1$s?</string>
+    <string name="plugins_icons_library_delete_body">This cannot be undone. Keys in your layouts that show it go back to their text.</string>
+    <!-- %1$s is a comma-separated list of icon names, such as "Enter, Delete". -->
+    <string name="plugins_icons_library_delete_used_body">These icons use it and go back to their default: %1$s. Keys in your layouts that show it go back to their text. This cannot be undone.</string>
 </resources>

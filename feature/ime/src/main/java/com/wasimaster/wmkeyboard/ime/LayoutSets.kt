@@ -4,7 +4,9 @@ import com.wasimaster.wmkeyboard.core.keyman.KeymanLayers
 import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.Key
+import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
+import com.wasimaster.wmkeyboard.core.layout.forScreen
 import com.wasimaster.wmkeyboard.core.layout.LayoutLayer
 import com.wasimaster.wmkeyboard.core.layout.LayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
@@ -17,6 +19,7 @@ import com.wasimaster.wmkeyboard.core.layout.arrowRowFor
 import com.wasimaster.wmkeyboard.core.layout.gridForTelevision
 import com.wasimaster.wmkeyboard.core.layout.isShippedLayoutId
 import com.wasimaster.wmkeyboard.core.layout.numberRowFor
+import com.wasimaster.wmkeyboard.core.layout.pageLayerKeys
 import com.wasimaster.wmkeyboard.core.layout.panelLayers
 import com.wasimaster.wmkeyboard.core.layout.repair
 import com.wasimaster.wmkeyboard.core.layout.secondaryLayouts
@@ -45,9 +48,10 @@ fun compileLayoutSet(
     numberRowShown: Boolean,
     secondaries: Map<String, KeyboardLayout>,
     television: Boolean,
+    landscape: Boolean = false,
 ): LayoutSet {
     val safe = spec.repair().spec
-    val compiled = safe.compile(LayoutLayer.LETTERS)
+    val compiled = safe.compile(LayoutLayer.LETTERS).forScreen(landscape)
     val authored = authoredHolds(spec, compiled)
     val letters = compiled.withQwertyHolds(keep = authored)
     // Only the letters layer widens. The symbols and Fn layers have no shift
@@ -63,14 +67,18 @@ fun compileLayoutSet(
     val reflow = television && safe.tabletExpand && televisionGridColumns(letters) != null
     val expand = !reflow && form.isTablet && safe.tabletExpand
     val gridWidth = if (expand) tabletGridWidth(letters, form) else null
+    // The vowel-sign page an Indic layout shows after a consonant, when the
+    // page it names is one of the pages compiled below.
+    val consonantLayer = safe.layer(LayoutLayer.LETTERS)?.afterConsonant
+        ?.takeIf { it.isAnExtraGrid() && it in safe.layers }
     return LayoutSet(
         letters = when {
             reflow -> letters.gridForTelevision()
             gridWidth != null -> letters.expandForTablet(form, numberRowShown)
             else -> letters
         },
-        symbols = safe.compile(LayoutLayer.SYMBOLS),
-        symbolsShifted = safe.compile(LayoutLayer.SYMBOLS_SHIFTED),
+        symbols = safe.compile(LayoutLayer.SYMBOLS).forScreen(landscape),
+        symbolsShifted = safe.compile(LayoutLayer.SYMBOLS_SHIFTED).forScreen(landscape),
         // Only when the layout actually defines one: compile() falls back
         // to the shipped grid for a missing layer, which would give every
         // layout an Fn layer that is really a second copy of the letters.
@@ -118,7 +126,10 @@ fun compileLayoutSet(
         keymanLayerKeys = safe.layers.keys.takeIf { keys ->
             safe.keyman != null || keys.any { it.startsWith(KeymanLayers.PREFIX) }
         },
+        consonantLayer = consonantLayer,
+        consonantPages = if (consonantLayer == null) emptyList() else safe.pageLayerKeys(),
         handwriting = safe.handwriting,
+        strip = safe.strip,
         authoredHolds = authored,
     )
 }
@@ -130,12 +141,16 @@ fun compileLayoutSet(
  * longer matches the shipped key typing the same text. Empty for a shipped
  * layout as it ships.
  *
+ * A key with no popup counts too: a popup left empty, or emptied, is one the
+ * user wrote, and [withQwertyHolds] must not lend it QWERTY's symbol (an @
+ * nobody put on their own layout's a, reported in the Telegram group).
+ *
  * Compared against the shipped grid rather than recorded by the editor, so an
  * edit made before this existed, an imported file and a hand-written JSON
  * layout all count the same way.
  */
 fun authoredHolds(spec: LayoutSpec, letters: KeyboardLayout): Set<Key> {
-    val keys = letters.rows.flatten().filter { it.longPress.isNotEmpty() }
+    val keys = letters.rows.flatten().filter { it.action == KeyAction.Text }
     if (keys.isEmpty()) return emptySet()
     val shipped = if (isShippedLayoutId(spec.id)) {
         BuiltInLayouts.byId(spec.id) ?: AssetLayouts.byId(spec.id)

@@ -18,12 +18,16 @@
 //!   `NgramReranker`.
 //! - [`lm`]: `PredictionNative` again, the neural context model behind
 //!   `ContextModel`.
+//! - [`punct`]: `PredictionNative` again, the smart punctuation key's
+//!   model behind `PunctuationModel`.
 //! - [`corrections`]: `PredictionNative` again, the stores autocorrect
 //!   learns from, behind `CorrectionMemory` and `CorrectionStats`.
 //! - [`words`]: `PredictionNative` again, the word key, the learnability
 //!   gate and the word segmenter for Thai, Lao, Khmer and Burmese.
 //! - [`gif`]: `GifNative` (core/content), the GIF encoder behind
 //!   `GifEncoder`.
+//! - [`cjk`]: `CjkNative` (core/input), the conversion decoder and its
+//!   tables behind `Lattice`, `ConversionDictionary` and `CjkNgrams`.
 //!
 //! The rules every entry point follows (native/RUST_NEON_PLAN.md):
 //!
@@ -35,6 +39,7 @@
 //! - Data that outlives a call (a mapped dictionary, a decoder) stays here
 //!   behind a [`handles::Registry`] handle.
 
+mod cjk;
 mod corrections;
 mod dict;
 mod fuzzy;
@@ -45,6 +50,7 @@ mod handles;
 mod kernels;
 mod lexicon;
 mod lm;
+mod punct;
 mod rerank;
 mod sources;
 mod transliteration;

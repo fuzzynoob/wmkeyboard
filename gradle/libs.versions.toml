@@ -7,14 +7,14 @@ junit = "4.13.2"
 # Robolectric runs an Android runtime on the JVM, so a unit test can drive the
 # real IME service instead of only its pure helpers. Latest stable.
 robolectric = "4.17"
-roborazzi = "1.76.0"
+roborazzi = "1.77.0"
 junitVersion = "1.3.0"
 espressoCore = "3.7.0"
 appcompat = "1.8.0"
 # BiometricPrompt for the settings app's optional fingerprint lock. GMS-free
 # and with no native code, so it needs no flavour or channel handling and is
 # fine for F-Droid. 1.1.0 is the last stable line; 1.2.0 has been alpha since
-# 2021, same rule as luaj and detekt below.
+# 2021, same rule as detekt below.
 #
 # It needs androidx.fragment — which appcompat above already puts on the
 # classpath, so nothing new is dragged in. The note on playAppUpdate below is
@@ -27,7 +27,7 @@ activityCompose = "1.13.0"
 # which every module compiles against.
 composeBom = "2026.09.00"
 lifecycle = "2.11.0"
-datastore = "1.2.1"
+datastore = "1.3.0"
 serializationJson = "1.12.0"
 coroutines = "1.11.0"
 emoji2 = "1.7.0"
@@ -52,11 +52,11 @@ mlkitBarcode = "17.3.0"
 # of the AAB. Sideload/F-Droid channels keep the bundled artifacts so scanners
 # work without GMS. The version lines differ because Google numbers the
 # unbundled artifacts independently of the bundled ones.
-mlkitTextRecognitionUnbundled = "19.0.1"
+mlkitTextRecognitionUnbundled = "19.0.2"
 # The Chinese, Japanese, Korean and Devanagari recognizers (#757), unbundled on
 # every channel: Play services fetches each model on first use, and the code
 # is about 3 KB each (bundled, they would cost about 4 MB per script per ABI).
-mlkitTextRecognitionScriptsUnbundled = "16.0.1"
+mlkitTextRecognitionScriptsUnbundled = "16.0.2"
 mlkitBarcodeUnbundled = "18.3.1"
 mlkitDocScanner = "16.0.0"
 # Unbundled: the model is downloaded from Play services on first use, so
@@ -72,7 +72,11 @@ coil = "3.6.3"
 # Already in the APK as Coil's network engine; declared here so the WebDAV
 # backup sink can use it directly. HttpURLConnection cannot: it validates the
 # request method against a fixed list and rejects PROPFIND and MOVE outright.
-okhttp = "4.12.0"
+# 5.x resolves to okhttp-android, which brings androidx.startup (already here
+# through emoji2 and profileinstaller); Coil's 4.x-built adapter links to it
+# unchanged, and ImapSink's OkHostnameVerifier.verify(String, SSLSession) is
+# still there. mockwebserver keeps the okhttp3.mockwebserver package.
+okhttp = "5.5.1"
 # SSH transport for the SFTP backup sink: key exchange, host keys, ciphers.
 # The SFTP file protocol on top is our own (sink/sftp), because JSch's
 # ChannelSftp builds a java.time formatter in a static initializer and dies
@@ -83,6 +87,8 @@ jsch = "2.28.8"
 # the algorithms Android's own providers lack (curve25519, ML-KEM, sntrup761,
 # ed25519, chacha20-poly1305), and the SMB sink for MD4, AES-CMAC and AES-CCM.
 # Every class is reached by a direct reference, so R8 keeps only those.
+# bcpg is its OpenPGP layer, for the Proton Drive sink's keys, names and
+# blocks (sink/proton/ProtonPgp.kt), on the same lightweight API.
 bouncycastle = "1.86"
 # APNG decoding, for animated Signal stickers. Pure Java, Apache-2.0. Its one
 # runtime dependency is appcompat, which the app already carries.
@@ -97,13 +103,15 @@ vectordrawableAnimated = "1.2.0"
 # dependency is appcompat, which the app already carries.
 lottie = "6.7.1"
 zxing = "3.5.4"
-litertlm = "0.14.0"
+litertlm = "0.18.1"
 # The NPU runtime behind Compute = NPU (#804), packaged as assets by the
-# wmkeyboard.npu-runtime convention, never as dependencies. Dispatch 2.3.0
-# accepts the LiteRT API that litertlm 0.14.0 reports (it asks for <= 0.1.0
+# wmkeyboard.npu-runtime convention, never as dependencies. Dispatch 2.3.2
+# accepts the LiteRT API that litertlm 0.18.1 reports (it asks for <= 0.1.0
 # and warns on an older one), and litertlm takes any 0.x dispatch API from
-# 0.1 on: checked in both binaries' version checks, 2026-10-20.
-litertNpu = "2.3.0"
+# 0.1 on: checked in both binaries' version checks, 2026-10-20, and again
+# 2026-10-28 against LITERT_API_VERSION at the LiteRT commit litertlm 0.18.1
+# builds from (ca21dc9, still 0.1.0) and at LiteRT v2.3.2 (0.1.0).
+litertNpu = "2.3.2"
 # Qualcomm's own licence, so full Play and sideload builds only.
 qnnRuntime = "2.51.0"
 # 2.x splits into litert + litert-api sharing one namespace, which AGP's
@@ -115,14 +123,14 @@ litert = "1.4.2"
 # (wmkeyboard.native-pins), or copied into the APK or :feature:onnx by the
 # wmkeyboard.onnxruntime convention. libwmsherpa is built against this
 # version's headers (native/sherpa-onnx-jni/build.sh ORT_TAG): keep in step.
-onnxruntime = "1.30.0"
-# Lua interpreter for the plugin sandbox. Pure JVM, MIT, no transitive deps.
-# 3.0.1 is the LAST version published to Maven Central — the 3.0.2 git tag was
-# never released as an artifact. Do not bump without re-auditing PluginSandbox:
-# it depends on interpreter internals (which exceptions pcall catches, the
-# DebugLib.onInstruction hook path, the process-global LuaString.s_metatable)
-# that no public API pins down.
-luaj = "3.0.1"
+onnxruntime = "1.31.1"
+webrtcAndroid = "137.7151.05"
+# Alpha Cephei's vosk-android behind Offline Vosk (#1165), never a dependency:
+# its libvosk.so is pinned and read out of the AAR on Maven Central
+# (wmkeyboard.native-pins), or copied into the APK or :feature:vosk by the
+# wmkeyboard.vosk convention. The AAR's Java API (over JNA) goes nowhere;
+# native/vosk-jni calls libvosk's C API, which has not changed since 0.3.32.
+vosk = "0.3.75"
 # Test only: the ART fold reference in WordKeyParityTest. Robolectric 4.17 pins
 # the same version, so it is already in every cache that runs the doc shots.
 icu4j = "78.3"
@@ -139,6 +147,9 @@ playAppUpdate = "2.1.0"
 # Play-channel builds only, same rule as app-update: a Google Play binary
 # that must never reach the F-Droid or direct-download APKs.
 playFeatureDelivery = "2.1.0"
+# Play's rating card. Play-channel builds only, same rule as app-update, and
+# review-ktx is left out for the same reason as app-update-ktx.
+playReview = "2.0.2"
 playServicesAuth = "22.0.0"
 # Play Billing, for the Supporters screen's tips. Play-channel builds only, same
 # rule as app-update: Play's Payments policy is why the Play build needs it
@@ -187,6 +198,12 @@ kover = "0.9.11"
 konsist = "0.18.1"
 # Flow assertions in tests: every emission accounted for.
 turbine = "1.2.1"
+# Shell-identity calls for the app launcher's window routes (:core:shell):
+# Shizuku/Sui's user service. 13.1.5 is the last release on Maven Central.
+shizuku = "13.1.5"
+# Hidden framework methods (input injection, MIUI's freeform options) from
+# :core:shell, as Taskbar does.
+hiddenapibypass = "6.1"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -255,6 +272,7 @@ okhttp = { group = "com.squareup.okhttp3", name = "okhttp", version.ref = "okhtt
 okhttp-mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "okhttp" }
 jsch = { group = "com.github.mwiede", name = "jsch", version.ref = "jsch" }
 bouncycastle-prov = { group = "org.bouncycastle", name = "bcprov-jdk18on", version.ref = "bouncycastle" }
+bouncycastle-pg = { group = "org.bouncycastle", name = "bcpg-jdk18on", version.ref = "bouncycastle" }
 apng4android-apng = { group = "com.github.penfeizhou.android.animation", name = "apng", version.ref = "apng4android" }
 androidx-vectordrawable-animated = { group = "androidx.vectordrawable", name = "vectordrawable-animated", version.ref = "vectordrawableAnimated" }
 lottie = { group = "com.airbnb.android", name = "lottie", version.ref = "lottie" }
@@ -263,12 +281,14 @@ litertlm-android = { group = "com.google.ai.edge.litertlm", name = "litertlm-and
 litert-npu-runtime-qualcomm = { group = "com.google.ai.edge.litert", name = "litert-npu-runtime-qualcomm", version.ref = "litertNpu" }
 qnn-runtime = { group = "com.qualcomm.qti", name = "qnn-runtime", version.ref = "qnnRuntime" }
 litert = { group = "com.google.ai.edge.litert", name = "litert", version.ref = "litert" }
+webrtc-android = { group = "io.github.webrtc-sdk", name = "android", version.ref = "webrtcAndroid" }
 onnxruntime-android = { group = "com.microsoft.onnxruntime", name = "onnxruntime-android", version.ref = "onnxruntime" }
-luaj-jse = { group = "org.luaj", name = "luaj-jse", version.ref = "luaj" }
+vosk-android = { group = "com.alphacephei", name = "vosk-android", version.ref = "vosk" }
 icu4j = { group = "com.ibm.icu", name = "icu4j", version.ref = "icu4j" }
 snakeyaml = { group = "org.yaml", name = "snakeyaml", version.ref = "snakeyaml" }
 play-app-update = { group = "com.google.android.play", name = "app-update", version.ref = "playAppUpdate" }
 play-feature-delivery = { group = "com.google.android.play", name = "feature-delivery", version.ref = "playFeatureDelivery" }
+play-review = { group = "com.google.android.play", name = "review", version.ref = "playReview" }
 play-billing = { group = "com.android.billingclient", name = "billing", version.ref = "playBilling" }
 # Only the AuthorizationClient half is used, to get an OAuth token for the
 # Drive backup destination. Behind the wmkb.enableGms seam; never on F-Droid.
@@ -281,6 +301,9 @@ androidx-benchmark-macro-junit4 = { group = "androidx.benchmark", name = "benchm
 androidx-uiautomator = { group = "androidx.test.uiautomator", name = "uiautomator", version.ref = "uiautomator" }
 konsist = { group = "com.lemonappdev", name = "konsist", version.ref = "konsist" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+shizuku-api = { group = "dev.rikka.shizuku", name = "api", version.ref = "shizuku" }
+shizuku-provider = { group = "dev.rikka.shizuku", name = "provider", version.ref = "shizuku" }
+hiddenapibypass = { group = "org.lsposed.hiddenapibypass", name = "hiddenapibypass", version.ref = "hiddenapibypass" }
 
 # Static-analysis rule packs, pulled in via the detektPlugins / lintChecks
 # configurations rather than compiled into the app.

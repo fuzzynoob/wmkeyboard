@@ -113,6 +113,9 @@ import com.wasimaster.wmkeyboard.core.settings.SearchResultTap
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.tools.GifItem
+import com.wasimaster.wmkeyboard.core.tools.ServiceUsage
+import com.wasimaster.wmkeyboard.core.providers.ProviderTypes as UsageTypes
+import com.wasimaster.wmkeyboard.core.settings.providerCredential
 import com.wasimaster.wmkeyboard.core.tools.GifSource
 import com.wasimaster.wmkeyboard.core.tools.GifSources
 import com.wasimaster.wmkeyboard.core.tools.MediaCategories
@@ -206,6 +209,12 @@ internal fun SearchQueryText(
     placeholderColor: Color,
     fontSize: TextUnit,
     modifier: Modifier = Modifier,
+    /**
+     * The whole query drawn selected, with no caret: a term left from last
+     * time that the first key replaces (#970), shown the way a real field
+     * shows text it is about to type over.
+     */
+    selectedAll: Boolean = false,
 ) {
     val handle = LocalCaptureCaret.current
     // The focus switch sent this field's keys to the app's field (#665): no
@@ -236,6 +245,7 @@ internal fun SearchQueryText(
             overlay = overlay,
             caretBar = caretBar,
             setCaretBar = { caretBar = it },
+            selectedAll = selectedAll,
         )
         // Only on the field that has the keys, or had them until the switch
         // sent them to the app: one switch on screen, beside its field.
@@ -260,6 +270,7 @@ private fun RowScope.SearchQueryLine(
     overlay: SelectionOverlayState?,
     caretBar: Boolean,
     setCaretBar: (Boolean) -> Unit,
+    selectedAll: Boolean = false,
 ) {
     val line = Modifier.weight(1f)
     Row(
@@ -314,6 +325,7 @@ private fun RowScope.SearchQueryLine(
                 fontSize = fontSize,
                 handle = handle,
                 modifier = Modifier.weight(1f, fill = false),
+                selectedAll = selectedAll,
             )
         }
     }
@@ -337,6 +349,7 @@ private fun CaretQueryText(
     fontSize: TextUnit,
     handle: CaptureCaretHandle,
     modifier: Modifier = Modifier,
+    selectedAll: Boolean = false,
 ) {
     val scroll = rememberScrollState()
     var layout by remember { mutableStateOf<TextLayoutResult?>(null) }
@@ -346,7 +359,7 @@ private fun CaretQueryText(
     val overlay = LocalSelectionOverlay.current
     val owner = remember { SelectionAnchor() }
     val active = caret >= 0
-    val selecting = active && handle.hasSelection
+    val selecting = active && handle.hasSelection && !selectedAll
     val latestHandle by androidx.compose.runtime.rememberUpdatedState(handle)
     // Paste offered at the caret by a long press on no word (#434).
     var caretBar by remember(query) { mutableStateOf(false) }
@@ -386,7 +399,11 @@ private fun CaretQueryText(
                 .selectionHighlight(
                     query,
                     if (selecting) handle.selectionStart else 0,
-                    if (selecting) handle.selectionEnd else 0,
+                    when {
+                        selectedAll -> query.length
+                        selecting -> handle.selectionEnd
+                        else -> 0
+                    },
                     LocalKbTheme.current.accent.copy(alpha = HighlightAlpha),
                 ) { layout },
         )
@@ -410,7 +427,7 @@ private fun CaretQueryText(
         // schedules the recomposition that draws it.
         val result = layout?.takeIf { it.layoutInput.text.text == query }
         // No caret while a span is selected: the highlight marks where typing lands.
-        if (caret >= 0 && result != null && !selecting) {
+        if (caret >= 0 && result != null && !selecting && !selectedAll) {
             // Clamped against the layout's own text and not against [query]:
             // they are the same string here, and it is the layout that defines
             // the legal range.
@@ -953,12 +970,21 @@ private const val GIPHY_PLATE_SCALE = 1.5f
  * user's own server, so it gets none.
  */
 @Composable
-internal fun searchAttribution(settings: KeyboardSettings): String? =
-    when (ToolApiKeys.searchBackend(settings)) {
-        SearchBackend.BRAVE -> stringResource(R.string.ime_search_attribution_brave)
-        SearchBackend.TAVILY -> stringResource(R.string.ime_search_attribution_tavily)
-        SearchBackend.SEARXNG, null -> null
+internal fun searchAttribution(settings: KeyboardSettings): String? {
+    val (via, usageKey) = when (ToolApiKeys.searchBackend(settings)) {
+        SearchBackend.BRAVE -> stringResource(R.string.ime_search_attribution_brave) to
+            // The build's own key is shared by everyone: its quota is not the user's.
+            "brave".takeIf { settings.providerCredential(UsageTypes.BRAVE.id)?.apiKey?.isNotBlank() == true }
+        SearchBackend.TAVILY -> stringResource(R.string.ime_search_attribution_tavily) to "tavily"
+        SearchBackend.SEARXNG, null -> return null
     }
+    // What the service last said is left this month (#1135), when it said.
+    val left = usageKey?.let { key ->
+        val version by ServiceUsage.version.collectAsState()
+        remember(version, key) { ServiceUsage.allowanceLeft(key) }
+    } ?: return via
+    return stringResource(R.string.ime_search_attribution_left, via, java.text.NumberFormat.getIntegerInstance().format(left))
+}
 
 /** The GIF/sticker search box sized for a [FullBleedTool] header row. */
 @Composable
@@ -1354,6 +1380,13 @@ internal fun stickerPackAddRoute(packId: String): String =
     "sticker_pack/${android.net.Uri.encode(packId)}/add"
 
 /**
+ * Settings route that opens one pack with [stickerId]'s title and keywords up
+ * for editing (#1157). Declared as `sticker_pack/{packId}/edit/{stickerId}`.
+ */
+internal fun stickerEditRoute(packId: String, stickerId: String): String =
+    "sticker_pack/${android.net.Uri.encode(packId)}/edit/${android.net.Uri.encode(stickerId)}"
+
+/**
  * Settings route of the sticker generator, saving into [packId] when there is
  * one. The app's nav graph declares it as `sticker_generator?pack={pack}`.
  */
@@ -1632,6 +1665,12 @@ private fun MediaActionSheet(
             val local = item.source == GifSource.LOCAL
             if (stickers) {
                 if (local) {
+                    // Its title and keywords, straight to the editor (#1157).
+                    if (own != null) {
+                        MediaActionRow(stringResource(R.string.ime_sticker_edit_keywords_action)) {
+                            onOpenRoute(stickerEditRoute(own.first.id, own.second.id))
+                        }
+                    }
                     MediaActionRow(stringResource(R.string.ime_sticker_manage_packs_action)) {
                         onOpenRoute(STICKER_PACKS_ROUTE)
                     }

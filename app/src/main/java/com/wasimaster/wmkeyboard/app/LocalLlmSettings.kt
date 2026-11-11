@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import android.app.ActivityManager
 import android.content.Context
 import android.provider.OpenableColumns
@@ -69,6 +70,7 @@ import com.wasimaster.wmkeyboard.core.modules.FeatureModules
 import com.wasimaster.wmkeyboard.core.modules.ModuleState
 import com.wasimaster.wmkeyboard.core.modules.NativeDelivery
 import com.wasimaster.wmkeyboard.core.modules.NativeConsent
+import com.wasimaster.wmkeyboard.core.netlog.OfflineBuild
 import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.settings.LocalLlmBackend
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
@@ -175,6 +177,7 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Live
                 value = settings.watch { it.ai.hfToken },
                 builtInAvailable = false,
                 emptyHint = stringResource(R.string.models_llm_token_hint),
+                wmPassTitle = "Hugging Face",
             ) { repository.setHfToken(it) }
         }
         item {
@@ -356,13 +359,14 @@ internal fun LocalLlmModelManager(repository: SettingsRepository, settings: Live
                     // On Play the runtime is its own download; start it now
                     // rather than at the first answer.
                     if (backend == LocalLlmBackend.NPU) FeatureModules.npu.requestInstall()
-                    // GGUF models on an Adreno phone get llama.cpp's GPU
-                    // build, a download of its own: started here too, when
-                    // there is a GGUF model to use it.
+                    // GGUF models get llama.cpp's GPU build, or its NPU
+                    // build on a Snapdragon with Compute on NPU, a download
+                    // of its own: started here too, when there is a GGUF
+                    // model to use it.
                     if (backend != LocalLlmBackend.CPU &&
                         (yours.any { it.runtime == LocalLlmRuntime.LLAMA_CPP } || customModels.any(GgufFile::runsOnLlamaCpp))
                     ) {
-                        LlamaCpp.prepareGpu()
+                        LlamaCpp.prepareGpu(backend)
                     }
                     scope.launch { repository.setAiLocalBackend(backend) }
                 },
@@ -549,7 +553,7 @@ private fun CatalogModelRow(
                         enabled = !downloadBusy,
                     ) { Text(stringResource(R.string.models_resume_action)) }
                     is DownloadStatus.NotDownloaded, is DownloadStatus.Failed ->
-                        if (!model.gated || hasToken) {
+                        if (InternetPermission.granted && (!model.gated || hasToken)) {
                             TextButton(
                                 onClick = onDownload,
                                 enabled = !downloadBusy,
@@ -649,7 +653,7 @@ private fun LlamaModuleBanner(settings: LiveSettings) {
         is ModuleState.Missing if state.consent != null -> NativeConsentBanner(state.consent.orEmpty(), "llama")
         is ModuleState.Missing -> StateBanner(
             stringResource(
-                if (state.failed) R.string.models_whisper_module_failed_info else R.string.models_llm_llama_module_missing_info,
+                if (state.failed) OfflineBuild.library(R.string.models_whisper_module_failed_info) else R.string.models_llm_llama_module_missing_info,
             ),
             action = stringResource(if (state.failed) CommonR.string.common_retry else CommonR.string.common_download),
             tone = if (state.failed) BannerTone.WARNING else BannerTone.INFO,

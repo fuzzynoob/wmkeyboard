@@ -22,6 +22,8 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Reorder
+import com.wasimaster.wmkeyboard.ime.R as ImeR
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
@@ -38,10 +40,14 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.os.Build
 import com.wasimaster.wmkeyboard.core.input.composer.CjkLearning
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
+import com.wasimaster.wmkeyboard.core.modules.NativeConsent
+import com.wasimaster.wmkeyboard.core.modules.NativeDelivery
+import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import com.wasimaster.wmkeyboard.core.settings.ClipRecentChipsMax
 import com.wasimaster.wmkeyboard.core.settings.ClipLineSpacingRange
 import com.wasimaster.wmkeyboard.core.settings.ClipSwipePin
 import com.wasimaster.wmkeyboard.core.settings.ClipCardShortcut
+import com.wasimaster.wmkeyboard.core.settings.ClipHoldAction
 import com.wasimaster.wmkeyboard.core.settings.HoldToTalkRange
 import com.wasimaster.wmkeyboard.core.settings.VoiceSilenceStopRange
 import com.wasimaster.wmkeyboard.core.settings.ClipboardView
@@ -205,8 +211,16 @@ internal fun PrivacySettings(
         }
     }
     OtherAppsGroup(repository, onNavigate)
-    SettingsGroup(stringResource(R.string.privacy_downloads_group_title), level = SettingLevel.ADVANCED) {
-        item { VerifyChecksumsRow(repository, settings) }
+    // F-Droid's opt-in and the offline build's import are what a feature's
+    // message points to, so they show at every depth; the checksum switch,
+    // which is for one rare situation, stays with Everything.
+    val libraryChoice = NativeDelivery.active && (NativeConsent.downloadsNeedOptIn || !InternetPermission.granted)
+    SettingsGroup(
+        stringResource(R.string.privacy_downloads_group_title),
+        level = if (libraryChoice) SettingLevel.BASIC else SettingLevel.ADVANCED,
+    ) {
+        item(level = SettingLevel.ADVANCED) { VerifyChecksumsRow(repository, settings) }
+        item(visible = FeatureLibraryList.offered) { FeatureLibrariesNavRow() }
         item { FeatureLibrariesRows() }
     }
     SettingsGroup(stringResource(R.string.privacy_data_group_title)) {
@@ -315,6 +329,7 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
     // the keyboard no longer does, so it goes; the values stay stored.
     val voiceOn = settings.watch { it.voiceBar.enabled }
     val micSwitchOn = settings.watch { it.voiceBar.micSwitch }
+    val systemInputOn = settings.watch { it.voiceBar.systemInput }
     SettingsGroup {
         item {
             ToggleSetting(
@@ -445,6 +460,14 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
                 default = SettingsDefaults.voiceContinuous,
             ) { scope.launch { repository.setVoiceContinuous(it) } }
         }
+        item {
+            ToggleSetting(
+                R.string.voice_keep_screen_on_title,
+                stringResource(R.string.voice_keep_screen_on_subtitle),
+                settings.watch { it.voiceBar.keepScreenOn },
+                default = SettingsDefaults.voiceBar.keepScreenOn,
+            ) { scope.launch { repository.setVoiceKeepScreenOn(it) } }
+        }
         item(level = SettingLevel.ADVANCED) {
             val offLabel = stringResource(R.string.voice_silence_stop_off)
             val secondsFormat = stringResource(R.string.voice_silence_stop_seconds)
@@ -465,11 +488,7 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
         }
         // Only the engines that decode as they hear end a phrase by a detector
         // of their own (#976); the others keep the recorder's loudness stop.
-        val liveListed = etListed.any {
-            it == com.wasimaster.wmkeyboard.core.voice.executorch.EtEngine.ASR4ALL ||
-                it == com.wasimaster.wmkeyboard.core.voice.executorch.EtEngine.SHERPA ||
-                it == com.wasimaster.wmkeyboard.core.voice.executorch.EtEngine.OMNILINGUAL
-        }
+        val liveListed = etListed.any { it.live }
         if (liveListed) item(level = SettingLevel.ADVANCED) {
             VoicePhraseEndSetting(repository, settings, scope)
         }
@@ -481,10 +500,10 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
                 default = SettingsDefaults.voiceSpokenPunctuation,
             ) { scope.launch { repository.setVoiceSpokenPunctuation(it) } }
         }
-        // Only Sherpa and Omnilingual write bare words; plain voice typing
-        // takes the words exactly as said.
+        // Only Sherpa, Omnilingual and Vosk write bare words; plain voice
+        // typing takes the words exactly as said.
         if (typingMode != com.wasimaster.wmkeyboard.core.settings.VoiceBarSettings.TYPING_PLAIN &&
-            etListed.any { it.onnx }
+            etListed.any { it.onnx || it == com.wasimaster.wmkeyboard.core.voice.executorch.EtEngine.VOSK }
         ) {
             item { VoicePunctuationSetting(repository, settings, scope) }
         }
@@ -498,6 +517,25 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
                 info = stringResource(R.string.voice_ai_tidy_info),
                 default = SettingsDefaults.voiceBar.aiTidy,
             ) { scope.launch { repository.setVoiceAiTidy(it) } }
+        }
+    }
+    // The keyboard's engines for every other app's microphone (#1142).
+    SettingsGroup(stringResource(R.string.voice_other_apps_group)) {
+        item(level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.voice_system_input_title,
+                stringResource(R.string.voice_system_input_subtitle),
+                systemInputOn,
+                info = stringResource(R.string.voice_system_input_info),
+                default = SettingsDefaults.voiceBar.systemInput,
+            ) { scope.launch { repository.setVoiceSystemInput(it) } }
+        }
+        if (systemInputOn) item(level = SettingLevel.STANDARD) {
+            val context = LocalContext.current
+            NavRow(
+                R.string.voice_system_input_pick_title,
+                stringResource(R.string.voice_system_input_pick_subtitle),
+            ) { openVoiceInputSettings(context) }
         }
     }
     // What most people never change: kept in reach, out of the way.
@@ -632,6 +670,27 @@ internal fun VoiceSettings(repository: SettingsRepository, settings: LiveSetting
                 ) { repository.setVoiceBiasWords(it) }
             }
         }
+    }
+}
+
+/**
+ * Android's own page for the phone's voice input (#1142), where WM Keyboard
+ * is picked once **Voice input for other apps** is on. Phones file it in
+ * different places, so the nearest one that opens is used: voice input,
+ * then default apps, where the digital assistant row holds it, then
+ * Settings itself.
+ */
+internal fun openVoiceInputSettings(context: Context) {
+    val tries = listOf(
+        Settings.ACTION_VOICE_INPUT_SETTINGS,
+        Settings.ACTION_MANAGE_DEFAULT_APPS_SETTINGS,
+        Settings.ACTION_SETTINGS,
+    )
+    for (action in tries) {
+        val opened = runCatching {
+            context.startActivity(Intent(action).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }.isSuccess
+        if (opened) return
     }
 }
 
@@ -883,6 +942,26 @@ internal fun ClipboardSettings(
                 default = SettingsDefaults.clipboard.cardShortcut,
             ) { scope.launch { repository.setClipboardCardShortcut(it) } }
         }
+        // Issue #1094: the icons under a held clip, in the order a thumb wants.
+        item(level = SettingLevel.ADVANCED) {
+            val labels = clipHoldActionLabels()
+            ReorderSetting(
+                title = stringResource(R.string.clipboard_hold_order_title),
+                dialogTitle = stringResource(R.string.clipboard_hold_order_title),
+                items = settings.watch { it.clipboard.holdActions },
+                label = { labels.getValue(it) },
+                icon = Icons.Outlined.Reorder,
+            ) { scope.launch { repository.setClipboardHoldActions(it) } }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.clipboard_hold_paste_title,
+                stringResource(R.string.clipboard_hold_paste_subtitle),
+                settings.watch { it.clipboard.holdPaste },
+                info = stringResource(R.string.clipboard_hold_paste_info),
+                default = SettingsDefaults.clipboard.holdPaste,
+            ) { scope.launch { repository.setClipboardHoldPaste(it) } }
+        }
         item {
             ToggleSetting(
                 R.string.clipboard_type_out_title,
@@ -971,6 +1050,15 @@ internal fun ClipboardSettings(
                 info = stringResource(R.string.clipboard_search_regex_info),
                 default = SettingsDefaults.clipboard.searchRegex,
             ) { scope.launch { repository.setClipboardSearchRegex(it) } }
+        }
+        item(visible = clipSearch) {
+            ToggleSetting(
+                R.string.clipboard_search_notes_title,
+                stringResource(R.string.clipboard_search_notes_subtitle),
+                settings.watch { it.clipboard.searchNotes },
+                info = stringResource(R.string.clipboard_search_notes_info),
+                default = SettingsDefaults.clipboard.searchNotes,
+            ) { scope.launch { repository.setClipboardSearchNotes(it) } }
         }
         item {
             ToggleSetting(
@@ -1283,6 +1371,15 @@ internal fun ClipboardChipsSettings(
                 detail = { chip -> ChoiceDetail(stringResource(copiedCodeChipDescRes(chip))) },
             ) { scope.launch { repository.setClipboardCopiedCodeChip(it) } }
         }
+        item(visible = suggestRecent, level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.clipboard_secret_chip_title,
+                stringResource(R.string.clipboard_secret_chip_subtitle),
+                settings.watch { it.clipboard.secretChipInPasswordFields },
+                info = stringResource(R.string.clipboard_secret_chip_info),
+                default = SettingsDefaults.clipboard.secretChipInPasswordFields,
+            ) { scope.launch { repository.setClipboardSecretChipInPasswordFields(it) } }
+        }
     }
     SettingsGroup(stringResource(R.string.clipboard_entities_group)) {
         item(level = SettingLevel.STANDARD) {
@@ -1394,6 +1491,16 @@ internal fun ClipboardRulesSettings(
                 default = SettingsDefaults.clipboard.clearAfterPasswordPaste,
             ) { scope.launch { repository.setClipboardClearAfterPasswordPaste(it) } }
         }
+        // Pictures and videos lose their location, camera and dates (#1179).
+        item(level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.clipboard_strip_media_title,
+                stringResource(R.string.clipboard_strip_media_subtitle),
+                settings.watch { it.clipboard.stripMediaMetadata },
+                info = stringResource(R.string.clipboard_strip_media_info),
+                default = SettingsDefaults.clipboard.stripMediaMetadata,
+            ) { scope.launch { repository.setClipboardStripMediaMetadata(it) } }
+        }
         item(level = SettingLevel.STANDARD) {
             ChoiceSetting(
                 title = R.string.clipboard_sensitive_title,
@@ -1457,4 +1564,28 @@ private fun copiedCodeChipDescRes(chip: CopiedCodeChip): Int = when (chip) {
     CopiedCodeChip.OFF -> R.string.clipboard_suggest_codes_off_desc
     CopiedCodeChip.CODE_FIELDS -> R.string.clipboard_suggest_codes_fields_desc
     CopiedCodeChip.ANY_FIELD -> R.string.clipboard_suggest_codes_any_desc
+}
+
+/** What each icon under a held clip is called, in the keyboard's own words for it (#1094). */
+@Composable
+private fun clipHoldActionLabels(): Map<ClipHoldAction, String> = ClipHoldAction.entries.associateWith {
+    stringResource(
+        when (it) {
+            ClipHoldAction.DETAILS -> ImeR.string.ime_clip_details_desc
+            ClipHoldAction.PASTE_NEXT -> ImeR.string.ime_clip_paste_next
+            ClipHoldAction.SELECT -> ImeR.string.ime_clip_select
+            ClipHoldAction.REORDER -> ImeR.string.ime_clip_reorder
+            ClipHoldAction.SHOW_IN_HISTORY -> ImeR.string.ime_clip_show_in_history
+            ClipHoldAction.KEEP_ONLY -> ImeR.string.ime_clip_keep_only
+            ClipHoldAction.EDIT -> ImeR.string.ime_clip_edit
+            ClipHoldAction.TAGS -> ImeR.string.ime_clip_tags
+            ClipHoldAction.QR -> ImeR.string.ime_clip_qr
+            ClipHoldAction.WEB_SEARCH -> ImeR.string.ime_clip_search_web
+            ClipHoldAction.WIKIPEDIA -> ImeR.string.ime_clip_search_wikipedia
+            ClipHoldAction.OPEN_LINK -> ImeR.string.ime_clip_open_link
+            ClipHoldAction.EXTRACT -> ImeR.string.ime_clip_extract_parts
+            ClipHoldAction.PIN -> ImeR.string.ime_clip_pin
+            ClipHoldAction.DELETE -> CommonR.string.common_delete
+        },
+    )
 }

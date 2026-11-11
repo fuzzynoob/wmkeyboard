@@ -4,6 +4,7 @@ import com.wasimaster.wmkeyboard.core.download.FileDownloader
 import android.os.StatFs
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
+import com.wasimaster.wmkeyboard.core.netlog.OfflineBuild
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtDownloadManager.Status
 import com.wasimaster.wmkeyboard.core.voice.executorch.PinnedDownload
 import com.wasimaster.wmkeyboard.core.voice.sherpa.SherpaNative
@@ -122,6 +123,9 @@ object StrongDenoise {
     }
 
     /** Frees the waiting denoiser, its model and runtime session; the next clip loads it again. */
+    /** Whether an idle model is held for the next clip; for the Resources screen (#1163). Any thread. */
+    val isLoaded: Boolean get() = idle.get() != 0L
+
     fun release() {
         loader.execute {
             val h = idle.getAndSet(0L)
@@ -270,7 +274,7 @@ object StrongDenoise {
             } catch (e: PinnedDownload.FailedException) {
                 _status.value = Status.Failed(e.messageRes, e.messageArg)
             } catch (_: Exception) {
-                _status.value = Status.Failed(CommonR.string.common_error_network)
+                _status.value = Status.Failed(OfflineBuild.download(CommonR.string.common_error_network))
             }
         }
     }

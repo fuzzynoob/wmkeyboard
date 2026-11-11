@@ -180,6 +180,7 @@
     <string name="home_vocab_dismiss_desc">Put away for today</string>
 
     <!-- "Add to home screen" on the tools with a screen of their own (#970). -->
+    <string name="home_shortcut_picker_title">WM Keyboard tool</string>
     <string name="home_shortcut_add_title">Add to home screen</string>
     <string name="home_shortcut_add_subtitle">Put %1$s on your home screen, to open without going through the settings</string>
     <string name="home_shortcut_add_action">Add</string>
@@ -187,4 +188,8 @@
     <string name="home_shortcut_clock_label">Clock</string>
     <string name="home_shortcut_notes_label">Notes</string>
     <string name="home_shortcut_todo_label">To-do list</string>
+    <string name="home_shortcut_tool_subtitle">Put %1$s on your home screen. It opens the keyboard with the tool on it, over a text box of its own</string>
+    <string name="tool_shortcut_field_hint">Text the tool types lands here</string>
+    <string name="tool_shortcut_not_current">The tool opens in WM Keyboard, which is not the keyboard in use</string>
+    <string name="tool_shortcut_switch_action">Switch keyboard</string>
 </resources>

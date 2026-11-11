@@ -10,6 +10,7 @@ import com.wasimaster.wmkeyboard.core.modules.DownloadedModuleGate
 import com.wasimaster.wmkeyboard.core.modules.FeatureModules
 import com.wasimaster.wmkeyboard.core.modules.FeatureModules.awaitInstalled
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
+import com.wasimaster.wmkeyboard.core.netlog.OfflineBuild
 import com.wasimaster.wmkeyboard.core.ocr.screenText
 import com.wasimaster.wmkeyboard.intelligence.R
 import java.io.File
@@ -116,7 +117,7 @@ sealed class XlitDownloads(private val pack: IndicXlitModels.Pack) {
                             _status.value = Status.Downloading(bytes, total + modelBytes)
                         }
                     }
-                    if (!moduleHere) throw FailedException(R.string.core_intel_xlit_module_error)
+                    if (!moduleHere) throw FailedException(OfflineBuild.library(R.string.core_intel_xlit_module_error))
                     download(dir, missing, alreadyFetched = runtimeBytes)
                     _status.value = Status.Downloaded
                 } catch (e: CancellationException) {
@@ -125,10 +126,34 @@ sealed class XlitDownloads(private val pack: IndicXlitModels.Pack) {
                 } catch (e: FailedException) {
                     _status.value = Status.Failed(e.messageRes, e.messageArg)
                 } catch (_: Exception) {
-                    _status.value = Status.Failed(CommonR.string.common_error_network)
+                    _status.value = Status.Failed(OfflineBuild.download(CommonR.string.common_error_network))
                 }
             }
         }
+    }
+
+    /**
+     * Puts [source], fetched some other way (#998), where its download would
+     * put it, after the same size and digest check. False when it is not
+     * [part]'s bytes. Blocking.
+     */
+    fun install(context: Context, part: IndicXlitModels.Part, source: File): Boolean {
+        if (source.length() != part.bytes || !FileDownloader.sha256(source).equals(part.sha256, ignoreCase = true)) {
+            return false
+        }
+        val dir = context.noBackupFilesDir
+        val target = pack.file(dir, part)
+        target.parentFile?.mkdirs()
+        val staged = File(target.parentFile, target.name + ".import")
+        try {
+            source.inputStream().use { input -> staged.outputStream().use { input.copyTo(it) } }
+            target.delete()
+            if (!staged.renameTo(target)) throw IOException("could not move $target into place")
+        } finally {
+            staged.delete()
+        }
+        refresh(context)
+        return true
     }
 
     /** Deletes the pack, for the storage screen; the keyboard drops what it read with it. */

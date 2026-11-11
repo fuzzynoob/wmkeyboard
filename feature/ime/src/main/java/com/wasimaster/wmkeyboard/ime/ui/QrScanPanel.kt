@@ -30,6 +30,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowB
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.OpenInNew
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Send
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentCopy
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Share
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FlashlightOff
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FlashlightOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoLibrary
@@ -75,6 +76,8 @@ import com.wasimaster.wmkeyboard.ime.kdeconnect.KdeConnectHub
 import com.wasimaster.wmkeyboard.core.kdeconnect.KdePairCode
 import com.wasimaster.wmkeyboard.core.media.gallery.MediaPrep
 import com.wasimaster.wmkeyboard.app.GalleryPickActivity
+import com.wasimaster.wmkeyboard.ime.files.FilePickRequest
+import com.wasimaster.wmkeyboard.ime.files.FilePicks
 import android.net.Uri
 import java.util.concurrent.Executors
 import kotlinx.coroutines.Dispatchers
@@ -101,6 +104,7 @@ private class ScannedCode(val value: String, @StringRes val formatLabelRes: Int)
 internal fun QrScanPanel(
     state: KeyboardUiState,
     onInsert: (String) -> Unit,
+    onShare: (String) -> Unit,
     onOpenUrl: (String) -> Unit,
     onRequestPermission: () -> Unit,
     onClose: () -> Unit,
@@ -130,6 +134,7 @@ internal fun QrScanPanel(
                 state = state,
                 reader = reader,
                 onInsert = onInsert,
+                onShare = onShare,
                 onOpenUrl = onOpenUrl,
                 haptics = state.settings.scanner.qrScanHaptics,
                 autoInsert = state.settings.scanner.qrScanAutoInsert,
@@ -160,6 +165,7 @@ private fun QrScanContent(
     state: KeyboardUiState,
     reader: BarcodeReader,
     onInsert: (String) -> Unit,
+    onShare: (String) -> Unit,
     onOpenUrl: (String) -> Unit,
     haptics: Boolean,
     autoInsert: Boolean,
@@ -308,8 +314,8 @@ private fun QrScanContent(
             PanelFocusTarget(
                 panel = PanelMode.QR_SCAN,
                 region = FocusRegion.ACTIONS,
-                count = if (url != null) 4 else 3,
-                columns = 4,
+                count = if (url != null) 5 else 4,
+                columns = 5,
             ) { index ->
                 val slot = if (url != null) index else index + 1
                 when (slot) {
@@ -324,7 +330,8 @@ private fun QrScanContent(
                             Toast.LENGTH_SHORT,
                         ).show()
                     }
-                    3 -> onInsert(code.value)
+                    3 -> { feedback(); onShare(code.value) }
+                    4 -> onInsert(code.value)
                 }
             }
             val focusedAction = state.focusedIndex(FocusRegion.ACTIONS)
@@ -423,10 +430,19 @@ private fun QrScanContent(
                         ).show()
                     }
                     CaptureActionButton(
+                        icon = Icons.Outlined.Share,
+                        label = stringResource(CommonR.string.common_share),
+                        accent = false,
+                        focused = focusedAction == 3,
+                    ) {
+                        feedback()
+                        onShare(code.value)
+                    }
+                    CaptureActionButton(
                         icon = Icons.AutoMirrored.Outlined.Send,
                         label = stringResource(R.string.ime_scanner_insert_action),
                         accent = true,
-                        focused = focusedAction == 3,
+                        focused = focusedAction == 4,
                     ) { onInsert(code.value) }
                 }
             }
@@ -496,7 +512,7 @@ private fun QrScanContent(
                 active = false,
             ) {
                 feedback()
-                runCatching { context.startActivity(GalleryPickActivity.qrIntent(context)) }
+                runCatching { FilePicks.open(context, FilePickRequest.QrPicture) }
             }
         }
         if (readingPicture) {

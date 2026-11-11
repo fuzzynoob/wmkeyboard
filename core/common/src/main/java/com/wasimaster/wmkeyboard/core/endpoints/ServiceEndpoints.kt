@@ -65,6 +65,7 @@ enum class ServiceEndpoint(
     PEXELS("pexels", "https://api.pexels.com", ServiceGroup.PHOTOS),
     WIKIPEDIA("wikipedia", "https://{lang}.wikipedia.org", ServiceGroup.WIKIPEDIA),
     DICTIONARY_API("dictionary_api", "https://api.dictionaryapi.dev", ServiceGroup.DICTIONARY),
+    URBAN_DICTIONARY("urban_dictionary", "https://api.urbandictionary.com", ServiceGroup.DICTIONARY),
 
     /** Synonyms for a held word (#321). */
     DATAMUSE("datamuse", "https://api.datamuse.com", ServiceGroup.DICTIONARY),
@@ -81,6 +82,7 @@ enum class ServiceEndpoint(
     CURRENCY_API("currency_api", "https://cdn.jsdelivr.net/npm/@fawazahmed0/currency-api@latest", ServiceGroup.CURRENCY),
     CURRENCY_API_MIRROR("currency_api_mirror", "https://latest.currency-api.pages.dev", ServiceGroup.CURRENCY),
     FRANKFURTER("frankfurter", "https://api.frankfurter.dev", ServiceGroup.CURRENCY),
+    ALLRATESTODAY("allratestoday", "https://allratestoday.com", ServiceGroup.CURRENCY),
     ER_API("er_api", "https://open.er-api.com", ServiceGroup.CURRENCY),
     COINBASE("coinbase", "https://api.coinbase.com", ServiceGroup.CURRENCY),
     COINGECKO("coingecko", "https://api.coingecko.com", ServiceGroup.CURRENCY),

@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.app
 
 import android.net.Uri
+import android.provider.DocumentsContract
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -85,6 +86,7 @@ import com.wasimaster.wmkeyboard.core.notes.NoteSort
 import com.wasimaster.wmkeyboard.core.notes.NoteStore
 import com.wasimaster.wmkeyboard.core.notes.NoteTag
 import com.wasimaster.wmkeyboard.core.notes.NoteTagPalette
+import com.wasimaster.wmkeyboard.core.settings.NotesPanelLayout
 import com.wasimaster.wmkeyboard.core.settings.NotesPanelStart
 import com.wasimaster.wmkeyboard.core.settings.NotesSettings
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
@@ -175,6 +177,9 @@ internal fun rememberNotesState(settings: LiveSettings): NotesScreenState? {
 }
 
 private const val DAY_MS = 24L * 60 * 60 * 1000
+
+/** The folder an Obsidian export keeps to, so it never writes among the vault's own notes. */
+private const val VAULT_FOLDER = "WM Keyboard"
 
 /** Which notes the list screen shows, besides the tag filter. */
 private enum class NotesView { ALL, PINNED, ARCHIVED, UNTAGGED }
@@ -282,6 +287,20 @@ internal fun NotesListScreen(
                     context.contentResolver.requireOutputStream(uri).use { NoteFiles.writeZip(notes, NoteFiles.Format.MARKDOWN, it) }
                     notes.size
                 }.getOrNull()
+            }
+            message = if (count == null) {
+                context.getString(R.string.notes_export_error)
+            } else {
+                context.resources.getQuantityString(R.plurals.notes_exported_count, count, count)
+            }
+        }
+    }
+    val vaultLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val notes = (state.active + state.archived).filterNot { it.locked }
+        scope.launch {
+            val count = withContext(Dispatchers.IO) {
+                runCancellable { writeNotesToVault(context, uri, notes) }.getOrNull()
             }
             message = if (count == null) {
                 context.getString(R.string.notes_export_error)
@@ -445,6 +464,16 @@ internal fun NotesListScreen(
         }
         item {
             ActionRow(
+                R.string.notes_vault_action,
+                subtitle = stringResource(R.string.notes_vault_subtitle),
+                action = stringResource(R.string.notes_export_button),
+                enabled = state.active.isNotEmpty() || state.archived.isNotEmpty(),
+            ) {
+                vaultLauncher.launch(null)
+            }
+        }
+        item {
+            ActionRow(
                 R.string.notes_import_action,
                 subtitle = stringResource(R.string.notes_import_subtitle),
                 action = stringResource(R.string.notes_import_button),
@@ -486,6 +515,41 @@ internal fun NoteSort.labelRes(): Int = when (this) {
     NoteSort.UPDATED -> R.string.tooldetail_notes_sort_updated_label
     NoteSort.CREATED -> R.string.tooldetail_notes_sort_created_label
     NoteSort.TITLE -> R.string.tooldetail_notes_sort_title_label
+}
+
+/**
+ * Writes [notes] into a [VAULT_FOLDER] folder of the picked vault, one Markdown
+ * file each. A note whose file is already there overwrites it, so a second export
+ * updates the first rather than doubling it; a note renamed since gets a new file
+ * and the old one stays, since a file here may hold edits made in the vault.
+ */
+private fun writeNotesToVault(context: android.content.Context, tree: Uri, notes: List<Note>): Int {
+    val resolver = context.contentResolver
+    val root = DocumentsContract.buildDocumentUriUsingTree(tree, DocumentsContract.getTreeDocumentId(tree))
+    val folder = childDocuments(context, tree, DocumentsContract.getDocumentId(root))[VAULT_FOLDER]
+        ?: requireNotNull(DocumentsContract.createDocument(resolver, root, DocumentsContract.Document.MIME_TYPE_DIR, VAULT_FOLDER))
+    val existing = childDocuments(context, tree, DocumentsContract.getDocumentId(folder))
+    val taken = HashSet<String>()
+    for (note in notes) {
+        val name = NoteFiles.fileName(note, NoteFiles.Format.MARKDOWN, taken)
+        val file = existing[name]
+            ?: requireNotNull(DocumentsContract.createDocument(resolver, folder, NoteFiles.Format.MARKDOWN.mimeType, name))
+        resolver.requireOutputStream(file, "wt").use { it.write(NoteFiles.toObsidian(note).toByteArray()) }
+    }
+    return notes.size
+}
+
+/** The documents directly under [parentId], by display name. */
+private fun childDocuments(context: android.content.Context, tree: Uri, parentId: String): Map<String, Uri> {
+    val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, parentId)
+    val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+    val found = HashMap<String, Uri>()
+    context.contentResolver.query(children, columns, null, null, null)?.use { row ->
+        while (row.moveToNext()) {
+            found[row.getString(1)] = DocumentsContract.buildDocumentUriUsingTree(tree, row.getString(0))
+        }
+    }
+    return found
 }
 
 /** Reads the picked files as notes; returns the sentence the dialog says about it. */
@@ -1020,6 +1084,20 @@ internal fun NotesToolSettings(
             ) { onNavigate(NOTES_ROUTE) }
         }
         item(level = SettingLevel.STANDARD) { HomeScreenShortcutRow(R.string.home_shortcut_notes_label, NOTES_ROUTE) }
+        // #997: other apps' text and links, straight into the notes.
+        item(level = SettingLevel.STANDARD) {
+            var shareOn by remember { mutableStateOf(NoteShareActivity.inShareSheet(context)) }
+            ToggleSetting(
+                R.string.tooldetail_notes_share_title,
+                stringResource(R.string.tooldetail_notes_share_subtitle),
+                shareOn,
+                info = stringResource(R.string.tooldetail_notes_share_info),
+                default = true,
+            ) { on ->
+                NoteShareActivity.setInShareSheet(context, on)
+                shareOn = on
+            }
+        }
         item(level = SettingLevel.STANDARD) {
             NavRow(R.string.notes_tags_title, stringResource(R.string.tooldetail_notes_tags_subtitle), route = NOTES_TAGS_ROUTE) {
                 onNavigate(NOTES_TAGS_ROUTE)
@@ -1063,6 +1141,18 @@ internal fun NotesToolSettings(
                 selected = settings.watch { it.notes.panelOpensOn },
                 default = d.panelOpensOn,
             ) { scope.launch { repository.setNotesPanelOpensOn(it) } }
+        }
+        item {
+            ChoiceSetting(
+                R.string.tooldetail_notes_panel_layout_title,
+                subtitle = stringResource(R.string.tooldetail_notes_panel_layout_subtitle),
+                options = listOf(
+                    NotesPanelLayout.SHELF to stringResource(R.string.tooldetail_notes_panel_layout_shelf_label),
+                    NotesPanelLayout.TIMELINE to stringResource(R.string.tooldetail_notes_panel_layout_timeline_label),
+                ),
+                selected = settings.watch { it.notes.panelLayout },
+                default = d.panelLayout,
+            ) { scope.launch { repository.setNotesPanelLayout(it) } }
         }
         item(level = SettingLevel.ADVANCED) {
             ChoiceSetting(

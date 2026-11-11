@@ -19,6 +19,8 @@ import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -64,7 +66,9 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Hub
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Collections
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Phone
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoLibrary
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileOpen
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PieChart
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Memory
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QueryStats
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Wallpaper
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Accessibility
@@ -139,7 +143,16 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.layout.positionInRoot
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.focus.FocusRequester
@@ -249,10 +262,21 @@ internal object SettingsHighlight {
      */
     private var scrollClaimed = false
 
-    fun request(@StringRes titleRes: Int) {
+    /**
+     * True when the row should land in the middle of the page rather than at
+     * whichever edge is nearest. The new settings walk asks for it: its bar
+     * covers the bottom of every screen, which is exactly where the nearest
+     * edge leaves a row that was below the fold.
+     */
+    var centre: Boolean = false
+        private set
+
+    fun request(@StringRes titleRes: Int, centre: Boolean = false) {
         target = titleRes
         targetItems = emptySet()
+        this.centre = centre
         scrollClaimed = false
+        awaitingArrival = true
         serial++
     }
 
@@ -263,8 +287,36 @@ internal object SettingsHighlight {
     fun requestItems(keys: Collection<String>, @StringRes titleRes: Int = 0) {
         target = titleRes
         targetItems = keys.filter { it.isNotBlank() }.toSet()
+        centre = false
         scrollClaimed = false
+        awaitingArrival = true
         serial++
+    }
+
+    /**
+     * For a link to a whole screen: nothing to flash, but the screen opens with
+     * every row the settings depth would hide; see [DepthReveal].
+     */
+    fun requestScreen() {
+        awaitingArrival = true
+        serial++
+    }
+
+    /** True while a row or entry is waiting to be flashed. */
+    val pending: Boolean get() = target != 0 || targetItems.isNotEmpty()
+
+    /**
+     * Set by a request and taken by the screen it sent the user to, so one
+     * arrival opens one screen's hidden rows and not those of the next screen
+     * opened while the flash is still running.
+     */
+    private var awaitingArrival = false
+
+    /** True once per request, for the screen the user landed on. */
+    fun takeArrival(): Boolean {
+        val arrived = awaitingArrival
+        awaitingArrival = false
+        return arrived
     }
 
     /** True for the one row that gets to scroll itself into view. */
@@ -280,6 +332,8 @@ internal object SettingsHighlight {
     fun clear() {
         target = 0
         targetItems = emptySet()
+        centre = false
+        awaitingArrival = false
     }
 
     /** Clears only if nothing new was requested since [serialAtEntry]. */
@@ -333,6 +387,19 @@ internal object ReturnAnchor {
 }
 
 /**
+ * Set while a group composes one of its hidden rows only to learn whether it
+ * is the row the new settings walk is pointing at; see [peekHiddenRows]. A row
+ * composed this way reports a match and draws nothing.
+ */
+internal val LocalHighlightProbe = compositionLocalOf<(() -> Unit)?> { null }
+
+/**
+ * True for a row another setting is hiding that the new settings walk has
+ * drawn anyway: dimmed and closed to touch; see [peekHiddenRows].
+ */
+internal val LocalRowPeeked = compositionLocalOf { false }
+
+/**
  * Wraps a settings row so it scrolls itself into view and pulses once when it
  * is the setting the user searched for.
  *
@@ -371,6 +438,8 @@ internal fun HighlightableRow(
      * is not read.
      */
     info: String? = null,
+    /** The level the depth would need to show this row, when it is here only for a [DepthReveal]. */
+    revealedAt: SettingLevel? = LocalRevealedLevel.current,
     content: @Composable () -> Unit,
 ) {
     val target = SettingsHighlight.target
@@ -380,12 +449,30 @@ internal fun HighlightableRow(
         title == null -> false
         else -> title == stringResource(target)
     }
+    val probe = LocalHighlightProbe.current
+    if (probe != null) {
+        if (requested && !coarse) SideEffect { probe() }
+        return
+    }
+    // Sent here, to a row the depth would have hidden: the notice on the screen
+    // names the depth that would keep it.
+    if (requested && revealedAt != null) {
+        val depthReveal = LocalDepthReveal.current
+        SideEffect { depthReveal?.landedOn = revealedAt }
+    }
     // The same two names are what a row's link is made of (#646), so the row
     // publishes them for its link button, and a plain row takes the long
     // press here: its link and its place in favourites (#898). A group's
     // heading takes its own, in [SettingsGroup]: the whole group would
     // otherwise answer a hold on any row inside it.
-    CompositionLocalProvider(LocalRowLinkKey provides RowLinkKey(title, highlightKey)) {
+    // A row's name stays one plain text until the row is first pressed; see
+    // [RowTouch]. A group's wrapper passes on whatever it sits in, so the rows
+    // inside it each keep their own.
+    val touch = if (coarse) LocalRowTouch.current else remember { RowTouch() }
+    CompositionLocalProvider(
+        LocalRowLinkKey provides RowLinkKey(title, highlightKey),
+        LocalRowTouch provides touch,
+    ) {
         val bare = LocalSettingsDepth.current.depth == SettingsDepth.SIMPLE
         val whatIsThis = if (info != null && bare) remember(title, info) { RowInfo(title.orEmpty(), info) } else null
         val hold = if (coarse) null else rememberRowHold(disabledReason, whatIsThis)
@@ -396,16 +483,56 @@ internal fun HighlightableRow(
             title == null || NewSettings.titles.isEmpty() -> false
             else -> NewSettings.entries.any { it.title == title }
         }
+        // Inside a group card the border takes the card's own corners: the
+        // card clips to them, and a rounder end corner cut a 12 dp outline (#1184).
+        val newBorderShape = LocalGroupCardShape.current ?: RoundedCornerShape(12.dp)
         HighlightFrame(
             requested = requested,
             rank = if (coarse) HighlightRank.SECTION else HighlightRank.ROW,
             modifier = Modifier
+                .then(if (coarse || touch == null) Modifier else Modifier.armRowTouch(touch))
                 .settingLinkHold(hold, disabledReason, whatIsThis)
-                .then(if (isNew) Modifier.border(1.5.dp, NewSettingGold, RoundedCornerShape(12.dp)) else Modifier),
+                .then(if (isNew) Modifier.border(1.5.dp, NewSettingGold, newBorderShape) else Modifier),
         ) {
-            content()
+            if (LocalRowPeeked.current) PeekedContent(content) else content()
             RowHoldMenu(hold)
         }
+    }
+}
+
+/**
+ * Marks [touch] on the row's first press, watched on the way down and never
+ * consumed, so every control inside still gets the whole gesture.
+ */
+private fun Modifier.armRowTouch(touch: RowTouch): Modifier = pointerInput(touch) {
+    awaitEachGesture {
+        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+        touch.touched = true
+    }
+}
+
+/**
+ * A row drawn only because the new settings walk pointed at it: the setting
+ * that would show it is off. Dimmed like a disabled row, and every touch on
+ * it stops here, since its switch or slider would change something that has
+ * no effect until that other setting allows it. The gold border stays at full
+ * strength around it.
+ */
+@Composable
+private fun PeekedContent(content: @Composable () -> Unit) {
+    Box(Modifier.semantics { disabled() }) {
+        Box(Modifier.alpha(0.38f)) { content() }
+        Box(
+            Modifier
+                .matchParentSize()
+                .pointerInput(Unit) {
+                    awaitPointerEventScope {
+                        while (true) {
+                            awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
+                        }
+                    }
+                },
+        )
     }
 }
 
@@ -503,13 +630,33 @@ private fun HighlightFrame(
     var flashing by remember { mutableStateOf(false) }
     val requester = remember { BringIntoViewRequester() }
     val scroll = LocalScreenScroll.current
+    val nav = LocalNavAnimatedScope.current
     // Where the row sits, tracked only while it is being held in view. Its
     // own effect, since the flash's ends when the request is consumed.
     var holds by remember { mutableIntStateOf(0) }
     var holding by remember { mutableStateOf(false) }
     var top by remember { mutableFloatStateOf(0f) }
+    // The row's height, read only when it is brought into view; a plain box so
+    // a resize recomposes nothing.
+    val height = remember { IntArray(1) }
+    // Taken when the row claims the scroll: the request is cleared after the
+    // flash, while the hold below still has a second or so to run.
+    val centred = remember { BooleanArray(1) }
+    val bring: suspend () -> Unit = {
+        val viewport = scroll?.viewportSize ?: 0
+        val h = height[0]
+        if (centred[0] && viewport > h && h > 0) {
+            // A viewport-tall box with the row at its middle: the scroll that
+            // fits all of it in view is the one that centres the row. Near
+            // either end of the page the scroll stops short, as it should.
+            val above = (viewport - h) / 2f
+            requester.bringIntoView(Rect(0f, -above, 1f, h + above))
+        } else {
+            requester.bringIntoView()
+        }
+    }
     LaunchedEffect(holds) {
-        if (holds > 0) holdInView(requester, scroll, { holding = it }) { top }
+        if (holds > 0) holdInView(bring, scroll, { holding = it }) { top }
     }
     val color by animateColorAsState(
         targetValue = if (flashing && !SettingsHighlight.hold) MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
@@ -528,9 +675,16 @@ private fun HighlightFrame(
         // A frame's grace so the row has been placed before we scroll to it,
         // plus however long this rank owes the narrower ones.
         delay(rank.settleMillis)
+        // The screen a request navigates away from is still sliding out
+        // (NavTransitionMs) when this fires, and it may list the same row: the
+        // new settings walk's steps replace a page with one that shares rows.
+        // Claiming the scroll there scrolled a page on its way off screen and
+        // left the arriving one at its top.
+        if (nav?.transition?.targetState == EnterExitState.PostExit) return@LaunchedEffect
         if (rank != HighlightRank.ITEM && SettingsHighlight.scrollTaken()) return@LaunchedEffect
         if (SettingsHighlight.claimScroll()) {
-            requester.bringIntoView()
+            centred[0] = SettingsHighlight.centre
+            bring()
             holds++
         }
         flashing = true
@@ -544,6 +698,7 @@ private fun HighlightFrame(
         modifier = modifier
             .fillMaxWidth()
             .bringIntoViewRequester(requester)
+            .onSizeChanged { height[0] = it.height }
             .then(if (holding) Modifier.onGloballyPositioned { top = it.positionInRoot().y } else Modifier)
             .then(if (flashing && SettingsHighlight.hold) Modifier.testTag(SettingsHighlight.HIGHLIGHT_TAG) else Modifier)
             .background(color),
@@ -563,7 +718,7 @@ private fun HighlightFrame(
  * for exactly that long; [top] reads where it last saw the row.
  */
 private suspend fun holdInView(
-    requester: BringIntoViewRequester,
+    bring: suspend () -> Unit,
     scroll: ScrollState?,
     setHolding: (Boolean) -> Unit,
     top: () -> Float,
@@ -573,7 +728,7 @@ private suspend fun holdInView(
         withTimeoutOrNull(HighlightHoldMs) {
             coroutineScope {
                 val follow = launch {
-                    snapshotFlow(top).drop(1).collect { requester.bringIntoView() }
+                    snapshotFlow(top).drop(1).collect { bring() }
                 }
                 // The user's own drag is where they want to be.
                 scroll?.interactionSource?.interactions?.first { it is DragInteraction.Start }
@@ -692,6 +847,7 @@ internal object SettingsRouteIcons {
         "selection_macros" to { Icons.Outlined.HighlightAlt },
         "selection_macros/actions" to { Icons.Outlined.Checklist },
         "selection_macros/ai" to { Icons.Outlined.AutoAwesome },
+        "selection_macros/icons" to { Icons.Outlined.Interests },
         "selection_macros/zones" to { Icons.Outlined.Public },
         "advanced" to { Icons.Outlined.Tune },
         "extensions" to { Icons.Outlined.ExtensionIcon },
@@ -705,7 +861,10 @@ internal object SettingsRouteIcons {
         "backup/contents" to { Icons.Outlined.Checklist },
         "about" to { Icons.Outlined.Info },
         "supporters" to { Icons.Outlined.VolunteerActivism },
+        "import_hub" to { Icons.Outlined.FileOpen },
         "storage" to { Icons.Outlined.PieChart },
+        "resources" to { Icons.Outlined.Memory },
+        "feature_libraries" to { Icons.Outlined.Extension },
         "statistics" to { Icons.Outlined.QueryStats },
         "licenses" to { Icons.Outlined.Gavel },
         "debug_log" to { Icons.AutoMirrored.Outlined.Article },

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -32,6 +33,7 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import android.widget.Toast
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
@@ -120,8 +122,11 @@ import com.wasimaster.wmkeyboard.core.settings.providerCredentials
 import com.wasimaster.wmkeyboard.core.settings.providerMode
 import com.wasimaster.wmkeyboard.core.settings.resolveProviders
 import com.wasimaster.wmkeyboard.core.tools.ToolHttp
+import com.wasimaster.wmkeyboard.ime.wmpass.WmPassBridge
 import com.wasimaster.wmkeyboard.core.ui.ScrollRail
 import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.launch
 
 /*
@@ -933,6 +938,7 @@ internal fun providerAccent(type: ProviderType?): Color = when (type?.id) {
     ProviderTypes.XAI.id -> Color(0xFF111111)
     ProviderTypes.DEEPSEEK.id -> Color(0xFF4D6BFE)
     ProviderTypes.BRAVE_ANSWERS.id -> Color(0xFFFB542B)
+    ProviderTypes.PRIVATEMODE.id -> Color(0xFF2F6F5E)
     ProviderTypes.OPENAI_IMAGE.id -> Color(0xFF10A37F)
     ProviderTypes.GEMINI_IMAGE.id -> Color(0xFF4285F4)
     ProviderTypes.XAI_IMAGE.id -> Color(0xFF111111)
@@ -973,6 +979,20 @@ internal fun providerTags(type: ProviderType): String {
 }
 
 /**
+ * Keeps a provider sheet below the status bar, whatever its height.
+ *
+ * Material's sheet takes off as much of the status bar's inset as its own
+ * offset covers, so its content's top padding depends on where the sheet is,
+ * and where it rests depends on how tall that makes it. A sheet within a
+ * status bar of the screen's height, as the list of providers is on many
+ * phones, never settles: every move shifts the place it is heading for, and
+ * a drag made it jump between its two heights (Telegram, 4545). Spent here,
+ * the inset is the same at every offset, and the sheet's top stops at the
+ * status bar instead of passing under it.
+ */
+private val ClearOfStatusBar = Modifier.statusBarsPadding()
+
+/**
  * "Add a provider" as a sheet of kinds, the build's suggestions first. A
  * server kind also lists the servers set up for another tool, so a
  * LibreTranslate server added once can be used again.
@@ -990,6 +1010,7 @@ internal fun ProviderTypeSheet(
     val types = remember(tool, env, chain) { ProviderCatalog.addable(tool, chain, env) }
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        modifier = ClearOfStatusBar,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
         ScrollRail(state = rememberScrollRailState(), fadeColor = BottomSheetDefaults.ContainerColor) {
@@ -1083,9 +1104,19 @@ internal fun ProviderEditorSheet(
         draft = next
         testResult = null
     }
+    // What WM Pass calls this key: the kind, and the nickname when there are two of it.
+    val label = stringResource(type.labelRes)
+    val keyTitle = draft.name.trim().let { name ->
+        when {
+            name.isEmpty() -> label
+            name.contains(label, ignoreCase = true) -> name
+            else -> "$label ($name)"
+        }
+    }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
+        modifier = ClearOfStatusBar,
         sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
     ) {
         ScrollRail(state = rememberScrollRailState(), fadeColor = BottomSheetDefaults.ContainerColor) {
@@ -1116,17 +1147,25 @@ internal fun ProviderEditorSheet(
                 ) { edit(draft.copy(name = it)) }
             }
             if (spec.url != Need.NONE) {
+                // An address has no spaces. One that does came with text pasted
+                // after it, out of sight past the field's edge: a docs page's
+                // "https://…/v1Transcribes audio into the input language." was
+                // sent as typed (Telegram, 4765). The field grows to show it all.
+                val spaced = draft.url.trim().any(Char::isWhitespace)
                 StoredTextField(
                     label = stringResource(R.string.providers_field_url),
                     value = draft.url,
                     supporting = stringResource(
                         when {
+                            spaced -> R.string.providers_field_url_has_space
                             type === ProviderTypes.LANGUAGETOOL -> R.string.providers_field_url_languagetool_hint
                             spec.url == Need.REQUIRED -> R.string.providers_field_url_hint
                             else -> R.string.providers_field_url_optional_hint
                         },
                     ),
                     keyboardType = KeyboardType.Uri,
+                    multiLine = spaced,
+                    isError = spaced,
                 ) { edit(draft.copy(url = it)) }
             }
             if (spec.path) {
@@ -1194,6 +1233,7 @@ internal fun ProviderEditorSheet(
                         },
                     ),
                     password = true,
+                    wmPassTitle = keyTitle,
                 ) { edit(draft.copy(apiKey = it)) }
             }
             if (spec.secret) {
@@ -1202,6 +1242,8 @@ internal fun ProviderEditorSheet(
                     value = draft.extra[CredentialSpec.SECRET].orEmpty(),
                     supporting = stringResource(R.string.providers_field_secret_hint),
                     password = true,
+                    wmPassTitle = keyTitle,
+                    wmPassField = WmPassBridge.API_SECRET,
                 ) { secret ->
                     edit(
                         draft.copy(
@@ -1218,12 +1260,16 @@ internal fun ProviderEditorSheet(
                         if (spec.modelRequired) R.string.providers_field_model_required_hint else R.string.providers_field_model_hint,
                     ),
                 ) { edit(draft.copy(model = it)) }
+                AiProviders.of(type.id)?.let { provider ->
+                    ModelListButton(provider, draft) { model -> edit(draft.copy(model = model)) }
+                }
             }
             if (type === ProviderTypes.LANGUAGETOOL) LanguageToolExtras(draft, ::edit)
             if (home) {
                 HomeProviderExtras(
                     repository = repository,
                     type = type,
+                    keyTitle = keyTitle,
                     draft = draft,
                     isNew = target.isNew,
                     onDraft = ::edit,
@@ -1326,6 +1372,43 @@ internal fun ProviderEditorSheet(
     }
 }
 
+/** Asks [provider] for its models with what the form holds, and offers them in a sheet (#1038). */
+@Composable
+private fun ModelListButton(provider: AiProvider, draft: ProviderCredential, onPick: (String) -> Unit) {
+    if (provider == AiProvider.ON_DEVICE || provider == AiProvider.BRAVE) return
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    var models by remember { mutableStateOf<List<String>?>(null) }
+    TextButton(
+        onClick = {
+            val config = AiClient.Config(provider, draft.apiKey.trim(), draft.model.trim(), draft.url.trim())
+            scope.launch {
+                val found = withContext(Dispatchers.IO) { runCatching { AiClient.listModels(config) }.getOrNull() }
+                if (found.isNullOrEmpty()) {
+                    Toast.makeText(context, R.string.toolai_ai_model_list_failed, Toast.LENGTH_LONG).show()
+                } else {
+                    models = found
+                }
+            }
+        },
+        modifier = Modifier.padding(horizontal = 8.dp),
+    ) { Text(stringResource(R.string.toolai_ai_model_list_action)) }
+    models?.let { list ->
+        ChoiceSheet(
+            title = stringResource(R.string.providers_field_model),
+            subtitle = null,
+            options = list.map { it to it },
+            selected = draft.model,
+            detail = null,
+            onPick = {
+                models = null
+                onPick(it)
+            },
+            onDismiss = { models = null },
+        )
+    }
+}
+
 /**
  * What a blank model means for an AI service: the default the client falls
  * back to, named from the client's own list so the two cannot drift apart.
@@ -1339,6 +1422,7 @@ private fun aiModelHint(type: ProviderType): String? {
         AiProvider.GEMINI -> AiClient.DefaultModels.GEMINI
         AiProvider.XAI -> AiClient.DefaultModels.XAI
         AiProvider.DEEPSEEK -> AiClient.DefaultModels.DEEPSEEK
+        AiProvider.PRIVATEMODE -> AiClient.DefaultModels.PRIVATEMODE
         AiProvider.OLLAMA -> AiClient.DefaultModels.OLLAMA
         AiProvider.LM_STUDIO -> return stringResource(R.string.toolai_ai_lm_studio_model_hint)
         AiProvider.OPENAI_COMPATIBLE -> return stringResource(R.string.toolai_ai_compatible_model_hint)

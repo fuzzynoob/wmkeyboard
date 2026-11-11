@@ -119,7 +119,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Tap model — Where your finger lands per key, learned from every settled word and every kept correction; the glide hand model's class with its own file
     - Three ways a fix is seen — Backspace-and-retype, tapping into a word and editing in place, selecting a word and typing over it; only the keyboard's own edits are followed and the word is checked against the field once, on leaving it
     - Autocorrect's wrong fix, fixed by hand — The pair starts from the original typo and the wrong correction is graded as rejected
-    - Learned corrections screen — Every taught pair with its count, the slips noticed, per-pair delete, forget all; both stores ride the Dictionary export section
+    - Learned corrections screen — Every taught pair, per-layout slip and undone correction, each editable on its own; add a fix or stop a correction by hand (kept until removed), forget all; the stores ride the Dictionary export section
   - Undo chip `uncommon` — The word you typed, offered back on the strip after autocorrect rewrote it
     - Outlives backspace — Backspace reaches a correction for one keystroke; the chip stands until the sentence ends, and finds the word behind the caret rather than assuming it is still there
     - Gated on how obvious the correction was — Certainty (margin over the confidence gate, or two-source agreement) times how little it moved the word (edit cost and word length); a split correction always qualifies
@@ -402,7 +402,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Converting-layout block — Off on Avro, Hangul, Vietnamese and every CJK conversion layout — a stroke there spells a reading, not a word
     - Re-checked on dictionary download — Source epoch bumps re-ask the coverage question
   - Bengali phonetic glide `RARE` — Swipe roman letters on the Avro grid, get Bengali words back via RomanizedIndex
-  - Multi-word glide across the spacebar `uncommon` — One unbroken stroke crossing space commits several words; spacebar points anchor no letter and are dropped
+  - Multi-word glide across the spacebar `uncommon` — One unbroken stroke crossing space commits several words; spacebar points anchor no letter and are dropped; the walks either side are open ends, straight or diagonal, and the stroke is read as a phrase, each word judged by the words after it as well as before through trigrams, bigrams and the context model
     - A crossing reaches the bar's midline — Clipping the top of the spacebar on the way to a bottom-row letter stays part of the word, so a long word along the bottom row is not cut in two (#428)
     - Sequential context — Each segment decoded after the previous one is committed and learned, so word 2 sees word 1 as context
     - Toggleable — Off makes a spacebar-crossing stroke decode as one word
@@ -606,6 +606,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Choose without lifting — The first alternate is highlighted as the popup opens, a slide moves the highlight and the lift commits it, so a hold and a straight release types the first alternate; sliding clear of the popup types nothing. On by default; off restores the popup that stays up for a second tap
     - Action alternates `RARE` — A popup entry that runs an action instead of typing: Tab, a layer switch, or any tool. Available on every key whose hold is free, which is all of them bar backspace, forward delete, space and the braille dots
     - Custom currency popup — The $ key's popup list is user-ordered; built-in set is ৳ € £ ¥ ₹ ₿
+    - Currency by language and region — The letter holding $ and the symbols page's $ key lead with the language's currency; English, Spanish and Portuguese go by the phone's region (£ in Britain, R$ in Brazil)
     - No-alternates fallback — A long press on a key with no popup behaves like a tap rather than doing nothing
   - Key preview bubble `uncommon` — On-key or floating style, each with its own remembered height
     - Minimum linger 140 ms — A fast tap still leaves a readable bubble instead of a one-frame flash
@@ -652,6 +653,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - User-shift vs auto-shift distinction `RARE` — shiftPressedByUser is tracked separately so Shift+Enter's newline override never fires on an auto-capitalised empty chat box
     - Shift+Enter newline — Opt-in: types a real newline instead of firing the field's declared Send action
 - **Space and punctuation behaviour**
+  - Smart punctuation key `RARE` — A downloaded 5 MB int8 encoder (9.5 MB Large) (`tools/wmpunct`, wm-engine `punct.rs`) reads the sentence so far on every keystroke and the period key shows the mark it is heading for (`how are you` → `?`), full stop first in its hold; one model for 58 languages, told apart from the words (87% right over all, 94% in English); opt-in, comma on request, left alone in address, password and symbol pages
   - Double-space period — Inserts '. ' within 400 ms, plain text fields only so email/URI/number boxes keep two spaces
   - Double-space tab `RARE` — Second space inserts a tab instead; wins over the period rule and works even at a line start
   - Auto-space after punctuation `uncommon` — 'hello,world' becomes 'hello, world'; plain-text fields only, and typing a space yourself right after does not double it
@@ -763,7 +765,9 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 ## Languages, scripts, layouts, transliteration
 
-- **Language registry** — 955 languages, each with script, locale tag and its own layout list
+- **Language registry** — 1,555 languages, each with script, locale tag and its own layout list
+  - Phonetic layouts for 77 more languages `RARE` — `rom_*` assets on table rules (`minor_phonetic.rs`), the languages Gboard transliterates and we had no rules for: 56 through the Indic engine, 17 Arabic-script, Yiddish, Mongolian, Ol Chiki, Meetei Mayek; a word list ranks all of them (Urdu's fold for the Arabic ones with their letters mapped, `AlphabetPhoneticIndex` for the rest)
+  - Gboard parity `RARE` — every Gboard keyboard compared: 650 boards added as `gb_*` assets, 316 languages in the generated GboardLanguages, and Gboard's long-press letters appended to 233 of our layouts with the same keys (tools/gboard-layouts)
   - Catalogue size and shape — 826 LanguageDef entries across two Kotlin files, 386 hand-written and 440 generated from the Keyman corpus; unknown ids fall back to a generic Latin language
     - Endonym · English naming — Every row reads "বাংলা · Bangla", native name first
     - Script distribution — 234 Latin, 38 Cyrillic, 16 Arabic, 14 Devanagari, 5 Myanmar, 4 Bengali, plus 32 more scripts
@@ -986,20 +990,25 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Three-set layouts — 세벌식 390 and 세벌식 최종 ship beside the two-set grid; a plain initial typed twice doubles (ᄀᄀ → 까)
     - 천지인 (Cheonjiin) pad — Samsung-style 12-key grid; vowels folded from the strokes ㅣ ㆍ ㅡ by CheonjiinComposer, consonants picked by multi-tap; space or a 1 s pause ends a consonant's cycle (#372)
     - 나랏글 (Naratgeul) pad — Samsung-style 12-key grid; 획추가 (add_stroke) and 쌍자음 (double_consonant) key actions rewrite the last jamo in the buffer (롬→롭→롶, 각→갂), NaratgeulComposer folds ㅏ/ㅓ + ㅣ into ㅐ/ㅔ (#599)
+    - 10 키 (10 key) pad: the 천지인 composer in Gboard's arrangement, with a ▶ key that ends a consonant's cycle and separate . and , keys
+    - 천지인 플러스 (Cheonjiin Plus) pad: CheonjiinComposer with a key for every consonant
+    - 베가 (Vega) pad and centred Vega, centred 나랏글: every Vega key a Key.multitap cycle, vowels included; VegaComposer spells as NaratgeulComposer does and lets space end a run
+    - 모아키 (Moakey) and two-hand: Key.bendsVowels, MoakeyDrag walks Samsung's bend table leg by leg (ㅏ ㅐ ㅑ ㅒ), MoakeyComposer opens the typed syllables so a tapped consonant becomes a final
     - No candidate step — Korean gets the ordinary suggestion/autocorrect strip, not a conversion bar
   - Dead keys — Any key emitting a combining mark U+0300-U+036F arms a dead key
     - NFC composition, not a table — Every precomposed pair Unicode defines is reachable, including ǹ, ẍ, ṽ
     - Spacing accents stay literal — Typing ´ ^ ~ ¨ on their own gives ordinary characters so a^2 and backticks still work
     - Visible fallback — A pair Unicode has no character for emits the spacing accent, or the mark on a dotted circle
-- **CJK conversion input** — 6 Chinese schemes, Cantonese Jyutping, 3 Japanese layouts, all through one Composer interface
-  - Chinese input schemes — Pinyin, T9 Pinyin, Zhuyin, Cangjie, Cangjie Quick, Stroke - six layouts on one language
+- **CJK conversion input** — 10 Chinese layouts, 3 Cantonese spellings, 3 Japanese layouts, all through one Composer interface
+  - Chinese input schemes — Pinyin, T9 Pinyin, Zhuyin, Cangjie, Cangjie Quick, Wubi 86, Stroke - seven layouts on one language
     - Prefix commit — Pinyin/T9/Zhuyin/Jyutping/Japanese: tapping 你 for `nihao` consumes only `ni` and re-converts the tail
     - Lattice decoding — Viterbi over syllable boundaries with n-gram scoring, capped at 24 units before falling back to prefix lookup
     - Zhuyin and T9 need no dictionary of their own — Both derive their tables from the pinyin inventory and translate each segment to pinyin for lookup
     - T9 syllable column (#635) — The 九宫格 pad's left column lists what the next undecided keys could spell (`9426` → xiao, xian, zhao, zhan, then xia, zha, then xi, yi, zi), longest first with the decoder's own guess on top; a tap pins that syllable into the buffer as letters, the strip re-converts from it and the column moves on. Punctuation when idle. The composing text marks syllables with `'`; backspace on a pinned syllable puts its digits back. `reading_column` key action, also in the layout editor
     - Cangjie radical glyphs on the keys — a-y printed as 日月金木水...; the composing region shows glyphs, and hardware letters are accepted too
     - Stroke with a wildcard — Five stroke classes 一丨丿丶乙 (also h/s/p/n/z or 1-5) plus * ? ＊ as an uncertain stroke
-    - Code-table methods cap at 24 candidates — Cangjie and Stroke look up a fixed table rather than ranking a lattice
+    - Wubi 86 keys — letters with the stroke zone and root in the corner, `z` a wildcard; a commit takes at most four keys, so the next code keeps converting
+    - Code-table methods cap at 24 candidates — Cangjie, Wubi and Stroke look up a fixed table rather than ranking a lattice
   - Double Pinyin — 5 schemes: Microsoft, Sogou, Xiaohe (小鹤), Ziranma, Pinyin++
     - Validity-filtered translation — An ambiguous final key resolves to whichever combination forms a real syllable
     - Apostrophes skipped, not paired — Otherwise one stray apostrophe desyncs the parity of every syllable after it
@@ -1010,13 +1019,14 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Ranking signal, not a filter — Two variants per syllable behind an ln(0.15) penalty, so an exact match only loses to a much likelier fuzzy word
     - Validity-filtered expansion — Only real syllables are ever generated
   - Cantonese Jyutping with lazy pronunciation `RARE` — Own 163k-entry pack; tone digits 1-6 buffer without being able to start a buffer
+  - Cantonese Yale and Cantonese Pinyin (教院拼音) `RARE` — Other spellings read back to Jyutping and decoded over its pack as a graph, so Yale's low-tone `h` can split both ways (`neihou`)
     - Bidirectional mergers — n/l, ng/none, z/j, c/ch - hypercorrection is as common as the merger itself
     - Conditional labial mergers — gw to g and kw to k only before a rounded final, so 誇 kwaa1 never becomes kaa1
     - Coda mergers — -ng to -n, -m to -n, -k to -t, -p to -t
-  - Japanese — Romaji, 12-key Flick, and Kana JIS layouts all feeding one composer
+  - Japanese — Romaji, Godan, 12-key Flick, Kana JIS, and 50 keys layouts all feeding one composer
     - Romaji to kana transduction — Tracks the romaji span behind every kana unit so consumed lengths report keystrokes, not morae
     - Flick pad — Per-key four-direction flick map in the layout data (あ flicks to い/う/え/お)
-    - Kana without marks — かつこう finds 学校 (がっこう): a plain kana typed on Flick or Kana JIS also reads as its small, dakuten or handakuten form behind a small per-mark penalty tuned against the real pack; marks are only ever added, and romaji is never widened
+    - Kana without marks — かつこう finds 学校 (がっこう): a plain kana typed on Flick, Kana JIS or 50 keys also reads as its small, dakuten or handakuten form behind a small per-mark penalty tuned against the real pack; marks are only ever added, and romaji is never widened
     - Kana-variant key — 小゛゜ cycles the last kana through dakuten/handakuten/small forms (か to が, は to ば to ぱ, つ to っ to づ)
     - Always usable as a bare kana keyboard — With no pack downloaded the reading still commits as hiragana, katakana or half-width katakana
     - Tap resolved by index, not text — ja_kana lists 行 under い, いき, ゆき and こう, so matching by string would eat a mora the user never chose
@@ -1029,10 +1039,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Order is load-bearing — Regional tables are keyed to Traditional text, so the character pass must run first
     - Loaded on first use — Tables are parsed only once the toggle is on; without the s2t_phrases pack it degrades to one character at a time
   - Learning from candidate picks `uncommon` — Per-reading history reorders candidates; namespaced by reading space, not by language
-    - Five reading spaces — pinyin, pinyin_t9, zhuyin, jyutping, ja_kana each keep their own history; Cangjie and Stroke deliberately do not learn
+    - Five reading spaces — pinyin, pinyin_t9, zhuyin, jyutping, ja_kana each keep their own history; Cangjie, Wubi and Stroke deliberately do not learn
     - Separate from the Latin user lexicon — That store drops one-character keys, is keyed by surface word, and feeds the gesture decoder where Hanzi is pollution
     - Governed by the on-device learning setting — Incognito and no-learning fields stop new picks being recorded
-  - Conversion dictionary packs `uncommon` — 6 downloadable packs, none bundled: pinyin 2.5 MB, ja_kana 41.5 MB, jyutping 3.4 MB, stroke 446 KB, cangjie 351 KB, s2t_phrases 1 MB (OpenCC, Traditional output; listed under Chinese and Cantonese)
+  - Conversion dictionary packs `uncommon` — 7 downloadable packs, none bundled: pinyin 2.5 MB, ja_kana 41.5 MB, jyutping 3.4 MB, stroke 446 KB, cangjie 351 KB, wubi 1.7 MB, s2t_phrases 1 MB (OpenCC, Traditional output; listed under Chinese and Cantonese)
     - SHA-256 verified before going live — A corrupt conversion table would silently mistranslate
     - Resumable — .part file plus HTTP Range, with a preflight free-space check
     - Presence means valid — Atomic rename after verification, so a final file only exists if the download completed
@@ -1049,7 +1059,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - 联想 after a commit — Chinese gets the built-in Mandarin predictor (word pairs pack plus your habits) whichever schema typed it; librime-predict, keyed on the exact last commit, found almost nothing after RIME's phrase commits on held-out text. Cantonese gets none
     - No Lua — librime-lua measured at +0.92 MiB (+34%) on arm64; left out, since Lua's io/os would let any imported schema run code in the keyboard. Rime Ice's Lua components are skipped
     - Before first unlock — RIME's data is credential-protected, so a locked phone types on the built-in engine
-  - Mozc engine `RARE` — Japanese Engine = Built-in | Mozc; with Mozc every Japanese layout (romaji, flick 12-key, JIS kana) converts through Google's Mozc 3.34. Built-in stays the default
+  - Mozc engine `RARE` — Japanese Engine = Built-in | Mozc; with Mozc every Japanese layout (romaji, flick 12-key, JIS kana) converts through Google's Mozc 3.35. Built-in stays the default
     - Own library on its own gate — `libwmmozc.so` (native/mozc-jni: Mozc's converter with Abseil and Protocol Buffers, built with Mozc's own Bazel Android config; 16 KB pages, JNI symbols only) behind the `mozc` gate: `:feature:mozc` on Play, NativeDelivery elsewhere, F-Droid behind its opt-in
     - Its own dictionary — Mozc's `mozc.data`, built from the same release, as a checksum-pinned CJK pack; not in the library
     - Sentence conversion and prediction — Mozc's mobile prediction: whole-sentence conversions, then partial ones that convert the start of the reading; a pick commits that much and the rest converts again; zero-query suggestions after a pick
@@ -1139,13 +1149,13 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 
 | Feature | Needs |
 |---|---|
-| CJK conversion dictionary packs (pinyin, ja_kana, jyutping, stroke, cangjie, s2t_phrases) | network download required - none are bundled; until downloaded the composer shows the buffer but no candidates. Every build. |
+| CJK conversion dictionary packs (pinyin, ja_kana, jyutping, stroke, cangjie, wubi, s2t_phrases) | network download required - none are bundled; until downloaded the composer shows the buffer but no candidates. Every build. |
 | Downloadable word lists, emoji keyword packs and n-gram packs per language | network download; prompted once when adding a language |
 | Region-based language suggestions | reads TelephonyManager SIM/network country - no permission needed, but absent on Wi-Fi-only devices (falls back to time zone, then locale) |
 | Per-script pinned fonts and per-script font pickers (Noto Music, Noto Sans Symbols 2, Noto Sans <script>) | fetched through the Google Play Services downloadable-fonts provider; on a GMS-free or offline device the async font falls back to the platform default |
 | Android subtype auto-enabling for every layout | needs API 34+ (setExplicitlyEnabledInputMethodSubtypes); on Android 13 and below the user must tick languages in system settings |
 | Layout import from FlorisBoard/HeliBoard files, and addon-repo layout installs | file picker / repository URL; foreign files capped at 4 MB |
-| Everything else in this area (955-language registry, 2,000 layouts, all composers, Avro, Bengali spelling maps, fancy text, notation layouts, layout editor) | no build gate: all of it ships in every build, F-Droid's included |
+| Everything else in this area (1,555-language registry, 3,724 layouts, all composers, Avro, Bengali spelling maps, fancy text, notation layouts, layout editor) | no build gate: all of it ships in every build, F-Droid's included |
 
 ## Themes and appearance
 
@@ -1847,6 +1857,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Phone or calculator digit order — 1 2 3 top by default; calculator style puts 7 8 9 on top
     - Backspace repeats on hold — Enter sends a normal Enter key
   - Handwriting `uncommon` — Full-width ink canvas, ML Kit digital-ink recognition, zinnia for Chinese and Japanese without it, PaddleOCR line recognisers for nine other scripts where ML Kit has no model
+    - A handwriting layout per language `RARE` — `hw_*` assets for the 296 languages beyond Chinese, Japanese and Korean that a recogniser reads in their own script (Gboard's `ime_%s_handwriting`); written by tools/gboard-layouts/handwriting.py
     - Per-language model manager — Catalog read from ML Kit itself, filtered to enabled languages; 8-26MB each, sized from ML Kit's own shipped manifest
     - Measured download progress — Bytes counted off disk against the manifest size; stall notice at 20s, gives up and cleans up at 90s; panel download button doubles as cancel
     - Language chip on the canvas — Only shown when two or more enabled languages have a model
@@ -1979,7 +1990,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Markdown link insertion — Off by default; [Title](url) instead of a bare URL
     - Back arrow returns to the results list — Not to a blank search
   - Currency converter `RARE` — Live fiat rates plus cryptocurrency
-    - Four fiat sources with fallback chain — ExchangeRate-API (default), Frankfurter, Coinbase, jsDelivr currency-api (with its Cloudflare mirror); F-Droid starts from currency-api then Frankfurter, and coins from currency-api alone
+    - Five fiat sources with fallback chain — ExchangeRate-API (default), Frankfurter, AllRatesToday, Coinbase, jsDelivr currency-api (with its Cloudflare mirror); F-Droid starts from currency-api then Frankfurter, and coins from currency-api alone
     - Fetch rates as you type — Off on F-Droid, where a currency chip reads "Get the rate" and fetches nothing until it is tapped
     - USD-pivot cross conversion — One fetch covers every pair
     - 15 pinned codes — USD, EUR, BDT, GBP, INR, JPY, CNY, AUD, CAD, SGD, AED, SAR, MYR, TRY, PKR
@@ -2150,6 +2161,10 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Warns when nothing is configured to drop — Separate toast when the profile drops nothing
   - Settings — Opens the settings app from the keyboard
 - **Clock** `RARE` — World clocks, alarms, timers, stopwatch, meeting planner, date maths and history in one keyboard panel, with a full Clock screen in the settings app on the same store
+- **File manager** `RARE` — Tools pick a file in a sheet inside the keyboard rather than leaving for Android's picker; not in the Play build, which cannot hold All files access
+  - Opens from the gallery's Files and Browse all, Send files' Files, the AI chat's image and file picks, KDE Connect's Files…, and the QR, text scanner and camera picture buttons; returns to the tool that asked
+  - Places (Recent, volumes, shortcuts), breadcrumb, name search, sort, hidden files, multi-select across folders, filtered to what the tool takes; Android's picker a button away for Drive and the like
+  - Rename, copy, move, new folder and a confirmed permanent delete; Built-in file manager under Tools turns it off; never over the lock screen
 - **Send files** (#729) `RARE` — Files to anyone as an end-to-end encrypted link through a Send instance (the Firefox Send fork), or straight to a device nearby; links received too
   - Link mode — Pick from four sources (document picker, the Gallery tool, the clipboard, the field's text as a .txt), set expiry and download limit from the instance's own `/config`, add or generate a password, upload with one progress ring (encryption streams through the upload)
     - Send protocol client in `:core:send` — HKDF/PBKDF2 keys, RFC 8188 aes128gcm records, encrypted metadata envelope, WebSocket upload, nonce-signed metadata/download, owner calls (delete, download limit, info); JVM-tested against the RFC vectors and a mock server
@@ -2297,7 +2312,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Not built, on purpose — SMS and telephony, notification mirroring, SFTP, contacts, find-my-phone, mouse receiver
     - Identity out of every backup — `filesDir/kdeconnect` (key.pk8, cert.der, devices.json) is excluded in backup_rules and data_extraction_rules: a restored key would clone the device id onto a second phone
     - Nested KdeConnectSettings — one KeyboardSettings slot, flat `kde_*` keys; hidden in direct boot (restrictedToDirectBoot turns it off); NotificationKind.CONNECT for a pair request, file or ping that arrives while the keyboard is hidden
-  - Plugins `RARE` — Runs installed .wmplugin Lua plugins in a panel
+  - Plugins `RARE` — Runs installed .wmplugin Python plugins in a panel
     - List then running view — Cards for installed plugins, Manage row at the end
     - Plugin-owned input field — Panel takes keystrokes; copy/paste/insert callbacks are host-mediated
     - No text, clipboard or network API for plugins — Deliberate Play-policy limit on what a plugin can reach
@@ -2401,7 +2416,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Blocked before first unlock and while the device is locked — History lives in credential-encrypted storage
     - Incognito pauses capture — Separate incognitoPausesClipboard setting, on by default
     - Incognito private clipboard (#392) — incognitoPrivateClipboard, off by default; keyboard copy/cut kept in memory (KeyboardClipboard), keyboard paste pastes it, forgotten when incognito ends
-    - Copies made from a password field never reach history
+    - Copies made from a password field reach history untouched and never as a chip, unless sensitive clips are set to Never save it
 - **Sensitive clips and password hygiene** `RARE` — Two independent passes: at copy time and at paste time
   - Copy-time classification `RARE`
     - Android 13 EXTRA_IS_SENSITIVE honoured — Constant spelled out literally so it is read on every API level
@@ -2739,7 +2754,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Sampler fixed at topK 40 / topP 0.95 / temperature 0.7
     - Streaming through the raw MessageCallback — litertlm's Flow bridge throws NoSuchMethodError on this project's coroutines, on a native thread where nothing can catch it
 - **On-device LLM (llama.cpp)** `RARE` — A second on-device runtime beside LiteRT-LM, for GGUF models; the model picked decides the runtime, LiteRT-LM stays the default
-  - llama.cpp b11753 (MIT) as libwmllama.so — CPU backend, its own ggml (not shared with whisper.cpp), arm64 ARMv8.0 plus an ARMv8.2 dotprod+fp16 build picked from /proc/cpuinfo, armeabi-v7a, x86_64; 16 KB pages, JNI symbols only, paths mapped out
+  - llama.cpp b11951 (MIT) as libwmllama.so — CPU backend, its own ggml (not shared with whisper.cpp), arm64 ARMv8.0 plus an ARMv8.2 dotprod+fp16 build picked from /proc/cpuinfo, armeabi-v7a, x86_64; 16 KB pages, JNI symbols only, paths mapped out
     - Library delivery — `llama` native gate: pinned download on GitHub, built from source by the F-Droid recipe, the :feature:llama split on Play, requested with the first GGUF download
   - 7-model GGUF catalog `RARE` — Qwen 3 1.7B, Llama 3.2 1B, Gemma 3 1B, Qwen 3 0.6B, Qwen 2.5 0.5B, SmolLM2 360M, Gemma 3 270M; each pinned to a Hugging Face commit and a SHA-256 checked after download, licence per row, none gated
   - The model's own chat template `RARE` — llama.cpp's Jinja interpreter renders the GGUF's template, falling back to its built-in formats, then ChatML; field text is tokenized without special tokens, so it cannot open a turn
@@ -2893,7 +2908,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
   - On the onnx gate — `tagger_jni.cpp` in libwmsherpa, a generic token classifier (input_ids, attention_mask, argmax per token), +6 KB arm64; spoken punctuation goes in first so a said mark never gets a second one
 - **Reduce background noise** `uncommon` — Off | Light | Strong (`voice_denoise_level`; the old on/off switch reads as Light) in `WhisperRecorder` in front of every on-device engine; the level ring keeps the raw microphone, the silence stop and the clip get the cleaned audio; off by default; never for the system recognizer or the server
 - **Phrase end detector** `uncommon` (#976) — Auto | Silero VAD | FireRedVAD | Loudness only | Your own model (`voice_vad`), for the engines that decode while you speak (Asr4All, Sherpa, Omnilingual; `core.voice.vad.VoiceVad`): when "Stop after a pause" counts and where Omnilingual cuts phrases. Auto = Silero where ONNX Runtime and a Silero file are here, else loudness. FireRedVAD = upstream's streaming ONNX + kaldi-native-fbank in `libwmsherpa` (`vad_jni.cpp`); own model = Silero or TEN `.onnx`, probed on plain ORT before sherpa-onnx (which exits on a bad file) sees it. Speech threshold 10–90% (`voice_vad_threshold`, 50%; loudness RMS 0.015 at 50%). Smart Turn v3.2 (`voice_smart_turn`, off; `smart_turn_jni.cpp`, pipecat's Whisper features) ends a phrase after the detector's 0.3 s hang when the speaker sounds finished, else the whole pause. Models in `files/vad/`, pinned (`VadModels`). Live engines no longer get the recorder's RMS silence stop
-  - Light — RNNoise (v0.1.1, BSD): 16 kHz raised to 48 kHz by a polyphase sinc filter, denoised in 10 ms frames, brought back down. Rides the speech gate (`libwmdenoise.so`, ~130 KB)
+  - Light — RNNoise (0.2 with its little model, BSD): 16 kHz raised to 48 kHz by a polyphase sinc filter, denoised in 10 ms frames, brought back down. Rides the speech gate (`libwmdenoise.so`, ~2.9 MB)
   - Strong `RARE` — DPDFNet baseline (Ceva's DeepFilterNet2 + dual-path RNN, Apache-2.0, 16 kHz) on sherpa-onnx's streaming denoiser in `libwmsherpa.so` (`dpdfnet_jni.cpp`), so the `onnx` gate; 8.8 MB model from sherpa-onnx's release, size + SHA-256 pinned, downloaded from the setting's own row (`filesDir/denoise`, on the storage screen)
   - Measured, not assumed — street/café/fan noise in LibriSpeech at 0/5/10 dB: Whisper Tiny WER 27.2% raw, 32.8% Light, 24.1% Strong; Sherpa zipformer-en-20M 33.1% raw, 40.0% Light, 31.1% Strong. Fully scrubbed DPDFNet output was barely better than raw, so 12 dB of the microphone (40 ms delayed to line up) is mixed back under it
   - Latency kept — 100 ms chunks in, 40 ms output delay; the first `delay` samples are dropped and a silent tail at the end of the clip brings the last 40 ms out, so live partials and clip length are unchanged
@@ -3182,6 +3197,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - IMAP `uncommon` — One message per backup in a dedicated folder; APPENDUID, UID EXPUNGE, hostname-verified TLS.
     - Dropbox and OneDrive — App-folder scopes via PKCE in a real browser, no SDK and no client secret.
     - FTP — Hand-rolled socket client, AUTH TLS on by default; plain FTP allowed with a stated cost.
+    - Other profile `RARE` — Sync only, with the copy in a private space or work profile, over 127.0.0.1 (#1017). HMAC handshake on a 100-bit pairing code, AES-GCM frames, a port derived from the code; whichever copy is left running takes the port. Android 17 shuts profiles apart: an adb grant of INTERACT_ACROSS_USERS lets it through.
     - Five-verb sink interface — readiness, write, list, read, delete; every method returns Result, never throws.
     - Typed failure reasons — NOT_CONFIGURED, PERMISSION_LOST, TARGET_MISSING, OUT_OF_SPACE, UNSAFE, IO; only IO is retried.
   - Scheduling `uncommon` — JobScheduler periodic job, charging-required, 6/12/24/168-hour intervals.
@@ -3622,57 +3638,75 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
     - Two shipped defaults — The sample add-on repository and the monkeytype sound-pack repository
     - Removal sticks — A per-URL marker file records what has been offered, so a removed default never comes back
     - New defaults reach old installs — Appending to the seed list offers it once on existing devices too
-- **Lua plugins** `RARE` — .wmplugin tool panels running in a locked-down luaj sandbox; 50 installs max, subsystem off until enabled
-  - .wmplugin package `RARE` — ZIP with plugin.json + a Lua source file
-    - Source only — Precompiled Lua rejected at import by its 0x1B signature, and no undumper is installed anywhere
+- **Python plugins** `RARE` — .wmplugin tool panels and selection actions in Python, run by wm-python, a Rust port of PyMini (Clink's interpreter); 50 installs max, subsystem off until enabled
+  - .wmplugin package `RARE` — ZIP with plugin.json + a main.py source file
+    - Source only — Plugins are parsed from source by the interpreter's own parser; there is no bytecode format to load
     - Zip-bomb caps — 16 entries, 1 MB archive, 256 KB script, 64 KB manifest; sizes counted from bytes actually read
     - Entry names never used as paths — manifest entry field is a map key; ../ in an entry name or the manifest has nowhere to go
     - Manifest-only read for disclosure — Showing what a plugin may do never touches the code that would do it
   - Manifest validation is total `RARE` — Any problem is a refusal with a reason; nothing about a plugin is repaired
     - Id must be a safe path segment — ^[a-z0-9][a-z0-9._-]{2,63}$, re-checked by the store because the id becomes a directory
     - Display strings sanitised — Control, format (bidi overrides), surrogate and private-use code points stripped; name capped at 40 chars
-    - API level gate — apiVersion above the host's (currently 1) is refused rather than run
+    - API level gate — apiVersion 4; above the host's is refused rather than run
+    - Lua refused — language "lua", or no language with apiVersion 3 or lower, is refused as "written in Lua, which WM Keyboard no longer runs; look for its Python version"
     - Unknown permission = refused install — Forward-compat guard: an old build declines rather than running with a capability it can't describe
-  - Permission model `RARE` — Exactly one permission exists: storage
-    - No API for typed text — No wm.text, no keystroke feed — a plugin only ever sees the contents of its own visible input box
+  - Lua retirement `RARE` — 0.6.6 removes installed Lua plugins on upgrade (PluginStore snapshot format 2)
+    - Parked data — Each removed plugin's storage.json moves to plugins/.parked/<id>/; installing a plugin with the same id restores it
+    - Demos kept their ids — Cipher, Text tools, Kitchen sink, Math Mode and Todo come back with their data; Todo import also reads the parked copy
+    - One-time notice — The Plugins screen and the keyboard's plugin list name what was removed
+    - Parked data listed — Deletable from the Plugins screen, purged after 90 days
+  - Permission model `RARE` — Three permissions: storage, reminders, selection
+    - No API for typed text — No wm.text, no keystroke feed — a plugin only ever sees the contents of its own visible input box, or a selection the user tapped it on
     - No clipboard API — Not behind a prompt, not behind a grant — the function does not exist
     - No network API — Deliberate: a plugin that could read text and open a socket is keyboard malware, and consent doesn't change that
-    - Storage isn't prompted at use — Disclosed before install; with no egress anywhere it is app-local scratch space
-  - Host API surface `RARE` — wm.log, wm.json, wm.ui.set_input, wm.storage — the whole of it, pinned by a test
-    - wm.json — decode/encode with 24-level depth cap and 256 KB text cap; whole numbers round-trip as integers
-    - wm.storage quotas — 128 keys, 64-char keys, 8 KB per value, 64 KB per plugin; enforced before every write
-    - wm.ui.set_input — Writes into one of the plugin's own text boxes, 8 KB cap; applied after the handler returns
-    - Revocation — Once a session is abandoned every wm.* call throws instead of doing anything
-  - Sandbox `RARE` — 5 stdlib modules in, 6 kept out, each for a stated reason
-    - Installed — BaseLib, Bit32Lib, TableLib, StringLib, JseMathLib and the LuaC compiler
-    - PackageLib omitted — require resolves through Class.forName — the single most important omission; a decoy package table absorbs the libs' own writes
-    - CoroutineLib omitted — luaj coroutines are real non-daemon threads that leak past the keyboard if they never yield
-    - io/os/luajava omitted — os replaced with time/clock/date only, over a small fixed strftime subset
-    - Every string-to-code route nulled — load, loadstring, loadfile, dofile, require, package, io, luajava, coroutine, debug
-    - Frozen string metatable — LuaString.s_metatable is a process-global static; replaced with a sealed table hidden behind __metatable so one plugin can't rewrite ('x'):rep for every other
-    - Amplifier guards — string.rep capped at 256 KB, pattern subject/pattern bounded (256 KB / 256 B), table.concat at 1 MB
-    - No stdout, no resource finder — STDOUT/STDERR sink to nowhere, STDIN null, finder returns null; collectgarbage is a stub
+    - Not prompted at use — Disclosed before install; with no egress anywhere there is nothing for a prompt to protect
+  - Host API surface `RARE` — wm and ui are globals, no import; wm.api_version == 4
+    - Hooks — render() returns a widget or a list; on_event(e) with e.type/e.id/e.value/e.index; transform(text, action); state in module globals via `global`
+    - wm.log / print — One log, 512-char lines
+    - wm.ui.set_input — Writes into one of the plugin's own text boxes, 8 KB cap; applied after the handler returns; panel only
+    - wm.storage — get(key, default), set (strings only, ValueError on quota), remove, keys; 128 keys, 64-char keys, 8 KB per value, 64 KB per plugin
+    - wm.reminders — set(id, seconds, text) raises ValueError, cancel returns a bool, list gives [{id, time, text}]; 64 pending, 200 chars
+    - wm.timestamp — year, month, day, hour=12, minute=0, second=0 in local time with lenient rollover
+    - Dict attribute reads — d.key reads a key when present, else a dict method, so e.type works on an event
+  - Interpreter `RARE` — wm-python crate: PyMini-faithful semantics in Rust, one core for the phone (JNI) and the web editor (wasm)
+    - Modules — math, re, json, time, random, sys; nothing else is importable; no files, network or processes because none exist
+    - No string-to-code route — No eval, exec, compile, getattr or __import__; no classes, so no object model to climb
+    - Language subset — No class, with, yield, async, match, decorators, nonlocal, assert or **kwargs; refused with a message naming the feature
+    - Grapheme strings — len, indexing and iteration count user-perceived characters; equality compares NFC
+    - Coarse JSON boundary — create/load/render/event/transform/cancel/usage over JNI, results as JSON; no callbacks into the JVM, so no host object is reachable
+    - Storage and reminders written by the interpreter — Same storage.json/reminders.json formats as before, atomically through .part + rename
+    - Delivered on demand — Its own native gate; fetched when plugins are turned on or the editor opened
   - Runaway containment
-    - Per-instruction budget — Load 30M instructions/3 s, event 20M/2 s, render 4M/0.5 s; clock read every 1024 instructions via a bitmask
-    - Abort can't be caught — PluginAbort extends Error, so luaj's pcall/xpcall and the interpreter loop pass it straight through
-    - Hook is unreachable from Lua — Lives on DebugLib, which is loaded then removed from globals; no debug.sethook to unset
-    - Watchdog abandons stuck threads — Covers time spent inside luaj's Java pattern matcher where the hook never fires: session revoked, executor shut down, priority dropped
-    - Two strikes — A plugin abandoned twice is disabled until the user turns it back on; re-enabling forgives the strikes
-    - Host-call time isn't charged — enterHostCall/exitHostCall push the deadline out so a slow disk write can't kill a well-behaved script
-  - Plugin UI vocabulary `RARE` — 11 widget kinds, drawn by the keyboard in its own theme
-    - Widgets — tabs, column, row, label, output, button, toggle, input, spacer, divider, progress
+    - Step budget — Load 3M steps/3 s, event 2M/2 s, render 400k/0.5 s, action 3M/3 s; every statement, loop turn and regex step spends one
+    - Cancel polled every step — The deadline watchdog sets a cancel flag from any thread; abandoning the thread is only a fallback
+    - Abort can't be caught — Budget, deadline and cancel aborts pass straight through any try/except
+    - Budgeted regex — PyMini's own backtracking engine spends steps, so catastrophic backtracking is stopped like a loop
+    - Value caps — 10k items per list/dict/set, 100k chars per string, recursion depth 300
+    - Two strikes — A plugin that times out or is abandoned twice is disabled until the user turns it back on; re-enabling forgives the strikes; a setting keeps the strikes but skips the switch-off
+  - Plugin UI vocabulary `RARE` — 12 widget kinds, drawn by the keyboard in its own theme
+    - Widgets — tabs/page, column, row, label, output, button, toggle, input, date, spacer, divider, progress
+    - Plain dicts — ui.* builders return dicts with keyword arguments, so the widget format is data an author could write by hand
     - Insert button is the only text route — An output widget gets the host's own Insert/Copy buttons; no API types for the user
     - Inputs are host-owned — No Compose TextField in the IME — a tap re-routes keystrokes into the panel's buffer and the script is told the new contents as an event
-    - 4 event kinds — Click, ToggleChanged, InputChanged, TabSelected — all user-initiated
-    - UI is repaired, not refused — 256 nodes, depth 12 (also breaks cycles), 2 KB per string, 64 KB per tree, 8 tabs; drops are reported as captions
-    - Pure-Lua prelude — ui.* helpers just build plain tables, so the widget format is data an author could write by hand
+    - 5 event kinds — click, toggle, input_changed, tab_selected, date_changed — all user-initiated
+    - UI is repaired, not refused — Validated in Rust: 256 nodes, depth 12 (also breaks cycles), 2 KB per string, 64 KB per tree, 8 tabs; drops are reported as captions
   - Install and lifecycle
     - Master switch, off by default — Gates installing as well as running; kept out of KeyboardSettings so it never rides the keyboard's hot path
-    - On-disk layout — filesDir/plugins/<id>/ holds plugin.json, main.lua, storage.json and log.txt; delete removes all four
+    - On-disk layout — filesDir/plugins/<id>/ holds plugin.json, main.py, storage.json and log.txt; delete removes all four
     - Updates keep user data — storage.json survives an upgrade; enabled state and abandon strikes reset
-    - Ring-buffer log — print() and script errors, 200 lines x 512 chars, flushed at session end and shown in settings
+    - Ring-buffer log — print(), wm.log and script errors, 200 lines x 512 chars, flushed at session end and shown in settings
     - Index reconcile — Records whose script file vanished are dropped on load
     - Capability disclosure screen — Settings lists what plugins cannot do (typing, text field, clipboard, internet) beside what they can
+  - Selection actions `RARE` — Plugins add chips to the selection bar and the PROCESS_TEXT sheet; manifest `actions` + `selection` permission
+    - transform(text, action) — Returns the replacement, or None to leave it; one parameter is fine for a single action; `replaces: false` appends after the selection; `input: none` passes ""
+    - Fresh interpreter per tap — Globals die with the call; only wm.storage persists, and wm.ui.set_input is absent
+    - Own runner — PluginActionRunner, separate from the panel session, so an action never closes an open plugin panel; same strikes and watchdog
+    - Undo for free — Results go through rewriteSelection, so the bar's Undo puts the selection back
+    - Per-action off switch — Selection actions › From plugins, stored as plugin:<id>/<action> keys
+    - Never on secure fields — The bar is gone there, and the tap re-checks before text reaches the script
+  - Clink actions `RARE` — .clinkext (JSON + Python transform) converted to an actions-only API 4 plugin, run on the same interpreter as every plugin, wherever plugins are read: catalogue, file picker, file manager, disclosure
+    - Clink action repositories — `actions` lists in a Clink manifest become plugin entries carrying Clink's SHA-256
+    - Scopes map to the selection — Clink's word/before scopes act on the selection; none gets ""; replacesInput false appends
 - **Native file formats** `RARE` — 10 file-associated extensions plus 4 import-only/internal ones; every one is plain JSON or a ZIP
   - Theme .wmtheme.json `uncommon` — Bare ThemeSpec object, ARGB colours as 0xAARRGGBB longs
     - No format tag — Every field defaults, so any JSON decodes; the extension is the only evidence a file was meant to be a theme, checked last
@@ -3799,11 +3833,11 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 |---|---|
 | Add-on repository browsing, install, update and preview | needs network (HTTPS only; plain http is refused, not upgraded) |
 | Add-on store and installed-add-on list | unavailable during direct boot — filesDir/addons is credential-encrypted, so the store is empty and addRepo refuses before first unlock |
-| Lua plugins (install and run) | needs the plugin subsystem master switch turned on by the user; off by default, and it gates installing as well as running |
-| Lua plugins | unavailable during direct boot; scripts and their storage live in credential-encrypted storage |
+| Python plugins (install and run) | needs the plugin subsystem master switch turned on by the user; off by default, and it gates installing as well as running |
+| Python plugins | unavailable during direct boot; scripts and their storage live in credential-encrypted storage |
 | Word list and emoji keyword pack import from a URL | needs network; http/https only |
 | Installing a plugin from a repository | requires a sha256 in the manifest — the install is refused without one (opening a .wmplugin file directly skips that check) |
-| Plugin runtime (luaj) | no build gate — luaj-jse ships in every build |
+| Plugin runtime (wm-python) | native gate `plugins` — libwm_python.so downloads when plugins are turned on (a Play feature module on Play) |
 | Font import validation | the second validation stage calls android.graphics.Typeface, so it only runs on device (injected as a lambda for JVM tests) |
 
 ## Modes, rows, field adaptation, runtime
@@ -4145,7 +4179,7 @@ something only some of them do. Unmarked means Gboard or SwiftKey has it too.
 - **Input behaviour: glide, gestures, cursor, editing, keys**: Read in full or in the relevant sections: core/input (DeadKeys, BrailleChord, MorseCode), core/prediction/gesture (GlideBeam, GlideCoverage, GlideKeyMap, GlideWorkspace, RomanizedIndex, GestureGeometry), core/language KeyActions.kt, core/tools/HardwareShortcuts.kt, core/settings/SettingsRepository.kt (KeyPopupSettings, KeyRepeatSettings, OneHandedSettings, HardwareKeyboardSettings, FeedbackSettings, LongPressLetterActions, GestureSettings, LayoutBehaviorSettings, TextEditingSettings, SpaceSwipeAction/LetterSwipeAction/SpacebarDisplay, and the input-related fields of KeyboardSettings), core/common ToolbarTool.kt. In feature/ime: KeyboardScreen.kt gesture detectors, pointerInputKey (spacebar / backspace / flick / generic branches), smart-hit observers, popups, one-handed rail, docked and floating frames; ResizeOverlay.kt; TextEditPanel.kt; ComposingResume.kt; LanguageSwitchOverlay.kt; and WMKeyboardService.kt onKey/onShift/onCapsLock/onDelete/deleteFromField/onDeleteWord/onSpace/onCursorMove(+Vertical)/onUndoRedo/onTextEdit/glide decode+commit paths/hardware key dispatch/autoCapitalizeShift/onModifier/onSizingAction/onComputeInsets. Selection macros were added later and read from core/content/.../core/selection/SelectionMacros.kt, the SelectionMacroSettings/SelectionMacroPlacement block and DirectBootSettings entry in core/settings, feature/ime/.../ui/SelectionMacroBar.kt, and WMKeyboardService's refreshSelectionMacros/onSelectionMacro/replaceSelection paths. Cross-checked against docs/src/content/docs/reference/gestures.mdx but every entry is grounded in code. Not covered (other areas): the suggestion strip and autocorrect scoring itself, prediction engine internals, emoji/GIF/sticker panel gestures, clipboard panel swipes, toolbar drag-to-pin, voice bar dragging, theme/appearance, layout editor, per-app language, and the CJK/Avro composers beyond how they gate glide and hardware interception. I did not count shipped layouts or languages (another area's job) — the only layout count here is the single shipped flick layout (app/src/main/assets/layouts/ja_flick.wmlayout.json). Nothing was run or device-verified; this is a static read.
 - **Languages, scripts, layouts, transliteration**: Read in full: core/language (Script.kt, Language.kt, Numerals.kt, FancyStyles.kt, LanguageSuggestions.kt, DeviceLocales.kt, RomanizedPairing.kt; core/layout's LayoutSpec, BuiltInLayouts, AssetLayouts, KeyActions, KeyboardLayout, LayoutFile, LayoutSelection, ForeignLayout end to end, LayoutRepair head, TabletExpansion head; transliteration/AvroPhonetic, BengaliGraphemes, BengaliPhoneticIndex). Read in core/input: Composer.kt, PinyinComposer, DoublePinyin, CjkConfig, CjkDictCatalog, CjkDictDownloadManager head, HanVariant, PinyinFuzzy, JyutpingFuzzy, CjkUserHistory, CjkNgrams, StrokeComposer, CangjieComposer, T9/Zhuyin/Japanese/Jyutping heads, HangulComposer, VietnameseComposer head, IndicClusterComposer, DeadKeys, MorseCode, BrailleChord. Also Subtypes.kt, the per-app-language and fullStop/emoji-key rewrite paths in WMKeyboardService and KeyboardScreen, KeyIcons, KeyboardFonts, LanguageSettingsScreens, LayoutEditorScreens (action catalog + foreign import), SpellingMap, FieldLanguageMix, LanguageMixConfidence, and all 8 docs/src/content/docs/languages/*.mdx.
 
-Counts come from code and assets and are pinned by `ShippedCountsTest`: 955 languages (515 hand-written + 440 generated from the Keyman corpus) and 2,000 layouts (36 built-in + 1,964 .wmlayout.json assets, 862 of them converted Keyman keyboards). Run that test rather than recounting by hand; it also lists every file that quotes these figures. Spelling-map figures are data lines excluding comments (11,914 bn_rom + 2,369 en_bn); the docs round these to 12,000 and 2,300. The editor's action picker has 28 entries in 6 groups, which the docs now match.
+Counts come from code and assets and are pinned by `ShippedCountsTest`: 1,555 languages (515 hand-written + 440 generated from the Keyman corpus + 306 from Gboard + 285 from Samsung) and 3,724 layouts (39 built-in + 3,685 .wmlayout.json assets, 862 of them converted Keyman keyboards). Run that test rather than recounting by hand; it also lists every file that quotes these figures. Spelling-map figures are data lines excluding comments (11,914 bn_rom + 2,369 en_bn); the docs round these to 12,000 and 2,300. The editor's action picker has 28 entries in 6 groups, which the docs now match.
 
 Not covered (other areas or not read): the suggestion/prediction engine itself, glide typing, autocorrect, the downloadable word-list catalogue and its per-language sizes, emoji keyword packs, handwriting, voice/dictation languages, theme-side script font storage (ThemeSpec.scriptFontIds), and the addon repository format beyond noting "layout" is one of its types. I did not read Lattice.kt, ConversionDictionary.kt, CodeTableDictionary.kt or SyllableSegmenter.kt in full (headers and call sites only), nor LayoutRepair.kt past its rule constants, TabletExpansion.kt past its eligibility contract, or the 354 asset layout files individually - those I analysed programmatically for composer/layer/flick distribution. IPA and music layer contents come from the asset JSON structure plus the docs, not a key-by-key read.
 - **Themes and appearance**: Read in full: core/theme (ThemeSpec.kt, PaletteThemes.kt, ThemeRendering.kt, ColorVision.kt, PhotoPalette.kt, BackgroundBitmaps.kt, FlexTheme.kt, SnyggMapper.kt head), core/settings (ThemeOverrides.kt, RotationPool.kt, PhotoBackgroundSettings.kt, ThemePhotoSweep.kt, RotatingBackground.kt, DirectBootSettings.kt theme half, AutoThemeSettings + ThemeMode + KeySoundStyle + ThemeGalleryStyle in SettingsRepository.kt), feature/ime/ui/KbTheme.kt, feature/tools/PhotoBackgroundManager.kt, core/tools/PhotoSources.kt, app/PhotoBackgroundUi.kt. Read in full or by section: app/ThemeScreens.kt (4180 lines — gallery, editor, all pickers, gradient editor, cropper, colour picker), core/icons (IconSlots.kt, IconOverrides.kt, IconPacks.kt, IconPackFile.kt head, IconPackStore constants), feature/ime/ui/KeyboardFonts.kt, KeyTextures.kt, KeyPressEffects.kt, BoardDecals.kt, BuiltinIcons.kt catalog. Counts verified from code/assets: 28 built-in looks in 12 entries (4 families), 10 palette ports, 12 key shapes, 24 editor colour rows, 15 seed swatches, 6 texture slots, 6 decals, 12 variants, 6 effect kinds, 6 effect images, 97 icon slots, 181 bundled glyphs, 20 Latin Google Fonts, 27 automatic script faces, 22 script pickers, 12 photo topics, 14 photo colours, 6 rotation intervals, 3 scopes. Skipped or only skimmed: Snygg.kt stylesheet parser internals, SvgParser.kt, IconPackStore.kt beyond its constants, PhotoDetailScreens.kt and the photo library/rotation settings screens (read only their entry points and the shared UI in PhotoBackgroundUi.kt), UnsplashClient/PexelsClient request building, AddonScreens/AddonInstaller theme-install UI beyond the theme branches, MainActivity route plumbing, onboarding theme picks (OnboardingPages.kt), and the docs prose (used only to cross-check — note docs/themes/overview.mdx says 26 built-ins, which is stale against the 28 in code). Did not run the app or verify anything on a device.

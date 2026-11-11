@@ -81,6 +81,8 @@
     <string name="core_tools_provider_er_api_desc">Daily rates for most currencies. No key.</string>
     <string name="core_tools_provider_frankfurter" translatable="false">Frankfurter</string>
     <string name="core_tools_provider_frankfurter_desc">European Central Bank rates for the main currencies. Free software, no key.</string>
+    <string name="core_tools_provider_allratestoday" translatable="false">AllRatesToday</string>
+    <string name="core_tools_provider_allratestoday_desc">European Central Bank reference rates for about 30 currencies. No key.</string>
     <string name="core_tools_provider_coinbase" translatable="false">Coinbase</string>
     <string name="core_tools_provider_coinbase_desc">Currencies and coins from Coinbase. No key.</string>
     <string name="core_tools_provider_currency_api" translatable="false">currency-api</string>
@@ -124,6 +126,8 @@
     <string name="core_tools_provider_ollama_desc">Models on an Ollama server you run, on your computer or your network. Add one for each server.</string>
     <string name="core_tools_provider_lm_studio" translatable="false">LM Studio</string>
     <string name="core_tools_provider_lm_studio_desc">Models served by LM Studio on your computer. Add one for each computer.</string>
+    <string name="core_tools_provider_privatemode">Privatemode AI</string>
+    <string name="core_tools_provider_privatemode_desc">AI that runs in confidential computing and cannot read your text. Give your Privatemode API key. The keyboard then encrypts each request on the phone, but it does not check the service\'s hardware attestation. To have that checked too, run privatemode-proxy and give its address, such as http://192.168.1.20:8080.</string>
     <string name="core_tools_provider_openai_compatible">OpenAI-compatible service</string>
     <string name="core_tools_provider_openai_compatible_desc">Any other service with OpenAI\'s chat API: OpenRouter, Groq, Mistral, Together, or a gateway of your own. Give the address up to the version, such as https://openrouter.ai/api/v1.</string>
     <string name="core_tools_provider_on_device_ai">On your device</string>
@@ -144,6 +148,8 @@
     <string name="core_tools_provider_sherpa" translatable="false">Sherpa</string>
     <string name="core_tools_provider_sherpa_desc">Streaming models for 13 languages, Bangla among them, that type as you speak, on the phone.</string>
     <string name="core_tools_provider_omnilingual" translatable="false">Omnilingual</string>
+    <string name="core_tools_provider_vosk" translatable="false">Vosk</string>
+    <string name="core_tools_provider_vosk_desc">Small Kaldi models from Alpha Cephei for 29 languages, about 40 MB each, that type as you speak on the phone. Light enough for an older phone.</string>
     <string name="core_tools_provider_omnilingual_desc">Meta\'s one model for 1,600 languages, hundreds of them with no other voice typing, on the phone. Each phrase arrives at the pause after it.</string>
     <string name="core_tools_provider_transcription_server">Transcription server</string>
     <string name="core_tools_provider_transcription_server_desc">A server that speaks OpenAI\'s audio transcription API: speaches, whisper.cpp\'s server, LocalAI, Groq or OpenAI. Each clip is sent to it when you stop speaking.</string>

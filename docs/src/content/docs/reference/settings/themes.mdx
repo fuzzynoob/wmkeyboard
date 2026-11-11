@@ -88,7 +88,7 @@ The choice of color for one app is made on the keyboard: the **Appearance** tool
 | Control | What it does |
 |---|---|
 | Create theme | Makes a new custom theme named "My theme", seeded from the first swatch in the theme editor's color row, generated dark or light to match what your phone is showing right now, sets it active, and opens the editor on it right away |
-| Import | Opens a file picker for a theme file, adds it to Your themes under a fresh id, and switches to it immediately (the editor doesn't open) |
+| Import | Opens a file picker for a theme file, adds it to Your themes under a fresh id, and switches to it immediately (the editor doesn't open). Pick several files and each is added without switching, then one message counts them and names any file it could not read. Every file-based import button below takes several files the same way. A `.zip` of themes saved from the picking bar's upload icon imports every theme inside it. See [Several files at once](/themes/sharing/#several-files-at-once) |
 | FlorisBoard | Reads a FlorisBoard `.flex` theme file and converts it into a custom theme. See [Importing other keyboards](/reference/importing-other-keyboards/) |
 | Gboard | Asks **Open a file** (a Gboard theme `.zip` or an Rboard pack) or **Browse Rboard** (the Rboard collection, fetched from GitHub only when that screen opens; not in the Google Play build, where the button opens the file picker). Each theme is previewed with what did not come across, then saved without being switched on. See [Gboard themes and Rboard packs](/reference/importing-other-keyboards/#gboard-themes-and-rboard-packs) |
 | Card tap | Applies that theme to the keyboard immediately. On a family card, tapping a dot applies that look and turns the card's preview to it |
@@ -151,6 +151,7 @@ Tapping a swatch, or flipping **Dark theme**, reseeds every seed-derived color a
 | Crop image *(image set)* | Opens the [crop dialog](#cropping-an-image) | n/a |
 | Image opacity *(image set)* | Slider, 0–100% | 100% |
 | Image blur *(image set)* | Slider, 0–25 | 0 (off) |
+| Picture on the keys *(image set)* | Toggle; shows the image only on the keys, [details](/themes/backgrounds/#picture-on-the-keys) | Off |
 | Play animated image *(image set)* | Toggle | On for a GIF or animated WebP, off otherwise |
 | Landscape background image | Opens **Select a background**, always shown | None |
 | Crop landscape image *(landscape image set)* | Opens the crop dialog | n/a |
@@ -180,7 +181,7 @@ The last two rows stay hidden until you have started using photos, so a theme wi
 | Refraction *(Liquid)* | Slider, 0–100% | 60% |
 | Color split *(Liquid)* | Slider, 0–100% | 25% |
 | Blur behind the keyboard | Toggle; Android 12 and later, off while the phone's blur, power saving or the floating keyboard is in force | Off |
-| Blur strength | Slider, 4–64 dp; also the blur under popups and menus | 24 dp |
+| Blur strength *(blur behind on)* | Slider, 4–64 dp | 24 dp |
 | Board opacity without blur *(blur behind on)* | Slider, 50–100% | 92% |
 | Glass surfaces | Chips: Letter keys, Modifier keys, Enter key, Space bar, Bars, Tool buttons, Chips, Cards, Popups, Menus | All but Enter key |
 | Behind the glass | Segmented row: Auto / Image / Wallpaper / Nothing | Auto |
@@ -322,8 +323,10 @@ The strip's section:
 | Suggestion text | Color, Auto → Key text | Auto |
 | Other suggestions | Color, Auto → Suggestion text | Auto |
 | Other suggestions size | Slider, 50–120% in 5% steps | 100% |
+| Suggestion pills | Color with alpha, Auto → accent at 16% (dark) or 10% (light) | Auto |
+| Main suggestion pill | Color with alpha, Auto → Suggestion pills laid twice, or accent at 34% (dark) or 24% (light) | Auto |
 
-**Suggestion strip** also fills the other bars around the keys (the emoji row, the symbol row, the dictionary bar and the rest), and **Suggestion text** also colours the panels' body text. **Other suggestions** and its size row cover every word on the strip except the primary one, as a colour and as a share of the primary's size; the CJK conversion candidates and Avro's candidate list ignore both.
+**Suggestion strip** also fills the other bars around the keys (the emoji row, the symbol row, the dictionary bar and the rest), and **Suggestion text** also colours the panels' body text. **Other suggestions** and its size row cover every word on the strip except the primary one, as a colour and as a share of the primary's size; the CJK conversion candidates and Avro's candidate list ignore both. The two pill rows only show on the keyboard while **Coloured suggestions** is on under Typing.
 
 ### Panels & suggestions
 
@@ -375,7 +378,7 @@ Off by default, so a theme follows the three global sliders: two under Appearanc
 |---|---|---|---|
 | Layout for this theme | Toggle | On / Off | Off |
 | Tool background width *(on)* | Slider | 38–64dp | your current global value |
-| Toolbar height *(on)* | Slider | 32–80dp | your current global value |
+| Toolbar height *(on)* | Slider | 24–80dp | your current global value |
 | Popup height *(on)* | Slider | 32–160dp | your current global value, one per bubble style |
 | Key height *(on)* | Slider | 32–100dp | your current global value |
 | Key spacing *(on)* | Slider | 0–2× | your current global value |
@@ -414,6 +417,78 @@ This whole section is also hidden while **Reduce motion** is on, for the same re
 | Intensity *(any effect)* | Slider | 0.4×–2.4× | 1× |
 
 A small particle burst under every key press. With **Emoji**, each character you type into the field becomes its own particle kind. With **Images**, each picture does. Transparent PNGs look best. The effect never plays under reduce motion or power saving, and high contrast keys drops it along with the rest of the decoration.
+
+### Key material
+
+| Setting | Control | Range | Default |
+|---|---|---|---|
+| Material | Choice | None / Custom / Key cap / Metal / Wood / Stone / Stitched cloth / Leather / Carbon fibre / Paper cut-out / Letterpress / Neon / Holographic / Terminal / Cartoon / Art glass / Candy / Ceramic / Resin / Arcade button / Typewriter / Instrument panel / Molten / Soft (neumorphic) / Pixel block / Dot matrix | None |
+| Key cap height | Slider | 0–8 dp | The material's |
+| Top face inset *(advanced)* | Slider | 0–6 dp | The material's |
+| Cap side shade *(advanced)* | Slider | 0–60% | The material's |
+| Gloss | Slider | 0–100% | The material's |
+| Light direction *(advanced)* | Slider | −60° to 60° | The material's |
+| Surface texture | Choice | None / Grain / Linen / Dots / Scan lines / Brushed / Wood grain / Stone / Paper / Carbon weave / Leather / Pixels / Planks | The material's |
+| Texture strength | Slider | 0–100% | The material's |
+| Edge | Choice | None / Stitching / Glow / Ink outline / Glazed rim / Pressed in / Double ring / Dotted / Pixel bevel | The material's |
+| Edge colour | Colour, or Auto | Any | Auto |
+| Edge width *(advanced)* | Slider | 0.5–6 dp | The material's |
+| Label effect | Choice | None / Glow / Pressed in / Raised / Shadow / Dot matrix | The material's |
+| Rainbow sheen | Slider | 0–100% | The material's |
+| Soft shadow | Slider | 0–100% | The material's |
+
+Every control after the first shows the material's own value until you change it. Picking another material clears the changes.
+
+### Moving background
+
+| Setting | Control | Range | Default |
+|---|---|---|---|
+| Effect | Choice | None / Snow / Rain / Code rain / Bokeh / Stars / Warp speed / Fireflies / Dust / Embers / Bubbles / Confetti / Fireworks / Aurora / Nebula / Lava lamp / Waves / Smoke / Dot grid / Contour lines / Equaliser / Scanner / Sheen / Ripples / Colour orbs / Paint splash / Ink blot / Light pool / Colour flood / Smoke puff / Glint / Pop / Swoosh / Specks / Meld | None |
+| Amount | Slider | 0–100% | 50% |
+| Speed | Slider | 0–3× | 1× |
+| Brightness | Slider | 0–100% | 60% |
+| Size | Slider | 0.5–2× | 1× |
+| Reacts to typing *(not on splashes)* | Slider | 0–100% | 0% |
+| First colour, Second colour | Colour, or Auto | Any | The accent, the label colour; on a splash, a new colour for each press |
+
+A still picture under reduce motion or power saving. The splashes, from Paint splash to Meld, are drawn over the keys only while you type, and not at all under reduce motion or power saving.
+
+### Key lighting
+
+| Setting | Control | Range | Default |
+|---|---|---|---|
+| Pattern | Choice | None / Steady / Breathe / Wave / Sweep / Twinkle / Heartbeat / Pressed key / Ripple / Echo / Splash / Cross / Rain | None |
+| Light on | Choice | Key faces / Key edges / Behind the keys / Filled key / Two-tone fill / Glitter | Behind the keys |
+| Colour choice | Choice | Light colour / Bright, each press / Pastel, each press | Light colour |
+| Light colour | Colour, or Auto | Any | The accent |
+| Brightness | Slider | 0–100% | 60% |
+| Glow size | Slider | 0–24 dp | 8 dp |
+| Speed | Slider | 0.25–4× | 1× |
+| Rainbow spread | Slider | 0–360° | 0° |
+| Fade time *(press patterns only)* | Slider | 100–2400 ms | 700 ms |
+
+Off under reduce motion and power saving.
+
+### Touch bloom
+
+| Setting | Control | Range | Default |
+|---|---|---|---|
+| Touch bloom | Toggle | On / Off | Off |
+| Key motion | Choice | Sink / Grow / Shrink / Rise / Tilt / Jelly / Pop / Squish / Fade | Sink |
+| Light colour | Colour, or Auto | Any | The accent |
+| Light strength | Slider | 0–100% | 60% |
+| Reach | Slider | 40–240 dp | 96 dp |
+| Key dip | Slider | 0–100% | 50% |
+| Wobble | Slider | 0–100% | 50% |
+
+Light from your finger and the keys near it dipping, following a glide; the key preview bubble lights up in the same colour. Off under reduce motion, power saving and high contrast.
+
+### Key art
+
+| Setting | Control | Default |
+|---|---|---|
+| Load key art from a file | Opens a file picker for a skin (JSON) | None |
+| Remove key art | Button, while the theme has some | — |
 
 ### Font and sound
 

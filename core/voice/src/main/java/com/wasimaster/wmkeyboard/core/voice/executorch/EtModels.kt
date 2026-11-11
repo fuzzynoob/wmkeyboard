@@ -3,13 +3,17 @@ package com.wasimaster.wmkeyboard.core.voice.executorch
 import com.wasimaster.wmkeyboard.core.download.FileDownloader
 import com.wasimaster.wmkeyboard.core.voice.sherpa.OmnilingualLanguages
 import com.wasimaster.wmkeyboard.core.voice.sherpa.SherpaNative
+import com.wasimaster.wmkeyboard.core.voice.sherpa.SherpaQnnNative
+import com.wasimaster.wmkeyboard.core.voice.vosk.VoskNative
 import java.io.File
 import java.security.MessageDigest
+import kotlinx.coroutines.CoroutineDispatcher
 
 /**
  * The dictation engines whose models are downloaded file by file from
  * Hugging Face: the ones that run on [EtNative], and Sherpa, which runs on
- * ONNX Runtime ([SherpaNative]) but keeps its models the same way. [id] is the
+ * ONNX Runtime ([SherpaNative]) but keeps its models the same way. Vosk
+ * ([VoskNative]) keeps its models here too, each one zip from alphacephei.com. [id] is the
  * value the Recognition engine setting stores; [dirName] is the folder under
  * `filesDir`. [languages] are the base language codes some model of the
  * engine transcribes; each [EtModel] can narrow that.
@@ -44,6 +48,19 @@ enum class EtEngine(val id: String, val dirName: String, val languages: Set<Stri
      * so Silero cuts the audio at each pause and the phrase before it goes in.
      */
     OMNILINGUAL("omnilingual", "omnilingual", OmnilingualLanguages.codes),
+
+    /**
+     * Vosk (#1165): Alpha Cephei's small Kaldi models on their own library
+     * (the `vosk` gate), one per language, each downloaded as one zip from
+     * alphacephei.com and decoded while the user speaks.
+     */
+    VOSK(
+        "vosk", "vosk",
+        setOf(
+            "ar", "ca", "zh", "cs", "de", "en", "eo", "es", "fa", "fr", "gu", "hi", "it", "ja", "ka", "ko",
+            "ky", "kk", "nl", "pl", "pt", "ru", "sv", "te", "tg", "tr", "uk", "uz", "vi",
+        ),
+    ),
     ;
 
     /** Whether the engine runs on ONNX Runtime (the `onnx` gate) rather than ExecuTorch. */
@@ -51,11 +68,32 @@ enum class EtEngine(val id: String, val dirName: String, val languages: Set<Stri
 
     /** Whether this build has the runtime the engine needs, counting a module not fetched yet. */
     val runtimeShipped: Boolean
-        get() = if (onnx) SherpaNative.shipped else EtNative.shipped
+        get() = when {
+            onnx -> SherpaNative.shipped
+            this == VOSK -> VoskNative.shipped
+            else -> EtNative.shipped
+        }
+
+    /**
+     * Whether the engine decodes while the user speaks rather than when the
+     * clip ends. Omnilingual counts: it decodes each phrase at the pause after
+     * it. So does Parakeet (#1168), which passes over the clip as it grows.
+     */
+    val live: Boolean
+        get() = this == ASR4ALL || this == SHERPA || this == OMNILINGUAL || this == VOSK || this == PARAKEET
+
+    /** The one thread the engine's model calls run on. */
+    val dispatcher: CoroutineDispatcher
+        get() = when {
+            onnx -> SherpaNative.dispatcher
+            this == VOSK -> VoskNative.dispatcher
+            else -> EtNative.dispatcher
+        }
 
     /** Whether [languageId] (a keyboard language id such as `en_GB` or `de`) is one this engine transcribes. */
     fun supports(languageId: String): Boolean =
-        languageId.trim().lowercase().substringBefore('-').substringBefore('_') in languages
+        languageId.trim().lowercase().substringBefore('-').substringBefore('_') in languages ||
+            (this == SHERPA && EtCustomModels.models.any { it.supports(languageId) })
 
     companion object {
         fun byId(id: String): EtEngine? = entries.firstOrNull { it.id == id }
@@ -68,9 +106,18 @@ class EtSource(val repo: String, val revision: String)
 /**
  * One file of a model: where it lives in the repo, and what it must be.
  * [from] names another repo for a file the model's own repo does not have,
- * such as the Silero VAD every Sherpa model carries.
+ * such as the Silero VAD every Sherpa model carries. [url] is a whole address
+ * off Hugging Face (Vosk's models, on alphacephei.com). An [archive] is a zip
+ * of the model, unpacked into its folder once it is checked ([EtArchive]).
  */
-class EtFile(val path: String, val bytes: Long, val sha256: String, val from: EtSource? = null) {
+class EtFile(
+    val path: String,
+    val bytes: Long,
+    val sha256: String,
+    val from: EtSource? = null,
+    val url: String? = null,
+    val archive: Boolean = false,
+) {
     val name: String get() = path.substringAfterLast('/')
 }
 
@@ -103,11 +150,55 @@ class EtModel(
      * Read from each model's tokens.txt: a model whose vocabulary has no
      * full stop cannot write one.
      */
-    val writesPunctuation: Boolean = engine != EtEngine.SHERPA && engine != EtEngine.OMNILINGUAL,
+    val writesPunctuation: Boolean = engine != EtEngine.SHERPA && engine != EtEngine.OMNILINGUAL && engine != EtEngine.VOSK,
+    /**
+     * The id of a model of the same size this one improves on, such as a
+     * post-trained copy of it: kept side by side, this one is used.
+     */
+    val supersedes: String? = null,
+    /**
+     * A program exported for ExecuTorch's Vulkan delegate: it runs on the
+     * GPU, and only once `libwmexecutorch_vulkan` is the build loaded
+     * ([EtNative.delegate]). Offered only on a phone with Vulkan 1.1, and
+     * outranked by a CPU model of the same size, so it is used only when the
+     * user keeps it alone or picks it: on a Mali-G57 it ran 2.2-2.7 times
+     * slower than the CPU build.
+     */
+    val gpu: Boolean = false,
+    /**
+     * For a [gpu] or [npu] model, the id of the CPU model of the same weights,
+     * used while the GPU or NPU build cannot run.
+     */
+    val cpuTwin: String? = null,
+    /**
+     * The Snapdragon chip (`SM8750`) a set of QNN context binaries was
+     * compiled for: k2-fsa's ready-made builds, which run on that chip's NPU
+     * through sherpa-onnx's QNN library ([SherpaQnnNative], the `sherpaqnn`
+     * gate) and nowhere else. Offered only on that chip
+     * ([EtNative.qnnSoc]), and it outranks a CPU model of the same size.
+     */
+    val npu: String? = null,
+    /**
+     * For an [npu] model, the clip length in seconds its binaries were
+     * compiled for: sherpa-onnx pads a shorter clip to it, and
+     * [com.wasimaster.wmkeyboard.core.voice.sherpa.QnnSpeech] cuts a longer
+     * one into pieces no longer than it.
+     */
+    val npuSeconds: Int = 0,
 ) {
     val bytes: Long get() = files.sumOf { it.bytes }
 
+    /** Whether an engine runs this rather than [other] when both are on the device. */
+    fun outranks(other: EtModel): Boolean = ORDER.compare(this, other) > 0
+
+    /** For an [npu] model, the longest piece of audio one decode takes, in 16 kHz samples. */
+    val npuSamples: Int get() = npuSeconds * 16_000
+
+    /** A Sherpa transducer has one; a Paraformer does not, and hears no hotwords. */
+    val hasJoiner: Boolean get() = files.any { it.name.startsWith("joiner") }
+
     fun url(file: EtFile): String {
+        file.url?.let { return it }
         val source = file.from
         return if (source != null) {
             "https://huggingface.co/${source.repo}/resolve/${source.revision}/${file.path}"
@@ -122,10 +213,89 @@ class EtModel(
     fun supports(languageId: String): Boolean =
         !punctuation && languageId.trim().lowercase().substringBefore('-').substringBefore('_') in
             (languages ?: engine.languages)
+
+    companion object {
+        /**
+         * Smallest to largest; of two the same size, a GPU build first (the
+         * CPU one wins unless the user picks the GPU one), then a CPU build
+         * before an NPU one (a downloaded NPU build is used, being several
+         * times faster, even over a post-trained CPU model such as Parakeet
+         * Ultra), then the one superseded first, then the NPU build for the
+         * longer clip first.
+         */
+        val ORDER: Comparator<EtModel> = compareBy<EtModel> { it.millions }
+            .thenBy { !it.gpu }
+            .thenBy { it.npu != null }
+            .thenBy { it.supersedes != null }
+            .thenByDescending { it.npuSeconds }
+    }
 }
 
 /** Every model the ExecuTorch engines can download. */
 object EtCatalog {
+
+    /** Where k2-fsa publishes sherpa-onnx's ready-made QNN context binaries, each release a folder. */
+    private const val QNN_RELEASES = "https://github.com/k2-fsa/sherpa-onnx/releases/download"
+
+    /**
+     * k2-fsa's QNN context binaries of Parakeet TDT 0.6B v3 for [soc]'s NPU,
+     * compiled for clips of [seconds] (release asr-models-qnn-binary-2, built
+     * with QAIRT 2.40.0.251030): one tar.bz2 of encoder.bin, decoder.bin,
+     * joiner.bin and tokens.txt, pinned by the SHA-256 GitHub lists for it.
+     */
+    private fun parakeetNpu(soc: String, seconds: Int, bytes: Long, sha256: String): EtModel {
+        val name = "sherpa-onnx-qnn-$soc-binary-parakeet-tdt-0.6b-v3-${seconds}s-transducer"
+        val tag = soc.lowercase()
+        return EtModel(
+            "parakeet-v3-npu-$tag-${seconds}s", EtEngine.PARAKEET, "tdt-0.6b-v3-npu-$tag-${seconds}s",
+            "Parakeet TDT 0.6B v3 (NPU, $seconds s)", 600,
+            "github.com/k2-fsa/sherpa-onnx", "asr-models-qnn-binary-2",
+            listOf(EtFile("$name.tar.bz2", bytes, sha256, url = "$QNN_RELEASES/asr-models-qnn-binary-2/$name.tar.bz2", archive = true)),
+            cpuTwin = "parakeet-v3",
+            npu = soc,
+            npuSeconds = seconds,
+        )
+    }
+
+    /** The same for Moonshine Tiny English, from asr-models-qnn-binary-3: encoder.bin, decoder.bin and tokens.txt. */
+    private fun moonshineNpu(soc: String, seconds: Int, bytes: Long, sha256: String): EtModel {
+        val name = "sherpa-onnx-qnn-$soc-binary-moonshine-tiny-en-${seconds}s"
+        val tag = soc.lowercase()
+        return EtModel(
+            "moonshine-tiny-npu-$tag-${seconds}s", EtEngine.MOONSHINE, "tiny-npu-$tag-${seconds}s",
+            "Moonshine Tiny (NPU, $seconds s)", 27,
+            "github.com/k2-fsa/sherpa-onnx", "asr-models-qnn-binary-3",
+            listOf(EtFile("$name.tar.bz2", bytes, sha256, url = "$QNN_RELEASES/asr-models-qnn-binary-3/$name.tar.bz2", archive = true)),
+            cpuTwin = "moonshine-tiny",
+            npu = soc,
+            npuSeconds = seconds,
+        )
+    }
+
+    /** Where Alpha Cephei keeps the Vosk models, each `<name>.zip`. */
+    private const val VOSK_MODELS = "https://alphacephei.com/vosk/models"
+
+    /**
+     * One of Alpha Cephei's small Vosk models for [language] (#1165): the zip
+     * [name] from alphacephei.com, pinned by its SHA-256 (the site's own list
+     * gives only MD5, which matched when these were taken). Vosk publishes no
+     * parameter counts, so [rank] is the zip's size in MB, except where a
+     * regional model must not outrank the general one.
+     */
+    @Suppress("detekt.LongParameterList")
+    private fun vosk(
+        dirName: String,
+        label: String,
+        rank: Int,
+        name: String,
+        bytes: Long,
+        sha256: String,
+        language: String,
+    ) = EtModel(
+        "vosk-$dirName", EtEngine.VOSK, dirName, label, rank, "alphacephei.com/vosk/models", name,
+        listOf(EtFile("$name.zip", bytes, sha256, url = "$VOSK_MODELS/$name.zip", archive = true)),
+        languages = setOf(language),
+    )
 
     private const val ASR4ALL_PTE = "executorch/xnnpack_int8/asr_encoder.pte"
     private const val ASR4ALL_META = "executorch/xnnpack_int8/metadata.json"
@@ -166,6 +336,24 @@ object EtCatalog {
                 EtFile(ASR4ALL_PTE, 123_044_416L, "50113d5aa74c916cce33828a3ec69c86aa64b58513a437ecf84fecfae098d351"),
             ),
         ),
+        // Moondream's Parakeet Ultra (CC-BY-4.0), v3 post-trained with the same
+        // architecture and tokenizer, exported the way v3 below is by
+        // tools/parakeet-ultra (.github/workflows/parakeet-ultra.yml).
+        EtModel(
+            "parakeet-ultra", EtEngine.PARAKEET, "ultra", "Parakeet Ultra", 600,
+            "wasi-master/parakeet-ultra-executorch", "a587594c991731cc8139443080f3209062fc0559",
+            listOf(
+                EtFile(
+                    "xnnpack/int4/tokenizer.model", 360_916L,
+                    "eacec2b0a77f336d4a2ca4a25a7047575d3c2b74de47e997f4c205126ed3135e",
+                ),
+                EtFile(
+                    "xnnpack/int4/model.pte", 719_159_960L,
+                    "ce6f2fc9aa874151c5398a4da1e936d635a2b5907b243e82096c1070287fda48",
+                ),
+            ),
+            supersedes = "parakeet-v3",
+        ),
         // NVIDIA's parakeet-tdt-0.6b-v3 (CC-BY-4.0), exported by an ExecuTorch
         // maintainer with 8-bit activations and 4-bit weights for XNNPACK.
         EtModel(
@@ -181,6 +369,42 @@ object EtCatalog {
                     "cd9c75c84b49c4bf2b20a383742e413fe49cd1eb9c01c3fd84c5ac7fd496453e",
                 ),
             ),
+        ),
+        // The two Parakeets above exported for ExecuTorch's Vulkan delegate by
+        // tools/parakeet-ultra (same 8da4w quantization, every method but the
+        // preprocessor on the GPU). Opt-in: see [EtModel.gpu].
+        EtModel(
+            "parakeet-ultra-gpu", EtEngine.PARAKEET, "ultra-gpu", "Parakeet Ultra (GPU)", 600,
+            "wasi-master/parakeet-ultra-executorch", "c3ca7a8d62377b995a49ffda12af50a0cf2b67ca",
+            listOf(
+                EtFile(
+                    "vulkan/int4/tokenizer.model", 360_916L,
+                    "eacec2b0a77f336d4a2ca4a25a7047575d3c2b74de47e997f4c205126ed3135e",
+                ),
+                EtFile(
+                    "vulkan/int4/model.pte", 818_608_408L,
+                    "4cf5e3b78e6bcfc2d9285f6ccd03e356ee653bdd3cd45c2e4707f3ec1b25b390",
+                ),
+            ),
+            supersedes = "parakeet-v3-gpu",
+            gpu = true,
+            cpuTwin = "parakeet-ultra",
+        ),
+        EtModel(
+            "parakeet-v3-gpu", EtEngine.PARAKEET, "tdt-0.6b-v3-gpu", "Parakeet TDT 0.6B v3 (GPU)", 600,
+            "wasi-master/parakeet-tdt-0.6b-v3-executorch", "efff6424e13521cddb2ce8965be9b424c57379db",
+            listOf(
+                EtFile(
+                    "vulkan/int4/tokenizer.model", 360_916L,
+                    "eacec2b0a77f336d4a2ca4a25a7047575d3c2b74de47e997f4c205126ed3135e",
+                ),
+                EtFile(
+                    "vulkan/int4/model.pte", 818_608_408L,
+                    "114f05b427f28d82ecbc8e87d5478cb71d42a089e6b5bfb61f81998daa168967",
+                ),
+            ),
+            gpu = true,
+            cpuTwin = "parakeet-v3",
         ),
         // Useful Sensors' Moonshine Tiny (MIT), exported by Software Mansion
         // for react-native-executorch.
@@ -202,6 +426,20 @@ object EtCatalog {
                 ),
             ),
         ),
+        // k2-fsa's QNN context binaries of the two models above, for the
+        // Snapdragon chips the `npu` gate has a runtime for (8 Gen 3, 8 Elite,
+        // 8 Elite Gen 5), each offered only on its own chip. Parakeet for 10 s
+        // and 30 s clips (k2-fsa compiles 3 to 30 s), Moonshine for 10 s, the
+        // longest they compile it for.
+        parakeetNpu("SM8650", 10, 441_106_642L, "78342bad3ca5d380d5a7d34b730fefd58e1bd8fa55d133fec0e3256eaf056263"),
+        parakeetNpu("SM8650", 30, 449_334_315L, "8ad2bb5902cbde3b922c53f4a119fcac47730b53e90ad1dff726b3ff0f7607df"),
+        parakeetNpu("SM8750", 10, 440_771_028L, "48a8b6db3f5749697a2a6e5331aecd314ed092d3621b7e5b3c17bc49c78cafeb"),
+        parakeetNpu("SM8750", 30, 449_456_731L, "2efa5ccd76b1b21d0b41310a21114eabbd8ed62d573333b74f7598bdc90c1fbb"),
+        parakeetNpu("SM8850", 10, 440_901_766L, "ff072c4ef523d4af64766e75b6ad1f1b6a02315ead681b0f506f46edbe0704dc"),
+        parakeetNpu("SM8850", 30, 449_680_863L, "604c9a55d66e0355cd475ecccbc581d5432b19e3d419eadafdd89d3664b60c36"),
+        moonshineNpu("SM8650", 10, 57_759_597L, "f092d5c95eeaf8b06866a4e124a39956aa311ec585dec1ecd64cc342a244786f"),
+        moonshineNpu("SM8750", 10, 57_726_276L, "8657f68fab42978040b5979ffa560699cac427645b1dcbc573457362d2943524"),
+        moonshineNpu("SM8850", 10, 57_758_480L, "e40bd70eea0b7bc798c6565ce7fd9b8498c625bf948aba7b4047c5562022d7ae"),
         // Sherpa (sherpa-onnx on ONNX Runtime): streaming Zipformer
         // transducers, one per language unless said otherwise. Each carries
         // its own copy of Silero VAD (2 MB), so a model is whole on its own.
@@ -334,6 +572,47 @@ object EtCatalog {
             ),
             languages = setOf("zh"),
         ),
+        // k2-fsa's small Mandarin Zipformer (Apache-2.0), int8 (#1005).
+        EtModel(
+            "sherpa-zh-small", EtEngine.SHERPA, "zh-14m", "Zipformer Chinese Small", 14,
+            "csukuangfj/sherpa-onnx-streaming-zipformer-zh-14M-2023-02-23",
+            "204ad334e2e683fd295359930cc16fc0432a23ac",
+            listOf(
+                EtFile("tokens.txt", 48_697L, "8b294db9045d6e5f94647f4c1eec1af4da143a75053c399611444b378ff966ac"),
+                EtFile("joiner-epoch-99-avg-1.int8.onnx", 1_795_562L, "a7cf9d82757bdcf786059454495a9ca95e4bd7347f72473fc08d794475c36169"),
+                EtFile("decoder-epoch-99-avg-1.int8.onnx", 1_888_682L, "22f123bb8cba9b38974b3df18a3f45e7081f4985ebb2e075d9f21f618c468bbf"),
+                SILERO_VAD,
+                EtFile("encoder-epoch-99-avg-1.int8.onnx", 21_621_684L, "1c556ea57cec304e55ec4b72e52c1cc098bb01476ed7d90f3de939fe126487b1"),
+            ),
+            languages = setOf("zh"),
+        ),
+        // k2-fsa's Mandarin and English Zipformer (Apache-2.0), int8 (#1005).
+        EtModel(
+            "sherpa-zh-en", EtEngine.SHERPA, "zh-en", "Zipformer Chinese + English", 190,
+            "csukuangfj/sherpa-onnx-streaming-zipformer-bilingual-zh-en-2023-02-20",
+            "98590b7ed6443e77b714204da2757d75e1a642f4",
+            listOf(
+                EtFile("tokens.txt", 56_317L, "a8e0e4ec53810e433789b54a5c0134a7eaa2ffca595a6334d54c00da858841d3"),
+                EtFile("joiner-epoch-99-avg-1.int8.onnx", 3_228_404L, "1ed689c5ed19dbaa725d9d191bb4822b5f4855a39e1ffd28cbc1f340d25b2ee0"),
+                EtFile("decoder-epoch-99-avg-1.int8.onnx", 13_091_040L, "1a70c593d71e53f023f5f55b0b4cfff5055abb786ee3992e5f63dc2e273cc4fa"),
+                SILERO_VAD,
+                EtFile("encoder-epoch-99-avg-1.int8.onnx", 181_895_032L, "8fa764187a261844f859d7143ebaa563af5d10adfece4c18a8f414c88cba2a9b"),
+            ),
+            languages = setOf("zh", "en"),
+        ),
+        // Alibaba DAMO's streaming Paraformer for Mandarin and English (Apache-2.0), int8 (#1005).
+        EtModel(
+            "sherpa-zh-en-paraformer", EtEngine.SHERPA, "zh-en-paraformer", "Paraformer Chinese + English", 220,
+            "csukuangfj/sherpa-onnx-streaming-paraformer-bilingual-zh-en",
+            "8e40c43232a1c5c66c82111efc5820d3accca11b",
+            listOf(
+                EtFile("tokens.txt", 75_756L, "59aba8873a2ed1e122c25fee421e25f283b63290efbde85c1f01a853d83cb6e6"),
+                SILERO_VAD,
+                EtFile("decoder.int8.onnx", 71_664_561L, "f3cca9f77bb9d93c8fcbfb63ae617b6b1ee96818df3aa3b151c40658fe38594f"),
+                EtFile("encoder.int8.onnx", 165_462_184L, "81a70226a8934e6ed92aa1d4fc486b428b5398e2f2619ed4897b7294cab90e9a"),
+            ),
+            languages = setOf("zh", "en"),
+        ),
         // k2-fsa's eight-language Zipformer (Apache-2.0), int8 encoder and joiner.
         EtModel(
             "sherpa-multi", EtEngine.SHERPA, "multi", "Zipformer ar en id ja ru th vi zh", 300,
@@ -376,14 +655,186 @@ object EtCatalog {
                 EtFile("model.int8.onnx", 365_352_120L, "e7c4e54ee4c4c47829cc6667d5d00ed8ea7bef1dcfeef0fce766f77752a2726c"),
             ),
         ),
+        // Alpha Cephei's small Vosk models (#1165), every one their list did
+        // not mark obsolete: one zip each, unpacked on the phone. Licences
+        // as Alpha Cephei's model page gives them.
+        // Apache-2.0
+        vosk(
+            "en-us", "Vosk English (US)", 45, "vosk-model-small-en-us-0.15", 41_205_931L,
+            "30f26242c4eb449f948e42cb302dd7a686cb29a3423a8367f99ff41780942498", "en",
+        ),
+        // Apache-2.0
+        vosk(
+            "en-gb", "Vosk English (UK)", 43, "vosk-model-small-en-gb-0.15", 42_757_500L,
+            "eab539cf040c1dc907c9f10102cadd3011f17eb24c1c5f74b0460cc3e7e2804a", "en",
+        ),
+        // Apache-2.0
+        vosk(
+            "en-in", "Vosk English (India)", 38, "vosk-model-small-en-in-0.4", 37_573_330L,
+            "20663dcac4d5cb783a579c54d98339344a688e4ec6e1b4a4b059fd1235454cc7", "en",
+        ),
+        // Apache-2.0
+        vosk(
+            "ar", "Vosk Arabic", 104, "vosk-model-small-ar-0.3", 104_351_896L,
+            "8696c91f39ec67a08c513845cfac26dbd4e81937be4fba25233e6c5435c18ca9", "ar",
+        ),
+        // Apache-2.0
+        vosk(
+            "ar-tn", "Vosk Arabic (Tunisian)", 50, "vosk-model-small-ar-tn-0.1-linto", 165_703_754L,
+            "dec314da301a22ceee91a9c7121f469e17f6be9dbb6fce8c3d37739a20d16b38", "ar",
+        ),
+        // Apache-2.0
+        vosk(
+            "ca", "Vosk Catalan", 43, "vosk-model-small-ca-0.4", 43_405_881L,
+            "99f90bfff5c2b187c705ddbc20aaa2600eddc359466f404404f1db6029fba5d4", "ca",
+        ),
+        // Apache-2.0
+        vosk(
+            "zh", "Vosk Chinese", 44, "vosk-model-small-cn-0.22", 43_898_754L,
+            "3af8b0e7e0f835ae9d414ce5df580237a3cfb08d586c9fbbb0f7ff29ad5b14ba", "zh",
+        ),
+        // MIT, from Rhasspy
+        vosk(
+            "cs", "Vosk Czech", 46, "vosk-model-small-cs-0.4-rhasspy", 46_088_666L,
+            "287c3bbefc8ad67b4ab9636eecef3d62acc3719990777d03e226db5a7f19fbda", "cs",
+        ),
+        // Apache-2.0
+        vosk(
+            "de", "Vosk German", 46, "vosk-model-small-de-0.15", 46_499_967L,
+            "b7e53c90b1f0a38456f4cd62b366ecd58803cd97cd42b06438e2c131713d5e43", "de",
+        ),
+        // Apache-2.0
+        vosk(
+            "eo", "Vosk Esperanto", 44, "vosk-model-small-eo-0.42", 43_839_401L,
+            "4459ca908f7eae862a5975305f2a720735f5205a9884d8f559dc46fe70034636", "eo",
+        ),
+        // Apache-2.0
+        vosk(
+            "es", "Vosk Spanish", 40, "vosk-model-small-es-0.42", 39_817_833L,
+            "09b239888f633ef2f0b4e09736e3d9936acfd810bc65d53fad45261762c6511f", "es",
+        ),
+        // Apache-2.0
+        vosk(
+            "fa", "Vosk Persian", 53, "vosk-model-small-fa-0.42", 53_431_220L,
+            "977cb5faa538f3a835ccfd35f5f6d8284b5c450b89c700b9bd4736b66536ad46", "fa",
+        ),
+        // Apache-2.0
+        vosk(
+            "fr", "Vosk French", 42, "vosk-model-small-fr-0.22", 42_233_323L,
+            "cabf6180e177eb9b3a9a9d43a437bd5e549f3a7d09525e5d69a3fed787be12ad", "fr",
+        ),
+        // Apache-2.0
+        vosk(
+            "gu", "Vosk Gujarati", 108, "vosk-model-small-gu-0.42", 108_054_987L,
+            "e87b7055e52b38a493a8308cf815b6fc05b9a89ef8aee18b4cbc2867cfc5f42a", "gu",
+        ),
+        // Apache-2.0
+        vosk(
+            "hi", "Vosk Hindi", 44, "vosk-model-small-hi-0.22", 44_458_845L,
+            "7c50a10866889f0ac21d912c20537a055a597ed09fc1d3e5bcd798f9f0017e48", "hi",
+        ),
+        // Apache-2.0
+        vosk(
+            "it", "Vosk Italian", 50, "vosk-model-small-it-0.22", 49_665_141L,
+            "9ec65e75861d1c6c2e457cccd932705340dcdf233f5b239f00733b4de0bf3267", "it",
+        ),
+        // Apache-2.0
+        vosk(
+            "ja", "Vosk Japanese", 50, "vosk-model-small-ja-0.22", 49_704_573L,
+            "efa092d280153a77615e9e0c7d7283e93e600de3d19d3bec686c57ef19d52eac", "ja",
+        ),
+        // Apache-2.0
+        vosk(
+            "ka", "Vosk Georgian", 46, "vosk-model-small-ka-0.42", 45_682_310L,
+            "a4aa25c879c479428694d6839bbdfcaf1e879361f34f6a9301d750e95cc63b6d", "ka",
+        ),
+        // Apache-2.0
+        vosk(
+            "ko", "Vosk Korean", 87, "vosk-model-small-ko-0.22", 86_914_329L,
+            "eea36124087fed26c59996a4761519458e3bd185e8ea9d9865ad8760c4a1d989", "ko",
+        ),
+        // Apache-2.0
+        vosk(
+            "ky", "Vosk Kyrgyz", 51, "vosk-model-small-ky-0.42", 51_041_096L,
+            "7a3595e6a6bd138e1f82689e7b13bdc838d84d96a83cbb1848658ee5094307b2", "ky",
+        ),
+        // Apache-2.0
+        vosk(
+            "kk", "Vosk Kazakh", 60, "vosk-model-small-kz-0.42", 59_697_294L,
+            "b6d6bfe6195c866805bd18b1f56723e4d2ba4866e81df1481006d0c5704fda4f", "kk",
+        ),
+        // Apache-2.0
+        vosk(
+            "nl", "Vosk Dutch", 40, "vosk-model-small-nl-0.22", 40_441_176L,
+            "039811c3b829de64e4f123a9f684a53784005b212a346ac0b899dc7efce2ed0a", "nl",
+        ),
+        // Apache-2.0
+        vosk(
+            "pl", "Vosk Polish", 53, "vosk-model-small-pl-0.22", 52_979_372L,
+            "c4cd16498ea544f446f9e9a55cbd602b71cfe5a2b6f2b0834d81e1b6fce15f0d", "pl",
+        ),
+        // Apache-2.0
+        vosk(
+            "pt", "Vosk Portuguese", 32, "vosk-model-small-pt-0.3", 32_453_112L,
+            "6e1ce909032e1afa7a88e68a3d628ecafff302bdf195befab308826c395e93b7", "pt",
+        ),
+        // Apache-2.0
+        vosk(
+            "ru", "Vosk Russian", 46, "vosk-model-small-ru-0.22", 46_236_750L,
+            "961d5ff98a17f4aa6de69864d0aa71fa5bac682301d2b5d17a3f24c5c99a46d4", "ru",
+        ),
+        // MIT, from Rhasspy
+        vosk(
+            "sv", "Vosk Swedish", 304, "vosk-model-small-sv-rhasspy-0.15", 303_504_931L,
+            "5b54f2ca8cacf9766588d05f6c8ca7e8921f054f050726e29d3516e78aefe054", "sv",
+        ),
+        // Apache-2.0
+        vosk(
+            "te", "Vosk Telugu", 61, "vosk-model-small-te-0.42", 60_544_249L,
+            "3e77b05becc7599a596ccebd8b22cb95eb4eca0cfca524827cdfbfd66af09497", "te",
+        ),
+        // Apache-2.0
+        vosk(
+            "tg", "Vosk Tajik", 52, "vosk-model-small-tg-0.22", 51_879_043L,
+            "870a7e0051e0cdc019e8d5f03acd89b44ef32f8d3935e2cf4e834d61921f0175", "tg",
+        ),
+        // Apache-2.0
+        vosk(
+            "tr", "Vosk Turkish", 37, "vosk-model-small-tr-0.3", 36_855_784L,
+            "8c8d07cec1bce31add14967c16891c84152cdf76d391e33c08278119b9ea96e5", "tr",
+        ),
+        // Apache-2.0
+        vosk(
+            "uk", "Vosk Ukrainian", 144, "vosk-model-small-uk-v3-small", 143_914_407L,
+            "ee05b6a8c796c53c61cd1c821d38e897e5bd67b4d691d8797ec8f9e5100d4247", "uk",
+        ),
+        // Apache-2.0
+        vosk(
+            "uz", "Vosk Uzbek", 51, "vosk-model-small-uz-0.22", 51_061_189L,
+            "ffb77328df64f222a3fac6e368e0baff9dc1258f11b6b5ca5deaa82e5f688e6a", "uz",
+        ),
+        // Apache-2.0
+        vosk(
+            "vi", "Vosk Vietnamese", 34, "vosk-model-small-vn-0.4", 33_656_337L,
+            "efe5c8494212110471a79befc48c79da679e5b1fc52a4ffb500222ff86d622e5", "vi",
+        ),
     )
 
-    fun byId(id: String): EtModel? = models.firstOrNull { it.id == id }
+    fun byId(id: String): EtModel? = models.firstOrNull { it.id == id } ?: EtCustomModels.models.firstOrNull { it.id == id }
 
     /** Sherpa's English punctuation model: English dictation from the engines that write no marks uses it once it is downloaded. */
     val sherpaPunctuation: EtModel get() = models.first { it.engine == EtEngine.SHERPA && it.punctuation }
 
-    fun forEngine(engine: EtEngine): List<EtModel> = models.filter { it.engine == engine }
+    /**
+     * [engine]'s models this phone can run: a GPU build only where the GPU
+     * speaks Vulkan 1.1, an NPU build only on its own chip in a build that
+     * has sherpa-onnx's QNN library.
+     */
+    fun forEngine(engine: EtEngine): List<EtModel> =
+        models.filter {
+            it.engine == engine && (!it.gpu || EtNative.vulkanPossible()) &&
+                (it.npu == null || (it.npu == EtNative.qnnSoc() && SherpaQnnNative.shipped))
+        }
 }
 
 /**
@@ -400,21 +851,43 @@ object EtStore {
     fun file(filesDir: File, model: EtModel, name: String): File = file(filesDir, model, model.file(name))
 
     fun isDownloaded(filesDir: File, model: EtModel): Boolean =
-        model.files.all { f -> file(filesDir, model, f).let { it.isFile && it.length() == f.bytes } }
+        model.files.all { f ->
+            if (f.archive) {
+                EtArchive.mark(dir(filesDir, model), f).isFile
+            } else {
+                file(filesDir, model, f).let { it.isFile && it.length() == f.bytes }
+            }
+        }
+
+    /**
+     * Unpacks each of [model]'s archives that is on the device whole and not
+     * yet unpacked; its hash was checked on the way in, by the download or
+     * the import. Blocking. Throws [java.io.IOException] for an archive that
+     * cannot be laid out safely.
+     */
+    fun unpackArchives(filesDir: File, model: EtModel) {
+        val dir = dir(filesDir, model)
+        for (f in model.files) {
+            if (!f.archive || EtArchive.mark(dir, f).isFile) continue
+            val zip = file(filesDir, model, f)
+            if (zip.isFile && zip.length() == f.bytes) EtArchive.unpack(zip, dir, f)
+        }
+    }
 
     /** The dictation models of [engine] on the device; never a helper such as punctuation. */
     fun downloaded(filesDir: File, engine: EtEngine): List<EtModel> =
-        EtCatalog.forEngine(engine).filter { !it.punctuation && isDownloaded(filesDir, it) }
+        (EtCatalog.forEngine(engine) + if (engine == EtEngine.SHERPA) EtCustomModels.load(filesDir) else emptyList())
+            .filter { !it.punctuation && isDownloaded(filesDir, it) }
 
     /**
      * The model an engine dictates with: the largest one on the device that
      * transcribes every one of [languageIds], since that is the one kept on
-     * purpose. Any language when [languageIds] is empty.
+     * purpose ([EtModel.ORDER]). Any language when [languageIds] is empty.
      */
     fun active(filesDir: File, engine: EtEngine, languageIds: List<String> = emptyList()): EtModel? =
         downloaded(filesDir, engine)
             .filter { model -> languageIds.all(model::supports) }
-            .maxByOrNull { it.millions }
+            .maxWithOrNull(EtModel.ORDER)
 
     fun bytesOnDisk(filesDir: File, model: EtModel): Long =
         FileDownloader.bytesUnder(dir(filesDir, model))

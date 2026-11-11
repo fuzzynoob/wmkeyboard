@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.layout
 
+import com.wasimaster.wmkeyboard.core.input.composer.Kana
 import com.wasimaster.wmkeyboard.core.script.ComposerType
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.ScriptId
@@ -113,6 +114,60 @@ class AssetLayoutsTest {
     }
 
     @Test
+    fun `japanese godan has its vowels down one side and every letter on a key or arm`() {
+        val file = layoutFiles.first { it.name == "ja_godan.${LayoutFile.FILE_EXTENSION}" }
+        val layout = LayoutFile.decode(file.readText())!!.layout
+        val rows = layout.layers.values.flatMap { it.rows }
+        val keys = rows.flatten()
+        assertEquals(ComposerType.ROMAJI, layout.composer)
+        assertEquals(
+            listOf("a", "i", "u", "e", "o"),
+            rows.map { row -> row.first { it.action == KeyAction.Text }.label },
+        )
+        val reachable = keys.filter { it.action == KeyAction.Text }
+            .flatMap { listOf(it.label) + it.flick.values }
+            .filter { it.length == 1 }
+            .map { it[0] }
+            .toSet()
+        assertEquals(emptyList<Char>(), ('a'..'z').filterNot { it in reachable })
+        // Dakuten by its own consonant, small kana by the x prefix, or the key.
+        assertEquals("g", keys.first { it.label == "k" }.flick[FlickDirection.RIGHT])
+        assertEquals("x", keys.first { it.label == "y" }.flick[FlickDirection.UP])
+        assertTrue(keys.any { it.action == KeyAction.KanaVariant })
+    }
+
+    @Test
+    fun `japanese 50 keys has a key per kana and holds every marked form`() {
+        val file = layoutFiles.first { it.name == "ja_50keys.${LayoutFile.FILE_EXTENSION}" }
+        val layout = LayoutFile.decode(file.readText())!!.layout
+        val rows = layout.layers.values.flatMap { it.rows }
+        val keys = rows.flatten()
+        assertEquals(ComposerType.ROMAJI, layout.composer)
+        val gojuon = "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん"
+        val faces = keys.map { it.label }.toSet()
+        assertEquals(emptyList<Char>(), gojuon.filterNot { it.toString() in faces }.toList())
+        for (kana in gojuon) {
+            val held = keys.first { it.label == kana.toString() }.longPress
+            assertEquals(
+                "$kana is missing a form on hold",
+                emptyList<Char>(),
+                Kana.markedForms(kana).filterNot { it.toString() in held }.toList(),
+            )
+        }
+        assertTrue(keys.any { it.action == KeyAction.KanaVariant })
+        // The widened り, み, れ and め stand in for the empty slots of the や
+        // column, so every column stays lined up only if the rows stay level.
+        assertEquals(1, rows.map { row -> row.sumOf { it.width.toDouble() } }.distinct().size)
+    }
+
+    @Test
+    fun `godan and 50 keys are offered on the japanese screen`() {
+        val offered = LanguageRegistry.byId("ja").layoutIds
+        assertTrue(AssetLayouts.JA_GODAN_ID in offered)
+        assertTrue(AssetLayouts.JA_50KEYS_ID in offered)
+    }
+
+    @Test
     fun `the english flick layout reaches every letter from nine keys`() {
         // Issue #410: a MessagEase-style 3×3 board. The centre letters plus the
         // flick arms cover the alphabet; o carries all eight corners and edges.
@@ -150,6 +205,43 @@ class AssetLayoutsTest {
         val column = keys.single { it.action == KeyAction.ReadingColumn }
         assertEquals(3, column.rowSpan)
         assertTrue("，" in column.longPress && "。" in column.longPress)
+    }
+
+    @Test
+    fun `clearflow pinyin has every pinyin letter on the clearflow grid`() {
+        fun layout(name: String) = LayoutFile.decode(
+            layoutFiles.first { it.name == "$name.${LayoutFile.FILE_EXTENSION}" }.readText(),
+        )!!.layout
+        fun letters(spec: LayoutSpec) =
+            spec.layers.values.flatMap { it.rows.flatten() }.map { it.label }.filter { it.length == 1 && it[0] in 'a'..'z' }
+        val board = layout("zh_pinyin_clearflow")
+        assertEquals(ComposerType.PINYIN, board.composer)
+        assertEquals(('a'..'z').map { it.toString() }, letters(board).sorted())
+        // The same letters as ClearFlow, on the same keys.
+        assertEquals(letters(layout("en_clearflow")), letters(board))
+        val keys = board.layers.values.flatMap { it.rows.flatten() }
+        val separator = keys.single { it.label == "'词" }
+        assertEquals("'", separator.output)
+        assertEquals(2, separator.rowSpan)
+        assertTrue(keys.none { it.action == KeyAction.Shift })
+        assertTrue(AssetLayouts.ZH_PINYIN_CLEARFLOW_ID in LanguageRegistry.byId("zh").layoutIds)
+    }
+
+    @Test
+    fun `the cantonese romanisations are listed with their own composers`() {
+        val ids = LanguageRegistry.byId("yue").layoutIds
+        assertEquals(AssetLayouts.YUE_JYUTPING_ID, ids.first())
+        for ((name, id, type) in listOf(
+            Triple("yue_yale", AssetLayouts.YUE_YALE_ID, ComposerType.YALE),
+            Triple("yue_cantonese_pinyin", AssetLayouts.YUE_CANTONESE_PINYIN_ID, ComposerType.CANTONESE_PINYIN),
+        )) {
+            val layout = LayoutFile.decode(
+                layoutFiles.first { it.name == "$name.${LayoutFile.FILE_EXTENSION}" }.readText(),
+            )!!.layout
+            assertEquals(id, layout.id)
+            assertEquals(type, layout.composer)
+            assertTrue(id in ids)
+        }
     }
 
     @Test
@@ -207,6 +299,24 @@ class AssetLayoutsTest {
             // The key shows the radical but types the letter.
             assertEquals("$name: a should be 日", "日", keys.first { it.output == "a" }.label)
             assertEquals("$name: y should be 卜", "卜", keys.first { it.output == "y" }.label)
+        }
+    }
+
+    @Test
+    fun `the wubi layout types a to z and shows each key's stroke zone`() {
+        val file = layoutFiles.first { it.name == "zh_wubi.${LayoutFile.FILE_EXTENSION}" }
+        val layout = LayoutFile.decode(file.readText())!!.layout
+        assertEquals(ComposerType.WUBI, layout.composer)
+        assertTrue(layout.id in LanguageRegistry.byId("zh").layoutIds)
+        val keys = layout.layers.values.flatMap { it.rows.flatten() }
+            .filter { it.action == KeyAction.Text && it.label.length == 1 && it.label[0] in 'a'..'z' }
+        assertEquals(('a'..'z').map { it.toString() }, keys.map { it.label }.sorted())
+        val zones = mapOf('一' to "gfdsa", '丨' to "hjklm", '丿' to "trewq", '丶' to "yuiop", '乙' to "nbvcx")
+        for ((stroke, letters) in zones) {
+            for (letter in letters) {
+                val key = keys.first { it.label == letter.toString() }
+                assertEquals("$letter is in the $stroke zone", stroke, key.hint?.first())
+            }
         }
     }
 

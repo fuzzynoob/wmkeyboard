@@ -25,6 +25,13 @@
     <string name="privacy_handwriting_status_downloading"><xliff:g id="downloaded" example="8.4 MB">%1$s</xliff:g> downloaded</string>
     <string name="privacy_handwriting_status_downloading_of_total"><xliff:g id="downloaded" example="8.4 MB">%1$s</xliff:g> of <xliff:g id="total" example="24.6 MB">%2$s</xliff:g></string>
     <string name="privacy_handwriting_status_stalled"><xliff:g id="downloaded" example="8.4 MB">%1$s</xliff:g> downloaded, currently stalled</string>
+    <!-- The model row when the recogniser's engine library is not on the phone yet: it downloads first, then the model. -->
+    <string name="privacy_handwriting_status_missing_with_library">Not downloaded. The handwriting engine downloads first, then this model</string>
+    <string name="privacy_handwriting_status_missing_with_library_sized">Not downloaded. <xliff:g id="model_size" example="25.8 MB">%1$s</xliff:g>, after the handwriting engine (<xliff:g id="library_size" example="6.9 MB">%2$s</xliff:g>), which downloads first</string>
+    <string name="privacy_handwriting_status_missing_sized_with_library">Not downloaded. <xliff:g id="model_size" example="25.8 MB">%1$s</xliff:g>, after the handwriting engine, which downloads first</string>
+    <!-- Prefixes the download readout while a model download fetches the engine library first. -->
+    <string name="privacy_handwriting_step_library">Step 1 of 2, the handwriting engine: <xliff:g id="readout" example="3.1 MB of 6.9 MB">%1$s</xliff:g></string>
+    <string name="privacy_handwriting_step_model">Step 2 of 2, the model: <xliff:g id="readout" example="8.4 MB of 25.8 MB">%1$s</xliff:g></string>
     <string name="privacy_handwriting_status_failed">The download did not work. Check your network connection</string>
 
     <!-- Content description of the delete button. %1$s is the name of a language. -->
@@ -113,7 +120,7 @@
     <string name="privacy_native_downloads_confirm_action">Turn on</string>
     <string name="privacy_native_import_title">Feature libraries</string>
     <!-- %1$d of %2$d: libraries on the phone, of all this build can use. -->
-    <string name="privacy_native_import_subtitle">%1$d of %2$d on this phone. This offline build cannot download them: get the files on another device and import them here</string>
+    <string name="privacy_native_import_subtitle">%1$d of %2$d on this phone. This is the offline build, so it cannot download them: get the files on another device and import them here, or install the standard build over this one</string>
     <string name="privacy_qualcomm_licence_title">Qualcomm NPU runtime</string>
     <string name="privacy_qualcomm_licence_accepted">Licence accepted. The NPU runtime downloads from Maven Central.</string>
     <string name="privacy_qualcomm_licence_not_accepted">Not accepted. On-device AI can\'t use the NPU.</string>
@@ -311,6 +318,8 @@
     <string name="privacy_permissions_usage_title">Usage access</string>
     <string name="privacy_permissions_usage_subtitle">Show which app a clipboard entry was copied from</string>
 
+    <string name="privacy_permissions_all_files_title">All files access</string>
+    <string name="privacy_permissions_all_files_subtitle">The file manager tools open to pick a file inside the keyboard</string>
     <string name="privacy_permissions_overlay_title">Display over other apps</string>
     <string name="privacy_permissions_overlay_subtitle">The floating buttons that open the keyboard and the AI chat</string>
     <string name="privacy_permissions_exact_alarms_title">Alarms and reminders</string>
@@ -322,6 +331,10 @@
     <string name="privacy_permissions_accessibility_subtitle">Keep the keyboard gestures while TalkBack is on</string>
     <string name="privacy_permissions_screen_content_title">Accessibility service for the AI button</string>
     <string name="privacy_permissions_screen_content_subtitle">Let the floating AI button read the screen when you press it</string>
+    <string name="privacy_permissions_system_buttons_title">Accessibility service for system buttons</string>
+    <string name="privacy_permissions_system_buttons_subtitle">Let the Screenshot tool and the floating button press Android\'s system buttons</string>
+    <string name="privacy_permissions_split_screen_title">Accessibility service for split screen</string>
+    <string name="privacy_permissions_split_screen_subtitle">Let the app launcher press Android\'s split screen switch</string>
 
     <!-- Direct-download builds only. The keyboard can install a new version of itself. -->
     <string name="privacy_permissions_install_updates_title">Install updates</string>

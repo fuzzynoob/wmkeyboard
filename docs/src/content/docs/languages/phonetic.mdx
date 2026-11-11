@@ -1,13 +1,13 @@
 ---
 title: "Phonetic typing in more languages"
-description: "Roman letters in, native script out, for Marathi, Gujarati, Punjabi, Odia, Assamese, Tamil, Telugu, Kannada, Malayalam, Persian and Arabic."
+description: "Roman letters in, native script out, for Marathi, Gujarati, Punjabi, Odia, Assamese, Tamil, Telugu, Kannada, Malayalam, Persian, Arabic, Greek and Tibetan."
 sidebar:
   order: 3.7
 ---
 
 import SettingsPath from '@components/SettingsPath.astro';
 
-Bangla has [Avro](/languages/bengali/), Hindi has [Hindi phonetic](/languages/hindi/) and Urdu has [Urdu phonetic](/languages/urdu/). Eleven more languages now have the same kind of layout: a QWERTY grid where you type a word the way you'd write it in a chat, and the keyboard writes it in the language's own script. Type `vanakkam` on Tamil phonetic and you get Tamil; type `el7amdulillah` on Arabic phonetic and you get الحمدلله.
+Bangla has [Avro](/languages/bengali/), Hindi has [Hindi phonetic](/languages/hindi/) and Urdu has [Urdu phonetic](/languages/urdu/). Thirteen more languages now have the same kind of layout: a QWERTY grid where you type a word the way you'd write it in a chat, and the keyboard writes it in the language's own script. Type `vanakkam` on Tamil phonetic and you get Tamil; type `el7amdulillah` on Arabic phonetic and you get الحمدلله.
 
 | Language | Layout | You type | You get |
 |---|---|---|---|
@@ -22,6 +22,8 @@ Bangla has [Avro](/languages/bengali/), Hindi has [Hindi phonetic](/languages/hi
 | Malayalam | Malayalam phonetic | `njaan`, `ningal` | ഞാൻ, നിങ്ങൾ |
 | Persian | Persian phonetic | `kheili`, `mikonam` | خیلی, می‌کنم |
 | Arabic | Arabic phonetic | `3arabi`, `kayf` | عربي, كيف |
+| Greek | Greeklish | `kalimera`, `8elw` | καλημέρα, θέλω |
+| Tibetan | Wylie | `bod skad`, `bkra shis` | བོད་སྐད, བཀྲ་ཤིས |
 
 ## Turning one on
 
@@ -29,24 +31,26 @@ Bangla has [Avro](/languages/bengali/), Hindi has [Hindi phonetic](/languages/hi
 
 Add the language, open its screen, and turn on its **phonetic** card under **Layouts**. The layout the language already had stays the default, so adding a language still gives you the keyboard you'd expect for it; the phonetic one is a choice. Then download the language's word list from the **Dictionary** row on the same screen. None of these lists ships inside the app, and the next section explains why the phonetic layout cares more than most.
 
-Every key is where it is on the English layout. What you type shows up in the native script in the composing text straight away, and the space commits it. The keys stay left-to-right on Persian and Arabic while the text runs right to left, as on Urdu phonetic.
+Every key is where it is on the English layout. What you type shows up in the native script in the composing text straight away. Once the strip has ranked the word, the composing text shows the word the space will commit. Translate's own text box spells the same way, so you can type the text to translate in your own script. The keys stay left-to-right on Persian and Arabic while the text runs right to left, as on Urdu phonetic.
 
 ## How a word is read
 
 Three layers, the same three Hindi and Urdu phonetic use, in this order:
 
-1. **A list of known spellings**, a few hundred words for each language: the commonest words whose roman spelling doesn't carry enough to get the script right, chat shorthand, and English loanwords written in the script (`school`, `phone`, `doctor`). A spelling on the list is settled there, and it shows in the composing text the moment you finish typing it.
+1. **A list of known spellings**, a few hundred words for each language: the commonest words whose roman spelling doesn't carry enough to get the script right, chat shorthand, and English loanwords written in the script (`school`, `phone`, `doctor`). A spelling on the list is settled there, and it shows in the composing text the moment you finish typing it. A capital that changes what the rules spell goes around the list, since you chose that letter on purpose.
 2. **The language's word list, if you've downloaded it.** What you typed and every word on the list are reduced to a loose key that forgets what roman spelling never says (vowel length, dental against retroflex, aspiration, the letters a script keeps for its loanwords) and keeps those details only to rank the candidates. With the list installed, the right word comes first for most chat spellings: Marathi 90%, Gujarati 82%, Telugu 78%, Punjabi 75%, Kannada 60%, Malayalam 56%, Odia 54%, Tamil 48% (measured on about 200 everyday chat spellings per language).
 3. **The rules alone**, for every word that's in neither. They make the likelier guess, and the strip offers the other readings next to it, such as the same spelling with a vowel read long or with a different closing vowel, so you can tap the one you meant.
 
-Folding a whole word list into those keys is work, and a phone that does it at every keyboard start spends tens of megabytes on it. So the [data repository](https://github.com/wasi-master/wmkeyboard-data) does it once, ahead of time, for every language here and for Hindi and Urdu, and publishes the result beside the word list (`<code>_phonetic_v1r1.wmpi.gz`, 1 to 5&nbsp;MB). The keyboard fetches it right after the word list and reads it in place from storage, so it costs almost no memory. Only lists you imported yourself are still folded on the phone. Until the file is there (no connection, or the build with no internet), the keyboard folds the downloaded list itself, as it always did. You can import the file instead: it is in the language's language pack, and [Offline imports](/privacy/offline/) installs it.
+Folding a whole word list into those keys is work, and a phone that does it at every keyboard start spends tens of megabytes on it. So the [data repository](https://github.com/wasi-master/wmkeyboard-data) does it once, ahead of time, for every language here and for Hindi and Urdu, and publishes the result beside the word list (`<code>_phonetic_v1r1.wmpi.gz`, `v1r2` for Bangla and Assamese, 1 to 9&nbsp;MB). The keyboard fetches it right after the word list and reads it in place from storage, so it costs almost no memory. Only lists you imported yourself are still folded on the phone. Until the file is there (no connection, or the build with no internet), the keyboard folds the downloaded list itself, as it always did. You can import the file instead: it is in the language's language pack, and [Offline imports](/privacy/offline/) installs it.
 
 The rules alone get about half of everyday words exactly right: Tamil 66%, Kannada and Malayalam 60%, Marathi 57%, Punjabi 57%, Gujarati 55%, Telugu 53%, Odia 42%, Persian 67%, Arabic 46%. The rest are lexical facts no rule can know, which is what the first two layers are for.
 
 In the first two layers the words before count too: one spelling can stand for several words, and the one or two you typed just before move up the reading that usually follows them, on the strip and for what space writes. The evidence is your own typing (every word pair you commit is remembered) and the language's word-pair data, which all eleven have as a 1 to 2&nbsp;MB download in the language's **Dictionaries** group, next to the word list. Without it, it is your own habits only, and those start empty. A known spelling only ever trades places with another known spelling of the same buffer. <SettingsPath path="Languages & layouts / your language / Spellings / Use the words before" /> turns it off.
 
+A spelling none of that recognizes may be a typo. The keys are checked against the romanized spellings people write for the language, as an English typo is checked against English words, so a slip of one key still reaches the word. See [Bangla](/languages/bengali/) for how it decides. It works on any language here with romanized spellings to check against, and it follows the autocorrect switch for that language: with autocorrect off the fix is only offered on the strip.
+
 :::note
-None of this is part of autocorrect, and the autocorrect toggle doesn't control it. The known-spellings list has its own switch, <SettingsPath path="Languages & layouts / your language / Spellings / Use known spellings" />, and so does a space committing a dictionary word instead of the rules' spelling: **Correct to dictionary words** in the same group.
+The layers above are not part of autocorrect, and the autocorrect toggle doesn't control them. The known-spellings list has its own switch, <SettingsPath path="Languages & layouts / your language / Spellings / Use known spellings" />, and so does a space committing a dictionary word instead of the rules' spelling: **Correct to dictionary words** in the same group.
 :::
 
 ## Neural suggestions
@@ -83,9 +87,9 @@ The last row of the group is the **Romanized dictation model**, the same model f
 
 ### Let it choose the word
 
-<SettingsPath path="Languages & layouts / Bangla or Hindi / Suggestion strip / Let it choose the word" />
+<SettingsPath path="Languages & layouts / your language / Suggestion strip / Let it choose the word" />
 
-Bangla and Hindi have a second switch, under Neural suggestions and off by default. With it on, the model may also pick what the space bar writes, but only in one case: the rules spell something that is not a word in the language's word list or among your own words, and the known-spellings list has nothing for what you typed. Then the model's best reading that is in the word list goes first in the strip, and a space writes it. The rules' spelling moves to second place, one tap away. Whenever the rules spell a known word, or the known-spellings list has the spelling, nothing changes.
+Bangla, Hindi, Assamese, Gujarati, Kannada, Malayalam, Marathi, Odia, Punjabi and Telugu have a second switch, under Neural suggestions and off by default. With it on, the model may also pick what the space bar writes, but only in one case: the rules spell something that is not a word in the language's word list or among your own words, and the known-spellings list has nothing for what you typed. Then the model's best reading that is in the word list goes first in the strip, and a space writes it. The rules' spelling moves to second place, one tap away. Whenever the rules spell a known word, or the known-spellings list has the spelling, nothing changes.
 
 The text in the field still shows the rules' spelling while you type, as it does when the space bar is about to write a dictionary word that sounds the same. The strip's first word is what a space writes. If you press space before the model has answered, the keyboard waits up to 30&nbsp;ms for it, so typing fast does not change which word you get.
 
@@ -93,12 +97,20 @@ Measured with the known-spellings list on, how often the space bar writes the ri
 
 | Words | Without | With | Made worse |
 |---|---:|---:|---:|
-| Bangla, Aksharantar test words (4,000) | 25.0% | 56.4% | 22 |
+| Bangla, Aksharantar test words (4,000) | 25.3% | 53.3% | 16 |
 | Bangla, chat spellings the known-spellings list doesn't have (2,500) | 41.8% | 52.8% | 31 |
-| Hindi, Aksharantar test words (4,000) | 40.9% | 48.6% | 24 |
+| Hindi, Aksharantar test words (4,000) | 40.0% | 47.6% | 27 |
 | Hindi, chat spellings the known-spellings list doesn't have (692) | 78.2% | 80.1% | 0 |
+| Assamese, Aksharantar test words (4,000) | 26.7% | 38.5% | 18 |
+| Gujarati, Aksharantar test words (4,000) | 46.9% | 57.0% | 15 |
+| Kannada, Aksharantar test words (4,000) | 44.0% | 62.0% | 4 |
+| Malayalam, Aksharantar test words (4,000) | 25.6% | 35.0% | 13 |
+| Marathi, Aksharantar test words (4,000) | 49.2% | 58.1% | 5 |
+| Odia, Aksharantar test words (4,000) | 24.5% | 32.2% | 25 |
+| Punjabi, Aksharantar test words (4,000) | 40.1% | 48.1% | 7 |
+| Telugu, Aksharantar test words (4,000) | 50.0% | 66.1% | 11 |
 
-What it gives up is Avro's rule that the space bar writes exactly what you spelled. A name or rare word spelled exactly to the rules, but missing from the word list, can turn into a listed word that looks like it: `ananto` আনান্ত becomes অনন্ত, `bharotpur` ভারতপুর becomes ভরতপুর. On words spelled exactly to the rules and missing from the list, that happened to about one in six in Bangla and one in fifteen in Hindi. For words the list has, it happened to 2 of 305 in Bangla and none of 427 in Hindi. Urdu gained one point, too little for that trade, so it does not have the switch. It does nothing while the strip is fixed to the word as typed, or while desktop Avro's candidate list is shown in its own row, since the first word there would then disagree with the space bar.
+What it gives up is Avro's rule that the space bar writes exactly what you spelled. A name or rare word spelled exactly to the rules, but missing from the word list, can turn into a listed word that looks like it: `ananto` আনান্ত becomes অনন্ত, `bharotpur` ভারতপুর becomes ভরতপুর. On words spelled exactly to the rules and missing from the list, that happened to about one in six in Bangla and one in fifteen in Hindi. For words the list has, it happened to 2 of 305 in Bangla and none of 427 in Hindi. In the other eight languages, of the test words the rules spelled right but the word list lacks, between 2% (Kannada) and 14% (Odia) were swapped. Urdu and Tamil gained about one point each, too little for that trade, so they do not have the switch. It does nothing while the strip is fixed to the word as typed, or while desktop Avro's candidate list is shown in its own row, since the first word there would then disagree with the space bar.
 
 ## What each language does
 
@@ -132,6 +144,30 @@ Assamese uses Avro's rules, because people romanize it the way they romanize Ban
 ### Arabic
 
 Arabizi works, digits and all: `2` ق, `3` ع, `3'` غ, `5` خ, `6` ط, `6'` ظ, `7` ح, `8` ق, `9` ص, `9'` ض. A number you type on its own stays a number. `al`, `el` and `il` before a consonant are the article ال (`elyoum` اليوم, `essalam` السلام), `g` is ج, `ch` is ش, and a closing `a` is ا with ة and ى offered beside it. `2` is ق rather than the hamza of most charts, because the people who type `2` most mean the glottal stop their dialect says for ق (`2albi` قلبي); the real hamza words are in the known-spellings list.
+
+
+### Greek
+
+Greeklish doesn't care which spelling you use: `kalimera` and `kalhmera`, `thelw`, `8elw` and `thelo`, `kserw`, `xerw` and `3erw` all find the same word, accent included, because the word list settles whether an i is ι, η, υ, ει or οι. `b` is μπ, `d` is δ and `h` can be η or χ. A number on its own stays a number. The accent and the right spelling come from the Greek word list, so download it from the language's page first: without it you get the rules' plain reading, `καλημερα`. There's no romanized list yet, so swiping isn't decoded on this layout.
+
+### Tibetan
+
+Wylie is an exact system rather than a guess, so there's nothing to rank: what you type is what you get. The space bar types a tsheg, `/` a shad, and `'` the a-chung. Stacks follow the rules of Tibetan spelling (`bsgrubs` བསྒྲུབས), `.` keeps two letters apart (`g.yag` གཡག) and `+` forces a stack (`pad+ma` པདྨ). Capitals are the Sanskrit letters and long vowels of Extended Wylie (`Ta` ཊ, `A` ཨཱ).
+## Languages with rules only
+
+77 more languages have a phonetic layout named after them: `kamal` writes कमल on Maithili phonetic, కమల on Lambadi (Telugu) phonetic and কমল on Chittagonian phonetic.
+
+| Script | Languages |
+|---|---|
+| Devanagari | Ahirani, Awadhi, Bagheli, Bagri, Bhili, Bhojpuri, Bodo, Bundeli, Chhattisgarhi, Dhundhari, Dogri, Garhwali, Godwari, Gondi, Gujari, Halbi, Harauti, Haryanvi, Kangri, Kannauji, Kashmiri, Konkani, Korku, Kurukh, Lambadi, Magahi, Maharashtrian Konkani, Maithili, Malvi, Mandeali, Marwari, Merwari, Mewari, Nimadi, Rangpuri, Sadri, Shekhawati, Sindhi, Surjapuri, Varhadi, Wagdi |
+| Bengali | Bishnupriya Manipuri, Bodo, Chittagonian, Garo, Kok Borok, Manipuri, Mundari, Santali |
+| Gujarati, Odia, Kannada, Telugu | Bhili; Halbi; Konkani, Lambadi, Tulu; Gondi, Lambadi |
+| Arabic | Bagri, Balti, Brahui, Dakhini, Dogri, Eastern and Southern Balochi, Gujari, Kashmiri, Marwari (Pakistan), Northern and Southern Hindko, Pahari-Potwari, Pashto, Saraiki, Shina, Sindhi |
+| Other | Yiddish in Hebrew letters, Mongolian in Cyrillic, Santali in Ol Chiki, Manipuri in Meetei Mayek |
+
+These work from a table of sounds, with none of the grammar rules the languages above have, so treat the first spelling as a guess. Capital letters pick the retroflex sounds, as on the other Indic layouts, and on Sindhi, Saraiki and Pashto they and doubled letters also reach the letters Urdu doesn't have: `dd` is ڏ in Sindhi and ݙ in Saraiki, and `x` is ښ in Pashto. Mongolian follows chat spelling, where `q` is ө and `v` is ү.
+
+All of them rank against a word list when one is installed, so the strip leads with a word the language has rather than the rules' guess: `odor` finds өдөр on Mongolian even though the rules wrote о. Many of these languages have no list to download. Among the Arabic-script ones and the last row, only Pashto, Sindhi, Saraiki, Yiddish, Mongolian, Santali and Manipuri do, and for the others the strip shows what the rules wrote and their other readings, until you [import a list](/languages/dictionaries/). A list in another script than the layout's ranks nothing.
 
 ## Glide typing
 

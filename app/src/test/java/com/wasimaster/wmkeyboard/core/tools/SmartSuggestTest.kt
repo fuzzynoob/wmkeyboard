@@ -680,6 +680,26 @@ class SmartSuggestTest {
     }
 
     @Test
+    fun aHanOrKanaKeywordCountsAtTheEndOfARun() {
+        val h = hit("我的笔记", ctx)
+        assertEquals(ToolbarTool.NOTES, h?.tool)
+        assertEquals("笔记", h?.query)
+        assertEquals("the keyword goes, the rest stays", 2, h?.replaceSpan)
+        assertEquals(ToolbarTool.NOTES, hit("笔记", ctx)?.tool)
+        assertEquals(ToolbarTool.NOTES, hit("このメモ", ctx)?.tool)
+    }
+
+    @Test
+    fun theLongestKeywordAtTheEndOfARunWins() {
+        assertEquals(ToolbarTool.IMAGE_SEARCH, hit("图片搜索", ctx)?.tool)
+    }
+
+    @Test
+    fun aLatinKeywordStillHasToBeTheWholeWord() {
+        assertNull(hit("keynote", ctx))
+    }
+
+    @Test
     fun writingBackTheDefaultsDropsTheOverride() {
         val defaults = SmartSuggest.defaultKeywords.getValue(ToolbarTool.WIKIPEDIA)
         val encoded = SmartSuggest.withKeywords("", ToolbarTool.WIKIPEDIA, defaults)
@@ -795,6 +815,25 @@ class SmartSuggestTest {
     @Test
     fun explicitDatesAnnotateTheWeekday() {
         assertEquals("aug 14 (Friday)", hit("lets do aug 14", dateCtx)?.insert)
+    }
+
+    // #1089: the user's own formats, and a hold stepping through them.
+    @Test
+    fun theUsersDateFormatIsShownAndWritten() {
+        val iso = dateCtx.copy(dateFormats = listOf("yyyy-MM-dd", "d/M"))
+        val first = hit("free tomorrow", iso)
+        assertEquals("2026-08-11", first?.result)
+        assertEquals("tomorrow (2026-08-11)", first?.insert)
+        assertEquals(true, first?.moreFormats)
+        assertEquals("tomorrow (11/8)", hit("free tomorrow", iso.copy(dateFormatStep = 1))?.insert)
+        assertEquals("tomorrow (2026-08-11)", hit("free tomorrow", iso.copy(dateFormatStep = 2))?.insert)
+    }
+
+    @Test
+    fun aDateFormatThatDoesNotReadKeepsTheChipsOwn() {
+        val h = hit("free tomorrow", dateCtx.copy(dateFormats = listOf("yyyy-MM-dd ''q")))
+        assertEquals("tomorrow (Tue 11 Aug)", h?.insert)
+        assertEquals(false, h?.moreFormats)
     }
 
     @Test

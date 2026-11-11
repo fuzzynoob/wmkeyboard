@@ -406,10 +406,18 @@ private class Context(
     private fun rootItems(): JsonCompletions? {
         if (tokens.any { it !== token }) return null
         if (!explicit && token == null) return null
-        val template = if (root == LayoutJsonRoot.PANEL) PANEL_SKELETON else LAYOUT_SKELETON
+        val template = when (root) {
+            LayoutJsonRoot.PANEL -> PANEL_SKELETON
+            LayoutJsonRoot.ROW -> ROW_SKELETON
+            LayoutJsonRoot.LAYOUT -> LAYOUT_SKELETON
+        }
         val caretAt = template.indexOf('|')
         val text = template.replace("|", "")
-        val label = if (root == LayoutJsonRoot.PANEL) "PanelLayoutSpec" else "LayoutSpec"
+        val label = when (root) {
+            LayoutJsonRoot.PANEL -> "PanelLayoutSpec"
+            LayoutJsonRoot.ROW -> "List<Key>"
+            LayoutJsonRoot.LAYOUT -> "LayoutSpec"
+        }
         return JsonCompletions(
             replaceStart,
             replaceEnd,
@@ -559,7 +567,7 @@ private class Context(
 
         val TAG_ORDER = listOf(
             "shift", "delete", "enter", "space", "symbols", "letters", "language_switch", "emoji", "tool", "toolbox", "send_key", "mod",
-            "edit", "newline", "caps_lock", "forward_delete", "layout", "fn", "none", "input_method_picker", "broadcast",
+            "edit", "edit_sequence", "newline", "caps_lock", "forward_delete", "layout", "fn", "none", "input_method_picker", "broadcast",
             "text", "kana_variant", "add_stroke", "double_consonant", "reading_column", "han_script", "braille_dot", "morse_dot", "morse_dash", "keyman_key", "field",
         )
         val PANEL_TAG_ORDER = listOf("field", "edit", "tool", "letters", "delete", "space", "enter", "send_key", "mod", "none", "text")
@@ -603,6 +611,7 @@ private class Context(
 
         const val LAYOUT_SKELETON = "{\n  \"id\": \"\",\n  \"name\": \"|\",\n  \"langId\": \"en\",\n" +
             "  \"layers\": {\n    \"letters\": {\"rows\": [[]]}\n  }\n}"
+        const val ROW_SKELETON = "[\n  {\"label\": \"|\"}\n]"
         const val PANEL_SKELETON = "{\"panel\": \"|\", \"grid\": {\"rows\": [[]]}}"
     }
 }

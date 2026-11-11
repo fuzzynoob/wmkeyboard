@@ -75,7 +75,7 @@ As soon as something is picked, a bar rises from the bottom:
 - **The size chip.** **Original**, **HD** (2560 px on the long side), **SD** (1280 px) or **Small** (800 px), with an estimate of the total under it. Tap to step through them. The starting size is **Picture size** in settings. Videos always go at their own size.
 - **Send.** Hold it for the other ways out: **Send at full size**, **Send without the caption**, **Share to this app**, **Share to another app**, **Copy to the clipboard**, **Save a copy to the gallery** and **Clear the selection**.
 
-Each item goes into the text box in turn, a moment apart, so the chat app has time to take each one. Some apps, WhatsApp and Signal among them, answer the first picture by opening a send screen of their own, which takes the text box away. The keyboard waits a moment after the first picture to see whether that happens, and if it does, the rest go to the same app together through its share screen, where you pick the chat again. Before 0.6.4 those pictures were dropped.
+Each item goes into the text box in turn, a moment apart, so the chat app has time to take each one. Some apps, WhatsApp and Signal among them, answer the first picture by opening a send screen of their own, which takes the text box away. The keyboard waits a moment after the first picture to see whether that happens, and if it does, all of them go to the same app together through its share screen, where you pick the chat again.
 
 ### When the app does not take pictures
 
@@ -136,7 +136,7 @@ Either way the photo is saved at up to 4096 pixels on its long side, in its own 
 What the app you type in receives is a copy in the keyboard's own storage, offered through Android's content system. It cannot see your library, other photos in the album, or the file the copy came from.
 
 - **Remove the location** (on) takes the GPS position out of every photo and video sent. On Android 10 and later the keyboard never reads the location in the first place, because Android hides it from apps without a separate permission that this one does not ask for.
-- **Remove the camera details** (on) also takes out the camera's make and model, the serial numbers, the owner's name and the time the photo was taken. A photo sent at a smaller size is re-encoded, which leaves all metadata behind anyway. A video is copied into a new container, which keeps its picture, sound and rotation and nothing else.
+- **Remove the camera details** (on) also takes out the camera's make and model, the serial numbers, the owner's name and the time the photo was taken. A photo sent at a smaller size is re-encoded, which leaves all metadata behind anyway. A photo sent at its own size loses every metadata block, byte for byte and with no new compression: EXIF, XMP, IPTC and comments, and whatever is stored after the picture, such as a motion photo's video. Only its orientation is written back. A GIF loses its comments and XMP and keeps its frames and loop. A video is copied into a new container, which keeps its picture, sound and rotation and nothing else. Android can only write MP4 and WebM, so a video in another container (MKV, AVI) is sent as it is.
 - **Random file names** (on) sends copies under a random name such as IMG_3f9a01c2d4.jpg, not the photo's own.
 - **Remember what you sent** (on) keeps a list of the library ids you sent, for the Sent album and the send mark. It holds no pictures and no names, it stays on the phone, an incognito text box adds nothing to it, and **Clear the sent list** empties it.
 - The copies are deleted from the keyboard's storage a day after they were made.
@@ -147,7 +147,7 @@ The library is read only while the panel is open. Nothing is uploaded: the tool 
 
 Everything above is under <SettingsPath path="Tools / Gallery" />: access, **Tap on a photo**, **Columns**, **Camera tile**, **Show videos**, **Fast scroll by month**, **Open at full height**, **Open the last album**, **Vibrate on each pick**, **Folders**, **Picture size**, **Pick up to**, **Caption**, **When the app does not take pictures**, **Close after sending**, **Keep edited photos**, and the privacy switches. The Play Store build shows only the ones that apply to the picker.
 
-**Folders** lists the folders on the phone that hold photos or videos, each with a tick. Untick one and its photos leave the gallery altogether: its own album goes from the list, and nothing from it shows in **Recents**, **Favorites** or any other collection, or in a search. A folder of saved receipts or a messaging app's downloads can stay out of the way. Tick it again to bring it back.
+**Folders** lists the folders on the phone that hold photos or videos as a tree under DCIM, Pictures and the rest, with a search and a tick for each, so a whole branch can go at once. Untick one and its photos leave the gallery altogether: its own album goes from the list, and nothing from it shows in **Recents**, **Favorites** or any other collection, or in a search. A folder of saved receipts or a messaging app's downloads can stay out of the way. Tick it again to bring it back.
 
 The gallery and the camera are the **Camera and gallery** bundle on [Extensions](/reference/settings/extensions/). Off there, both tools leave the toolbar, the toolbox and the Tools list until the bundle is switched back on.
 

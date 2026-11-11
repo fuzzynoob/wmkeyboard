@@ -65,6 +65,22 @@ enum class SpecialAccess {
     SCREEN_CONTENT,
 
     /**
+     * The split-screen accessibility service, for the app launcher's split
+     * screen where the keyboard's own split launch opens full screen. It
+     * performs one action, the system's split-screen switch, and reads only
+     * where the app windows are, so the disclosure says exactly that.
+     */
+    SPLIT_SCREEN,
+
+    /**
+     * The system buttons accessibility service, for the Screenshot tool
+     * (#1148) and the floating button's system button actions (#1170). It
+     * presses Android's own system buttons on request and reads nothing, so
+     * the disclosure says exactly that.
+     */
+    SYSTEM_BUTTONS,
+
+    /**
      * Permission to install packages, for the builds that update themselves
      * from this project's GitHub releases.
      *
@@ -96,6 +112,13 @@ enum class SpecialAccess {
      * notification instead.
      */
     FULL_SCREEN,
+
+    /**
+     * All files access, for the keyboard's file manager (from Android 11). The
+     * grant really does cover everything on shared storage, which is why the
+     * disclosure opens with it rather than with what the keyboard does with it.
+     */
+    ALL_FILES,
     ;
 
     /** Dialog heading: the grant and the feature that wants it. */
@@ -107,10 +130,13 @@ enum class SpecialAccess {
             USAGE -> R.string.common_special_access_usage_title
             ACCESSIBILITY -> R.string.common_special_access_accessibility_title
             SCREEN_CONTENT -> R.string.common_special_access_screen_content_title
+            SPLIT_SCREEN -> R.string.common_special_access_split_screen_title
+            SYSTEM_BUTTONS -> R.string.common_special_access_system_buttons_title
             INSTALL_UPDATES -> R.string.common_special_access_install_updates_title
             OVERLAY -> R.string.common_special_access_overlay_title
             EXACT_ALARMS -> R.string.common_special_access_exact_alarms_title
             FULL_SCREEN -> R.string.common_special_access_full_screen_title
+            ALL_FILES -> R.string.common_special_access_all_files_title
         }
 
     /** What is read, why, where it goes, and that the feature is optional. */
@@ -122,10 +148,13 @@ enum class SpecialAccess {
             USAGE -> R.string.common_special_access_usage_body
             ACCESSIBILITY -> R.string.common_special_access_accessibility_body
             SCREEN_CONTENT -> R.string.common_special_access_screen_content_body
+            SPLIT_SCREEN -> R.string.common_special_access_split_screen_body
+            SYSTEM_BUTTONS -> R.string.common_special_access_system_buttons_body
             INSTALL_UPDATES -> R.string.common_special_access_install_updates_body
             OVERLAY -> R.string.common_special_access_overlay_body
             EXACT_ALARMS -> R.string.common_special_access_exact_alarms_body
             FULL_SCREEN -> R.string.common_special_access_full_screen_body
+            ALL_FILES -> R.string.common_special_access_all_files_body
         }
 
     /**
@@ -150,7 +179,7 @@ enum class SpecialAccess {
             Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS),
         )
         USAGE -> listOf(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
-        ACCESSIBILITY, SCREEN_CONTENT -> listOf(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+        ACCESSIBILITY, SCREEN_CONTENT, SPLIT_SCREEN, SYSTEM_BUTTONS -> listOf(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         // The per-app "install unknown apps" page arrived with API 26. Below
         // that the setting is one global switch with no page to send anyone
         // to, so the list is empty and the system installer asks for itself.
@@ -174,6 +203,15 @@ enum class SpecialAccess {
             Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION, "package:$packageName".toUri()),
             Intent(Settings.ACTION_MANAGE_OVERLAY_PERMISSION),
         )
+        // The app's own switch first; some skins only have the list of apps.
+        ALL_FILES -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            listOf(
+                Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION, "package:$packageName".toUri()),
+                Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION),
+            )
+        } else {
+            emptyList()
+        }
         // Both pages are newer than minSdk; the checks are spelled out for Lint.
         EXACT_ALARMS -> if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             listOf(

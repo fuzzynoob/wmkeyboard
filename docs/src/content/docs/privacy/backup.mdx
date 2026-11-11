@@ -34,7 +34,7 @@ its own switch:
 | Clipboard | Off | Saved clipboard history (text only; images and files stay local) |
 | Snippets | On | Your saved text snippets |
 | Sticker packs | Off | Your own sticker packs, stickers and all (but not the photos you cut them out of) |
-| Icon packs | Off | Your own icon packs, images and all |
+| Icon packs | Off | Your own icon packs, images and all. Backups made before 0.6.6 restored the pack names with no icons in them; restoring one of those now brings the icons back too |
 | Custom word lists | On | Word lists you imported for any language |
 | Addon repositories | On | The repository addresses you added, so a restore can reinstall from them |
 | Emoji history | On | Your recent emoji, your favourites and the skin tone you last picked for each |
@@ -120,8 +120,9 @@ keys**, which only appears while the Settings section itself is included.
 That's more than the tool keys: Translate, KLIPY, GIPHY, Brave, Tavily, Unsplash,
 Pexels, every AI provider key including Grok, DeepSeek, Brave and the
 OpenAI-compatible one, the Hugging Face token, and the passwords and tokens
-for your backup locations (WebDAV, S3, SFTP, SMB, FTP, Git, IMAP, Dropbox,
-OneDrive) plus your backup passphrase.
+for your backup locations (WebDAV, S3, SFTP, SMB, NFS, Synology, QNAP, FTP,
+Git, IMAP, Dropbox, OneDrive, Box, pCloud, MEGA, iCloud Drive, Proton Drive)
+plus your backup passphrase.
 
 [AI history](/tools/ai/#history) never travels, with or without that switch,
 and there is no section for it to travel in. The two settings that control it
@@ -162,6 +163,14 @@ as you like, of any kind, on the Backup & restore screen:
 | **Google Drive** | A one-time permission, for a hidden folder of the app's own or for a folder you can see in My Drive. Either way the app can see nothing else | No, needs Play services |
 | **Dropbox** | Signing in. The app gets a folder of its own under Apps | Yes |
 | **OneDrive** | Signing in. The app gets a folder of its own under Apps | Yes |
+| **Box** | Signing in through the browser, and a folder | Yes |
+| **iCloud Drive** | Your Apple Account, its password, and a code from your Apple device about once a month | Yes |
+| **Proton Drive** | Your Proton account, signed in once. Files are encrypted on the phone | Yes |
+| **MEGA** | Your MEGA account, signed in once. Files are encrypted on the phone | Yes |
+| **pCloud** | Your pCloud account, signed in once | Yes |
+| **Synology** | Your Synology NAS: Synology Drive or any shared folder, and your DSM account | Yes |
+| **QNAP** | A shared folder on your QNAP NAS, and your QTS account | Yes |
+| **NFS** | An NFS export on your network that allows this phone | Yes |
 
 None of these send anything to a WM Keyboard server. There is no account with
 us, and nothing of yours passes through anything we run. **Test the
@@ -181,7 +190,9 @@ packs is not, and it goes out every interval, which is why Wi-Fi is the
 default. Turn it off and a backup uploads over mobile data as soon as it's
 due. The Wi-Fi toggle only appears while a ticked location needs a
 connection. A **Folder** is storage on your own device, so it backs up offline
-either way. There is one ceiling you don't set, on how much
+either way. Picking its folder opens on the folder the location already has, or
+on the last folder you picked for a backup location, not wherever your last
+import or export went. There is one ceiling you don't set, on how much
 of the phone's memory one backup may take: an eighth of what the app may use,
 and never under 16 MB. When the sticker packs, icon packs and imported word
 lists would push the file past it, an automatic run leaves out the largest of
@@ -208,9 +219,22 @@ So it protects the file where it lands, in a cloud folder for instance, and
 not against a person holding your unlocked device. Write it down. Without it,
 a backup cannot be restored. The same passphrase protects the sync files.
 The file is sealed with AES-256-GCM under a key derived from the passphrase
-by PBKDF2-HMAC-SHA512, 210,000 rounds over a random salt kept on this
-device. Backups made by older versions used PBKDF2-HMAC-SHA256 and still
-restore.
+over a random salt kept on this device. A backup of up to 4 MiB, which is
+nearly all of them, is sealed in one piece under PBKDF2-HMAC-SHA256 at
+600,000 rounds. That is the form every version since encrypted backups
+began can open, so a backup made on the GitHub build restores on the Google
+Play one even while Play is a version behind, and the other way round. A
+larger backup, one carrying sticker packs or a big learned dictionary, is
+keyed by PBKDF2-HMAC-SHA512 at 210,000 rounds and sealed in 64 KiB pieces,
+each with its own tag, so it is made and opened a piece at a time instead
+of all at once in the keyboard's memory. Each piece is numbered and the
+last one is marked, so a file that was cut short, edited or reordered fails
+to open rather than restoring part of a backup. Earlier releases can't open
+that larger kind, and say the passphrase is wrong or the file is damaged;
+from this one on, a file made by a newer version says so instead. Backups
+made by any older version still restore. Sync files follow the same rules.
+
+With the frequent backup on, **What goes in a backup** shows one list with two ticks per row, Main and Frequent, instead of a list for each.
 
 **API keys are your call.** **What goes in a backup** has its own **Include
 API keys** switch. Without a passphrase, the switch strongly suggests turning
@@ -231,7 +255,20 @@ nothing else, and the screen says plainly what it costs. An S3 endpoint on
 plain `http` is allowed too, for the MinIO box on your own network: the
 request is signed rather than carrying the secret key, but the signature and
 the file both go over the wire in the clear, and the screen says so under the
-endpoint field. Turn on a passphrase if you use either.
+endpoint field. Turn on a passphrase if you use either. NFS has no
+encryption and no password: the server takes the phone's word for the user
+id it writes as, and the screen says so. Synology and QNAP send your
+password, so a plain `http` address is refused, and a NAS certificate that
+no authority vouches for is refused unless you accept it, after which only
+that same certificate is.
+
+**Two locations hold only what the phone encrypted.** MEGA and Proton Drive
+get files encrypted with keys the service never sees, exactly as their own
+apps do it, and Proton signs every key, name and block as well. iCloud Drive
+is reached through the interface iCloud.com uses, because Apple publishes
+none for Android, and Proton Drive through the one its apps use, which Proton
+has not opened to other apps yet. Either can change on the service's side,
+and backups there then fail until the app is updated.
 
 **Nothing is backed up while your device is locked.** The parts that matter
 most, like your learned words, live in storage that only exists once you've
@@ -300,6 +337,7 @@ Syncing again replaces a device's counts; it never adds them a second time.
   **Themes** under **What syncs** stops only your own themes from syncing;
   which theme is in use is a setting, kept apart by **Theme** here.
 - **With a paired computer:** pair WM Keyboard on a computer over [KDE Connect](/tools/kde-connect/#pairing-with-wm-keyboard-on-a-computer) and it becomes a location of its own, **Nearby device**, ticked under **Sync through**, with sync turned on. The two hand each other their sync files directly while both are on the same network and the keyboard is open, so no cloud service is involved. **Sync with paired devices**, on by default, decides whether pairing does this.
+- **With your private space or work profile:** Android keeps each profile's files apart, so a folder location set up in one profile isn't writable from the other. Add an **Other profile** location in WM Keyboard in both profiles instead, with the same pairing code: tap **Copy the code** in one and **Paste a code** in the other. Adding it ticks it under **Sync through** and turns sync on. The first time, the copy in the private space or work profile takes your main profile's settings, and adds only what the main one doesn't have. While both copies are running, they hand each other their sync files over the phone's own loopback address (127.0.0.1), so nothing leaves the phone, and a private space that was locked catches up the next time you unlock it. Android 17 and later keep apps in different profiles apart: there the location shows a one-time `adb` command to run for each profile, then a restart.
 - **Pausing:** **Pause sync** holds the scheduled and automatic syncs back for
   1 hour, 1 day, 1 week, or until you resume, and keeps everything else as it
   is. **Sync now** still works. Resuming syncs straight away.
@@ -316,6 +354,11 @@ and what's installed or downloaded on it. **Sync API keys and passwords** is
 off by default, and like the backup switch it strongly suggests a passphrase
 first without requiring one. Use the same passphrase on every device, or the
 others can't read this one's file, and the screen says so.
+
+Devices on different versions sync with each other. An encrypted sync file
+over 4 MiB is the one exception (see the passphrase section above): an
+older release can't open it, and from this release on the screen says the
+other device runs a newer version instead of blaming the passphrase.
 
 Sync settings are never exported, backed up or synced themselves, the pause
 and the sync group included. A phone restored from a backup doesn't start
@@ -402,6 +445,8 @@ everything is on [Backup & restore settings](/reference/settings/backup/).
   [Android's own backup](#androids-own-backup) above.
 
 ## Moving to a new phone
+
+A backup carries your own RIME words and imported RIME schemas with your personal dictionary, along with which word you picked for each reading on the built-in Chinese and Japanese boards, but nothing that was downloaded. RIME's compiled files stay out too, since RIME builds them again by itself. If the new phone may not reach GitHub, where downloads come from, press **Save downloaded files** on the Backup screen first. It writes one zip with your word lists, RIME's packs, voice and AI models and feature libraries. **Restore downloaded files** on the next phone puts them back. A library goes back in only if its checksum matches what that version of the keyboard expects, so use the same version on both phones. If you restore a backup without those files, the message that follows says how many feature libraries are missing and opens [the page that lists them](/privacy/offline/#feature-libraries).
 
 Themes, sticker packs, icon packs, custom word lists and your own vocabulary
 lists all *replace* rather than merge on import. Restore onto a phone that

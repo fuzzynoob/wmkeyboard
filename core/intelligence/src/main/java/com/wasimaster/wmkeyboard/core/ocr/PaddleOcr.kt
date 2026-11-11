@@ -15,6 +15,9 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.withContext
 
+/** A level, label-sized place in a picture for [PaddleOcr.readLetters]: its middle and its size. */
+data class LetterBox(val cx: Float, val cy: Float, val width: Float, val height: Float)
+
 /**
  * Reads Chinese and Japanese with PaddleOCR's PP-OCRv5 models (#757), and in
  * F-Droid's build Latin script as well. The graphs run on the LiteRT
@@ -40,6 +43,8 @@ object PaddleOcr {
 
     /** Where [module] stands. */
     val moduleState: StateFlow<ModuleState> get() = module.state
+
+    private const val LETTER_FLOOR = 0.2f
 
     private val thread = Executors.newSingleThreadExecutor { r -> Thread(r, "paddle-ocr") }
     private val dispatcher = thread.asCoroutineDispatcher()
@@ -74,6 +79,29 @@ object PaddleOcr {
             val lines = PaddleOcrPipeline.read(loaded, pixels, width, height, charset) { job?.isActive != false }
             currentCoroutineContext().ensureActive()
             lines.joinToString("\n")
+        }
+    }
+
+    /** Whether a read would run now, without downloading anything first. */
+    fun ready(context: Context): Boolean = module.installed && PaddleOcrModel.isDownloaded(context.filesDir)
+
+    /**
+     * The single characters in [boxes] of [bitmap], or an empty list if this engine is
+     * not [ready]. For the theme copier, which knows where label-sized things are and
+     * needs to know which letters they are.
+     */
+    suspend fun readLetters(context: Context, bitmap: Bitmap, boxes: List<LetterBox>): List<Pair<String, LetterBox>> {
+        if (!ready(context)) return emptyList()
+        val width = bitmap.width
+        val height = bitmap.height
+        val pixels = IntArray(width * height)
+        val readable = if (bitmap.config == Bitmap.Config.HARDWARE) bitmap.copy(Bitmap.Config.ARGB_8888, false) else bitmap
+        readable.getPixels(pixels, 0, width, 0, 0, width, height)
+        if (readable !== bitmap) readable.recycle()
+        return withContext(dispatcher) {
+            val level = boxes.map { PaddleOcrPipeline.TextBox(it.cx, it.cy, it.width, it.height, 0f) }
+            PaddleOcrPipeline.readAt(runtime ?: load(context), pixels, width, height, charset, level, LETTER_FLOOR)
+                .map { (text, box) -> text to LetterBox(box.cx, box.cy, box.width, box.height) }
         }
     }
 
@@ -123,6 +151,9 @@ object PaddleOcr {
     }
 
     /** Frees the loaded graphs, for when the panel closes. */
+    /** Whether the OCR models are loaded; for the Resources screen (#1163). Any thread. */
+    val isLoaded: Boolean get() = runtime != null
+
     fun release() {
         thread.execute {
             runCatching { runtime?.close() }

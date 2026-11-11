@@ -113,4 +113,59 @@ class NotesLogicTest {
         assertEquals(7, NotesLogic.lineStartOffset(body, 3))
         assertEquals(body.length, NotesLogic.lineStartOffset(body, 9))
     }
+
+    @Test
+    fun `passages come from the listed notes in order, never from a locked one, and stop at the limit`() {
+        val store = NoteStore(null)
+        val quotes = store.add("Intro.\n\nTo be or not to be.\n\nThe end.", title = "Quotes", now = 1)
+        val diary = store.add("be quiet", now = 2, locked = true)
+        val other = store.add("let it be", now = 3)
+        val items = listOf(other, diary, quotes).map { store.item(it.id)!! }
+
+        val hits = NotesLogic.passages(items, "be")
+        assertEquals(listOf(other.id, quotes.id), hits.map { it.noteId })
+        assertEquals("To be or not to be.", hits[1].text)
+        assertEquals("be", hits[1].text.substring(hits[1].matchStart, hits[1].matchEnd))
+        assertEquals("Quotes", hits[1].title)
+        assertEquals(1, NotesLogic.passages(items, "be", limit = 1).size)
+        assertEquals(emptyList<NotePassageHit>(), NotesLogic.passages(items, "b"))
+    }
+
+    @Test
+    fun `the clipboard's passages follow its regex switch and its tag filter`() {
+        val store = NoteStore(null)
+        val quotes = store.add("Order (123456) shipped.\n\nAnother line.", tags = listOf("Quotes"), now = 1)
+        val plain = store.add("Code 654321 here.", now = 2)
+        val notes = listOf(quotes, plain).map { store.item(it.id)!! }
+
+        assertEquals(listOf(quotes.id, plain.id), NotesLogic.clipboardPassages(notes, "\\d{6}", regex = true).map { it.noteId })
+        // Off, the pattern is the text it is, and no note holds that.
+        assertEquals(emptyList<NotePassageHit>(), NotesLogic.clipboardPassages(notes, "\\d{6}", regex = false))
+        // Half typed, it searches as plain text.
+        assertEquals(listOf(quotes.id), NotesLogic.clipboardPassages(notes, "(123", regex = true).map { it.noteId })
+
+        assertEquals(listOf(quotes.id), NotesLogic.clipboardPassages(notes, "\\d{6}", regex = true, tag = "quotes").map { it.noteId })
+        assertEquals(
+            listOf(plain.id),
+            NotesLogic.clipboardPassages(notes, "\\d{6}", regex = true, tag = "Quotes", tagExcluded = true).map { it.noteId },
+        )
+    }
+
+    @Test
+    fun `the clipboard's combined tag filters reach the notes too`() {
+        val store = NoteStore(null)
+        val quotes = store.add("Quote 123456.", tags = listOf("Quotes"), now = 1)
+        val work = store.add("Ticket 223456.", tags = listOf("work", "urgent"), now = 2)
+        val plain = store.add("Code 654321 here.", now = 3)
+        val notes = listOf(quotes, work, plain).map { store.item(it.id)!! }
+        val search = { tags: List<String>, without: List<String> ->
+            NotesLogic.clipboardPassages(notes, "\\d{6}", regex = true, tags = tags, withoutTags = without).map { it.noteId }
+        }
+
+        // Any of the tags (#1187).
+        assertEquals(listOf(quotes.id, work.id), search(listOf("quotes", "Work"), emptyList()))
+        // None of the left-out ones.
+        assertEquals(listOf(plain.id), search(emptyList(), listOf("Quotes", "urgent")))
+        assertEquals(listOf(quotes.id), search(listOf("Quotes", "work"), listOf("URGENT")))
+    }
 }

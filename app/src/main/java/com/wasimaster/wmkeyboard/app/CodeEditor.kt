@@ -3,11 +3,13 @@ package com.wasimaster.wmkeyboard.app
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import android.content.SharedPreferences
 import android.graphics.Typeface
 import androidx.annotation.StringRes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.Stable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
@@ -19,6 +21,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.font.Font
@@ -31,12 +34,53 @@ import java.io.File
 // A small code editor
 // ---------------------------------------------------------------------------
 
+/** A value that goes to [save] on every write, so an editor's view outlives the screen (#984). */
+private class SavedViewState<T>(initial: T, private val save: (T) -> Unit) : MutableState<T> {
+    private val state = mutableStateOf(initial)
+    override var value: T
+        get() = state.value
+        set(next) {
+            state.value = next
+            save(next)
+        }
+
+    override fun component1(): T = value
+    override fun component2(): (T) -> Unit = { value = it }
+}
+
+private fun codeEditorPrefs(context: Context): SharedPreferences =
+    context.getSharedPreferences("code_editor", Context.MODE_PRIVATE)
+
+/**
+ * Whether the code editors wrap long lines, kept across editors and launches,
+ * [default] until the user has said. Saved beside the settings rather than
+ * among them: `KeyboardSettings` is full, and the keyboard never reads this.
+ */
+@Composable
+internal fun rememberCodeWrap(default: Boolean): MutableState<Boolean> {
+    val context = LocalContext.current
+    return remember {
+        val prefs = codeEditorPrefs(context)
+        SavedViewState(prefs.getBoolean("wrap", default)) { prefs.edit().putBoolean("wrap", it).apply() }
+    }
+}
+
+/** The code editors' text size, kept the same way as [rememberCodeWrap]. */
+@Composable
+internal fun rememberCodeTextSize(default: Int): MutableState<Int> {
+    val context = LocalContext.current
+    return remember {
+        val prefs = codeEditorPrefs(context)
+        SavedViewState(prefs.getInt("text_size", default)) { prefs.edit().putInt("text_size", it).apply() }
+    }
+}
+
 /**
  * The parts of a source language this editor needs: how to colour it, how to
  * tidy it, where its brackets pair up, and what is wrong with it right now.
  *
  * [JsonCode] colours and prints JSON; [LayoutJsonLanguage] adds the layout
- * schema's suggestions and checks on top of it for the two JSON screens; [LuaCode]
+ * schema's suggestions and checks on top of it for the two JSON screens; [PythonCode]
  * serves the plugin editor. The editor itself knows about none of them.
  */
 @Immutable
@@ -63,7 +107,7 @@ internal interface CodeLanguage {
 
     // Everything below has a default, so a language with nothing to say about it
     // says nothing and the editor draws nothing. JsonCode overrides none of them;
-    // LayoutJsonLanguage and LuaCode fill them in.
+    // LayoutJsonLanguage and PythonCode fill them in.
 
     /** What starts a line comment, or null for a language that has none. */
     val lineComment: String?
@@ -138,7 +182,12 @@ internal class CodeSmartRules(
     val inert: (text: String, at: Int) -> Boolean,
     /** Whether a line, up to the caret, opens a block that the next line is inside. */
     val opensBlock: (line: String) -> Boolean = { false },
+    /** Columns in one indent step: 2 for JSON, 4 for Python as PEP 8 has it. */
+    val indentWidth: Int = CODE_TAB_STOP,
 ) {
+    /** One indent step, as typed. */
+    val indent: String = " ".repeat(indentWidth)
+
     /** The closers that are not quotes. */
     val closers: Set<Char> = pairs.filterKeys { it !in quotes }.values.toSet()
 
@@ -291,7 +340,6 @@ internal fun rememberCodeColors(): CodeColors {
 
 private const val UNDO_DEPTH = 100
 private const val COALESCE_MS = 700L
-private val INDENT = " ".repeat(CODE_TAB_STOP)
 
 /**
  * What the editor holds: the text, where the caret is, and enough history to
@@ -308,7 +356,7 @@ internal data class CodeFoldEvent(val start: Int, val folded: Boolean, val seria
 
 internal class CodeEditorState(
     initial: TextFieldValue,
-    private val rules: CodeSmartRules = CodeSmartRules.Json,
+    val rules: CodeSmartRules = CodeSmartRules.Json,
 ) {
 
     private var current by mutableStateOf(initial)
@@ -427,8 +475,8 @@ internal class CodeEditorState(
         if (levels > 0 && selection.collapsed && !wholeLines) {
             edit(
                 TextFieldValue(
-                    text = current.text.substring(0, selection.end) + INDENT + current.text.substring(selection.end),
-                    selection = TextRange(selection.end + INDENT.length),
+                    text = current.text.substring(0, selection.end) + rules.indent + current.text.substring(selection.end),
+                    selection = TextRange(selection.end + rules.indent.length),
                 ),
             )
             return
@@ -436,7 +484,7 @@ internal class CodeEditorState(
         val first = lineStartAt(current.text, selection.min)
         val last = current.text.indexOf('\n', selection.max).let { if (it < 0) current.text.length else it }
         val block = current.text.substring(first, last)
-        val shifted = block.split('\n').joinToString("\n") { line -> shiftOne(line, levels) }
+        val shifted = block.split('\n').joinToString("\n") { line -> shiftOne(line, levels, rules.indent) }
         if (shifted == block) return
         val grown = shifted.length - block.length
         push()
@@ -496,12 +544,31 @@ internal class CodeEditorState(
         private const val HISTORY_CHARS = 32 * 1024
 
         /**
-         * A saver that restores with [rules], so a Lua document does not come back
+         * A saver that restores with [rules], so a Python document does not come back
          * from a rotation typing like JSON. [keepHistory] also carries the newest
          * undo steps, capped by size: a bundle that is too large is a crash, not a
          * slow save.
          */
-        fun saver(rules: CodeSmartRules, keepHistory: Boolean): Saver<CodeEditorState, Any> = listSaver(
+        fun saver(rules: CodeSmartRules, keepHistory: Boolean): Saver<CodeEditorState, Any> {
+            val whole = wholeSaver(rules, keepHistory)
+            return Saver(
+                // A document past the cap is not saved at all and comes back
+                // from its source. The activity's saved state crosses a binder
+                // that refuses about a megabyte, and the refusal is a
+                // TransactionTooLargeException every time the app goes to the
+                // background, not a lost edit.
+                save = { state -> if (state.value.text.length > MAX_SAVED_CHARS) null else with(whole) { save(state) } },
+                restore = { whole.restore(it) },
+            )
+        }
+
+        /**
+         * Characters of document a saved state may carry: about 200 KB of the
+         * bundle, leaving room for the history and every other screen's state.
+         */
+        const val MAX_SAVED_CHARS = 100_000
+
+        private fun wholeSaver(rules: CodeSmartRules, keepHistory: Boolean): Saver<CodeEditorState, Any> = listSaver(
             save = { state ->
                 buildList<Any> {
                     add(state.value.text)
@@ -632,7 +699,7 @@ private fun autoIndent(new: TextFieldValue, at: Int, rules: CodeSmartRules): Tex
     val last = prefix.trimEnd().lastOrNull()
     val bracketOpens = last != null && last in rules.pairs && last !in rules.quotes
     val opens = bracketOpens || rules.opensBlock(prefix)
-    val body = if (opens) indent + INDENT else indent
+    val body = if (opens) indent + rules.indent else indent
     val closesNext = bracketOpens && text.getOrNull(at + 1).let { it != null && it in rules.closers }
     return if (closesNext) {
         // The closer takes a line of its own at the outer level, and the caret
@@ -675,10 +742,10 @@ private fun singleDelete(old: TextFieldValue, new: TextFieldValue): Pair<Int, Ch
 }
 
 /** One line in or out by a single step. Out stops at the left margin. */
-private fun shiftOne(line: String, levels: Int): String = if (levels > 0) {
-    INDENT + line
+private fun shiftOne(line: String, levels: Int, indent: String): String = if (levels > 0) {
+    indent + line
 } else {
-    line.removePrefix(INDENT).let { if (it == line) line.trimStart(' ') else it }
+    line.removePrefix(indent).let { if (it == line) line.trimStart(' ') else it }
 }
 
 // ---------------------------------------------------------------------------

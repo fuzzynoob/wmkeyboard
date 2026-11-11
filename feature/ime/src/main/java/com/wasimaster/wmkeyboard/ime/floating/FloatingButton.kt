@@ -32,12 +32,17 @@ import androidx.compose.ui.platform.ComposeView
 import androidx.compose.ui.platform.ViewCompositionStrategy
 import com.wasimaster.wmkeyboard.core.settings.FloatingAction
 import com.wasimaster.wmkeyboard.core.settings.FloatingCategory
+import com.wasimaster.wmkeyboard.core.settings.FlickDirection
+import com.wasimaster.wmkeyboard.core.settings.activeFlicks
+import com.wasimaster.wmkeyboard.core.settings.flickDirectionOf
 import com.wasimaster.wmkeyboard.core.settings.SummonButtonSettings
 import com.wasimaster.wmkeyboard.core.settings.categoryOf
 import com.wasimaster.wmkeyboard.core.settings.doubleTapFor
 import com.wasimaster.wmkeyboard.core.settings.floatsOverKeyboard
 import com.wasimaster.wmkeyboard.core.settings.gestureActions
+import com.wasimaster.wmkeyboard.core.settings.pillTouchWidthDp
 import com.wasimaster.wmkeyboard.core.settings.tapFor
+import com.wasimaster.wmkeyboard.core.settings.tucks
 import com.wasimaster.wmkeyboard.ime.KeyboardViewLifecycleOwner
 import com.wasimaster.wmkeyboard.ime.R
 import kotlin.math.abs
@@ -118,6 +123,16 @@ internal class FloatingButton(
      */
     private var onPanel = false
 
+    /**
+     * Where a panel's x and y were measured to count from on screen (#926):
+     * null until the button has been put up once as a panel, and then read
+     * off where Android really drew it. See [origin].
+     */
+    private var panelOrigin: IntArray? = null
+
+    /** Corrections [checkPanelOrigin] has made since the button went up; a few at most. */
+    private var originChecks = 0
+
     /** The category whose ring is open (#923), or null for the quick menu's own. */
     private var ring: FloatingCategory? = null
 
@@ -176,8 +191,20 @@ internal class FloatingButton(
 
     private fun dp(value: Float): Int = (value * density).roundToInt()
 
-    /** The button's window: the disc and its shadow room on each side. */
+    /** The disc's window: the disc and its shadow room on each side. */
     private val windowPx: Int get() = dp((setting.sizeDp + 2 * FLOATING_SHADOW_ROOM_DP).toFloat())
+
+    /**
+     * The button's window across: the disc's, or for the edge pill (#1137)
+     * its touch area, which reaches in from the edge as far as was set.
+     */
+    private val windowW: Int get() = if (setting.edgePill) dp(setting.pillTouchWidthDp.toFloat()) else windowPx
+
+    /** The button's window top to bottom: the disc's, or the pill's length. */
+    private val windowH: Int get() = if (setting.edgePill) dp(setting.pillLengthDp.toFloat()) else windowPx
+
+    /** Room in the window round what is drawn, for the disc's shadow; a pill has none below it. */
+    private val shadowRoomPx: Int get() = if (setting.edgePill) 0 else dp(FLOATING_SHADOW_ROOM_DP.toFloat())
 
     val showing: Boolean get() = button != null
 
@@ -195,20 +222,29 @@ internal class FloatingButton(
         if (panel != onPanel) {
             hide()
             onPanel = panel
+            panelOrigin = null
         }
-        val resized = setting.sizeDp != this.setting.sizeDp
+        val resized = setting.sizeDp != this.setting.sizeDp ||
+            setting.edgePill != this.setting.edgePill ||
+            setting.pillTouchWidthDp != this.setting.pillTouchWidthDp ||
+            setting.pillLengthDp != this.setting.pillLengthDp
         this.setting = setting
         this.keyboardUp = keyboardUp
         val tap = setting.tapFor(keyboardUp)
-        face.icon = floatingActionIcon(tap, keyboardUp)
+        face.icon = floatingActionIcon(tap, keyboardUp, setting.categories)
         face.image = appIcon(tap, setting.sizeDp)
         face.label = name(tap)
         face.style = setting.style
         face.shape = setting.shape
         face.sizeDp = setting.sizeDp
+        face.pill = setting.edgePill
+        face.pillThicknessDp = setting.pillThicknessDp
+        face.pillLengthDp = setting.pillLengthDp
+        face.pillOnLeft = onLeft
         menu.style = setting.style
         menu.shape = setting.shape
         menu.animation = setting.menuAnimation
+        menu.speed = setting.animationSpeed
         menu.labels = setting.menuLabels
         menu.buttonSizeDp = setting.sizeDp
         val view = button ?: return
@@ -218,8 +254,8 @@ internal class FloatingButton(
         view.animate().alpha(setting.opacity).setDuration(FADE_IN_MS).start()
         if (resized) {
             buttonParams?.let {
-                it.width = windowPx
-                it.height = windowPx
+                it.width = windowW
+                it.height = windowH
             }
             place()
         } else if (!view.dragging && menuView == null && buttonParams?.x != restX()) {
@@ -244,23 +280,25 @@ internal class FloatingButton(
         }
         if (!onPanel && !Settings.canDrawOverlays(context)) return
         val view = TouchHost(viewContext)
-        val layout = overlayParams(windowPx, windowPx, touchable = true).apply {
+        val layout = overlayParams(windowW, windowH, touchable = true).apply {
             gravity = Gravity.TOP or Gravity.START
             title = "WM Keyboard floating button"
         }
         buttonParams = layout
         idle = false
+        originChecks = 0
         positionFromFractions(layout)
         lifecycle.attachTo(view)
         lifecycle.onResume()
         val added = runCatching { windowManager.addView(view, layout) }.isSuccess
         if (added) {
             button = view
+            if (onPanel) view.post { checkPanelOrigin(view) }
             view.alpha = 0f
             view.scaleX = 0.6f
             view.scaleY = 0.6f
             view.animate().alpha(setting.opacity).scaleX(1f).scaleY(1f)
-                .setInterpolator(OvershootInterpolator(1.6f)).setDuration(APPEAR_MS).start()
+                .setInterpolator(OvershootInterpolator(1.6f)).setDuration(paced(APPEAR_MS)).start()
             scheduleIdle()
         } else {
             buttonParams = null
@@ -310,35 +348,80 @@ internal class FloatingButton(
         xAnimator?.cancel()
         positionFromFractions(layout)
         runCatching { windowManager.updateViewLayout(current, layout) }
+        if (onPanel) current.post { checkPanelOrigin(current) }
+    }
+
+    /**
+     * Reads where Android drew the button's panel and, when that is not where
+     * [origin] said x and y count from, keeps the measured corner and puts
+     * the button back where it belongs (#926).
+     *
+     * Measured rather than assumed because the two guesses were both wrong
+     * somewhere: counting from the screen left the button off by the keyboard
+     * window's offset on one phone, and counting from the keyboard's window
+     * (0.6.5) pushed it off the top of the screen on another, since a panel
+     * laid out in the screen counts from the screen. The view's own scale and
+     * shift, mid-appearance, are taken back out of the reading. A few tries at
+     * most, so a window Android will not put where asked cannot loop.
+     */
+    private fun checkPanelOrigin(view: TouchHost) {
+        if (!onPanel || button !== view || view.dragging || originChecks >= MAX_ORIGIN_CHECKS) return
+        val layout = buttonParams ?: return
+        if (!view.isAttachedToWindow) return
+        val at = IntArray(2).also(view::getLocationOnScreen)
+        val drawnX = at[0] - (view.pivotX * (1f - view.scaleX) + view.translationX).roundToInt()
+        val drawnY = at[1] - (view.pivotY * (1f - view.scaleY) + view.translationY).roundToInt()
+        val measured = intArrayOf(drawnX - layout.x, drawnY - layout.y)
+        if (measured.contentEquals(origin())) return
+        originChecks++
+        panelOrigin = measured
+        place()
     }
 
     private fun positionFromFractions(layout: WindowManager.LayoutParams) {
         val (roomX, roomY) = room()
-        layout.x = if (idle && setting.tuck) tuckedX() else restX()
+        face.pillOnLeft = onLeft
+        layout.x = if (idle && setting.tucks) tuckedX() else restX()
         val rest = (yFraction.coerceIn(0f, 1f) * roomY).roundToInt()
         val ceiling = ceiling()
-        layout.y = if (ceiling != null && rest > ceiling) ceiling.coerceAtLeast(0) else rest
-        if (roomX == 0) layout.x = 0
+        layout.y = (if (ceiling != null && rest > ceiling) ceiling.coerceAtLeast(0) else rest) - origin()[1]
+        if (roomX == 0) layout.x = -origin()[0]
     }
 
-    private fun restX(): Int = (xFraction.coerceIn(0f, 1f) * room().first).roundToInt()
+    /**
+     * Where the windows' x and y count from on screen. The screen's corner for
+     * an overlay, and at first for a panel over the keys too, since a panel
+     * laid out in the screen is placed in it; then, for a panel, the corner
+     * [checkPanelOrigin] measured (#926). A drag saves the place in the
+     * screen's terms either way, so it is the same place once the keyboard
+     * goes.
+     */
+    private fun origin(): IntArray = if (onPanel) panelOrigin ?: NO_OFFSET else NO_OFFSET
 
-    /** The lowest the button's window may sit, clear of a docked keyboard; null over the keys (#926) or with none. */
+    private fun restX(): Int = (xFraction.coerceIn(0f, 1f) * room().first).roundToInt() - origin()[0]
+
+    /**
+     * The lowest the button's window may sit, clear of a docked keyboard; null
+     * over the keys (#926) or with none. The gap counts from the disc, not
+     * the window: the window's shadow room below the disc can sit behind the
+     * keyboard, which is drawn over it. Counted from the window, the room and
+     * the gap together left the button floating well clear of the keys (#1126).
+     */
     private fun ceiling(): Int? =
-        if (onPanel) null else ceilingPx?.let { it - windowPx - dp(KEYBOARD_GAP_DP) }
+        if (onPanel) null else ceilingPx?.let { it - windowH + shadowRoomPx - dp(KEYBOARD_GAP_DP) }
 
     private val onLeft: Boolean get() = xFraction < 0.5f
 
     /** Half the disc off the side it rests on. */
     private fun tuckedX(): Int {
         val hidden = dp(FLOATING_SHADOW_ROOM_DP + setting.sizeDp / 2f)
-        return if (onLeft) -hidden else room().first + hidden
+        return (if (onLeft) -hidden else room().first + hidden) - origin()[0]
     }
 
     /** How far the button's top-left corner can travel on each axis. */
     private fun room(): Pair<Int, Int> {
         val (width, height) = screenSize()
-        return (width - windowPx).coerceAtLeast(0) to (height - windowPx).coerceAtLeast(0)
+        return (width - windowW).coerceAtLeast(0) to (height - windowH).coerceAtLeast(0)
     }
 
     private fun screenSize(): Pair<Int, Int> =
@@ -361,7 +444,7 @@ internal class FloatingButton(
             return
         }
         xAnimator = ValueAnimator.ofInt(layout.x, to).apply {
-            duration = SNAP_MS
+            duration = paced(SNAP_MS)
             interpolator = if (overshoot) OvershootInterpolator(0.9f) else DecelerateInterpolator()
             addUpdateListener {
                 if (button !== view) return@addUpdateListener
@@ -433,7 +516,7 @@ internal class FloatingButton(
         if (setting.idleFadeSeconds <= 0) return
         idle = true
         view.animate().alpha(setting.idleOpacity).setDuration(FADE_OUT_MS).start()
-        if (setting.tuck && !view.dragging) animateX(tuckedX(), overshoot = false)
+        if (setting.tucks && !view.dragging) animateX(tuckedX(), overshoot = false)
     }
 
     /** Back to full strength, and out of the edge, for a touch or an opened menu. */
@@ -443,7 +526,7 @@ internal class FloatingButton(
         view.animate().alpha(setting.opacity).setDuration(FADE_IN_MS).start()
         if (!idle) return
         idle = false
-        if (!setting.tuck) return
+        if (!setting.tucks) return
         if (snap) {
             xAnimator?.cancel()
             buttonParams?.let {
@@ -474,12 +557,15 @@ internal class FloatingButton(
 
     /** An app slot's own icon (#922), for a disc of [sizeDp]; null for the rest, or an app that is gone. */
     private fun appIcon(action: FloatingAction, sizeDp: Int): ImageBitmap? =
-        (action as? FloatingAction.App)?.let { FloatingAppIcons.icon(context, it.packageName, dp(sizeDp.toFloat())) }
+        (action as? FloatingAction.App)?.let { FloatingAppIcons.icon(context, it, dp(sizeDp.toFloat())) }
 
     private fun haptic(kind: Int) {
         if (!setting.haptics) return
         button?.performHapticFeedback(kind)
     }
+
+    /** [ms] at the speed set for the button's motion (#1138). */
+    private fun paced(ms: Long): Long = (ms / setting.animationSpeed.coerceAtLeast(0.1f)).toLong().coerceAtLeast(1L)
 
     private val confirmHaptic: Int
         get() = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
@@ -576,13 +662,21 @@ internal class FloatingButton(
         val view = button ?: return
         val location = IntArray(2)
         view.getLocationOnScreen(location)
-        val half = windowPx / 2f
-        val anchor = Offset(location[0] + half, location[1] + half)
         val (width, height) = screenSize()
+        // The ring fans out from the disc's place. A pill (#1137) has no disc:
+        // the ring, and the close disc in the middle of it, come out from
+        // where a disc against that edge would sit, so neither is cut off.
+        val anchor = if (setting.edgePill) {
+            val inset = windowPx / 2f
+            val y = (location[1] + windowH / 2f).coerceIn(inset, (height - inset).coerceAtLeast(inset))
+            Offset(if (onLeft) inset else width - inset, y)
+        } else {
+            Offset(location[0] + windowPx / 2f, location[1] + windowPx / 2f)
+        }
         val labels = setting.menuLabels
         val itemHalf = FLOATING_MENU_ITEM_DP * density / 2f
         menu.anchor = anchor
-        menu.centers = floatingFan(
+        menu.centers = floatingRings(
             count = slots.size,
             anchor = anchor,
             width = width.toFloat(),
@@ -597,7 +691,7 @@ internal class FloatingButton(
             FloatingMenuSlot(
                 key = "$level:$i:${action.token}",
                 action = action,
-                icon = floatingActionIcon(action, keyboardUp),
+                icon = floatingActionIcon(action, keyboardUp, setting.categories),
                 label = name(action),
                 image = appIcon(action, FLOATING_MENU_ITEM_DP),
             )
@@ -857,6 +951,18 @@ internal class FloatingButton(
 
     // ---- the button's own view ----
 
+    /** The fixed button's swipes as accessibility actions (#1171), one per [FlickDirection], in its order. */
+    private val flickActions = intArrayOf(
+        R.id.floating_button_action_flick_0,
+        R.id.floating_button_action_flick_1,
+        R.id.floating_button_action_flick_2,
+        R.id.floating_button_action_flick_3,
+        R.id.floating_button_action_flick_4,
+        R.id.floating_button_action_flick_5,
+        R.id.floating_button_action_flick_6,
+        R.id.floating_button_action_flick_7,
+    )
+
     private val slotActions = intArrayOf(
         R.id.floating_button_action_slot_0,
         R.id.floating_button_action_slot_1,
@@ -866,6 +972,14 @@ internal class FloatingButton(
         R.id.floating_button_action_slot_5,
         R.id.floating_button_action_slot_6,
         R.id.floating_button_action_slot_7,
+        R.id.floating_button_action_slot_8,
+        R.id.floating_button_action_slot_9,
+        R.id.floating_button_action_slot_10,
+        R.id.floating_button_action_slot_11,
+        R.id.floating_button_action_slot_12,
+        R.id.floating_button_action_slot_13,
+        R.id.floating_button_action_slot_14,
+        R.id.floating_button_action_slot_15,
     )
 
     /**
@@ -890,6 +1004,10 @@ internal class FloatingButton(
         private var held = false
         private var travelled = false
         private var pendingTap = false
+
+        /** A swipe from the fixed button (#1171) is under way, and the direction it points at so far. */
+        private var flicking = false
+        private var flickDirection: FlickDirection? = null
 
         private val longPress = Runnable {
             held = true
@@ -916,15 +1034,33 @@ internal class FloatingButton(
                 ComposeView(context).apply {
                     setViewCompositionStrategy(ViewCompositionStrategy.DisposeOnDetachedFromWindow)
                     setContent {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            FloatingButtonFace(
-                                icon = face.icon,
-                                image = face.image,
-                                style = face.style,
-                                shape = face.shape,
-                                sizeDp = face.sizeDp,
-                                pressed = face.pressed,
-                            )
+                        if (face.pill) {
+                            // Flat against its edge; the rest of the window is touch area (#1137).
+                            Box(
+                                Modifier.fillMaxSize(),
+                                contentAlignment = if (face.pillOnLeft) Alignment.CenterStart else Alignment.CenterEnd,
+                            ) {
+                                FloatingEdgePill(
+                                    style = face.style,
+                                    thicknessDp = face.pillThicknessDp,
+                                    lengthDp = face.pillLengthDp,
+                                    onLeft = face.pillOnLeft,
+                                    pressed = face.pressed,
+                                )
+                            }
+                        } else {
+                            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                                // A swipe from the fixed button shows what letting go will run (#1171).
+                                val flick = face.flickIcon
+                                FloatingButtonFace(
+                                    icon = flick ?: face.icon,
+                                    image = if (flick != null) null else face.image,
+                                    style = face.style,
+                                    shape = face.shape,
+                                    sizeDp = face.sizeDp,
+                                    pressed = face.pressed,
+                                )
+                            }
                         }
                     }
                 },
@@ -955,6 +1091,8 @@ internal class FloatingButton(
                     dragging = false
                     held = false
                     travelled = false
+                    flicking = false
+                    flickDirection = null
                     face.pressed = true
                     if (setting.hold != FloatingAction.None) {
                         postDelayed(longPress, ViewConfiguration.getLongPressTimeout().toLong())
@@ -966,6 +1104,11 @@ internal class FloatingButton(
                     if (abs(dx) > slop || abs(dy) > slop) travelled = true
                     if (held) {
                         if (menuFromPress) hover(event.rawX, event.rawY)
+                        return true
+                    }
+                    // Fixed in place (#1171): the finger swipes rather than drags.
+                    if (setting.docked) {
+                        if (travelled) flick(dx, dy)
                         return true
                     }
                     if (!dragging && travelled) {
@@ -982,6 +1125,7 @@ internal class FloatingButton(
                     removeCallbacks(longPress)
                     when {
                         held -> releaseHold()
+                        flicking -> releaseFlick()
                         dragging -> endDrag(layout)
                         else -> tap()
                     }
@@ -997,6 +1141,7 @@ internal class FloatingButton(
                         endDrag(layout)
                     }
                     if (held && menuFromPress) menu.hovered = null
+                    if (flicking) endFlick()
                     dragging = false
                     scheduleIdle()
                 }
@@ -1027,6 +1172,42 @@ internal class FloatingButton(
                 haptic(HapticFeedbackConstants.VIRTUAL_KEY)
                 postDelayed(singleTap, ViewConfiguration.getDoubleTapTimeout().toLong())
             }
+        }
+
+        /**
+         * The finger has left the fixed button (#1171): once it has gone far
+         * enough to mean it, the direction it points at is the swipe, and the
+         * button shows that direction's action. A tick each time it changes.
+         */
+        private fun flick(dx: Float, dy: Float) {
+            if (!flicking) {
+                flicking = true
+                face.pressed = false
+                removeCallbacks(longPress)
+            }
+            val far = dx * dx + dy * dy >= (FLICK_MIN_DP * density).let { it * it }
+            val direction = if (far) flickDirectionOf(dx, dy, setting.activeFlicks.keys) else null
+            if (direction == flickDirection) return
+            flickDirection = direction
+            face.flickIcon = direction?.let { setting.activeFlicks[it] }?.let {
+                floatingActionIcon(it, keyboardUp, setting.categories)
+            }
+            if (direction != null) haptic(HapticFeedbackConstants.CLOCK_TICK)
+        }
+
+        /** The swipe let go: its direction's action runs, or nothing for one near no bound direction. */
+        private fun releaseFlick() {
+            val action = flickDirection?.let { setting.activeFlicks[it] }
+            endFlick()
+            if (action == null) return
+            haptic(confirmHaptic)
+            fire(action)
+        }
+
+        private fun endFlick() {
+            flicking = false
+            flickDirection = null
+            face.flickIcon = null
         }
 
         /** The hold's finger is on its way to a slot. */
@@ -1064,13 +1245,14 @@ internal class FloatingButton(
                 target.armed = armed
                 if (armed) haptic(HapticFeedbackConstants.LONG_PRESS)
             }
+            val (ox, oy) = origin().let { it[0] to it[1] }
             if (armed && center != null) {
-                layout.x = (center.x - windowPx / 2f).roundToInt()
-                layout.y = (center.y - windowPx / 2f).roundToInt()
+                layout.x = (center.x - windowW / 2f).roundToInt() - ox
+                layout.y = (center.y - windowH / 2f).roundToInt() - oy
             } else {
                 val (roomX, roomY) = room()
-                layout.x = (downX + dx.roundToInt()).coerceIn(0, roomX)
-                layout.y = (downY + dy.roundToInt()).coerceIn(0, roomY)
+                layout.x = (downX + dx.roundToInt()).coerceIn(-ox, roomX - ox)
+                layout.y = (downY + dy.roundToInt()).coerceIn(-oy, roomY - oy)
             }
             runCatching { windowManager.updateViewLayout(this, layout) }
         }
@@ -1090,9 +1272,12 @@ internal class FloatingButton(
                 return
             }
             val (roomX, roomY) = room()
-            val left = layout.x + windowPx / 2 < (roomX + windowPx) / 2
+            // Saved in the screen's terms, whichever window the button is.
+            val (screenX, screenY) = origin().let { layout.x + it[0] to layout.y + it[1] }
+            val left = screenX + windowW / 2 < (roomX + windowW) / 2
             xFraction = if (left) 0f else 1f
-            yFraction = if (roomY == 0) 0f else layout.y.toFloat() / roomY
+            face.pillOnLeft = left
+            yFraction = if (roomY == 0) 0f else screenY.toFloat() / roomY
             val ceiling = ceiling()
             if (ceiling != null && layout.y > ceiling) {
                 layout.y = ceiling.coerceAtLeast(0)
@@ -1129,6 +1314,11 @@ internal class FloatingButton(
                     AccessibilityNodeInfo.AccessibilityAction(R.id.floating_button_action_double_tap, name(doubleTap)),
                 )
             }
+            // Each swipe of the fixed button (#1171), since a swipe is no way in
+            // for someone exploring by touch either.
+            setting.activeFlicks.entries.forEach { (direction, action) ->
+                info.addAction(AccessibilityNodeInfo.AccessibilityAction(flickActions[direction.ordinal], name(action)))
+            }
             // Every menu slot straight from the button: a slide is no way in
             // for someone exploring by touch. A category's slot opens its ring,
             // whose slots are then on screen to be found.
@@ -1144,6 +1334,11 @@ internal class FloatingButton(
                 fire(setting.doubleTapFor(keyboardUp))
                 return true
             }
+            val flick = flickActions.indexOf(action)
+            if (flick >= 0) {
+                setting.activeFlicks[FlickDirection.entries[flick]]?.let(::fire)
+                return true
+            }
             val slot = slotActions.indexOf(action)
             if (slot in setting.menu.indices) {
                 fire(setting.menu[slot])
@@ -1154,8 +1349,11 @@ internal class FloatingButton(
     }
 
     private companion object {
-        /** Room left between the button and the top of a docked keyboard. */
-        const val KEYBOARD_GAP_DP = 8f
+        /** Room left between the button's disc and the top of a docked keyboard. */
+        const val KEYBOARD_GAP_DP = 4f
+
+        /** How far a swipe from the fixed button goes before it counts as one (#1171). */
+        const val FLICK_MIN_DP = 28f
 
         /** How long a hold's finger rests on a category before its ring opens (#923). */
         const val CATEGORY_DWELL_MS = 380L
@@ -1181,6 +1379,8 @@ internal class FloatingButton(
 
         const val APPEAR_MS = 260L
         const val SNAP_MS = 260L
+        private val NO_OFFSET = IntArray(2)
+        const val MAX_ORIGIN_CHECKS = 3
         const val FADE_IN_MS = 120L
         const val FADE_OUT_MS = 420L
 

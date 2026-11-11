@@ -17,6 +17,7 @@ import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
 import com.wasimaster.wmkeyboard.core.feedback.SoundStore
 import com.wasimaster.wmkeyboard.core.fonts.FontStore
+import com.wasimaster.wmkeyboard.core.icons.IconLibrary
 import com.wasimaster.wmkeyboard.core.icons.IconPackStore
 import com.wasimaster.wmkeyboard.core.icons.SymbolIcons
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Article
@@ -91,6 +92,8 @@ import com.wasimaster.wmkeyboard.core.voice.executorch.EtDownloadManager
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtEngine
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtStore
 import com.wasimaster.wmkeyboard.core.voice.futoswipe.FutoSwipe
+import com.wasimaster.wmkeyboard.core.voice.speech.KokoroDownloads
+import com.wasimaster.wmkeyboard.core.voice.speech.KokoroVoices
 import com.wasimaster.wmkeyboard.core.voice.speech.MmsVoices
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperCatalog
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperDownloadManager
@@ -169,6 +172,8 @@ internal class StorageItem(
     val deletable: Boolean = true,
     /** An image to draw beside the row, when the item is one. */
     val preview: File? = null,
+    /** The screen a press on the row opens: what this item belongs to. */
+    val route: String? = null,
     /** Whether the row stands for a directory, for the icon it falls back to. */
     val directory: Boolean = false,
 )
@@ -270,6 +275,7 @@ internal object StorageCategories {
     /** The ExecuTorch engines' items among them: one per model, the catalog id after this prefix. */
     private const val ET_ITEM_PREFIX = "et:"
     private const val MMS_ITEM_PREFIX = "mms:"
+    private const val KOKORO_ITEM_ID = "kokoro"
     private const val DENOISE_ITEM_ID = "denoise"
     private const val VAD_ITEM_ID = "vad"
     private const val PUNCTUATION_ITEM_ID = "punctuation"
@@ -509,7 +515,7 @@ internal object StorageCategories {
                     WhisperStore.rootDir(it.files),
                     WhistleModelStore.rootDir(it.files),
                 ) + EtEngine.entries.map { engine -> EtStore.rootDir(it.files, engine) } +
-                    MmsVoices.rootDir(it.files) + StrongDenoise.rootDir(it.files) +
+                    MmsVoices.rootDir(it.files) + KokoroVoices.rootDir(it.files) + StrongDenoise.rootDir(it.files) +
                     DictationPunctuation.rootDir(it.files) + VadModels.rootDir(it.files)
             },
             itemsOf = { env ->
@@ -577,7 +583,17 @@ internal object StorageCategories {
                         bytes = diskUsage(dir, env.roots.blockSize),
                         files = listOf(dir),
                     )
-                }
+                } + listOfNotNull(
+                    // Read back's Kokoro voices (English and Mandarin), one model.
+                    KokoroVoices.rootDir(env.roots.files).takeIf { it.isDirectory }?.let { dir ->
+                        StorageItem(
+                            id = KOKORO_ITEM_ID,
+                            label = "Kokoro voices",
+                            bytes = diskUsage(dir, env.roots.blockSize),
+                            files = listOf(dir),
+                        )
+                    },
+                )
             },
             deleteOne = { env, item ->
                 if (item.id == WHISTLE_ITEM_ID) {
@@ -585,7 +601,7 @@ internal object StorageCategories {
                 } else if (item.id == DENOISE_ITEM_ID) {
                     StrongDenoise.delete(env.roots.files)
                 } else if (item.id == PUNCTUATION_ITEM_ID) {
-                    DictationPunctuation.delete(env.roots.files)
+                    DictationPunctuation.deleteAll(env.roots.files)
                 } else if (item.id == VAD_ITEM_ID) {
                     VadModels.deleteAll(env.roots.files)
                 } else if (item.id.startsWith(ET_ITEM_PREFIX)) {
@@ -593,6 +609,8 @@ internal object StorageCategories {
                         ?.let { EtDownloadManager.delete(env.roots.files, it) }
                 } else if (item.id.startsWith(MMS_ITEM_PREFIX)) {
                     item.files.forEach { it.deleteRecursively() }
+                } else if (item.id == KOKORO_ITEM_ID) {
+                    KokoroDownloads.delete(env.roots.files)
                 } else {
                     // The selection goes first: the keyboard must never be pointed
                     // at a model file that is about to disappear.
@@ -609,8 +627,9 @@ internal object StorageCategories {
                 WhistleModelDownloadManager.delete(env.roots.files)
                 EtCatalog.models.forEach { EtDownloadManager.delete(env.roots.files, it) }
                 emptyOut(MmsVoices.rootDir(env.roots.files))
+                KokoroDownloads.delete(env.roots.files)
                 StrongDenoise.delete(env.roots.files)
-                DictationPunctuation.delete(env.roots.files)
+                DictationPunctuation.deleteAll(env.roots.files)
                 VadModels.deleteAll(env.roots.files)
             },
         ),
@@ -1015,11 +1034,20 @@ internal object StorageCategories {
             icon = Icons.Outlined.Extension,
             accent = Color(0xFF90A4AE),
             group = StorageGroup.DOWNLOADS,
+            manageRoute = "feature_libraries",
             pathsOf = { roots -> listOfNotNull(NativeDelivery.store()?.root?.takeIf { it.startsWith(roots.noBackupFiles) }) },
             countOf = { _ -> installedLibraries().size },
             itemsOf = { env ->
                 installedLibraries().map { (pin, file) ->
-                    StorageItem(id = pin.sha256, label = pin.name, detail = pin.gate, bytes = file.length(), files = listOf(file.parentFile ?: file))
+                    val info = FeatureLibraryInfo.of(pin.name, pin.gate)
+                    StorageItem(
+                        id = pin.sha256,
+                        label = pin.name,
+                        detail = info?.let { env.context.getString(it.description) } ?: pin.gate,
+                        bytes = file.length(),
+                        files = listOf(file.parentFile ?: file),
+                        route = info?.route,
+                    )
                 }
             },
         ),
@@ -1145,10 +1173,10 @@ internal object StorageCategories {
             group = StorageGroup.LOOKS,
             danger = Danger.PERSONAL,
             manageRoute = "icons",
-            pathsOf = { listOf(File(it.files, "iconpacks")) },
+            pathsOf = { listOf(File(it.files, "iconpacks"), File(it.files, IconLibrary.DIR_NAME)) },
             itemsOf = { env ->
                 val store = IconPackStore.get(env.context)
-                store.packs().map { pack ->
+                val packs = store.packs().map { pack ->
                     StorageItem(
                         id = pack.id,
                         label = pack.name,
@@ -1156,11 +1184,33 @@ internal object StorageCategories {
                         files = listOfNotNull(store.packDir(pack.id)),
                     )
                 }
+                // Your icons, as one item: its pictures are tidied on its own page.
+                val libraryDir = File(env.roots.files, IconLibrary.DIR_NAME)
+                val library = if (IconLibrary.get(env.context).icons().isNotEmpty()) {
+                    listOf(
+                        StorageItem(
+                            id = LIBRARY_ITEM_ID,
+                            label = env.context.getString(R.string.plugins_icons_library_title),
+                            bytes = diskUsage(libraryDir, env.roots.blockSize),
+                            files = listOf(libraryDir),
+                        ),
+                    )
+                } else {
+                    emptyList()
+                }
+                packs + library
             },
-            deleteOne = { env, item -> IconPackStore.get(env.context).deletePack(item.id) },
+            deleteOne = { env, item ->
+                if (item.id == LIBRARY_ITEM_ID) {
+                    IconLibrary.get(env.context).clear()
+                } else {
+                    IconPackStore.get(env.context).deletePack(item.id)
+                }
+            },
             clearOf = { env ->
                 val store = IconPackStore.get(env.context)
                 store.packs().forEach { store.deletePack(it.id) }
+                IconLibrary.get(env.context).clear()
                 sweepLeftovers(File(env.roots.files, "iconpacks"))
             },
         ),
@@ -1686,3 +1736,6 @@ internal object StorageCategories {
         }
     }
 }
+
+/** The Icon packs category's item for Your icons; no pack id can look like it. */
+private const val LIBRARY_ITEM_ID = ".library"

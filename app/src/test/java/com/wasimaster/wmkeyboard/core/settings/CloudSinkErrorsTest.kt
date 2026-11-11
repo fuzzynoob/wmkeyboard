@@ -75,6 +75,12 @@ class CloudSinkErrorsTest {
                 git = GitConfig(repository = "o/r", token = "t"),
                 imap = ImapConfig(host = "h", user = "u", password = "p"),
                 refreshToken = "t",
+                pcloud = PCloudConfig(auth = "a"),
+                nas = NasConfig(server = "s", user = "u", password = "p"),
+                nfs = NfsConfig(host = "h", export = "/e"),
+                mega = MegaConfig(sessionId = "s", masterKey = "k"),
+                icloud = ICloudConfig(appleId = "a", password = "p", trustToken = "t"),
+                proton = ProtonConfig(uid = "u", refreshToken = "t", saltedKeyPass = "s"),
             )
         },
     )
@@ -82,8 +88,9 @@ class CloudSinkErrorsTest {
     @Test
     fun `a network location always waits for a network`() {
         // A paired computer (NEARBY) is reached on the local network and waits
-        // for nothing, like a folder.
-        for (destination in BackupDestination.entries - BackupDestination.FOLDER - BackupDestination.NEARBY) {
+        // for nothing, like a folder; the copy in another profile (PROFILE)
+        // is on this phone, and backups never go to either.
+        for (destination in BackupDestination.entries - BackupDestination.FOLDER - BackupDestination.NEARBY - BackupDestination.PROFILE) {
             assertEquals(
                 JobInfo.NETWORK_TYPE_ANY,
                 AutoBackupScheduler.networkTypeFor(with(destination, unmetered = false)),

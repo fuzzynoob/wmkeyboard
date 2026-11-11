@@ -50,6 +50,8 @@
     <!-- ===== One language: layouts, clusters, numerals ===== -->
 
     <string name="languages_layouts_title">Layouts</string>
+    <!-- Description of the button beside the Layouts heading that opens every layout card of the language in a full-screen grid. -->
+    <string name="languages_layouts_gallery_open">Show all layouts</string>
     <string name="languages_layouts_info">Each card shows the keyboard as it looks with your theme and settings. Tap a card to turn that layout on or off. Scroll the row sideways to see all the layouts.</string>
     <string name="languages_layout_keep_one">At least one layout must stay on.</string>
 
@@ -117,6 +119,10 @@
         <item quantity="other">%1$d more layouts from the Keyman project</item>
     </plurals>
     <string name="languages_more_layouts_body">These come from the Keyman project, an open collection of keyboards for languages that rarely get one. Many of them decide what a key types from rules rather than from the character printed on it, and those download a few kilobytes from keyman.com the first time you switch one on.</string>
+    <!-- Button on a layout card whose keyboard is not on the phone yet. Downloads every layout from the Keyman project at once. -->
+    <string name="languages_keyman_pack_get">Get Keyman layouts (2 MB)</string>
+    <string name="languages_keyman_pack_retry">Download failed. Try again</string>
+    <string name="languages_keyman_pack_downloading">Downloading layouts… <xliff:g id="percent" example="42">%1$d</xliff:g>%%</string>
     <string name="languages_more_layouts_count">+<xliff:g id="count" example="12">%1$d</xliff:g></string>
     <plurals name="languages_more_layouts_card_body">
         <item quantity="one">layout from the Keyman project</item>
@@ -152,10 +158,18 @@
     <string name="languages_autocorrect_info">Turn this off to keep each word you type in <xliff:g id="language" example="Bengali">%1$s</xliff:g> as you typed it, while other languages are still corrected. The suggestion strip still shows its suggestions, and you can tap one. The autocorrect switch in Typing turns autocorrect off for all languages.</string>
 
     <string name="languages_spacing_group">Spacing</string>
+    <string name="languages_punctuation_group">Punctuation</string>
+    <string name="languages_smart_punctuation_title">Smart punctuation key</string>
+    <string name="languages_smart_punctuation_subtitle">The period key shows the mark the sentence is heading for in this language</string>
+    <string name="languages_smart_punctuation_info">Turn this off to keep an ordinary period key while typing <xliff:g id="language" example="Bengali">%1$s</xliff:g>; other languages keep the guessing key. Worth turning off for a language the model reads thinly or was never trained on. The Smart punctuation key switch in Typing turns it off for all languages.</string>
     <string name="languages_space_after_suggestion_title">Space after a suggestion</string>
     <string name="languages_space_after_suggestion_subtitle">Add a space when you select a word from the suggestion strip</string>
     <!-- %1$s is the English name of the language, for example "Bengali". -->
     <string name="languages_space_after_suggestion_info">Turn this off to type a word you select from the suggestion strip in <xliff:g id="language" example="Bengali">%1$s</xliff:g> without a space after it, so you can add an ending straight away. Other languages still get the space. The Space after a suggestion switch in Typing turns the space off for all languages.</string>
+    <string name="languages_glide_group">Glide typing</string>
+    <string name="languages_glide_radius_own">Set for <xliff:g id="language" example="Japanese">%1$s</xliff:g> only</string>
+    <string name="languages_glide_radius_global">Same as in Typing › Gestures › Glide typing</string>
+    <string name="languages_glide_radius_info">Gives <xliff:g id="language" example="Japanese">%1$s</xliff:g> its own value for this radius, measured in key widths. Your other languages keep the one in Glide typing\'s Advanced tuning. Lower it for a layout with crowded keys, where a forgiving radius lets a glide reach keys it never went near. Reset the row to follow Glide typing again.</string>
 
     <string name="languages_spelling_map_title">Spellings</string>
     <string name="languages_spelling_map_row_title">Use known spellings</string>
@@ -207,6 +221,39 @@
     <string name="languages_fancy_style_title">Style</string>
     <string name="languages_fancy_style_row_title">Fancy style</string>
     <string name="languages_fancy_style_row_subtitle">The lettering the fancy keyboard types. Also switchable from the strip over the keys.</string>
+    <string name="languages_fancy_fonts_group">Your fonts</string>
+    <string name="languages_fancy_fonts_info">Make a style from any alphabet: copy a font\'s letters from a fancy-text website and paste them in. Your fonts join the strip over the keys after the built-in styles. Letters you leave out type plain. Separate the letters with spaces to give one letter several characters, such as (a) (b) (c).</string>
+    <string name="languages_fancy_fonts_add_title">Add a font</string>
+    <string name="languages_fancy_fonts_add_subtitle">Paste an alphabet and type in it from the strip</string>
+    <string name="languages_fancy_fonts_full">Room for 50 fonts. Delete one to add another.</string>
+    <string name="languages_fancy_fonts_edit_title">Edit font</string>
+    <string name="languages_fancy_fonts_empty">No fonts of your own yet.</string>
+    <string name="languages_fancy_fonts_delete_desc">Delete %1$s</string>
+    <string name="languages_fancy_fonts_name_label">Name</string>
+    <string name="languages_fancy_fonts_lower_label">Small letters, a to z</string>
+    <string name="languages_fancy_fonts_lower_hint">%1$d of 26. Paste a to z, or a to z, A to Z and 0 to 9 in one go.</string>
+    <string name="languages_fancy_fonts_upper_label">Capitals, A to Z</string>
+    <string name="languages_fancy_fonts_upper_hint">%1$d of 26. Left empty, capitals type the small letters.</string>
+    <string name="languages_fancy_fonts_digits_label">Digits, 0 to 9</string>
+    <string name="languages_fancy_fonts_digits_hint">%1$d of 10. Left empty, digits stay plain.</string>
+    <string name="languages_fancy_fonts_too_many">%1$d characters, more than %2$d. Separate letters with spaces if one letter is several characters.</string>
+    <string name="languages_fancy_fonts_reversed_title">Write backwards</string>
+    <string name="languages_fancy_fonts_reversed_subtitle">For upside-down letters: the line is reversed so it reads with the phone turned round. Types letter by letter, without suggestions.</string>
+    <string name="languages_fancy_zalgo_group">Zalgo</string>
+    <string name="languages_fancy_zalgo_info">Zalgo piles random marks above, below and through every letter. Each zalgo style here has its own level, from 1 (a mark or two) to 10 (a tower), and each one is a separate style on the strip, so you can keep a light one and a heavy one side by side. The marks are picked anew each time the keyboard starts, but a word keeps its marks while you type it.</string>
+    <string name="languages_fancy_zalgo_add_title">Add a zalgo level</string>
+    <string name="languages_fancy_zalgo_add_subtitle">Pick how wild it gets, with a live preview</string>
+    <string name="languages_fancy_zalgo_full">Room for 10. Delete one to add another.</string>
+    <string name="languages_fancy_zalgo_edit_title">Edit zalgo</string>
+    <string name="languages_fancy_zalgo_empty">No zalgo styles. Add one to type in it.</string>
+    <string name="languages_fancy_zalgo_level">Level %1$d of %2$d</string>
+    <string name="languages_fancy_zalgo_name_hint">Optional. Left empty, it\'s named after its level.</string>
+    <string name="languages_fancy_arrange_group">Styles on the strip</string>
+    <string name="languages_fancy_arrange_info">Drag a style to move it along the strip over the keys, and switch it off to take it off the strip. The same order and choice apply to the selection actions\' Fancy conversions and the fancy row of the suggestion pages. A style you switch off can still be picked in the Fancy style row above, and the style you are typing in always stays on the strip. Styles added later, and fonts you make, join at the end.</string>
+    <string name="languages_fancy_arrange_summary">%1$d of %2$d shown</string>
+    <string name="languages_fancy_arrange_reset_title">Reset the strip</string>
+    <string name="languages_fancy_arrange_reset_subtitle">Every style, in the order they ship</string>
+    <string name="languages_fancy_arrange_reset_action">Reset</string>
     <string name="languages_vietnamese_tones_title">Tone marks</string>
     <string name="languages_vietnamese_strict_tones_title">Only tone real syllables</string>
     <string name="languages_vietnamese_strict_tones_subtitle">A tone key is a letter unless the word is one the language spells</string>
@@ -266,6 +313,7 @@
     <string name="languages_khipro_specs_downloaded">Updated rules from <xliff:g id="date" example="25 Oct 2026">%1$s</xliff:g>. Tap to check for newer ones.</string>
     <string name="languages_khipro_specs_checking">Checking for newer rules…</string>
     <string name="languages_khipro_specs_failed">Rules from <xliff:g id="date" example="25 Oct 2026">%1$s</xliff:g>. The last check installed nothing: <xliff:g id="reason" example="HTTP 404">%2$s</xliff:g>. Tap to try again.</string>
+    <string name="languages_khipro_specs_no_internet">Rules from <xliff:g id="date" example="25 Oct 2026">%1$s</xliff:g>. This is the offline build, so newer rules come in from a file: Import from a file on this screen takes the set\'s files. Or install the standard build over this one from the same release page, which updates them by itself.</string>
     <string name="languages_khipro_specs_unsupported">The rules this version came with. This build cannot update them.</string>
     <string name="languages_khipro_specs_up_to_date">Khipro\'s rules are up to date</string>
     <string name="languages_khipro_specs_installed">Khipro\'s rules updated to <xliff:g id="date" example="25 Oct 2026">%1$s</xliff:g></string>
@@ -299,7 +347,7 @@ The model runs on the phone, and nothing you type leaves it. One download covers
     <!-- %1$s is the English name of the language, for example "Bengali". -->
     <string name="languages_neural_leads_info">The space bar usually writes what the phonetic rules spell. When that is not a word in the <xliff:g id="language" example="Bengali">%1$s</xliff:g> word list or among your own words, and the known-spellings list has nothing for what you typed, this lets the model\'s best reading that is in the word list go first instead, so a space writes it. The rules\' spelling comes right after it in the strip, one tap away.
 
-On test words the space bar wrote the right word 56%% of the time instead of 25%% in Bengali, and 49%% instead of 41%% in Hindi. The cost: a name or a rare word spelled exactly by the rules, but missing from the word list, can come out as a listed word that looks like it. About one such spelling in six did in Bengali, one in fifteen in Hindi. Words the list knows are left alone.</string>
+On test words the space bar wrote the right word more often in every language that has this switch: for example 53%% of the time instead of 25%% in Bengali, 62%% instead of 44%% in Kannada, and 48%% instead of 40%% in Hindi. The cost: a name or a rare word spelled correctly by the rules, but missing from the word list, can come out as a listed word that looks like it. Words the list knows are left alone.</string>
     <!-- %1$s is the size on the phone, for example "13 MB". -->
     <string name="languages_neural_phonetic_delete_title">Delete the neural suggestions model?</string>
     <string name="languages_neural_phonetic_delete_body">Neural suggestions turn off on every language that has them. Turning them on again downloads the model again.</string>
@@ -404,6 +452,7 @@ With this on, the keyboard draws Burmese in its own copy of Noto Sans Myanmar, a
     <string name="languages_context_model_title">Context model</string>
     <string name="languages_context_model_download_size">Sentence-aware predictions, <xliff:g id="size" example="4.9 MB">%1$s</xliff:g> to download</string>
     <string name="languages_context_model_downloaded">Sentence-aware predictions, <xliff:g id="size" example="4.9 MB">%1$s</xliff:g></string>
+    <string name="languages_context_model_offline">Not on this phone. This is the offline build: Get the files on the Language pack row lists it, and Import there takes it. Or install the standard build over this one from the same release page, which downloads it by itself.</string>
     <string name="languages_context_model_failed">The download failed. Try again.</string>
     <string name="languages_context_model_delete_desc">Delete the context model</string>
     <string name="languages_context_model_variant_standard">Standard</string>
@@ -509,17 +558,17 @@ With this on, the keyboard draws Burmese in its own copy of Noto Sans Myanmar, a
     <string name="languages_cjk_pack_unavailable">Not available yet, coming soon</string>
 
     <!-- A FlorisBoard language pack (.flex) holds the same code tables as the
-         Cangjie and stroke packs above, as an SQLite database. Importing one
+         Cangjie, stroke and Wubi packs above, as an SQLite database. Importing one
          fills those packs without a download. -->
     <string name="languages_cjk_flex_import_title">Import from FlorisBoard</string>
-    <string name="languages_cjk_flex_import_subtitle">Read a FlorisBoard language pack (.flex). It can fill the Cangjie and stroke tables above.</string>
+    <string name="languages_cjk_flex_import_subtitle">Read a FlorisBoard language pack (.flex). It can fill the Cangjie, stroke and Wubi tables above.</string>
     <!-- %1$s is the name of the table inside the pack, such as "cangjie5".
          %2$d is how many characters the app read from it. Not a plural: the
          word "characters" agrees with a number that is always in the
          thousands. -->
     <string name="languages_cjk_flex_import_done" tools:ignore="PluralsCandidate">The app read <xliff:g id="table" example="cangjie5">%1$s</xliff:g> and added %2$d characters.</string>
-    <!-- %1$s is the list of tables in the pack, such as "wubi, zhengma". -->
-    <string name="languages_cjk_flex_import_unusable">This pack holds <xliff:g id="tables" example="wubi, zhengma">%1$s</xliff:g>. This keyboard types Cangjie and stroke, so there is nothing in it to use.</string>
+    <!-- %1$s is the list of tables in the pack, such as "zhengma, boshiamy". -->
+    <string name="languages_cjk_flex_import_unusable">This pack holds <xliff:g id="tables" example="zhengma, boshiamy">%1$s</xliff:g>. This keyboard types Cangjie, stroke and Wubi 86, so there is nothing in it to use.</string>
     <string name="languages_cjk_flex_import_not_a_pack">That file is a FlorisBoard theme or keyboard extension, not a language pack. To import a theme, go to Themes.</string>
     <string name="languages_cjk_flex_import_unreadable">The app cannot read that file as a FlorisBoard language pack.</string>
     <!-- %1$d is the percentage that has arrived. -->
@@ -598,8 +647,8 @@ With this on, the keyboard draws Burmese in its own copy of Noto Sans Myanmar, a
     <string name="languages_mozc_status_needs_library">Waiting for the Mozc library.</string>
     <string name="languages_mozc_status_needs_data">Download the Mozc dictionary below. Mozc starts when it is here.</string>
     <string name="languages_mozc_status_starting">Starting…</string>
-    <!-- %1$s is the dictionary's version, such as 3.34.6239.102. -->
-    <string name="languages_mozc_status_ready">Ready, dictionary <xliff:g id="version" example="3.34.6239.102">%1$s</xliff:g></string>
+    <!-- %1$s is the dictionary's version, such as 3.35.6354.102. -->
+    <string name="languages_mozc_status_ready">Ready, dictionary <xliff:g id="version" example="3.35.6354.102">%1$s</xliff:g></string>
     <!-- %1$s is Mozc's own error message, in English. -->
     <string name="languages_mozc_status_failed">Mozc did not start: <xliff:g id="detail" example="invalid magic">%1$s</xliff:g></string>
     <string name="languages_mozc_clear_title">Forget what Mozc learned</string>
@@ -639,6 +688,29 @@ With this on, the keyboard draws Burmese in its own copy of Noto Sans Myanmar, a
     <string name="languages_cjk_region_hong_kong_title">Hong Kong (香港)</string>
     <string name="languages_cjk_region_hong_kong_subtitle">Character preferences of Hong Kong</string>
 
+    <string name="languages_braille_download_info">Download liblouis\'s tables to type contracted braille. They work offline after the download.</string>
+    <string name="languages_braille_table_title">Contractions</string>
+    <string name="languages_braille_table_subtitle">Which contracted braille your words are read as. A word types when you press space or another key. Needs the tables above.</string>
+    <string name="languages_braille_table_uncontracted">None, English letter by letter</string>
+    <string name="languages_nikud_download_info">Download Phonikud to add niqqud to Hebrew text: select it and tap Add niqqud. It works offline after the download, and uses a lot of memory while it runs.</string>
+    <string name="languages_tashkeel_download_info">Download CATT to add tashkeel to Arabic text: select it and tap Add tashkeel. It works offline after the download.</string>
+    <string name="languages_tashkeel_library_ready">On this phone. Select Arabic text and tap Add tashkeel.</string>
+    <string name="languages_tashkeel_library_missing">Add tashkeel needs this and the model above.</string>
+    <string name="languages_hunspell_tr_download_info">Download spelling rules for Turkish. They know a word with any suffix, which no word list can hold. They work offline after the download.</string>
+    <string name="languages_hunspell_tr_library_title">Spelling library</string>
+    <string name="languages_hunspell_tr_library_ready">On this phone. Turkish is checked by the rules above once they are downloaded.</string>
+    <string name="languages_hunspell_tr_library_missing">The rules above need this.</string>
+    <string name="languages_ru_yo_download_info">Download the list of words with ё, then select Russian text and tap Restore ё. It works offline after the download.</string>
+    <string name="languages_nikud_library_title">ONNX Runtime</string>
+    <string name="languages_nikud_library_ready">On this phone. Select Hebrew text and tap Add niqqud.</string>
+    <string name="languages_nikud_library_missing">Add niqqud needs this and the model above.</string>
+    <string name="languages_kiwi_library_title">Spacing correction library</string>
+    <string name="languages_kiwi_library_ready">On this phone. Select Korean text and tap Fix spacing.</string>
+    <string name="languages_kiwi_library_installing">Downloading</string>
+    <string name="languages_kiwi_library_missing">About 18 MB. Fix spacing needs this and the model above.</string>
+    <string name="languages_cjk_hanja_title">Offer Hanja (漢字)</string>
+    <string name="languages_cjk_hanja_subtitle">Show the Hanja for the word you are typing on the suggestion strip</string>
+    <string name="languages_cjk_hanja_info">Tap one to write it in place of the Hangul. An ending stays in Hangul, so 학교에 can become 學校에. Needs the Hanja dictionary above. To see every choice for a word, turn on the scrolling suggestion strip.</string>
     <string name="languages_cjk_lazy_title">Lazy pronunciation (懶音)</string>
     <!-- Only "Match merged sounds" and "before" need translation. The rest is
          Jyutping spelling and stays as it is. -->
@@ -722,10 +794,5 @@ With this on, the keyboard draws Burmese in its own copy of Noto Sans Myanmar, a
     <string name="languages_data_download_dismiss_action">Not now</string>
 
 
-    <!-- Dialog after the user removes a language that has downloaded files. -->
-    <string name="languages_data_delete_title">Delete the downloaded files?</string>
-    <!-- %1$s is the language name, %2$s a data size like "4.2 MB". -->
-    <string name="languages_data_delete_body"><xliff:g id="language" example="German">%1$s</xliff:g> has files downloaded for it, such as its word list, emoji keywords, spell checker or dictionaries. Delete them and get about <xliff:g id="size" example="4.2 MB">%2$s</xliff:g> of storage back?</string>
-    <string name="languages_data_delete_dismiss_action">Keep them</string>
 
 </resources>

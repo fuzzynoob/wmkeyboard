@@ -97,6 +97,7 @@
     <string name="fonts_tool_resize_desc">Drag the keyboard to change its height and position</string>
     <string name="fonts_tool_settings_desc">Open this settings app</string>
     <string name="fonts_tool_flashlight_desc">Turn the torch on or off from the keyboard</string>
+    <string name="fonts_tool_screenshot_desc">Take a screenshot of the app, with the keyboard put away first</string>
     <string name="fonts_tool_compass_desc">Live compass with a degree readout and an optional qibla</string>
     <string name="fonts_tool_level_desc">Bubble level that uses the accelerometer</string>
     <!-- Ctrl+Z is the key combination the editor listens for. -->
@@ -178,6 +179,7 @@
 
     <string name="fonts_tool_vocabulary_desc">Word cards, nudges and flashcards from downloadable vocabulary packs</string>
     <string name="fonts_tool_notes_desc">Write and keep notes in the keyboard, with tags, checklists, pins and a trash</string>
+    <string name="fonts_tool_wm_pass_desc">Browse WM Pass\'s vault, type or copy from it, add logins and change passwords. The vault stays in that app, which you unlock and allow first.</string>
     <string name="fonts_tool_todo_desc">A to-do list in the keyboard, with steps under each task. Can sync with a CalDAV task list through DAVx5</string>
     <string name="fonts_tool_find_replace_desc">Search the text you are writing and replace matches, with match case, whole word and regular expressions</string>
     <string name="fonts_tool_learn_from_text_desc">List the words in what you have written that the keyboard does not know yet, and add them to your personal dictionary</string>

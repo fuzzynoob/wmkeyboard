@@ -419,6 +419,11 @@ object CustomDictionaries {
                 scelCandidate(item)?.let(candidates::add)
                 continue
             }
+            // A Clink language pack's lexicon, read as the word list it holds.
+            if (ClinkLexicon.looksLikeClex(item.bytes)) {
+                clexCandidate(item)?.let(candidates::add)
+                continue
+            }
             if (Hunspell.looksLikeDic(item.name, item.bytes)) {
                 // Paired by name, or, when only one of each was picked, with
                 // each other: a download often names the two differently.
@@ -511,13 +516,38 @@ object CustomDictionaries {
         )
     }
 
+    private fun clexCandidate(item: ImportFile): ImportCandidate? {
+        val words = ClinkLexicon.read(item.bytes)
+        if (words.isEmpty()) return null
+        val name = item.name.substringBeforeLast('.') + ".txt"
+        return ImportCandidate(
+            name, words, emptyList(), emptyList(), null, null,
+            verbatim = ClinkLexicon.toText(item.bytes).toByteArray(),
+        )
+    }
+
     private fun textCandidate(item: ImportFile): ImportCandidate? {
         combinedCandidate(item)?.let { return it }
         if (!looksLikeText(item.bytes)) return null
         val words = runCatching { DictionaryLoader.loadEntries(item.bytes.inputStream()) }.getOrDefault(emptyList())
         if (words.isEmpty()) return null
+        if (isSwiftKeyVocabulary(item.name)) {
+            return ImportCandidate(
+                "$SWIFTKEY_WORDS.txt", words, emptyList(), emptyList(), null, SWIFTKEY_WORDS, verbatim = item.bytes,
+            )
+        }
         return ImportCandidate(item.name, words, emptyList(), emptyList(), null, null, verbatim = item.bytes)
     }
+
+    /**
+     * Whether [name] is the file SwiftKey keeps the words it learned in, on the
+     * OneDrive its sync uses. A list named for what it holds is one a person can
+     * find again among their dictionaries, and "vocabulary" says nothing.
+     */
+    fun isSwiftKeyVocabulary(name: String): Boolean = SWIFTKEY_VOCABULARY.matches(name)
+
+    private val SWIFTKEY_VOCABULARY = Regex("""vocabulary( ?\(\d+\))?\.txt""", RegexOption.IGNORE_CASE)
+    private const val SWIFTKEY_WORDS = "SwiftKey learned words"
 
     /**
      * Writes the [parts] of [candidate] as one list in [langId], and says what

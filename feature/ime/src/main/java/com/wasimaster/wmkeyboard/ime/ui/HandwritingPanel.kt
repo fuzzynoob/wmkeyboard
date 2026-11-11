@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import android.text.format.Formatter
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -34,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.StrokeJoin
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -50,6 +52,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.handwriting.HandwritingDownloadPart
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.handwriting.HwPoint
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
@@ -193,7 +196,6 @@ internal fun HandwritingStatusBody(
     val kb = LocalKbTheme.current
     val hw = state.handwriting
     val feedback = LocalKeyPressFeedback.current
-    val context = LocalContext.current
     when (hw.status) {
         HandwritingStatus.READY -> WritingCanvas(state, onStroke)
         HandwritingStatus.CHECKING ->
@@ -206,23 +208,18 @@ internal fun HandwritingStatusBody(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            val language = HandwritingModels.displayName(hw.languageTag)
             Text(
-                hw.errorMessage ?: if (hw.modelBytes > 0L) {
-                    stringResource(
-                        R.string.ime_handwriting_need_model_sized_body,
-                        language,
-                        Formatter.formatShortFileSize(context, hw.modelBytes),
-                    )
+                if (!InternetPermission.granted) {
+                    stringResource(R.string.ime_handwriting_offline_build_body)
                 } else {
-                    stringResource(R.string.ime_handwriting_need_model_body, language)
+                    hw.errorMessage ?: needModelText(hw)
                 },
                 color = kb.secondaryText,
                 fontSize = 13.sp,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(horizontal = 24.dp),
             )
-            Row(
+            if (InternetPermission.granted) Row(
                 modifier = Modifier
                     .padding(top = 12.dp)
                     .clip(RoundedCornerShape(kb.toolRadiusDp.dp))
@@ -253,6 +250,31 @@ internal fun HandwritingStatusBody(
                 )
             }
         }
+    }
+}
+
+/**
+ * The offer to download. When the recogniser's engine library has to come
+ * first it says so, with both sizes where they are known, so the second
+ * download is not a surprise after the first.
+ */
+@Composable
+private fun needModelText(hw: HandwritingUi): String {
+    val context = LocalContext.current
+    val language = HandwritingModels.displayName(hw.languageTag)
+    val model = Formatter.formatShortFileSize(context, hw.modelBytes)
+    return when {
+        hw.libraryNeeded && hw.libraryBytes > 0L && hw.modelBytes > 0L -> stringResource(
+            R.string.ime_handwriting_need_model_and_library_sized_body,
+            language,
+            Formatter.formatShortFileSize(context, hw.libraryBytes),
+            model,
+        )
+        hw.libraryNeeded && hw.modelBytes > 0L ->
+            stringResource(R.string.ime_handwriting_need_model_sized_and_library_body, language, model)
+        hw.libraryNeeded -> stringResource(R.string.ime_handwriting_need_model_and_library_body, language)
+        hw.modelBytes > 0L -> stringResource(R.string.ime_handwriting_need_model_sized_body, language, model)
+        else -> stringResource(R.string.ime_handwriting_need_model_body, language)
     }
 }
 
@@ -317,18 +339,19 @@ private fun DownloadingMessage(hw: HandwritingUi, onCancel: () -> Unit) {
         } else {
             CircularProgressIndicator(color = kb.accent)
         }
+        val language = HandwritingModels.displayName(hw.languageTag)
         Text(
-            stringResource(
+            when {
+                // Two downloads: say which one this is.
+                progress?.part == HandwritingDownloadPart.LIBRARY ->
+                    stringResource(R.string.ime_handwriting_library_step_progress)
+                (progress?.steps ?: 1) > 1 -> stringResource(R.string.ime_handwriting_model_step_progress, language)
                 // Before the first byte there is nothing to report but the
                 // wait itself, and calling that "downloading" is what makes a
                 // slow start look like a hang.
-                if (bytes > 0L) {
-                    R.string.ime_handwriting_downloading_progress
-                } else {
-                    R.string.ime_handwriting_preparing_progress
-                },
-                HandwritingModels.displayName(hw.languageTag),
-            ),
+                bytes > 0L -> stringResource(R.string.ime_handwriting_downloading_progress, language)
+                else -> stringResource(R.string.ime_handwriting_preparing_progress, language)
+            },
             color = kb.secondaryText,
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
@@ -399,6 +422,8 @@ internal fun WritingCanvas(
     // so a knuckle or palm resting on the screen never draws.
     var lastStylusTime by remember { mutableLongStateOf(0L) }
     val dissolve = rememberInkDissolve(hw)
+    val pen = state.settings.handwritingInk
+    val penColor = pen.penColor?.let { Color(it) } ?: kb.accent
 
     Box(
         modifier = Modifier
@@ -452,17 +477,17 @@ internal fun WritingCanvas(
         }
         Canvas(modifier = Modifier.fillMaxSize()) {
             val strokeStyle = Stroke(
-                width = 4.dp.toPx(),
+                width = pen.penWidthDp.dp.toPx(),
                 cap = StrokeCap.Round,
                 join = StrokeJoin.Round,
             )
-            val inkColor = if (hw.recognizing) kb.accent.copy(alpha = 0.45f) else kb.accent
-            drawDissolvingInk(dissolve, kb.accent.copy(alpha = 0.45f), strokeStyle)
+            val inkColor = if (hw.recognizing) penColor.copy(alpha = 0.45f) else penColor
+            drawDissolvingInk(dissolve, penColor.copy(alpha = 0.45f), strokeStyle, pen.fade)
             for (stroke in hw.strokes) {
                 drawPath(pathOf(stroke.points), color = inkColor, style = strokeStyle)
             }
             if (activeStroke.size > 1) {
-                drawPath(pathOf(activeStroke), color = kb.accent, style = strokeStyle)
+                drawPath(pathOf(activeStroke), color = penColor, style = strokeStyle)
             }
         }
     }

@@ -1,0 +1,1482 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_sam_or_columns",
+    "name": "ଓଡ଼ିଆ columns (Samsung)",
+    "langId": "or",
+    "version": 2,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ଅଂ"
+            },
+            {
+              "label": "ଅ"
+            },
+            {
+              "label": "ଆ"
+            },
+            {
+              "label": "କ"
+            },
+            {
+              "label": "ଚ"
+            },
+            {
+              "label": "ଟ"
+            },
+            {
+              "label": "ତ"
+            },
+            {
+              "label": "ପ"
+            },
+            {
+              "label": "ଯ"
+            },
+            {
+              "label": "ଷ"
+            }
+          ],
+          [
+            {
+              "label": "ଅଃ"
+            },
+            {
+              "label": "ଇ"
+            },
+            {
+              "label": "ଈ"
+            },
+            {
+              "label": "ଖ"
+            },
+            {
+              "label": "ଛ"
+            },
+            {
+              "label": "ଠ"
+            },
+            {
+              "label": "ଥ"
+            },
+            {
+              "label": "ଫ"
+            },
+            {
+              "label": "ର"
+            },
+            {
+              "label": "ସ"
+            }
+          ],
+          [
+            {
+              "label": "ଅଁ"
+            },
+            {
+              "label": "ଉ"
+            },
+            {
+              "label": "ଊ"
+            },
+            {
+              "label": "ଗ"
+            },
+            {
+              "label": "ଜ"
+            },
+            {
+              "label": "ଡ"
+            },
+            {
+              "label": "ଦ"
+            },
+            {
+              "label": "ବ"
+            },
+            {
+              "label": "ଳ"
+            },
+            {
+              "label": "ହ"
+            }
+          ],
+          [
+            {
+              "label": "ଋ"
+            },
+            {
+              "label": "ଏ"
+            },
+            {
+              "label": "ଐ"
+            },
+            {
+              "label": "ଘ"
+            },
+            {
+              "label": "ଝ"
+            },
+            {
+              "label": "ଢ"
+            },
+            {
+              "label": "ଧ"
+            },
+            {
+              "label": "ଭ"
+            },
+            {
+              "label": "ଲ"
+            },
+            {
+              "label": "।"
+            }
+          ],
+          [
+            {
+              "label": "1/4",
+              "action": {
+                "type": "layer",
+                "layer": "page2"
+              }
+            },
+            {
+              "label": "ଓ"
+            },
+            {
+              "label": "ଔ"
+            },
+            {
+              "label": "ଙ"
+            },
+            {
+              "label": "ଞ"
+            },
+            {
+              "label": "ଣ"
+            },
+            {
+              "label": "ନ"
+            },
+            {
+              "label": "ମ"
+            },
+            {
+              "label": "ଶ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ],
+        "afterConsonant": "page2"
+      },
+      "page2": {
+        "rows": [
+          [
+            {
+              "label": "ଂ",
+              "longPress": [
+                "ଅଂ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "୍",
+              "longPress": [
+                "ଅ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "ା",
+              "longPress": [
+                "ଆ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "କ"
+            },
+            {
+              "label": "ଚ"
+            },
+            {
+              "label": "ଟ"
+            },
+            {
+              "label": "ତ"
+            },
+            {
+              "label": "ପ"
+            },
+            {
+              "label": "ଯ"
+            },
+            {
+              "label": "ଷ"
+            }
+          ],
+          [
+            {
+              "label": "ଃ",
+              "longPress": [
+                "ଅଃ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "ି",
+              "longPress": [
+                "ଇ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "ୀ",
+              "longPress": [
+                "ଈ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "ଖ"
+            },
+            {
+              "label": "ଛ"
+            },
+            {
+              "label": "ଠ"
+            },
+            {
+              "label": "ଥ"
+            },
+            {
+              "label": "ଫ"
+            },
+            {
+              "label": "ର"
+            },
+            {
+              "label": "ସ"
+            }
+          ],
+          [
+            {
+              "label": "ଁ",
+              "longPress": [
+                "ଅଁ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "ୁ",
+              "longPress": [
+                "ଉ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "ୂ",
+              "longPress": [
+                "ଊ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "ଗ"
+            },
+            {
+              "label": "ଜ"
+            },
+            {
+              "label": "ଡ"
+            },
+            {
+              "label": "ଦ"
+            },
+            {
+              "label": "ବ"
+            },
+            {
+              "label": "ଳ"
+            },
+            {
+              "label": "ହ"
+            }
+          ],
+          [
+            {
+              "label": "ୃ",
+              "longPress": [
+                "ଋ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "େ",
+              "longPress": [
+                "ଏ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "ୈ",
+              "longPress": [
+                "ଐ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "ଘ"
+            },
+            {
+              "label": "ଝ"
+            },
+            {
+              "label": "ଢ"
+            },
+            {
+              "label": "ଧ"
+            },
+            {
+              "label": "ଭ"
+            },
+            {
+              "label": "ଲ"
+            },
+            {
+              "label": "।"
+            }
+          ],
+          [
+            {
+              "label": "2/4",
+              "action": {
+                "type": "layer",
+                "layer": "page3"
+              }
+            },
+            {
+              "label": "ୋ",
+              "longPress": [
+                "ଓ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "ୌ",
+              "longPress": [
+                "ଔ"
+              ],
+              "hideHint": true
+            },
+            {
+              "label": "ଙ"
+            },
+            {
+              "label": "ଞ"
+            },
+            {
+              "label": "ଣ"
+            },
+            {
+              "label": "ନ"
+            },
+            {
+              "label": "ମ"
+            },
+            {
+              "label": "ଶ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      },
+      "page3": {
+        "rows": [
+          [
+            {
+              "label": "ଚ୍ଚ"
+            },
+            {
+              "label": "ୟ"
+            },
+            {
+              "label": "ୱ"
+            },
+            {
+              "label": "କ"
+            },
+            {
+              "label": "ଚ"
+            },
+            {
+              "label": "ଟ"
+            },
+            {
+              "label": "ତ"
+            },
+            {
+              "label": "ପ"
+            },
+            {
+              "label": "ଯ"
+            },
+            {
+              "label": "ଷ"
+            }
+          ],
+          [
+            {
+              "label": "ଚ୍ଛ "
+            },
+            {
+              "label": "କ୍ଷ"
+            },
+            {
+              "label": "ଗ୍ଧ"
+            },
+            {
+              "label": "ଖ"
+            },
+            {
+              "label": "ଛ"
+            },
+            {
+              "label": "ଠ"
+            },
+            {
+              "label": "ଥ"
+            },
+            {
+              "label": "ଫ"
+            },
+            {
+              "label": "ର"
+            },
+            {
+              "label": "ସ"
+            }
+          ],
+          [
+            {
+              "label": "ଗ୍ଳ"
+            },
+            {
+              "label": "ଗ୍ନ"
+            },
+            {
+              "label": "ଗ୍ମ"
+            },
+            {
+              "label": "ଗ"
+            },
+            {
+              "label": "ଜ"
+            },
+            {
+              "label": "ଡ"
+            },
+            {
+              "label": "ଦ"
+            },
+            {
+              "label": "ବ"
+            },
+            {
+              "label": "ଳ"
+            },
+            {
+              "label": "ହ"
+            }
+          ],
+          [
+            {
+              "label": "ଙ୍ଘ"
+            },
+            {
+              "label": "ଘ୍ନ"
+            },
+            {
+              "label": "ଙ୍କ"
+            },
+            {
+              "label": "ଘ"
+            },
+            {
+              "label": "ଝ"
+            },
+            {
+              "label": "ଢ"
+            },
+            {
+              "label": "ଧ"
+            },
+            {
+              "label": "ଭ"
+            },
+            {
+              "label": "ଲ"
+            },
+            {
+              "label": "।"
+            }
+          ],
+          [
+            {
+              "label": "3/4",
+              "action": {
+                "type": "layer",
+                "layer": "page4"
+              }
+            },
+            {
+              "label": "ଙ୍ଖ"
+            },
+            {
+              "label": "ଙ୍ଗ"
+            },
+            {
+              "label": "ଙ"
+            },
+            {
+              "label": "ଞ"
+            },
+            {
+              "label": "ଣ"
+            },
+            {
+              "label": "ନ"
+            },
+            {
+              "label": "ମ"
+            },
+            {
+              "label": "ଶ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      },
+      "page4": {
+        "rows": [
+          [
+            {
+              "label": "ଶ୍ର"
+            },
+            {
+              "label": "ଌ"
+            },
+            {
+              "label": "ଵ"
+            },
+            {
+              "label": "କ"
+            },
+            {
+              "label": "ଚ"
+            },
+            {
+              "label": "ଟ"
+            },
+            {
+              "label": "ତ"
+            },
+            {
+              "label": "ପ"
+            },
+            {
+              "label": "ଯ"
+            },
+            {
+              "label": "ଷ"
+            }
+          ],
+          [
+            {
+              "label": "ତ୍ର"
+            },
+            {
+              "label": "ୄ"
+            },
+            {
+              "label": "ଡ଼"
+            },
+            {
+              "label": "ଖ"
+            },
+            {
+              "label": "ଛ"
+            },
+            {
+              "label": "ଠ"
+            },
+            {
+              "label": "ଥ"
+            },
+            {
+              "label": "ଫ"
+            },
+            {
+              "label": "ର"
+            },
+            {
+              "label": "ସ"
+            }
+          ],
+          [
+            {
+              "label": "ଜ୍ଞ"
+            },
+            {
+              "label": "ଢ଼"
+            },
+            {
+              "label": "ୠ"
+            },
+            {
+              "label": "ଗ"
+            },
+            {
+              "label": "ଜ"
+            },
+            {
+              "label": "ଡ"
+            },
+            {
+              "label": "ଦ"
+            },
+            {
+              "label": "ବ"
+            },
+            {
+              "label": "ଳ"
+            },
+            {
+              "label": "ହ"
+            }
+          ],
+          [
+            {
+              "label": "ୡ"
+            },
+            {
+              "label": "ୢ"
+            },
+            {
+              "label": "ୣ"
+            },
+            {
+              "label": "ଘ"
+            },
+            {
+              "label": "ଝ"
+            },
+            {
+              "label": "ଢ"
+            },
+            {
+              "label": "ଧ"
+            },
+            {
+              "label": "ଭ"
+            },
+            {
+              "label": "ଲ"
+            },
+            {
+              "label": "।"
+            }
+          ],
+          [
+            {
+              "label": "4/4",
+              "action": {
+                "type": "letters"
+              }
+            },
+            {
+              "label": "୍‌ର",
+              "output": "୍ର"
+            },
+            {
+              "label": "ର୍"
+            },
+            {
+              "label": "ଙ"
+            },
+            {
+              "label": "ଞ"
+            },
+            {
+              "label": "ଣ"
+            },
+            {
+              "label": "ନ"
+            },
+            {
+              "label": "ମ"
+            },
+            {
+              "label": "ଶ"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "୧",
+              "longPress": [
+                "1",
+                "¹",
+                "½",
+                "⅓",
+                "¼",
+                "⅕",
+                "⅙",
+                "⅛"
+              ]
+            },
+            {
+              "label": "୨",
+              "longPress": [
+                "2",
+                "²",
+                "⅔",
+                "⅖"
+              ]
+            },
+            {
+              "label": "୩",
+              "longPress": [
+                "3",
+                "³",
+                "¾",
+                "⅗",
+                "⅜"
+              ]
+            },
+            {
+              "label": "୪",
+              "longPress": [
+                "4",
+                "⁴",
+                "⅘"
+              ]
+            },
+            {
+              "label": "୫",
+              "longPress": [
+                "5",
+                "⁵",
+                "⅚",
+                "⅝"
+              ]
+            },
+            {
+              "label": "୬",
+              "longPress": [
+                "6",
+                "⁶"
+              ]
+            },
+            {
+              "label": "୭",
+              "longPress": [
+                "7",
+                "⁷",
+                "⅞"
+              ]
+            },
+            {
+              "label": "୮",
+              "longPress": [
+                "8",
+                "⁸"
+              ]
+            },
+            {
+              "label": "୯",
+              "longPress": [
+                "9",
+                "⁹"
+              ]
+            },
+            {
+              "label": "୦",
+              "longPress": [
+                "0",
+                "⁰",
+                "ⁿ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "+",
+              "longPress": [
+                "±"
+              ]
+            },
+            {
+              "label": "×"
+            },
+            {
+              "label": "÷"
+            },
+            {
+              "label": "=",
+              "longPress": [
+                "≈",
+                "≠",
+                "≡"
+              ]
+            },
+            {
+              "label": "/"
+            },
+            {
+              "label": "_"
+            },
+            {
+              "label": "€"
+            },
+            {
+              "label": "£"
+            },
+            {
+              "label": "¥"
+            },
+            {
+              "label": "$"
+            }
+          ],
+          [
+            {
+              "label": "!",
+              "longPress": [
+                "¡"
+              ]
+            },
+            {
+              "label": "@"
+            },
+            {
+              "label": "#",
+              "longPress": [
+                "№"
+              ]
+            },
+            {
+              "label": "₹"
+            },
+            {
+              "label": "%",
+              "longPress": [
+                "٪",
+                "‰"
+              ]
+            },
+            {
+              "label": "^"
+            },
+            {
+              "label": "&"
+            },
+            {
+              "label": "*"
+            },
+            {
+              "label": "("
+            },
+            {
+              "label": ")"
+            }
+          ],
+          [
+            {
+              "label": "1/2",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "-",
+              "longPress": [
+                "‐",
+                "–",
+                "—"
+              ]
+            },
+            {
+              "label": "'"
+            },
+            {
+              "label": "\"",
+              "longPress": [
+                "«",
+                "»"
+              ]
+            },
+            {
+              "label": ":"
+            },
+            {
+              "label": ";"
+            },
+            {
+              "label": ","
+            },
+            {
+              "label": "?",
+              "longPress": [
+                "¿",
+                "‽"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      },
+      "symbols2": {
+        "rows": [
+          [
+            {
+              "label": "୧",
+              "longPress": [
+                "1",
+                "¹",
+                "½",
+                "⅓",
+                "¼",
+                "⅕",
+                "⅙",
+                "⅛"
+              ]
+            },
+            {
+              "label": "୨",
+              "longPress": [
+                "2",
+                "²",
+                "⅔",
+                "⅖"
+              ]
+            },
+            {
+              "label": "୩",
+              "longPress": [
+                "3",
+                "³",
+                "¾",
+                "⅗",
+                "⅜"
+              ]
+            },
+            {
+              "label": "୪",
+              "longPress": [
+                "4",
+                "⁴",
+                "⅘"
+              ]
+            },
+            {
+              "label": "୫",
+              "longPress": [
+                "5",
+                "⁵",
+                "⅚",
+                "⅝"
+              ]
+            },
+            {
+              "label": "୬",
+              "longPress": [
+                "6",
+                "⁶"
+              ]
+            },
+            {
+              "label": "୭",
+              "longPress": [
+                "7",
+                "⁷",
+                "⅞"
+              ]
+            },
+            {
+              "label": "୮",
+              "longPress": [
+                "8",
+                "⁸"
+              ]
+            },
+            {
+              "label": "୯",
+              "longPress": [
+                "9",
+                "⁹"
+              ]
+            },
+            {
+              "label": "୦",
+              "longPress": [
+                "0",
+                "⁰",
+                "ⁿ"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "`"
+            },
+            {
+              "label": "~"
+            },
+            {
+              "label": "\\"
+            },
+            {
+              "label": "|"
+            },
+            {
+              "label": "<"
+            },
+            {
+              "label": ">"
+            },
+            {
+              "label": "{"
+            },
+            {
+              "label": "}"
+            },
+            {
+              "label": "[",
+              "longPress": [
+                "【",
+                "〔",
+                "「",
+                "『"
+              ]
+            },
+            {
+              "label": "]",
+              "longPress": [
+                "】",
+                "〕",
+                "」",
+                "』"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "଼"
+            },
+            {
+              "label": "ଽ"
+            },
+            {
+              "label": "୰"
+            },
+            {
+              "label": "୲"
+            },
+            {
+              "label": "୳"
+            },
+            {
+              "label": "୴"
+            },
+            {
+              "label": "୵"
+            },
+            {
+              "label": "୶"
+            },
+            {
+              "label": "୷"
+            },
+            {
+              "label": "॥"
+            }
+          ],
+          [
+            {
+              "label": "2/2",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "ZWNJ",
+              "output": "‌"
+            },
+            {
+              "label": "ZWJ",
+              "output": "‍"
+            },
+            {
+              "label": "¤"
+            },
+            {
+              "label": "ॐ"
+            },
+            {
+              "label": "卐"
+            },
+            {
+              "label": "☪"
+            },
+            {
+              "label": "†"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

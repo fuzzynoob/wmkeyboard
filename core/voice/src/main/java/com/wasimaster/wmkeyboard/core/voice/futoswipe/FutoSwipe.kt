@@ -6,6 +6,7 @@ import com.wasimaster.wmkeyboard.core.download.DownloadException
 import com.wasimaster.wmkeyboard.core.download.FileDownloader
 import com.wasimaster.wmkeyboard.core.modules.NativeConsent
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
+import com.wasimaster.wmkeyboard.core.netlog.OfflineBuild
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtNative
 import com.wasimaster.wmkeyboard.core.voice.executorch.Tensor
 import com.wasimaster.wmkeyboard.voice.R
@@ -118,6 +119,9 @@ object FutoSwipe {
     }
 
     /** Closes the programs; the next [model] opens them again. */
+    /** Whether the decoder is loaded; for the Resources screen (#1163). Any thread. */
+    val isLoaded: Boolean get() = loaded != null
+
     fun release() {
         synchronized(this) {
             loaded?.close()
@@ -162,9 +166,43 @@ object FutoSwipe {
             } catch (e: Failed) {
                 Status.Failed(e.messageRes, e.messageArg)
             } catch (_: Exception) {
-                Status.Failed(CommonR.string.common_error_network)
+                Status.Failed(OfflineBuild.download(CommonR.string.common_error_network))
             }
         }
+    }
+
+    /**
+     * Whether a file of [size] bytes may be one of [files], for an import
+     * (#1002). Both are served as `model_fp32.pte`, so the name says nothing;
+     * [install] checks the digest.
+     */
+    fun sizeMatches(size: Long): Boolean = files.any { it.bytes == size }
+
+    /**
+     * Puts [source], fetched some other way (#1002), where its download would
+     * put it: the file whose size and SHA-256 it has. False when it is
+     * neither. The licence is still agreed to on the glide screen before the
+     * model runs. Blocking.
+     */
+    fun install(filesDir: File, source: File): Boolean {
+        val size = source.length()
+        val candidates = files.filter { it.bytes == size }
+        if (candidates.isEmpty()) return false
+        val digest = FileDownloader.sha256(source)
+        val file = candidates.firstOrNull { it.sha256.equals(digest, ignoreCase = true) } ?: return false
+        val dir = dir(filesDir).apply { mkdirs() }
+        val target = File(dir, file.name)
+        val staged = File(dir, file.name + ".import")
+        try {
+            source.inputStream().use { input -> staged.outputStream().use { input.copyTo(it) } }
+            target.delete()
+            if (!staged.renameTo(target)) throw IOException("could not move $target into place")
+        } finally {
+            staged.delete()
+        }
+        release()
+        refresh(filesDir)
+        return true
     }
 
     fun delete(filesDir: File) {

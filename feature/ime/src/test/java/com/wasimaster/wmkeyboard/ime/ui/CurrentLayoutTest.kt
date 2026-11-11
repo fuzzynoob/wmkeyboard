@@ -27,6 +27,7 @@ import com.wasimaster.wmkeyboard.core.settings.TextEditAction
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.ime.EnterAction
 import com.wasimaster.wmkeyboard.ime.FieldKind
+import com.wasimaster.wmkeyboard.ime.KeyFaces
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.LayoutMode
 import com.wasimaster.wmkeyboard.ime.LayoutSet
@@ -295,7 +296,7 @@ class CurrentLayoutTest {
      */
     @Test
     fun `a send field puts a newline on the enter key's long press`() {
-        val s = state(settings = plain()).copy(enterAction = EnterAction.SEND)
+        val s = state(settings = plain()).copy(keyFaces = KeyFaces(enterAction = EnterAction.SEND))
         val alternates = enterKeyOf(s).actionAlternates
         assertEquals(1, alternates.size)
         assertEquals(KeyAction.Newline, alternates.single().action)
@@ -304,7 +305,7 @@ class CurrentLayoutTest {
     /** Enter already types the break here; offering it again is noise. */
     @Test
     fun `an ordinary text field leaves the enter key alone`() {
-        val s = state(settings = plain()).copy(enterAction = EnterAction.DEFAULT)
+        val s = state(settings = plain()).copy(keyFaces = KeyFaces(enterAction = EnterAction.DEFAULT))
         assertTrue(enterKeyOf(s).actionAlternates.isEmpty())
     }
 
@@ -314,7 +315,7 @@ class CurrentLayoutTest {
      */
     @Test
     fun `the enter key opens its popup once it carries the alternate`() {
-        val s = state(settings = plain()).copy(enterAction = EnterAction.SEARCH)
+        val s = state(settings = plain()).copy(keyFaces = KeyFaces(enterAction = EnterAction.SEARCH))
         assertTrue(enterKeyOf(s).opensAlternatesPopup())
         // And draws no corner hint: that comes from the character alternates,
         // which this key still has none of.
@@ -327,14 +328,14 @@ class CurrentLayoutTest {
     /** Off by default: a hold on enter keeps doing what it did. */
     @Test
     fun `the enter key offers no emoji until asked`() {
-        val s = state(settings = plain()).copy(enterAction = EnterAction.SEND)
+        val s = state(settings = plain()).copy(keyFaces = KeyFaces(enterAction = EnterAction.SEND))
         assertTrue(enterKeyOf(s).actionAlternates.none { it.action == KeyAction.Emoji })
     }
 
     /** On an ordinary field the emoji entry is the whole popup. */
     @Test
     fun `the setting puts emoji on the enter key's long press`() {
-        val s = state(settings = withEnterEmoji(plain())).copy(enterAction = EnterAction.DEFAULT)
+        val s = state(settings = withEnterEmoji(plain())).copy(keyFaces = KeyFaces(enterAction = EnterAction.DEFAULT))
         val enter = enterKeyOf(s)
         assertEquals(listOf(KeyAction.Emoji), enter.actionAlternates.map { it.action })
         assertTrue(enter.opensAlternatesPopup())
@@ -347,7 +348,7 @@ class CurrentLayoutTest {
      */
     @Test
     fun `emoji goes ahead of the newline on a send field`() {
-        val s = state(settings = withEnterEmoji(plain())).copy(enterAction = EnterAction.SEND)
+        val s = state(settings = withEnterEmoji(plain())).copy(keyFaces = KeyFaces(enterAction = EnterAction.SEND))
         assertEquals(
             listOf(KeyAction.Emoji, KeyAction.Newline),
             enterKeyOf(s).actionAlternates.map { it.action },
@@ -636,6 +637,40 @@ class CurrentLayoutTest {
         val period = currentLayout(s).keys().first { it.role == KeyRole.Period }
         assertEquals(".", period.output ?: period.label)
         assertEquals("。", period.longPress.first())
+    }
+
+    /**
+     * The smart punctuation key: the model's mark takes the period key's face
+     * and the full stop leads its hold, on the letters page of an ordinary
+     * text field only.
+     */
+    @Test
+    fun `the smart punctuation mark takes the period key and the full stop leads its hold`() {
+        val s = state(settings = plain()).copy(keyFaces = KeyFaces(smartPunctuation = "?"))
+        val period = currentLayout(s).rows.last().first { it.role == KeyRole.Period }
+        assertEquals("?", period.output ?: period.label)
+        assertEquals(".", period.longPress.first())
+        assertTrue("the mark the key now types must not also sit in its popup", period.longPress.none { it == "?" })
+        // An email field's period key is spoken for by its domain endings.
+        val email = state(fieldKind = FieldKind.EMAIL, settings = plain()).copy(keyFaces = KeyFaces(smartPunctuation = "?"))
+        val emailPeriod = currentLayout(email).rows.last().first { it.role == KeyRole.Period }
+        assertEquals(".", emailPeriod.output ?: emailPeriod.label)
+        // And the symbols pages keep their full stop for numbers and files.
+        val symbols = state(settings = plain()).copy(keyFaces = KeyFaces(smartPunctuation = "?"), layoutMode = LayoutMode.SYMBOLS)
+        assertTrue(currentLayout(symbols).keys().none { it.role == KeyRole.Period && (it.output ?: it.label) == "?" })
+    }
+
+    /** On a danda script the model's full stop is the danda itself, so the key is left as swapped. */
+    @Test
+    fun `the smart punctuation mark on a bengali layout is the danda`() {
+        val s = state(BuiltInLayouts.AVRO, settings = plain())
+            .copy(script = ScriptRegistry[ScriptId.BENGALI], keyFaces = KeyFaces(smartPunctuation = "\u0964"))
+        val period = currentLayout(s).rows.last().first { it.role == KeyRole.Period }
+        assertEquals("\u0964", period.output ?: period.label)
+        assertEquals(".", period.longPress.first())
+        val asked = currentLayout(s.copy(keyFaces = KeyFaces(smartPunctuation = "!"))).rows.last().first { it.role == KeyRole.Period }
+        assertEquals("!", asked.output ?: asked.label)
+        assertEquals("\u0964", asked.longPress.first())
     }
 
     /** And on the letters page the swap still happens, as it has since #489. */

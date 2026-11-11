@@ -30,6 +30,8 @@ enum class DictionarySource(
     val online: Boolean,
     /** The [OfflineDictionaryCatalog] pack this source reads, for one that is an offline dictionary. */
     val packId: String? = null,
+    /** Listed but off until the user turns it on, on a new install and after an update alike. */
+    val startsOff: Boolean = false,
 ) {
     /** The vocabulary packs on the device. Only knows the packs' words, but costs nothing to ask and works offline. */
     VOCAB_PACKS("vocab_packs", online = false),
@@ -58,11 +60,20 @@ enum class DictionarySource(
     OFFLINE_BENGALI("offline_bn_wiktionary", online = false, packId = OfflineDictionaryCatalog.BENGALI_WIKTIONARY.id),
 
     /**
+     * Words of other languages in English, one download per language (#1085):
+     * asks whichever of [OfflineDictionaryCatalog.LANGUAGES] are on the device.
+     */
+    OFFLINE_LANGUAGES("offline_languages", online = false),
+
+    /**
      * The Yomichan / Yomitan dictionaries the user imported (#765): any
      * language pair, with readings and pitch accent. Asks every one that is
      * on, in the order its own settings list keeps ([YomichanDictionaries]).
      */
     IMPORTED("imported_dictionaries", online = false),
+
+    /** Slang, written by anyone: many definitions are crude, so nobody gets it without asking. */
+    URBAN_DICTIONARY("urban_dictionary", online = true, startsOff = true),
     ;
 
     /** The source's name, for the settings list and the panel's "From …" line. */
@@ -76,7 +87,9 @@ enum class DictionarySource(
             OFFLINE_WIKTIONARY -> R.string.core_tools_dictionary_source_offline_wiktionary
             OFFLINE_WORDNET -> R.string.core_tools_dictionary_source_offline_wordnet
             OFFLINE_BENGALI -> R.string.core_tools_dictionary_source_offline_bengali
+            OFFLINE_LANGUAGES -> R.string.core_tools_dictionary_source_offline_languages
             IMPORTED -> R.string.core_tools_dictionary_source_imported
+            URBAN_DICTIONARY -> R.string.core_tools_dictionary_source_urban_dictionary
         }
 
     /** One line on what the source knows, under its name in settings. */
@@ -90,7 +103,9 @@ enum class DictionarySource(
             OFFLINE_WIKTIONARY -> R.string.core_tools_dictionary_source_offline_wiktionary_desc
             OFFLINE_WORDNET -> R.string.core_tools_dictionary_source_offline_wordnet_desc
             OFFLINE_BENGALI -> R.string.core_tools_dictionary_source_offline_bengali_desc
+            OFFLINE_LANGUAGES -> R.string.core_tools_dictionary_source_offline_languages_desc
             IMPORTED -> R.string.core_tools_dictionary_source_imported_desc
+            URBAN_DICTIONARY -> R.string.core_tools_dictionary_source_urban_dictionary_desc
         }
 
     companion object {
@@ -105,11 +120,13 @@ data class DictionarySourceChoice(val source: DictionarySource, val enabled: Boo
 object DictionarySources {
 
     /**
-     * Every source, on: the packs first, then the richest online ones, then
-     * the least reliable, then the offline dictionaries, which only answer
-     * once downloaded and are asked when the network is not there.
+     * Every source, on unless it [DictionarySource.startsOff]: the packs first,
+     * then the richest online ones, then the least reliable, then the offline
+     * dictionaries, which only answer once downloaded and are asked when the
+     * network is not there.
      */
-    val DEFAULT: List<DictionarySourceChoice> = DictionarySource.entries.map { DictionarySourceChoice(it) }
+    val DEFAULT: List<DictionarySourceChoice> =
+        DictionarySource.entries.map { DictionarySourceChoice(it, enabled = !it.startsOff) }
 
     fun encode(choices: List<DictionarySourceChoice>): String =
         choices.joinToString(",") { (if (it.enabled) "" else "-") + it.source.id }
@@ -117,7 +134,8 @@ object DictionarySources {
     /**
      * An id this build does not know is dropped. A source this build knows
      * and the stored list does not (added in an update) joins at the end,
-     * switched on, so an update adds a backup rather than hiding it.
+     * switched on unless it [DictionarySource.startsOff], so an update adds a
+     * backup rather than hiding it.
      */
     fun decode(raw: String): List<DictionarySourceChoice> {
         val seen = LinkedHashMap<DictionarySource, Boolean>()
@@ -128,7 +146,7 @@ object DictionarySources {
             seen.putIfAbsent(source, !off)
         }
         return seen.map { (source, enabled) -> DictionarySourceChoice(source, enabled) } +
-            DictionarySource.entries.filter { it !in seen }.map { DictionarySourceChoice(it) }
+            DictionarySource.entries.filter { it !in seen }.map { DictionarySourceChoice(it, enabled = !it.startsOff) }
     }
 }
 
@@ -212,7 +230,9 @@ object DictionaryLookup {
             }
             DictionarySource.OFFLINE_WIKTIONARY, DictionarySource.OFFLINE_WORDNET, DictionarySource.OFFLINE_BENGALI ->
                 OfflineDictionaries.lookup(source.packId!!, word)
+            DictionarySource.OFFLINE_LANGUAGES -> OfflineDictionaries.lookupLanguages(word)
             DictionarySource.IMPORTED -> YomichanDictionaries.lookup(word)
+            DictionarySource.URBAN_DICTIONARY -> UrbanDictionaryClient.lookup(word)
         }
     }
 

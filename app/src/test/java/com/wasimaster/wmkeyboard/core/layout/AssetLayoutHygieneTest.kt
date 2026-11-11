@@ -52,9 +52,14 @@ class AssetLayoutHygieneTest {
      * Everything that still applies to them — parses, needs no repair, names a
      * real language, no dangling layer — is enforced in `AssetLayoutsTest` and
      * `TouchLayoutConverterTest`, over all 862 rather than by exception.
+     *
+     * The `gb_` grids are generated too, by tools/gboard-layouts, and read false
+     * for the same honest reasons: Gboard offers many languages one script's grid.
+     * The `sam_` grids come from Samsung Keyboard the same way, and its one
+     * Devanagari or QWERTY board per language shares a grid just as often.
      */
     private val handAuthored: List<Pair<String, LayoutSpec>>
-        get() = layouts.filterNot { (name, _) -> name.startsWith("kmn_") }
+        get() = layouts.filterNot { (name, _) -> name.startsWith("hw_") || name.startsWith("kmn_") || name.startsWith("gb_") || name.startsWith("sam_") || name.startsWith("rom_") }
 
     /**
      * Every character a layout can produce: what the keys say, what shift makes
@@ -86,21 +91,42 @@ class AssetLayoutHygieneTest {
      * script describes what the composer *emits*, not what sits on the keys.
      */
     private val latinByDesign = setOf(
+        "asset_bn_avro_flick",
+        "asset_bn_khipro_flick",
         "asset_ipa",
         "asset_ipa_qwerty",
         "asset_ipa_qwerty_g",
+        "asset_ja_godan",
         "asset_ja_romaji",
         "asset_music",
+        "asset_yue_cantonese_pinyin",
         "asset_yue_jyutping",
+        "asset_yue_yale",
         "asset_zh_cangjie",
         "asset_zh_cangjie_quick",
+        "asset_zh_wubi",
         "asset_zh_pinyin",
+        "asset_zh_pinyin_clearflow",
         "asset_zh_pinyin_t9",
         // Hebrew with no Shift key: each letter's shifted form, long-press and
         // (bottom row) up-flick is the English letter on its SI-1452 position,
         // for typing English words without switching layouts.
         "asset_he_gboard_plus",
         "asset_he_gboard_plus_swipe_safe",
+        // One-row Avro and the other phonetic one-row boards: QWERTY's letters
+        // on one row, read by the language's phonetic scheme like Avro's.
+        "asset_bn_avro_one_row",
+        "asset_hi_phonetic_one_row",
+        "asset_ur_phonetic_one_row",
+        "asset_mr_phonetic_one_row",
+        "asset_gu_phonetic_one_row",
+        "asset_pa_phonetic_one_row",
+        "asset_or_phonetic_one_row",
+        "asset_as_phonetic_one_row",
+        "asset_ta_phonetic_one_row",
+        "asset_te_phonetic_one_row",
+        "asset_kn_phonetic_one_row",
+        "asset_ml_phonetic_one_row",
     )
 
     @Test
@@ -140,6 +166,8 @@ class AssetLayoutHygieneTest {
             "anp", "awa", "bho_inscript", "brx_inscript", "doi_inscript", "dty",
             "kok_inscript", "mai_inscript", "ne_inscript", "new", "raj",
         ),
+        // The 3×3 flick board, whose keys are Latin on all three: Avro and Khipro read them.
+        setOf("bn_avro_flick", "bn_khipro_flick", "en_flick"),
         // Bengali-script minorities riding the Bengali grid.
         setOf("bpy_bengali", "syl_bengali"),
         // Gilaki and Mazanderani share the Persian alphabet outright.
@@ -177,8 +205,10 @@ class AssetLayoutHygieneTest {
             .filter { group ->
                 group.size > 1 &&
                     // A T9 keypad is the script's keypad standard, shared by
-                    // design the way InScript is (#332).
-                    group.any { (name, _) -> !name.endsWith("_t9") } &&
+                    // design the way InScript is (#332), and the phonetic
+                    // one-row boards are QWERTY folded onto one row for every
+                    // scheme that reads QWERTY.
+                    group.any { (name, _) -> !name.endsWith("_t9") && !name.endsWith("_one_row") } &&
                     group.any { (_, l) -> l.id !in latinByDesign && l.script().id != ScriptId.LATIN } &&
                     // Membership, not an exact group match: fixing one language's
                     // letters moves it in or out of a shared-grid cluster, and a
@@ -277,7 +307,7 @@ class AssetLayoutHygieneTest {
      * has to be one the layouts actually mean to show.
      */
     private val wordLabelsInUse = setOf(
-        "ABC", "abc", "OK", "Fn", "Esc", "Tab", "Del", "Ins", "IPA",
+        "ABC", "abc", "OK", "Fn", "Ctrl", "Esc", "Tab", "Del", "Ins", "IPA",
         // The T9 pinyin pad labels its keys with the letter group, Nokia-style.
         "DEF", "GHI", "JKL", "MNO", "PQRS", "TUV", "WXYZ",
         // A single letter of the Klingon alphabet, written with three Latin

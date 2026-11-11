@@ -12,6 +12,9 @@ import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.app.assistant.SettingsAssistantGate
 import com.wasimaster.wmkeyboard.core.settings.AI_STRIP_SUGGEST_CHARS_MAX
 import com.wasimaster.wmkeyboard.core.settings.AI_STRIP_SUGGEST_CHARS_MIN
+import com.wasimaster.wmkeyboard.core.settings.AiStripComposingDelayRange
+import com.wasimaster.wmkeyboard.core.settings.AiStripIdleRange
+import com.wasimaster.wmkeyboard.core.settings.AiStripTimeoutRange
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
@@ -178,6 +181,25 @@ internal fun AiHubSettings(
 /** The tools the AI screen lists, in the order the Tools list has them. */
 private val AiHubTools = listOf(ToolbarTool.AI, ToolbarTool.AI_REPLY)
 
+/** A millisecond slider for the strip's timings, in steps of 50. */
+@Composable
+private fun AiStripMsSlider(
+    @StringRes title: Int,
+    value: Long,
+    range: LongRange,
+    default: Long,
+    onChange: (Long) -> Unit,
+) {
+    val format = stringResource(R.string.toolai_strip_suggest_ms_value)
+    SliderSetting(
+        title,
+        value = value.toFloat(),
+        range = range.first.toFloat()..range.last.toFloat(),
+        display = { format.format((it / 50f).roundToInt() * 50) },
+        default = default.toFloat(),
+    ) { onChange((it / 50f).roundToInt() * 50L) }
+}
+
 /** The AI tool's settings: provider, credentials, output and prompts. */
 @Composable
 internal fun AiToolSettings(
@@ -195,6 +217,7 @@ internal fun AiToolSettings(
     // own value.
     val aiProvider = settings.watch { it.ai.provider }
     val diffView = settings.watch { it.ai.diffView }
+    val phoneAssistant = settings.watch { it.ai.assistant }
     // Tool calling (#470). The search row only appears once a search service
     // is set up — a tool whose every answer is "search is not configured"
     // would cost tokens on every run and do nothing.
@@ -311,6 +334,7 @@ internal fun AiToolSettings(
     val stripSuggest = settings.watch { it.ai.stripSuggest }
     val stripWordOnly = settings.watch { it.ai.stripSuggestWordOnly }
     val stripChars = settings.watch { it.ai.stripSuggestChars }
+    val stripComposing = settings.watch { it.ai.stripSuggestComposing }
     SettingsGroup(
         stringResource(R.string.toolai_strip_suggest_group_title),
         info = stringResource(R.string.toolai_strip_suggest_info),
@@ -345,6 +369,63 @@ internal fun AiToolSettings(
                 display = { numberFormat.format((it / 10f).roundToInt() * 10) },
                 default = SettingsDefaults.ai.stripSuggestChars.toFloat(),
             ) { scope.launch { repository.setAiStripSuggestChars((it / 10f).roundToInt() * 10) } }
+        }
+        item(visible = stripSuggest, level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.toolai_strip_suggest_composing_title,
+                stringResource(R.string.toolai_strip_suggest_composing_subtitle),
+                stripComposing,
+                default = SettingsDefaults.ai.stripSuggestComposing,
+            ) { scope.launch { repository.setAiStripSuggestComposing(it) } }
+        }
+        // Off only with the other on: both off is the main switch's job.
+        item(visible = stripSuggest && stripComposing, level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.toolai_strip_suggest_after_word_title,
+                stringResource(R.string.toolai_strip_suggest_after_word_subtitle),
+                settings.watch { it.ai.stripSuggestAfterWord },
+                default = SettingsDefaults.ai.stripSuggestAfterWord,
+            ) { scope.launch { repository.setAiStripSuggestAfterWord(it) } }
+        }
+        item(visible = stripSuggest, level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.toolai_strip_suggest_after_words_title,
+                stringResource(R.string.toolai_strip_suggest_after_words_subtitle),
+                settings.watch { it.ai.stripSuggestAfterWords },
+                default = SettingsDefaults.ai.stripSuggestAfterWords,
+            ) { scope.launch { repository.setAiStripSuggestAfterWords(it) } }
+        }
+        item(visible = stripSuggest, level = SettingLevel.ADVANCED) {
+            AiStripMsSlider(
+                R.string.toolai_strip_suggest_idle_title,
+                settings.watch { it.ai.stripSuggestIdleMs },
+                AiStripIdleRange,
+                SettingsDefaults.ai.stripSuggestIdleMs,
+            ) { ms -> scope.launch { repository.setAiStripSuggestIdle(ms) } }
+        }
+        item(visible = stripSuggest, level = SettingLevel.ADVANCED) {
+            AiStripMsSlider(
+                R.string.toolai_strip_suggest_timeout_title,
+                settings.watch { it.ai.stripSuggestTimeoutMs },
+                AiStripTimeoutRange,
+                SettingsDefaults.ai.stripSuggestTimeoutMs,
+            ) { ms -> scope.launch { repository.setAiStripSuggestTimeout(ms) } }
+        }
+        item(visible = stripSuggest && stripComposing, level = SettingLevel.ADVANCED) {
+            AiStripMsSlider(
+                R.string.toolai_strip_suggest_composing_delay_title,
+                settings.watch { it.ai.stripSuggestComposingDelayMs },
+                AiStripComposingDelayRange,
+                SettingsDefaults.ai.stripSuggestComposingDelayMs,
+            ) { ms -> scope.launch { repository.setAiStripSuggestComposingDelay(ms) } }
+        }
+        item(visible = stripSuggest && stripComposing, level = SettingLevel.ADVANCED) {
+            AiStripMsSlider(
+                R.string.toolai_strip_suggest_composing_timeout_title,
+                settings.watch { it.ai.stripSuggestComposingTimeoutMs },
+                AiStripTimeoutRange,
+                SettingsDefaults.ai.stripSuggestComposingTimeoutMs,
+            ) { ms -> scope.launch { repository.setAiStripSuggestComposingTimeout(ms) } }
         }
     }
     SettingsGroup(
@@ -496,6 +577,24 @@ internal fun AiToolSettings(
                 settings.watch { it.ai.selectionMenu },
                 default = SettingsDefaults.ai.selectionMenu,
             ) { scope.launch { repository.setAiSelectionMenu(it) } }
+        }
+        // The phone's digital assistant (#1143). SystemVoiceComponents
+        // switches the service from the setting, here or from a backup alike.
+        item(level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.toolai_assistant_title,
+                stringResource(R.string.toolai_assistant_subtitle),
+                phoneAssistant,
+                info = stringResource(R.string.toolai_assistant_info),
+                default = SettingsDefaults.ai.assistant,
+            ) { scope.launch { repository.setAiAssistant(it) } }
+        }
+        if (phoneAssistant) item(level = SettingLevel.STANDARD) {
+            val context = LocalContext.current
+            NavRow(
+                R.string.toolai_assistant_pick_title,
+                stringResource(R.string.toolai_assistant_pick_subtitle),
+            ) { openVoiceInputSettings(context) }
         }
     }
     SettingsGroup(stringResource(R.string.toolai_ai_actions_group_title)) {

@@ -176,6 +176,16 @@ class SelectionMacrosTest {
     }
 
     @Test
+    fun `fix spacing waits for its downloads and for Korean text`() {
+        val all = SelectionMacros.configurable.toSet()
+        val korean = SelectionMacros.detectContent("나는학교에간다")
+        assertTrue(korean.hasHangul)
+        assertTrue(SelectionMacro.KOREAN_SPACING in SelectionMacros.offer(SelectionKind.TEXT, all, MacroGates(koreanSpacing = true, content = korean)))
+        assertTrue(SelectionMacro.KOREAN_SPACING !in SelectionMacros.offer(SelectionKind.TEXT, all, MacroGates(content = korean)))
+        assertTrue(SelectionMacro.KOREAN_SPACING !in SelectionMacros.offer(SelectionKind.TEXT, all, MacroGates(koreanSpacing = true, content = SelectionMacros.detectContent("hello"))))
+    }
+
+    @Test
     fun `the hindi pair is for someone typing hindi phonetically, both ways`() {
         val all = SelectionMacros.configurable.toSet()
         val latin = ContentFlags(hasLatin = true)
@@ -231,8 +241,16 @@ class SelectionMacrosTest {
         val unsafe = SelectionMacro.entries.filter { !it.directBootSafe }.toSet()
         assertEquals(
             SelectionMacro.entries.filter { it.leavesApp }.toSet() + SelectionMacro.PASTE + SelectionMacro.READ_ALOUD +
-                // The notes file is behind the lock too (5d175e9f5).
-                SelectionMacro.SAVE_NOTE,
+                // The notes file is behind the lock too (5d175e9f5), and so are the snippets.
+                SelectionMacro.SAVE_NOTE +
+                SelectionMacro.SNIPPET +
+                // So is the personal dictionary, and the rest read files from storage.
+                SelectionMacro.EDIT_WORD +
+                SelectionMacro.KOREAN_SPACING +
+                SelectionMacro.ADD_NIKUD +
+                SelectionMacro.ADD_TASHKEEL +
+                SelectionMacro.ADD_FURIGANA +
+                SelectionMacro.RESTORE_YO,
             unsafe,
         )
         assertEquals(

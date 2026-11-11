@@ -26,7 +26,7 @@ jobs:
       version: ${{ steps.v.outputs.version }}
       buildable: ${{ steps.v.outputs.buildable }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: v
         run: |
           declared=$(grep '^wmkb.versionName=' gradle.properties | cut -d= -f2)
@@ -67,16 +67,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
         with:
           build-scan-publish: true
           build-scan-terms-of-use-url: "https://gradle.com/terms-of-service"
@@ -103,6 +103,21 @@ jobs:
       - name: Refresh the supporters list
         run: node docs/scripts/sync-supporters.mjs || echo "::warning::Could not reach /api/supporters; this build ships the committed supporters.json"
 
+      # The all-languages build peaks just after R8: the 8 GB Gradle heap, its
+      # forked daemon and aapt2 converting every language's resources, on a
+      # 16 GB runner. Past that GitHub loses the runner with no error of our
+      # own (0.6.5's dry runs, twice at convertShrunkResourcesToBinary). Swap
+      # takes the peak instead.
+      - name: More swap for the second build
+        run: |
+          sudo swapoff -a || true
+          dir=/mnt; [ -d "$dir" ] || dir=/
+          sudo fallocate -l 12G "$dir/wmkb.swap"
+          sudo chmod 600 "$dir/wmkb.swap"
+          sudo mkswap "$dir/wmkb.swap" > /dev/null
+          sudo swapon "$dir/wmkb.swap"
+          free -h
+
       # splitApks=true gives one APK per ABI instead of one fat universal APK,
       # which is what the download page wants. Play channel off: this build must
       # not carry the in-app-update library, since it only works via Play.
@@ -115,6 +130,7 @@ jobs:
           WMKB_ENABLE_PLAY_STORE: 'false'
           WMKB_ENABLE_GMS: 'true'
           WMKB_SPLIT_APKS: 'true'
+          WMKB_KEYMAN_LAYOUT_PACK: 'true'
           WMKB_KLIPY_API_KEY: ${{ secrets.WMKB_KLIPY_API_KEY }}
           WMKB_GIPHY_API_KEY: ${{ secrets.WMKB_GIPHY_API_KEY }}
           WMKB_BRAVE_API_KEY: ${{ secrets.WMKB_BRAVE_API_KEY }}
@@ -123,6 +139,8 @@ jobs:
           WMKB_PEXELS_API_KEY: ${{ secrets.WMKB_PEXELS_API_KEY }}
           WMKB_DROPBOX_APP_KEY: ${{ secrets.WMKB_DROPBOX_APP_KEY }}
           WMKB_ONEDRIVE_CLIENT_ID: ${{ secrets.WMKB_ONEDRIVE_CLIENT_ID }}
+          WMKB_BOX_CLIENT_ID: ${{ secrets.WMKB_BOX_CLIENT_ID }}
+          WMKB_BOX_CLIENT_SECRET: ${{ secrets.WMKB_BOX_CLIENT_SECRET }}
           WMKB_SMARTTHINGS_CLIENT_ID: ${{ secrets.WMKB_SMARTTHINGS_CLIENT_ID }}
           WMKB_SMARTTHINGS_CLIENT_SECRET: ${{ secrets.WMKB_SMARTTHINGS_CLIENT_SECRET }}
         # One variant per Gradle call. All four at once shared one Kotlin
@@ -149,6 +167,11 @@ jobs:
           ./gradlew assembleEnRelease \
             -Pkotlin.daemon.jvmargs=-Xmx4g --stacktrace
           cp app/build/intermediates/stable_resource_ids_file/enRelease/processEnReleaseResources/stableIds.txt "$ids"
+          # The first build's Kotlin daemon outlives it, holding up to 4 GB
+          # beside the second build's 8 GB Gradle heap and R8. Likely why 0.6.5's dry
+          # run lost both runners mid-build ("starves it for CPU/Memory").
+          # The second build starts a fresh daemon if it needs one.
+          pkill -f KotlinCompileDaemon || true
           ./gradlew assembleIntlRelease "-Pwmkb.stableResourceIds=$ids" \
             -Pkotlin.daemon.jvmargs=-Xmx4g --stacktrace
 
@@ -241,6 +264,9 @@ jobs:
           # check is here to fail the run on a mismatch, not to produce assets.
           standard=$(find app/build/outputs/apk/en -name '*-universal-release.apk' | head -1)
           .github/scripts/collect-natives.sh "$standard" natives
+          # The Keyman grids the standard build fetches instead of carrying.
+          mkdir -p layouts
+          cp app/build/keymanLayoutPack/keyman-layouts-*.zip layouts/
           # No SHA256SUMS.txt: GitHub lists a SHA-256 digest for every release
           # asset, which is what the in-app updater checks, and the file sat at
           # the top of the asset list where nobody installing wants it.
@@ -250,7 +276,7 @@ jobs:
         if: always()
         run: rm -f release.keystore
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: release-apks
           path: dist/
@@ -258,7 +284,7 @@ jobs:
 
       # The resource IDs the language packs were cut against, for the
       # `pack-ids` check: the offline English build must match them.
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: resource-ids-standard
           path: build/resource-ids.txt
@@ -288,16 +314,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '21'
 
       - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v4
+        uses: gradle/actions/setup-gradle@v6
 
       - name: Restore keystore
         env:
@@ -318,6 +344,17 @@ jobs:
       - name: Refresh the supporters list
         run: node docs/scripts/sync-supporters.mjs || echo "::warning::Could not reach /api/supporters; this build ships the committed supporters.json"
 
+      # As in `apks`: swap for the second build's peak.
+      - name: More swap for the second build
+        run: |
+          sudo swapoff -a || true
+          dir=/mnt; [ -d "$dir" ] || dir=/
+          sudo fallocate -l 12G "$dir/wmkb.swap"
+          sudo chmod 600 "$dir/wmkb.swap"
+          sudo mkswap "$dir/wmkb.swap" > /dev/null
+          sudo swapon "$dir/wmkb.swap"
+          free -h
+
       - name: Build the no-internet APKs
         env:
           RELEASE_STORE_FILE: release.keystore
@@ -336,6 +373,8 @@ jobs:
           WMKB_PEXELS_API_KEY: ${{ secrets.WMKB_PEXELS_API_KEY }}
           WMKB_DROPBOX_APP_KEY: ${{ secrets.WMKB_DROPBOX_APP_KEY }}
           WMKB_ONEDRIVE_CLIENT_ID: ${{ secrets.WMKB_ONEDRIVE_CLIENT_ID }}
+          WMKB_BOX_CLIENT_ID: ${{ secrets.WMKB_BOX_CLIENT_ID }}
+          WMKB_BOX_CLIENT_SECRET: ${{ secrets.WMKB_BOX_CLIENT_SECRET }}
           WMKB_SMARTTHINGS_CLIENT_ID: ${{ secrets.WMKB_SMARTTHINGS_CLIENT_ID }}
           WMKB_SMARTTHINGS_CLIENT_SECRET: ${{ secrets.WMKB_SMARTTHINGS_CLIENT_SECRET }}
         # One variant per Gradle call, as in `apks`.
@@ -345,6 +384,8 @@ jobs:
           mkdir -p build
           cp app/build/intermediates/stable_resource_ids_file/enRelease/processEnReleaseResources/stableIds.txt \
             build/resource-ids.txt
+          # As in `apks`: the first build's Kotlin daemon goes before the second.
+          pkill -f KotlinCompileDaemon || true
           ./gradlew assembleIntlRelease \
             -Pkotlin.daemon.jvmargs=-Xmx4g --stacktrace
 
@@ -396,13 +437,13 @@ jobs:
           done
           ls -l dist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: offline-apks
           path: dist/
           retention-days: 30
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: resource-ids-offline
           path: build/resource-ids.txt
@@ -419,11 +460,11 @@ jobs:
     needs: [apks, offline]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: resource-ids-standard
           path: standard
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: resource-ids-offline
           path: offline
@@ -447,16 +488,16 @@ jobs:
     steps:
       # Full history: the notes script finds the previous tag and walks the
       # commits between it and this one.
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-apks
           path: dist
 
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: offline-apks
           path: dist
@@ -466,6 +507,8 @@ jobs:
       # wasi-master/wmkeyboard-data by hash, which upstream's own releases
       # keep stocked. The `apks` job still runs collect-natives.sh, so a
       # build whose pins do not match its jniLibs fails before this point.
+      # The Keyman layout pack is the same: the `apks` job still builds it,
+      # and the app fetches it by digest from the same upstream data repo.
 
       # Only the manifest differs from the regular build of each, so R8 should
       # have renamed both the same way, and the retrace workflow, which reads
@@ -600,7 +643,7 @@ jobs:
     if: github.ref_type == 'tag' && !inputs.dry_run
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           ref: main
 

@@ -1,11 +1,14 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import com.wasimaster.wmkeyboard.core.modules.FeatureModules
 import com.wasimaster.wmkeyboard.core.providers.ProviderTool
 import com.wasimaster.wmkeyboard.core.settings.ResolvedProvider
 import com.wasimaster.wmkeyboard.core.tools.OnlineOcr
 import com.wasimaster.wmkeyboard.ime.ProviderPicks
 import com.wasimaster.wmkeyboard.app.GalleryPickActivity
+import com.wasimaster.wmkeyboard.ime.files.FilePickRequest
+import com.wasimaster.wmkeyboard.ime.files.FilePicks
 import com.wasimaster.wmkeyboard.core.media.gallery.MediaPrep
 import android.graphics.Bitmap
 import android.graphics.BitmapFactory
@@ -55,6 +58,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileDownload
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FlashlightOff
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FlashlightOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhotoLibrary
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Screenshot
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SelectAll
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Translate
@@ -638,7 +642,18 @@ private fun OcrContent(
                     active = false,
                 ) {
                     feedback()
-                    runCatching { context.startActivity(GalleryPickActivity.ocrIntent(context)) }
+                    runCatching { FilePicks.open(context, FilePickRequest.OcrPicture) }
+                }
+            }
+            // The screen above the keyboard, through Shizuku or root.
+            if (state.screenCapture) {
+                val capture = LocalScreenCapture.current
+                CameraChipButton(
+                    icon = Icons.Outlined.Screenshot,
+                    description = stringResource(R.string.ime_screen_capture_desc),
+                    active = false,
+                ) {
+                    capture(ScreenCaptureTarget.OCR)
                 }
             }
             if (camera?.cameraInfo?.hasFlashUnit() == true) {
@@ -771,6 +786,7 @@ private fun OcrPackPrompt(
 
         Text(
             when {
+                !InternetPermission.granted -> stringResource(R.string.ime_scanner_ocr_import)
                 meteredBlocked -> stringResource(R.string.ime_metered_off_body)
                 meteredAsked -> stringResource(R.string.ime_metered_ask_body)
                 status is OcrPacks.Status.Failed ->
@@ -786,7 +802,7 @@ private fun OcrPackPrompt(
             fontSize = 13.sp,
             textAlign = TextAlign.Center,
         )
-        if (!meteredBlocked) {
+        if (!meteredBlocked && InternetPermission.granted) {
             ScannerPromptButton(
                 Icons.Outlined.FileDownload,
                 stringResource(

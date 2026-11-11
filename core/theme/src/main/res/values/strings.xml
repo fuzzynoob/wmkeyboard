@@ -72,6 +72,18 @@
     <string name="core_theme_builtin_frost_light_label">Frost light</string>
     <!-- Dark glass with clear, lens-like keys (Apple's "liquid glass" look). -->
     <string name="core_theme_builtin_frost_liquid_label">Frost liquid</string>
+    <string name="core_theme_builtin_soft_label">Soft</string>
+    <string name="core_theme_builtin_soft_dark_label">Soft dark</string>
+    <string name="core_theme_builtin_dot_matrix_label">Dot matrix</string>
+    <string name="core_theme_builtin_dot_matrix_dark_label">Dot matrix dark</string>
+    <string name="core_theme_builtin_blocks_label">Stone</string>
+    <string name="core_theme_builtin_blocks_planks_label">Planks</string>
+    <string name="core_theme_builtin_blocks_basalt_label">Basalt</string>
+    <string name="core_theme_builtin_blocks_magma_label">Magma</string>
+    <string name="core_theme_builtin_droplet_label">Droplet</string>
+    <string name="core_theme_builtin_droplet_dark_label">Droplet dark</string>
+    <string name="core_theme_builtin_droplet_orbs_label">Orbs</string>
+    <string name="core_theme_builtin_droplet_orbs_dark_label">Orbs dark</string>
     <!-- Light theme, pale blue ice. -->
     <string name="core_theme_builtin_glacier_label">Glacier</string>
 
@@ -117,6 +129,10 @@
     <string name="core_theme_family_gradient_label">Gradients</string>
     <!-- The family of the frosted-glass themes (Frost, Frost wallpaper, Frost light). -->
     <string name="core_theme_family_frost_label">Frost</string>
+    <string name="core_theme_family_soft_label">Soft</string>
+    <string name="core_theme_family_dot_matrix_label">Dot matrix</string>
+    <string name="core_theme_family_blocks_label">Blocks</string>
+    <string name="core_theme_family_droplet_label">Droplet</string>
     <!-- The names of these three families are project names. Keep in English. -->
     <string name="core_theme_family_dracula_label" translatable="false">Dracula</string>
     <string name="core_theme_family_solarized_label" translatable="false">Solarized</string>
@@ -133,5 +149,12 @@
     <string name="core_theme_palette_style_monochrome">Monochrome</string>
     <string name="core_theme_palette_style_rainbow">Rainbow</string>
     <string name="core_theme_palette_style_fruit_salad">Fruit salad</string>
+
+    <!-- Lines in the "what the app changed" list of a Clink theme import.
+         Clink is the name of an iOS keyboard; keep it as it is. -->
+    <string name="core_theme_clink_dropped_material">Clink draws this theme with a finish this version does not have yet. Here the keys have its colours on a plain surface.</string>
+    <string name="core_theme_clink_dropped_effect">The theme has a moving background this version does not have yet. Here the background is still.</string>
+    <string name="core_theme_clink_dropped_pictures">The theme uses a picture in Clink, but a Clink theme file does not contain its pictures. Add one in the theme editor.</string>
+    <string name="core_theme_clink_dropped_stroke">The keys have a dashed or dotted outline in Clink. Here the outline is a solid line.</string>
 
 </resources>

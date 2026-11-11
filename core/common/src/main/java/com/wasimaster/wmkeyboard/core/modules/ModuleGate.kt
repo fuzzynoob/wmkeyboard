@@ -26,8 +26,17 @@ sealed interface ModuleState {
      * not opted in, a licence id, or [NativeConsent.IMPORT] on the offline
      * build, which can only import it. Such a state counts as [failed], so a
      * caller waiting for the module stops waiting.
+     *
+     * [confirm] when Play holds the download until the user confirms it: an
+     * install Play did not make, or a large download on mobile data. Play
+     * shows that question only from an app screen, never from a keyboard, so
+     * the settings app asks it the next time it comes to the front.
      */
-    data class Missing(val failed: Boolean = false, val consent: String? = null) : ModuleState
+    data class Missing(
+        val failed: Boolean = false,
+        val consent: String? = null,
+        val confirm: Boolean = false,
+    ) : ModuleState
 
     /** On its way from Play. Both figures are 0 before Play reports any. */
     data class Installing(val bytes: Long = 0, val totalBytes: Long = 0) : ModuleState
@@ -54,6 +63,14 @@ interface ModuleGate {
      * loading anything, before Play has fetched it.
      */
     val onDemand: Boolean get() = false
+
+    /**
+     * What fetching this module would still download, in bytes: what a
+     * feature adds to its own model's size when it offers a download that
+     * has to bring the library first. 0 when the module is here, and where
+     * the size is not known before the download starts (Play publishes none).
+     */
+    val bytesToFetch: Long get() = 0L
 }
 
 /** The gate of every channel that compiles its runtimes into the base APK. */

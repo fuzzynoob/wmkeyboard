@@ -304,6 +304,7 @@
     <!-- Keeps the selected text as a note in the Notes tool. -->
     <string name="core_content_selection_macro_save_note">Save as note</string>
     <string name="core_content_selection_macro_repeat">Repeat</string>
+    <string name="core_content_selection_macro_snippet">Snippet</string>
     <string name="core_content_selection_macro_format">Format</string>
     <string name="core_content_selection_macro_search">Search</string>
     <string name="core_content_selection_macro_translate">Translate</string>
@@ -342,6 +343,13 @@
     <string name="core_content_selection_macro_to_hindi">Hindi</string>
     <string name="core_content_selection_macro_to_hinglish">Hinglish</string>
     <!-- Selection action chip: converts Burmese between Zawgyi (the old font encoding) and Unicode. Zawgyi and Unicode are names. -->
+    <string name="core_content_selection_macro_korean_spacing">Fix spacing</string>
+    <string name="core_content_selection_macro_add_nikud">Add niqqud</string>
+    <string name="core_content_selection_macro_add_tashkeel">Add tashkeel</string>
+    <string name="core_content_selection_macro_add_furigana">Add furigana</string>
+    <string name="core_content_selection_macro_switch_script">Switch script</string>
+    <string name="core_content_selection_macro_restore_yo">Restore ё</string>
+    <string name="core_content_selection_macro_persian_spacing">Fix half-spaces</string>
     <string name="core_content_selection_macro_zawgyi">Zawgyi ⇄ Unicode</string>
     <string name="core_content_selection_macro_digits_latin">Digits</string>
     <string name="core_content_selection_macro_colour">Colour</string>
@@ -368,4 +376,10 @@
     <string name="core_content_note_tag_personal">Personal</string>
     <string name="core_content_note_tag_ideas">Ideas</string>
 
+
+    <!-- To-do reminders (#995): a task's notification when it falls due. -->
+    <string name="core_content_todo_reminder_title">To-do</string>
+    <string name="core_content_todo_reminder_done">Done</string>
+    <string name="core_content_todo_reminders_channel_title">To-do reminders</string>
+    <string name="core_content_todo_reminders_channel_body">A task from the keyboard\'s to-do list, when it falls due</string>
 </resources>

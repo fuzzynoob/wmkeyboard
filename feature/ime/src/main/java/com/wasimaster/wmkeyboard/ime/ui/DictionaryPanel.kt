@@ -1,8 +1,8 @@
 package com.wasimaster.wmkeyboard.ime.ui
 
+import com.wasimaster.wmkeyboard.core.settings.LookupWebSite
+import com.wasimaster.wmkeyboard.core.netlog.OfflineBuild
 import com.wasimaster.wmkeyboard.core.providers.ProviderTool
-import android.media.AudioAttributes
-import android.media.MediaPlayer
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -24,16 +24,20 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowForward
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeUp
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.RecordVoiceOver
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -45,14 +49,21 @@ import androidx.compose.ui.unit.sp
 import com.wasimaster.wmkeyboard.core.tools.DictEntry
 import com.wasimaster.wmkeyboard.core.tools.DictMeaning
 import com.wasimaster.wmkeyboard.core.tools.DictionarySource
+import com.wasimaster.wmkeyboard.core.tools.pronounce.PronunciationPlayer
+import com.wasimaster.wmkeyboard.core.tools.pronounce.PronunciationSource
+import com.wasimaster.wmkeyboard.core.tools.pronounce.Recording
 import com.wasimaster.wmkeyboard.core.tools.yomichan.PitchNotation
+import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import com.wasimaster.wmkeyboard.core.vocab.VocabLanguages
+import com.wasimaster.wmkeyboard.core.vocab.VocabSpeaker
+import com.wasimaster.wmkeyboard.core.vocab.spokenLocale
 import com.wasimaster.wmkeyboard.ime.DictionaryUi
 import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.core.theme.FrostSurface
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.aichat.AskAiContext
+import kotlinx.coroutines.launch
 
 /**
  * English dictionary lookup in the tool viewbox. Opening the tool
@@ -147,24 +158,26 @@ internal fun DictionaryPanel(
     onAddToVocab: (String) -> Unit = {},
 ) {
     Box(modifier = Modifier.fillMaxSize()) {
-        // While searching the wrapper collapses to just the header; the
-        // body would only flash clipped content, so skip it.
-        if (state.dictionarySearchActive) return@Box
+        // While searching with nothing typed the wrapper collapses to just
+        // the header; the body would only flash clipped content, so skip it.
+        if (state.dictionarySearchActive && state.dictionaryQuery.isBlank()) return@Box
 
         when (val dict = state.dictionary) {
             DictionaryUi.Idle -> DictionaryMessage(stringResource(R.string.ime_dict_idle_info))
             is DictionaryUi.Loading -> DictionaryMessage(
                 stringResource(R.string.ime_dict_lookup_progress, dict.word),
             )
-            is DictionaryUi.Error -> DictionaryMessage(stringResource(R.string.ime_dict_error))
+            is DictionaryUi.Error -> DictionaryMessage(stringResource(OfflineBuild.network(R.string.ime_dict_error)))
             // Another app on the phone may know it (#970): Aard 2, ColorDict, Kiwix.
             is DictionaryUi.NotFound -> DictionaryMessage(
                 stringResource(R.string.ime_dict_not_found_empty, dict.word),
                 lookupWord = dict.word,
+                sites = state.settings.lookup.webLookups(),
             )
             is DictionaryUi.NotOnDevice -> DictionaryMessage(
                 stringResource(R.string.ime_dict_not_on_device, dict.word),
                 lookupWord = dict.word,
+                sites = state.settings.lookup.webLookups(),
             )
             DictionaryUi.NoSources -> DictionaryMessage(stringResource(R.string.ime_dict_no_sources))
             is DictionaryUi.Ready -> DictionaryEntries(state, dict, onLookup, onInsert, onAddToVocab)
@@ -173,7 +186,7 @@ internal fun DictionaryPanel(
 }
 
 @Composable
-private fun DictionaryMessage(text: String, lookupWord: String? = null) {
+private fun DictionaryMessage(text: String, lookupWord: String? = null, sites: List<LookupWebSite> = emptyList()) {
     Column(
         Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -186,7 +199,7 @@ private fun DictionaryMessage(text: String, lookupWord: String? = null) {
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 24.dp),
         )
-        if (lookupWord != null) LookupAppChip(Modifier.padding(top = 8.dp)) { lookupWord }
+        if (lookupWord != null) LookupAppChip(Modifier.padding(top = 8.dp), sites) { lookupWord }
     }
 }
 
@@ -204,9 +217,32 @@ private fun DictionaryEntries(
     // Serif display face for headwords; falls back to the system serif
     // until the downloadable font arrives (or forever, offline).
     val serif = remember { KeyboardFonts.googleFamily("Lora") }
-    // One shared player; releasing on dispose stops any playback with the panel.
-    val player = remember { MediaPlayer() }
-    DisposableEffect(Unit) { onDispose { player.release() } }
+    // One shared speaker, made on the first tap; shutting it down stops any
+    // playback with the panel.
+    val context = LocalContext.current
+    val speaker = remember { lazy { VocabSpeaker(context) } }
+    DisposableEffect(Unit) { onDispose { if (speaker.isInitialized()) speaker.value.shutdown() } }
+    val vocab = state.settings.vocabulary
+    // People's recordings of each word (#1146), asked for on the first tap of
+    // its speaker and kept for the panel's life; the voice picked, by entry.
+    val player = remember { lazy { PronunciationPlayer(context, speaker.value) } }
+    val scope = rememberCoroutineScope()
+    val voices = remember(entries) { mutableStateMapOf<Int, List<Recording>>() }
+    val picked = remember(entries) { mutableStateMapOf<Int, Int>() }
+    val lookup = state.settings.lookup
+    val options = PronunciationPlayer.Options(
+        enabled = lookup.recordings,
+        online = InternetPermission.granted,
+        keep = lookup.keepRecordings,
+        forvoKey = lookup.forvoKey,
+    )
+    fun playVoice(entryIndex: Int, entry: DictEntry, voice: Int) {
+        val recording = voices[entryIndex]?.getOrNull(voice) ?: return
+        picked[entryIndex] = voice
+        scope.launch {
+            player.value.play(recording, entry.word, entry.spokenLocale(), options, vocab.ttsRate, vocab.ttsPitch)
+        }
+    }
 
     // Only the headwords are focusable — their action is Insert, and the
     // meanings under them are prose with nothing to activate.
@@ -262,6 +298,18 @@ private fun DictionaryEntries(
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
+                            // Whose word it is (#1085), when the source says and
+                            // it is not English: a word from an imported
+                            // language's dictionary read as English otherwise.
+                            dictLanguageName(entry.language)?.let { name ->
+                                Text(
+                                    name,
+                                    color = kb.toolbarIcon,
+                                    fontSize = 11.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis,
+                                )
+                            }
                         }
                         if (entry.phonetic.isNotEmpty()) {
                             Spacer(Modifier.width(10.dp))
@@ -275,20 +323,36 @@ private fun DictionaryEntries(
                             )
                         }
                         Spacer(Modifier.weight(1f))
-                        val audioUrl = entry.audioUrl
-                        if (audioUrl != null) {
-                            IconHint(stringResource(R.string.ime_dict_play_desc)) {
-                                IconButton(
-                                    onClick = { playPronunciation(player, audioUrl) },
-                                    modifier = Modifier.size(32.dp),
-                                ) {
-                                    Icon(
-                                        Icons.AutoMirrored.Outlined.VolumeUp,
-                                        contentDescription = stringResource(R.string.ime_dict_play_desc),
-                                        modifier = Modifier.size(18.dp),
-                                        tint = kb.accent,
-                                    )
-                                }
+                        // Every entry: the source's recording when there is one and
+                        // the build can fetch it, and the phone's voice otherwise.
+                        IconHint(stringResource(R.string.ime_dict_play_desc)) {
+                            IconButton(
+                                onClick = {
+                                    scope.launch {
+                                        val found = voices[entryIndex] ?: player.value
+                                            .voices(entry.word, entry.spokenLocale().language, options)
+                                            .also { voices[entryIndex] = it }
+                                        if (found.isNotEmpty()) {
+                                            playVoice(entryIndex, entry, picked[entryIndex] ?: 0)
+                                        } else {
+                                            speaker.value.speak(
+                                                entry.word,
+                                                entry.audioUrl?.takeIf { InternetPermission.granted },
+                                                vocab.ttsRate,
+                                                vocab.ttsPitch,
+                                                entry.spokenLocale(),
+                                            )
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.size(32.dp),
+                            ) {
+                                Icon(
+                                    Icons.AutoMirrored.Outlined.VolumeUp,
+                                    contentDescription = stringResource(R.string.ime_dict_play_desc),
+                                    modifier = Modifier.size(18.dp),
+                                    tint = kb.accent,
+                                )
                             }
                         }
                         DictionaryChip(
@@ -305,6 +369,11 @@ private fun DictionaryEntries(
                     }
                     // Pitch accent and frequency, from an imported dictionary (#765).
                     DictionaryPitchLine(entry)
+                    // Who else says it (#1146): one chip per recorded voice, the
+                    // one the speaker plays lit. Shown once the speaker found any.
+                    voices[entryIndex]?.takeIf { it.isNotEmpty() }?.let { found ->
+                        DictionaryVoices(found, picked[entryIndex] ?: 0) { voice -> playVoice(entryIndex, entry, voice) }
+                    }
                     // The word in the user's language, from a vocabulary pack's
                     // translations (#651). Inside the headword's item, so the
                     // focus scroll's item count is unchanged.
@@ -345,7 +414,7 @@ private fun DictionaryEntries(
                     modifier = Modifier.weight(1f),
                 )
                 // The same word in another app's dictionary (#970).
-                LookupAppChip { entries.first().word }
+                LookupAppChip(sites = state.settings.lookup.webLookups()) { entries.first().word }
             }
         }
     }
@@ -523,6 +592,35 @@ private fun WordChipRow(label: String, words: List<String>, onLookup: (String) -
     }
 }
 
+/** The recorded voices of a headword (#1146), in a row that scrolls when they do not fit. */
+@Composable
+private fun DictionaryVoices(voices: List<Recording>, picked: Int, onPlay: (Int) -> Unit) {
+    val kb = LocalKbTheme.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 4.dp)
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(
+            Icons.Outlined.RecordVoiceOver,
+            contentDescription = stringResource(R.string.ime_dict_voices_desc),
+            modifier = Modifier.size(16.dp),
+            tint = kb.toolbarIcon,
+        )
+        voices.forEachIndexed { index, voice ->
+            val label = if (voice.source == PronunciationSource.FORVO) {
+                stringResource(R.string.ime_dict_voice_forvo, voice.label)
+            } else {
+                voice.label
+            }
+            DictionaryChip(label = label, filled = index == picked) { onPlay(index) }
+        }
+    }
+}
+
 @Composable
 private fun DictionaryChip(label: String, filled: Boolean, onClick: () -> Unit) {
     val kb = LocalKbTheme.current
@@ -546,18 +644,12 @@ private fun DictionaryChip(label: String, filled: Boolean, onClick: () -> Unit) 
     }
 }
 
-/** Streams the pronunciation recording; errors just leave silence. */
-private fun playPronunciation(player: MediaPlayer, url: String) {
-    runCatching {
-        player.reset()
-        player.setAudioAttributes(
-            AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_MEDIA)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                .build()
-        )
-        player.setDataSource(url)
-        player.setOnPreparedListener { it.start() }
-        player.prepareAsync()
-    }
+/** The name of the language [tag] in the phone's language, or null for none or English (#1085). */
+private fun dictLanguageName(tag: String): String? {
+    if (tag.isEmpty()) return null
+    val locale = java.util.Locale.forLanguageTag(tag)
+    if (locale.language.isEmpty() || locale.language == "en") return null
+    return locale.getDisplayLanguage(java.util.Locale.getDefault())
+        .replaceFirstChar { if (it.isLowerCase()) it.titlecase(java.util.Locale.getDefault()) else it.toString() }
+        .takeIf { it.isNotEmpty() }
 }

@@ -2,9 +2,13 @@ import io.gitlab.arturbosch.detekt.Detekt
 import io.gitlab.arturbosch.detekt.DetektCreateBaselineTask
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.security.MessageDigest
 import java.time.Duration
 import java.util.Properties
+import java.util.zip.Deflater
+import java.util.zip.ZipEntry
 import java.util.zip.ZipFile
+import java.util.zip.ZipOutputStream
 
 plugins {
     alias(libs.plugins.android.application)
@@ -55,8 +59,14 @@ licensee {
     allowDependency("org.bouncycastle", "bcprov-jdk18on", libs.versions.bouncycastle.get()) {
         because("the Bouncy Castle licence is the MIT licence, word for word")
     }
-    allowDependency("org.luaj", "luaj-jse", libs.versions.luaj.get()) {
-        because("MIT, per luaj.sourceforge.net/license.txt")
+    allowUrl("https://opensource.org/license/bsd-3-clause/") {
+        because("the BSD-3-Clause text, on a page SPDX's list spells differently")
+    }
+    allowUrl("https://www.bouncycastle.org/licence.html") {
+        because("the Bouncy Castle licence is the MIT licence, word for word; for its other modules")
+    }
+    allowUrl("https://github.com/RikkaApps/Shizuku-API/blob/master/LICENSE") {
+        because("MIT, per the repo's LICENSE; Shizuku's api, provider, aidl and shared modules")
     }
 
     // Google's own terms: ML Kit, Play services and Play Core. Allowed only
@@ -170,6 +180,14 @@ val noLocation = flag("wmkb.noLocation", "WMKB_NO_LOCATION")
 val nativeDelivery = flag("wmkb.nativeDelivery", "WMKB_NATIVE_DELIVERY", default = "true") &&
     !playStoreChannel
 if (nativeDelivery) apply(plugin = "wmkeyboard.native-pins")
+
+// The Keyman grids as a download (KeymanLayoutPack): `-Pwmkb.keymanLayoutPack=true`
+// leaves assets/layouts/kmn_* out of the APK and pins the pack that holds them,
+// which the release publishes on the data repository. Off by default, because a
+// build whose grids differ from a published pack would fetch one that does not
+// exist, and that is any local build and any F-Droid rebuild of a local change.
+// Never in the no-internet build, which could not fetch it.
+val keymanLayoutPack = flag("wmkb.keymanLayoutPack", "WMKB_KEYMAN_LAYOUT_PACK") && !noInternet
 
 // Manifest entries that belong to exactly one channel. REQUEST_INSTALL_PACKAGES
 // and the install-result receiver must not exist in a Play or F-Droid APK, and
@@ -300,6 +318,11 @@ android {
         // build without them simply leaves those two destinations out.
         buildConfigField("String", "DROPBOX_APP_KEY", "\"${apiKey("wmkb.dropboxAppKey", "WMKB_DROPBOX_APP_KEY")}\"")
         buildConfigField("String", "ONEDRIVE_CLIENT_ID", "\"${apiKey("wmkb.oneDriveClientId", "WMKB_ONEDRIVE_CLIENT_ID")}\"")
+        // Box's, which also needs its client secret: Box refuses a token
+        // request without one. Neither protects anything once shipped; a
+        // build without them leaves Box out.
+        buildConfigField("String", "BOX_CLIENT_ID", "\"${apiKey("wmkb.boxClientId", "WMKB_BOX_CLIENT_ID")}\"")
+        buildConfigField("String", "BOX_CLIENT_SECRET", "\"${apiKey("wmkb.boxClientSecret", "WMKB_BOX_CLIENT_SECRET")}\"")
         // Diagnostic builds only — see the same field in :core:config, which is
         // the copy DebugLog reads. Mirrored here for the app-package screens.
         buildConfigField("Boolean", "ENABLE_CRASH_SCREEN", "${flag("wmkb.enableCrashScreen", "WMKB_ENABLE_CRASH_SCREEN")}")
@@ -421,7 +444,7 @@ android {
         //     ./gradlew :app:installIntlFast
         //
         // What it deliberately does not test: anything R8 does. Keep rules
-        // (the luaj ones especially) are never exercised here, so a build that
+        // are never exercised here, so a build that
         // works as `fast` can still crash as `release`. Ship-checking is
         // `release`'s job; this one is for iterating.
         create("fast") {
@@ -488,10 +511,16 @@ android {
             // 16 KB page-size requirement wants and what lets the loader mmap
             // the library straight out of the APK, in every channel.
             useLegacyPackaging = false
+            // In :feature:webrtc on Play; native delivery leaves it out elsewhere.
+            if (playStoreChannel) excludes += "**/libjingle_peerconnection_so.so"
             // No keepDebugSymbols override: AGP strips as usual. Every .so we
             // package — ours and the prebuilt ML Kit/LiteRT ones — already
             // ships stripped (measured: 48 bytes of symbol table across all
             // three ABIs), so keeping them was buying nothing.
+        }
+        resources {
+            // Bouncy Castle's bcprov, bcutil and bcpg each carry the same licence file.
+            pickFirsts += "META-INF/LICENSE.md"
         }
     }
     // AGP signs a dependency list into every APK's signing block, encrypted
@@ -510,6 +539,10 @@ android {
     }
 
     androidResources {
+        // AGP's default pattern, plus the Keyman grids when they are a download.
+        if (keymanLayoutPack) {
+            ignoreAssetsPattern = "!.svn:!.git:!.ds_store:!*.scc:.*:<dir>_*:!CVS:!thumbs.db:!picasa.ini:!*~:!kmn_*"
+        }
         // Writes a LocaleConfig listing every res/values-xx the build carries,
         // and points the manifest at it. Without this, Android 13 and up has
         // no per-app entry under Settings > Apps > WM Keyboard > Language, so
@@ -670,6 +703,59 @@ abstract class GenerateLayoutIndexTask : DefaultTask() {
         val out = outputDir.get().asFile
         out.mkdirs()
         out.resolve("layouts-index.tsv").writeText(lines.joinToString("\n", postfix = "\n"))
+    }
+}
+
+// Writes the Keyman grids as one zip and assets/keyman-layouts-pack.tsv, the
+// line the app checks it against: `digest<TAB>entries<TAB>raw bytes`. The digest
+// covers the entries and not the zip, so another deflate writing the same files
+// pins the same pack; KeymanLayoutPack.digestOf computes it on the phone, entry
+// by entry in name order, as name, NUL, size in decimal, NUL, bytes.
+abstract class GenerateKeymanLayoutPackTask : DefaultTask() {
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val layoutsDir: DirectoryProperty
+
+    /** Assets root chosen by AGP; the pin lands at its top level. */
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    /** Where the zip lands, for the release to publish. Named by its digest. */
+    @get:OutputDirectory
+    abstract val packDir: DirectoryProperty
+
+    @TaskAction
+    fun run() {
+        val files = layoutsDir.get().asFile
+            .listFiles { f -> f.name.startsWith("kmn_") && f.name.endsWith(".wmlayout.json") }.orEmpty()
+            .sortedBy { it.name }
+        check(files.isNotEmpty()) { "no Keyman layouts in ${layoutsDir.get().asFile}" }
+        val digest = MessageDigest.getInstance("SHA-256")
+        val bytes = files.associateWith { it.readBytes() }
+        for (file in files) {
+            val content = bytes.getValue(file)
+            digest.update(file.name.encodeToByteArray())
+            digest.update(0)
+            digest.update(content.size.toString().encodeToByteArray())
+            digest.update(0)
+            digest.update(content)
+        }
+        val hash = digest.digest().joinToString("") { "%02x".format(it) }
+        val packs = packDir.get().asFile
+        packs.deleteRecursively()
+        packs.mkdirs()
+        ZipOutputStream(packs.resolve("keyman-layouts-$hash.zip").outputStream().buffered()).use { zip ->
+            zip.setLevel(Deflater.BEST_COMPRESSION)
+            for (file in files) {
+                zip.putNextEntry(ZipEntry(file.name).apply { time = 0L })
+                zip.write(bytes.getValue(file))
+                zip.closeEntry()
+            }
+        }
+        val out = outputDir.get().asFile
+        out.mkdirs()
+        out.resolve("keyman-layouts-pack.tsv")
+            .writeText("$hash\t${files.size}\t${bytes.values.sumOf { it.size.toLong() }}\n")
     }
 }
 
@@ -858,6 +944,12 @@ val generateLayoutIndex =
         layoutsDir.set(layout.projectDirectory.dir("src/main/assets/layouts"))
     }
 
+val generateKeymanLayoutPack =
+    tasks.register<GenerateKeymanLayoutPackTask>("generateKeymanLayoutPack") {
+        layoutsDir.set(layout.projectDirectory.dir("src/main/assets/layouts"))
+        packDir.set(layout.buildDirectory.dir("keymanLayoutPack"))
+    }
+
 // Copies release-notes/<versionName>.md to assets/release-notes.md, so the
 // "Updated to" notification and the About screen can show what changed in the
 // installed version without the network. A version whose notes are not written
@@ -997,6 +1089,12 @@ androidComponents {
             generateLayoutIndex,
             GenerateLayoutIndexTask::outputDir,
         )
+        if (keymanLayoutPack) {
+            variant.sources.assets?.addGeneratedSourceDirectory(
+                generateKeymanLayoutPack,
+                GenerateKeymanLayoutPackTask::outputDir,
+            )
+        }
         variant.sources.assets?.addGeneratedSourceDirectory(
             bundleReleaseNotes,
             BundleReleaseNotesTask::outputDir,
@@ -1294,6 +1392,7 @@ dependencies {
     implementation(project(":core:feedback"))
     implementation(project(":core:plugins"))
     implementation(project(":core:intelligence"))
+    implementation(project(":core:shell"))
     implementation(project(":feature:tools"))
     implementation(project(":feature:addons"))
     implementation(project(":feature:ime"))
@@ -1331,12 +1430,13 @@ dependencies {
     // src/play/java; src/noplay/java is what every other channel gets, so no
     // Google binary is linked into an F-Droid or direct-download APK.
     if (playStoreChannel) {
-        // Play Billing rides on the app-update line on purpose: F-Droid's
-        // recipe deletes every line naming libs.play.app.update before its
-        // scanner runs, and the scanner knows the billing artifact by name.
-        // Its own line would need a new sed in the recipe, and so an
-        // fdroiddata MR, before the next F-Droid build could pass.
-        implementation(libs.play.app.update); implementation(libs.play.billing)
+        // Play Billing and the rating card ride on the app-update line on
+        // purpose: F-Droid's recipe deletes every line naming
+        // libs.play.app.update before its scanner runs, and the scanner knows
+        // these artifacts by name. A line of their own would need a new sed in
+        // the recipe, and so an fdroiddata MR, before the next F-Droid build
+        // could pass.
+        implementation(libs.play.app.update); implementation(libs.play.billing); implementation(libs.play.review)
         // SplitInstall + SplitCompat for the on-demand :feature:* modules
         // (every gate of native/gates.json with a Play module).
         implementation(libs.play.feature.delivery)
@@ -1377,8 +1477,6 @@ dependencies {
     // GalleryCoreTest builds ExifInterface tag lists; :core:content keeps the
     // library to itself (implementation), so the tests here need their own.
     testImplementation(libs.androidx.exifinterface)
-    // The plugin tests drive the Lua sandbox through luaj types directly.
-    testImplementation(libs.luaj.jse)
     // WordKeyParityTest holds the Rust word key to ART's fold, answered by
     // ICU4J at the Unicode version ICU4X carries (`android.icu` is a stub here).
     testImplementation(libs.icu4j)
@@ -1395,6 +1493,7 @@ dependencies {
 // library has to exist for this machine before the suite starts. The task is
 // :core:language's, where the facades live; see the comment on it there.
 tasks.withType<Test>().configureEach { dependsOn(":core:language:buildHostEngine") }
+tasks.withType<Test>().configureEach { dependsOn(":core:plugins:buildHostPython") }
 
 // `-Pwmkb.skipBenchmarks` drops the wall-clock benchmarks from the run. They
 // assert against millisecond budgets measured on a quiet machine, so on a

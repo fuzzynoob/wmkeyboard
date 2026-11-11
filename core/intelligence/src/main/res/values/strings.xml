@@ -92,10 +92,12 @@
     <!-- Settings › Privacy › Download feature libraries is the switch that
          lets the F-Droid build fetch native libraries. -->
     <string name="core_intel_llm_llama_consent_needed">GGUF models need the llama.cpp part, and feature library downloads are off. Turn them on in Settings › Privacy › Download feature libraries.</string>
-    <string name="core_intel_llm_llama_import_needed">GGUF models need the llama.cpp part, which this offline build cannot download. Get it and import it in Settings › Privacy › Feature libraries.</string>
-    <string name="core_intel_handwriting_zinnia_import_needed">Chinese and Japanese handwriting needs the zinnia part, which this offline build cannot download. Get it and import it in Settings › Privacy › Feature libraries.</string>
+    <string name="core_intel_llm_litert_consent_needed">This model needs the LiteRT-LM part, and feature library downloads are off. Turn them on in Settings › Privacy › Download feature libraries.</string>
+    <string name="core_intel_llm_litert_import_needed">This model needs the LiteRT-LM part, which this offline build cannot download. An update can replace it with a newer one. Get the file for this version and import it in Settings › Privacy › Feature libraries. Or install the standard build over this one from the same release page, which downloads it by itself. Your settings and learned words stay.</string>
+    <string name="core_intel_llm_llama_import_needed">GGUF models need the llama.cpp part, which this offline build cannot download. Get it and import it in Settings › Privacy › Feature libraries. Or install the standard build over this one from the same release page, which downloads it by itself. Your settings and learned words stay.</string>
+    <string name="core_intel_handwriting_zinnia_import_needed">Chinese and Japanese handwriting needs the zinnia part, which this offline build cannot download. Get it and import it in Settings › Privacy › Feature libraries. Or install the standard build over this one from the same release page, which downloads it by itself. Your settings and learned words stay.</string>
     <string name="core_intel_handwriting_zinnia_consent_needed">Chinese and Japanese handwriting needs the zinnia part, and feature library downloads are off. Turn them on in Settings › Privacy › Download feature libraries.</string>
-    <string name="core_intel_handwriting_inkocr_import_needed">Handwriting in this language needs the Sticker generator part (MNN), which this offline build cannot download. Get it and import it in Settings › Privacy › Feature libraries.</string>
+    <string name="core_intel_handwriting_inkocr_import_needed">Handwriting in this language needs the Sticker generator part (MNN), which this offline build cannot download. Get it and import it in Settings › Privacy › Feature libraries. Or install the standard build over this one from the same release page, which downloads it by itself. Your settings and learned words stay.</string>
     <string name="core_intel_handwriting_inkocr_consent_needed">Handwriting in this language needs the Sticker generator part (MNN), and feature library downloads are off. Turn them on in Settings › Privacy › Download feature libraries.</string>
     <string name="core_intel_llm_engine_error_npu_no_standard">The NPU build of this model did not start on your phone. To use the model on the GPU or the CPU, download its standard build in settings.</string>
 
@@ -106,6 +108,9 @@
     <!-- ================================================================== -->
 
     <string name="core_intel_llm_module_downloading">The AI part of the keyboard is downloading. Try again in a moment.</string>
+    <!-- Google Play holds the download until the user agrees, and it can ask
+         only inside the app, not over the keyboard. -->
+    <string name="core_intel_llm_module_confirm">Google Play wants your OK before it downloads the AI part of the keyboard. Open WM Keyboard\'s settings and it will ask.</string>
     <string name="core_intel_llm_litert_unavailable">This build runs GGUF models only. Pick a GGUF model under On-device AI.</string>
     <string name="core_intel_llm_module_restart">The AI part just finished installing. Close and reopen the keyboard to use it.</string>
 

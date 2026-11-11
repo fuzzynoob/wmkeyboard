@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import android.text.format.Formatter
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -37,6 +38,7 @@ import com.wasimaster.wmkeyboard.core.dictionaries.VoikkoDictionaryDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.VoikkoDictionaryDownloads.ImportResult
 import com.wasimaster.wmkeyboard.core.dictionaries.VoikkoDictionaryDownloads.Status
 import com.wasimaster.wmkeyboard.core.modules.ModuleState
+import com.wasimaster.wmkeyboard.core.netlog.OfflineBuild
 import com.wasimaster.wmkeyboard.core.prediction.VoikkoRuntime
 import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import kotlinx.coroutines.Dispatchers
@@ -108,7 +110,7 @@ internal fun VoikkoRow(langId: String, settings: LiveSettings) {
             stringResource(R.string.languages_voikko_installed, status.version!!, formatBytes(status.sizeBytes))
         status is Status.Installed -> stringResource(R.string.languages_voikko_imported, formatBytes(status.sizeBytes))
         status is Status.Downloading -> stringResource(CommonR.string.common_downloading)
-        status == Status.Failed -> stringResource(R.string.languages_voikko_failed)
+        status == Status.Failed -> stringResource(OfflineBuild.download(R.string.languages_voikko_failed))
         entry != null -> stringResource(
             R.string.languages_voikko_download_size,
             formatBytes(entry.packedBytes),
@@ -154,7 +156,7 @@ internal fun VoikkoRow(langId: String, settings: LiveSettings) {
                                 TextButton(onClick = { pick.launch(arrayOf("*/*")) }) {
                                     Text(stringResource(R.string.languages_speller_import_action))
                                 }
-                                if (entry != null) {
+                                if (entry != null && InternetPermission.granted) {
                                     TextButton(onClick = { guarded { VoikkoDictionaryDownloads.start(filesDir, langId) } }) {
                                         Text(
                                             stringResource(
@@ -217,7 +219,7 @@ private fun VoikkoModuleBanner(module: ModuleState, onDownload: () -> Unit) {
         is ModuleState.Missing if module.consent != null -> NativeConsentBanner(module.consent.orEmpty(), "spell")
         is ModuleState.Missing -> StateBanner(
             stringResource(
-                if (module.failed) R.string.models_whisper_module_failed_info else R.string.languages_voikko_module_missing_info,
+                if (module.failed) OfflineBuild.library(R.string.models_whisper_module_failed_info) else R.string.languages_voikko_module_missing_info,
             ),
             action = stringResource(
                 if (module.failed) CommonR.string.common_retry else CommonR.string.common_download,

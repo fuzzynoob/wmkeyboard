@@ -68,6 +68,7 @@ import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Apps
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Info
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Lock
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AppShortcut
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PushPin
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Visibility
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VisibilityOff
@@ -77,6 +78,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.produceState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -102,6 +104,7 @@ import com.wasimaster.wmkeyboard.ime.LauncherActivity
 import com.wasimaster.wmkeyboard.ime.LauncherApp
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
+import kotlinx.coroutines.delay
 
 /**
  * The app-launcher panel's callbacks, bundled into one object rather than
@@ -116,6 +119,8 @@ class LauncherPanelCallbacks(
     val onActivityTap: (LauncherActivity) -> Unit = {},
     /** Takes the app's [LauncherApp.key], as [onHideToggle] does. */
     val onPinToggle: (String) -> Unit = {},
+    /** Puts the app on the toolbar or takes it off (#1159), by [LauncherApp.key]. */
+    val onToolbarToggle: (String) -> Unit = {},
     val onAppInfo: (LauncherApp) -> Unit = {},
     val onDetailClose: () -> Unit = {},
     val onHideToggle: (String) -> Unit = {},
@@ -252,6 +257,10 @@ internal fun AppLauncherPanel(
                     menu = null
                     callbacks.onPinToggle(target.app.key)
                 },
+                onToolbarToggle = {
+                    menu = null
+                    callbacks.onToolbarToggle(target.app.key)
+                },
                 onFolder = {
                     val home = state.settings.launcher.folders.launcherFolderOf(target.app.key)
                     if (home != null) {
@@ -368,6 +377,18 @@ private fun LauncherGrid(
         else -> AppCatalog.arrangeGrid(sorted, launcher.folders)
     }
     val browsing = query.isEmpty() && !state.mediaSearchActive && openFolder == null
+    // A search narrowed to one app opens it once the typing pauses (#1147).
+    // Keyed on the query, so each key typed restarts the wait and a word still
+    // being typed never launches half-way. Not while picking a pair's second
+    // app: that tap means "pair with this", not "open it".
+    val sole = if (launcher.openSoleMatch && query.isNotEmpty() && pairing == null) sorted.singleOrNull() else null
+    if (sole != null) {
+        val tap by rememberUpdatedState(onAppTap)
+        LaunchedEffect(query, sole.key) {
+            delay(SOLE_MATCH_SETTLE_MS)
+            tap(sole)
+        }
+    }
     // Pinned first, then recent — deduplicated so a pinned app never shows
     // twice in the shortcut row. Hidden while searching: the grid is the answer.
     val shortcuts = if (browsing) {
@@ -639,7 +660,7 @@ private const val CELL_FADE_OUT_MS = 120
 private val RoundedIconShape = RoundedCornerShape(percent = 24)
 
 /** The clip for [LauncherIconShape.SYSTEM] is none: the icon keeps its own mask. */
-private fun launcherIconShape(shape: LauncherIconShape): Shape? = when (shape) {
+internal fun launcherIconShape(shape: LauncherIconShape): Shape? = when (shape) {
     LauncherIconShape.CIRCLE -> CircleShape
     LauncherIconShape.ROUNDED -> RoundedIconShape
     LauncherIconShape.SYSTEM -> null
@@ -1140,12 +1161,14 @@ private fun AppMenu(
     onOpen: (LauncherOpenMode) -> Unit,
     onPair: () -> Unit,
     onPinToggle: () -> Unit,
+    onToolbarToggle: () -> Unit,
     onFolder: () -> Unit,
     onOpenPage: () -> Unit,
 ) {
     val launcher = state.settings.launcher
     val shape = launcherIconShape(launcher.iconShape)
     val pinned = app.key in launcher.pinned
+    val onToolbar = app.key in launcher.toolbarApps
     val inFolder = launcher.folders.launcherFolderOf(app.key) != null
     LauncherMenuSheet(
         header = { AppIcon(app, sizeDp = 28, shape = shape, iconFor = iconFor) },
@@ -1178,6 +1201,14 @@ private fun AppMenu(
             Icons.Outlined.PushPin,
             stringResource(if (pinned) R.string.ime_launcher_unpin_action else R.string.ime_launcher_pin_action),
             onClick = onPinToggle,
+        )
+        // Its own button on the toolbar (#1159).
+        LauncherMenuItem(
+            Icons.Outlined.AppShortcut,
+            stringResource(
+                if (onToolbar) R.string.ime_launcher_toolbar_remove_action else R.string.ime_launcher_toolbar_add_action,
+            ),
+            onClick = onToolbarToggle,
         )
         LauncherMenuItem(
             if (inFolder) Icons.Outlined.FolderOpen else Icons.Outlined.Folder,
@@ -1579,3 +1610,6 @@ private fun LauncherDetail(
         }
     }
 }
+
+/** How long the typing has to pause before a lone match opens; see [AppLauncherPanel]. */
+private const val SOLE_MATCH_SETTLE_MS = 700L

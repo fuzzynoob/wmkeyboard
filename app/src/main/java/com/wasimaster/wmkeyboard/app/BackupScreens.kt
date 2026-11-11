@@ -62,10 +62,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.annotation.PluralsRes
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.ime.wmpass.WmPassBridge
+import com.wasimaster.wmkeyboard.app.storage.DownloadsBundle
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wasimaster.wmkeyboard.core.util.firstJsonDocument
+import com.wasimaster.wmkeyboard.core.util.MAX_BACKUP_BYTES
 import com.wasimaster.wmkeyboard.core.util.readTextCapped
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import kotlinx.coroutines.flow.first
@@ -85,6 +88,7 @@ import com.wasimaster.wmkeyboard.core.settings.BackupDestination
 import com.wasimaster.wmkeyboard.core.settings.FtpConfig
 import com.wasimaster.wmkeyboard.core.settings.S3Config
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.isLink
 import com.wasimaster.wmkeyboard.core.settings.needsNetwork
 import com.wasimaster.wmkeyboard.core.settings.signsIn
 import com.wasimaster.wmkeyboard.core.settings.sectionSet
@@ -108,6 +112,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.foundation.shape.RoundedCornerShape
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CloudDone
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CloudOff
@@ -222,9 +227,16 @@ internal fun sectionSummary(context: Context, section: ConfigBackup.Section, cou
 
 /** A file picked for import, once we know which of the two formats it is. */
 private sealed interface PendingImport {
-    val text: String
-    data class Config(override val text: String) : PendingImport
-    data class Legacy(override val text: String) : PendingImport
+    /**
+     * A full-config bundle: what it holds, and how to restore it. Not its
+     * text: a large one is summarised and restored from the file a section
+     * at a time, never held whole (#1080).
+     */
+    data class Config(
+        val summary: ConfigBackup.Summary,
+        val restore: suspend () -> SettingsRepository.ConfigImportResult,
+    ) : PendingImport
+    data class Legacy(val text: String) : PendingImport
 }
 /**
  * Where [hours] sits on [AutoBackupIntervals], for the slider's thumb.
@@ -263,6 +275,7 @@ internal fun autoBackupErrorText(
     SinkError.PERMISSION_LOST.name -> context.getString(
         when {
             destination == BackupDestination.FOLDER -> R.string.backup_auto_error_permission
+            destination == BackupDestination.NFS -> R.string.backup_auto_error_permission_nfs
             destination.signsIn -> R.string.backup_auto_error_permission_account
             else -> R.string.backup_auto_error_permission_server
         },
@@ -275,11 +288,14 @@ internal fun autoBackupErrorText(
         },
     )
     SinkError.OUT_OF_SPACE.name -> context.getString(R.string.backup_auto_error_space)
+    SinkError.OUT_OF_MEMORY.name -> context.getString(R.string.backup_auto_error_memory)
     SinkError.UNSAFE.name -> context.getString(
         when (destination) {
             BackupDestination.SFTP -> R.string.backup_auto_error_unsafe_sftp
             BackupDestination.GIT -> R.string.backup_auto_error_unsafe_git
             BackupDestination.SMB -> R.string.backup_auto_error_unsafe_smb
+            BackupDestination.SYNOLOGY, BackupDestination.QNAP -> R.string.backup_auto_error_unsafe_nas
+            BackupDestination.PROTON -> R.string.backup_auto_error_unsafe_proton
             else -> R.string.backup_auto_error_unsafe
         },
     )
@@ -299,6 +315,10 @@ internal fun autoBackupErrorText(
  * to a password type, which matters more here than it usually would: this is
  * the keyboard, and an ordinary field would learn the passphrase into the very
  * dictionary the backup is about to carry.
+ *
+ * [wmPassTitle] marks an API key field: it adds [WmPassKeyButton], which fills
+ * the field from WM Pass or saves it there, as [wmPassField] of the item of
+ * that name. Left null for passwords, which are not API keys.
  */
 @Composable
 internal fun StoredTextField(
@@ -309,11 +329,20 @@ internal fun StoredTextField(
     keyboardType: KeyboardType = KeyboardType.Text,
     /** For a pasted key or a template: lets the field grow instead of scrolling one line. */
     multiLine: Boolean = false,
+    wmPassTitle: String? = null,
+    wmPassField: String = WmPassBridge.API_KEY,
+    /** Draws the field and its [supporting] line as a mistake. */
+    isError: Boolean = false,
     onChange: (String) -> Unit,
 ) {
     var text by remember { mutableStateOf(value) }
     var pending by remember { mutableStateOf<String?>(null) }
     var visible by remember { mutableStateOf(false) }
+    fun type(next: String) {
+        text = next
+        pending = next
+        onChange(next)
+    }
     when {
         pending == null -> if (value != text) text = value
         value == pending -> pending = null
@@ -321,13 +350,10 @@ internal fun StoredTextField(
     val masked = password && !visible
     OutlinedTextField(
         value = text,
-        onValueChange = {
-            text = it
-            pending = it
-            onChange(it)
-        },
+        onValueChange = ::type,
         label = { Text(label) },
         supportingText = if (supporting.isEmpty()) null else ({ Text(supporting) }),
+        isError = isError,
         singleLine = !multiLine,
         maxLines = if (multiLine) MULTI_LINE_MAX else 1,
         visualTransformation =
@@ -335,21 +361,26 @@ internal fun StoredTextField(
         keyboardOptions = KeyboardOptions(
             keyboardType = if (password) KeyboardType.Password else keyboardType,
         ),
-        trailingIcon = if (!password) {
+        trailingIcon = if (!password && wmPassTitle == null) {
             null
         } else {
             {
-                IconButton(onClick = { visible = !visible }) {
-                    Icon(
-                        if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
-                        contentDescription = stringResource(
-                            if (visible) {
-                                R.string.backup_auto_passphrase_hide
-                            } else {
-                                R.string.backup_auto_passphrase_show
-                            },
-                        ),
-                    )
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (wmPassTitle != null) WmPassKeyButton(wmPassTitle, text, wmPassField, ::type)
+                    if (password) {
+                        IconButton(onClick = { visible = !visible }) {
+                            Icon(
+                                if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility,
+                                contentDescription = stringResource(
+                                    if (visible) {
+                                        R.string.backup_auto_passphrase_hide
+                                    } else {
+                                        R.string.backup_auto_passphrase_show
+                                    },
+                                ),
+                            )
+                        }
+                    }
                 }
             }
         },
@@ -390,6 +421,15 @@ internal fun destinationDescRes(destination: BackupDestination): Int = when (des
     BackupDestination.GIT -> R.string.backup_auto_dest_git_desc
     BackupDestination.IMAP -> R.string.backup_auto_dest_imap_desc
     BackupDestination.NEARBY -> R.string.backup_auto_dest_nearby_desc
+    BackupDestination.PROFILE -> R.string.backup_auto_dest_profile_desc
+    BackupDestination.BOX -> R.string.backup_auto_dest_box_desc
+    BackupDestination.PCLOUD -> R.string.backup_auto_dest_pcloud_desc
+    BackupDestination.SYNOLOGY -> R.string.backup_auto_dest_synology_desc
+    BackupDestination.QNAP -> R.string.backup_auto_dest_qnap_desc
+    BackupDestination.NFS -> R.string.backup_auto_dest_nfs_desc
+    BackupDestination.MEGA -> R.string.backup_auto_dest_mega_desc
+    BackupDestination.ICLOUD -> R.string.backup_auto_dest_icloud_desc
+    BackupDestination.PROTON -> R.string.backup_auto_dest_proton_desc
 }
 
 /** One sentence for whatever a backup run turned out to be. */
@@ -433,6 +473,8 @@ private fun syncOutcomeText(context: Context, outcome: SyncRunner.Outcome, auto:
         is SyncRunner.Outcome.Done -> when {
             SyncRunner.ERROR_PASSPHRASE in outcome.failed.values ->
                 context.getString(R.string.backup_sync_error_passphrase)
+            SyncRunner.ERROR_NEWER in outcome.failed.values ->
+                context.getString(R.string.backup_sync_error_newer)
             outcome.applied == 0 -> context.getString(R.string.backup_sync_done_nothing)
             else -> context.resources.getQuantityString(
                 R.plurals.backup_sync_done_changes,
@@ -449,6 +491,8 @@ private fun syncOutcomeText(context: Context, outcome: SyncRunner.Outcome, auto:
 private fun syncErrorText(context: Context, reason: String, auto: AutoBackupSettings): String =
     if (reason == SyncRunner.ERROR_PASSPHRASE) {
         context.getString(R.string.backup_sync_error_passphrase)
+    } else if (reason == SyncRunner.ERROR_NEWER) {
+        context.getString(R.string.backup_sync_error_newer)
     } else {
         val type = auto.sync.targets(auto.locations).firstOrNull()?.type ?: BackupDestination.FOLDER
         autoBackupErrorText(context, reason, type) ?: context.getString(R.string.backup_auto_error_io)
@@ -751,6 +795,66 @@ private fun SettingsGroupScope.sectionRows(
     }
 }
 
+/** The main and the frequent backup's sections as one list, a tick for each. */
+private fun SettingsGroupScope.bothBackupsRows(
+    settings: LiveSettings,
+    secrets: Pair<(KeyboardSettings) -> Boolean, (Boolean) -> Unit>,
+    settingsIncluded: Boolean,
+    @StringRes secretsSubtitle: Int,
+    onMain: (ConfigBackup.Section, Boolean) -> Unit,
+    onFrequent: (ConfigBackup.Section, Boolean) -> Unit,
+) {
+    item {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+            Spacer(Modifier.weight(1f))
+            Text(
+                stringResource(R.string.backup_contents_column_main),
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(56.dp),
+            )
+            Text(
+                stringResource(R.string.backup_contents_column_frequent),
+                style = MaterialTheme.typography.labelSmall,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.width(56.dp),
+            )
+        }
+    }
+    for (row in SECTION_ROWS) {
+        item {
+            WmRow(
+                title = stringResource(sectionLabelRes(row.section)),
+                subtitle = stringResource(row.subtitle),
+                trailing = {
+                    Row {
+                        Checkbox(
+                            checked = settings.watch { row.section in it.autoBackup.sectionSet },
+                            onCheckedChange = { onMain(row.section, it) },
+                        )
+                        Checkbox(
+                            checked = settings.watch { row.section in it.autoBackup.frequent.sectionSet },
+                            onCheckedChange = { onFrequent(row.section, it) },
+                        )
+                    }
+                },
+            )
+        }
+        // The main backup's alone: the frequent one never carries API keys.
+        if (row.section == ConfigBackup.Section.SETTINGS) {
+            item(visible = settingsIncluded) {
+                ToggleSetting(
+                    R.string.backup_include_secrets_title,
+                    stringResource(secretsSubtitle),
+                    settings.watch { secrets.first(it) },
+                    info = stringResource(R.string.backup_include_secrets_info),
+                    default = false,
+                ) { secrets.second(it) }
+            }
+        }
+    }
+}
+
 /**
  * One location with a tick box, for the two lists that pick where things go:
  * Back up to, and Sync through. The whole row toggles, as a switch row does.
@@ -990,7 +1094,45 @@ internal fun BackupSettings(
     val context = LocalContext.current
 
     var message by remember { mutableStateOf<String?>(null) }
+    // Whether [message] reports a restore that left feature libraries missing.
+    var offerLibraries by remember { mutableStateOf(false) }
     var confirmImport by remember { mutableStateOf<PendingImport?>(null) }
+
+    // Everything downloaded, as a zip of its own (#1045): see [DownloadsBundle].
+    val downloadsExport = rememberLauncherForActivityResult(
+        CreateDocumentAt("application/zip", PickerPlaces.DOWNLOADS_EXPORT),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        PickerPlaces.remember(context, PickerPlaces.DOWNLOADS_EXPORT, uri)
+        scope.launch {
+            val done = runCatching {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.requireOutputStream(uri).use { DownloadsBundle.export(context, it) }
+                }
+            }.getOrNull()
+            message = if (done == null) {
+                context.getString(R.string.backup_downloads_failed)
+            } else {
+                context.resources.getQuantityString(R.plurals.backup_downloads_exported, done.files, done.files)
+            }
+        }
+    }
+    val downloadsImport = rememberLauncherForActivityResult(OpenDocumentAt(PickerPlaces.DOWNLOADS_IMPORT)) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        PickerPlaces.remember(context, PickerPlaces.DOWNLOADS_IMPORT, uri)
+        scope.launch {
+            val done = runCatching {
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.requireInputStream(uri).use { DownloadsBundle.import(context, it) }
+                }
+            }.getOrNull()
+            message = if (done == null) {
+                context.getString(R.string.backup_downloads_failed)
+            } else {
+                context.resources.getQuantityString(R.plurals.backup_downloads_imported, done.files, done.files, done.refused)
+            }
+        }
+    }
 
     val exportLauncher = rememberLauncherForActivityResult(
         CreateDocumentAt(ConfigBackup.MIME_TYPE, PickerPlaces.BACKUP_EXPORT),
@@ -1067,16 +1209,33 @@ internal fun BackupSettings(
                 foreignUri = uri
                 return@launch
             }
+            // A bundle is read from the file twice, to list it and to restore
+            // it, and held whole neither time (#1080).
+            val open = { context.contentResolver.requireInputStream(uri) }
+            val summary = withContext(Dispatchers.IO) { repository.summarizeConfig(open) }
+            if (summary != null) {
+                confirmImport = PendingImport.Config(summary) { repository.importConfig(open) }
+                return@launch
+            }
             val text = withContext(Dispatchers.IO) {
                 runCatching {
-                    context.contentResolver.readTextCapped(uri)
+                    context.contentResolver.readTextCapped(uri, MAX_BACKUP_BYTES)
                 }.getOrNull()?.firstJsonDocument()
             }
+            // A bundle the stream reader turned down but the text one takes,
+            // such as one behind a byte-order mark, is small enough to hold.
+            val parsed = text?.let(ConfigBackup::decode)
             confirmImport = when {
                 text == null -> {
                     message = context.getString(R.string.backup_import_read_error); null
                 }
-                ConfigBackup.decode(text) != null -> PendingImport.Config(text)
+                parsed != null -> PendingImport.Config(
+                    ConfigBackup.Summary(
+                        parsed.appVersion,
+                        repository.describeConfig(parsed),
+                        repository.configContainsSecrets(parsed),
+                    ),
+                ) { repository.importConfig(text) }
                 SettingsBackup.decode(text) != null -> PendingImport.Legacy(text)
                 else -> {
                     message = context.getString(R.string.backup_not_a_backup); null
@@ -1149,6 +1308,27 @@ internal fun BackupSettings(
     }
 
     SettingsGroup(
+        stringResource(R.string.backup_downloads_title),
+        info = stringResource(R.string.backup_downloads_info),
+        level = SettingLevel.STANDARD,
+    ) {
+        item {
+            ActionRow(
+                title = R.string.backup_downloads_export_title,
+                subtitle = stringResource(R.string.backup_downloads_export_subtitle),
+                action = stringResource(R.string.backup_downloads_export_action),
+            ) { downloadsExport.launch("wmkeyboard-downloads.zip") }
+        }
+        item {
+            ActionRow(
+                title = R.string.backup_downloads_import_title,
+                subtitle = stringResource(R.string.backup_downloads_import_subtitle),
+                action = stringResource(R.string.backup_downloads_import_action),
+            ) { downloadsImport.launch(arrayOf("application/zip", "application/octet-stream")) }
+        }
+    }
+
+    SettingsGroup(
         stringResource(R.string.backup_files_title),
         info = stringResource(R.string.backup_info),
     ) {
@@ -1195,9 +1375,8 @@ internal fun BackupSettings(
 
     when (val pending = confirmImport) {
         is PendingImport.Config -> {
-            val parsed = remember(pending.text) { ConfigBackup.decode(pending.text) }
-            val counts = remember(pending.text) { parsed?.let { repository.describeConfig(it) }.orEmpty() }
-            val hasSecrets = remember(pending.text) { parsed?.let { repository.configContainsSecrets(it) } ?: false }
+            val counts = pending.summary.counts
+            val hasSecrets = pending.summary.hasSecrets
             AlertDialog(
                 onDismissRequest = { confirmImport = null },
                 title = { Text(stringResource(R.string.backup_import_confirm_title)) },
@@ -1242,7 +1421,10 @@ internal fun BackupSettings(
                     TextButton(onClick = {
                         confirmImport = null
                         scope.launch {
-                            message = when (val result = repository.importConfig(pending.text)) {
+                            message = when (val result = runCancellable { pending.restore() }.getOrNull()) {
+                                // The file went away or stopped reading
+                                // between the summary and the restore.
+                                null -> context.getString(R.string.backup_import_read_error)
                                 is SettingsRepository.ConfigImportResult.Applied -> buildString {
                                     if (result.restored.isEmpty()) {
                                         append(context.getString(R.string.backup_restore_nothing))
@@ -1255,6 +1437,18 @@ internal fun BackupSettings(
                                                 },
                                             ),
                                         )
+                                        val missing = FeatureLibraryList.missingCount()
+                                        if (missing > 0) {
+                                            append("\n\n")
+                                            append(
+                                                context.resources.getQuantityString(
+                                                    R.plurals.feature_libraries_after_restore,
+                                                    missing,
+                                                    missing,
+                                                ),
+                                            )
+                                            offerLibraries = true
+                                        }
                                     }
                                     if (result.settingsFailed) {
                                         append("\n\n")
@@ -1341,13 +1535,28 @@ internal fun BackupSettings(
 
     val messageText = message
     if (messageText != null) {
+        val navigate = LocalSettingsNavigate.current
+        val close = {
+            message = null
+            offerLibraries = false
+        }
         AlertDialog(
-            onDismissRequest = { message = null },
+            onDismissRequest = close,
             text = { Text(messageText) },
             confirmButton = {
-                TextButton(onClick = { message = null }) {
+                TextButton(onClick = close) {
                     Text(stringResource(CommonR.string.common_ok))
                 }
+            },
+            dismissButton = if (offerLibraries) {
+                {
+                    TextButton(onClick = {
+                        close()
+                        navigate(FeatureLibraryList.ROUTE)
+                    }) { Text(stringResource(R.string.feature_libraries_title)) }
+                }
+            } else {
+                null
             },
         )
     }
@@ -1367,7 +1576,8 @@ internal fun BackupAutoSettings(repository: SettingsRepository, settings: LiveSe
     val autoOn = settings.watch { it.autoBackup.enabled }
     val configured = settings.watch { it.autoBackup.backupTargets.isNotEmpty() }
     val overNetwork = settings.watch { s -> s.autoBackup.backupTargets.any { it.type.needsNetwork } }
-    val locations = settings.watch { it.autoBackup.locations }
+    // Links (a paired computer, the copy in another profile) only sync.
+    val locations = settings.watch { s -> s.autoBackup.locations.filterNot { it.type.isLink } }
     val encryptOn = settings.watch { it.autoBackup.encrypt }
     val encrypted = settings.watch { it.autoBackup.encrypt && it.autoBackup.passphrase.isNotEmpty() }
     // Locked notes ride on the same switch as the keys, so the row has to be
@@ -1554,22 +1764,7 @@ internal fun BackupAutoSettings(repository: SettingsRepository, settings: LiveSe
                 ) { on -> scope.launch { repository.setFrequentBackupEncrypt(on) } }
             }
         }
-        if (frequentOn) {
-            SettingsGroup(stringResource(R.string.backup_frequent_contents_title), level = SettingLevel.STANDARD) {
-                // No API-key switch: the frequent backup never carries them.
-                sectionRows(
-                    settings = settings,
-                    sections = { it.autoBackup.frequent.sectionSet },
-                    defaults = FrequentBackup.DEFAULT_SECTIONS,
-                    secrets = null,
-                ) { section, on ->
-                    scope.launch {
-                        val current = repository.settings.first().autoBackup.frequent.sectionSet
-                        repository.setFrequentBackupSections(if (on) current + section else current - section)
-                    }
-                }
-            }
-        }
+        // What the frequent backup holds is ticked beside the main one's, below.
     }
 
     SettingsGroup(
@@ -1621,7 +1816,31 @@ internal fun BackupAutoSettings(repository: SettingsRepository, settings: LiveSe
     }
 
     SettingsGroup(stringResource(R.string.backup_auto_contents_title), level = SettingLevel.STANDARD) {
-        sectionRows(
+        // Two lists of the same seventeen rows were long and easy to mix up (#970).
+        if (frequentOn && autoOn && configured) {
+            bothBackupsRows(
+                settings,
+                secrets = { s: KeyboardSettings -> s.autoBackup.backupIncludeSecrets } to setKeys,
+                settingsIncluded = settingsIncluded,
+                secretsSubtitle = if (encrypted) {
+                    R.string.backup_include_secrets_subtitle
+                } else {
+                    R.string.backup_secrets_unprotected_subtitle
+                },
+                onMain = { section, on ->
+                    scope.launch {
+                        val current = repository.settings.first().autoBackup.sectionSet
+                        repository.setAutoBackupSections(if (on) current + section else current - section)
+                    }
+                },
+                onFrequent = { section, on ->
+                    scope.launch {
+                        val current = repository.settings.first().autoBackup.frequent.sectionSet
+                        repository.setFrequentBackupSections(if (on) current + section else current - section)
+                    }
+                },
+            )
+        } else sectionRows(
             settings = settings,
             sections = { it.autoBackup.sectionSet },
             defaults = AutoBackupSettings.DEFAULT_SECTIONS,
@@ -1793,7 +2012,7 @@ internal fun BackupSyncSettings(repository: SettingsRepository, settings: LiveSe
                         // Joining a shared folder: when the devices already
                         // there sync in groups this one is not in, ask which
                         // to join before the first pass picks for the user.
-                        if (on && location.type != BackupDestination.NEARBY) {
+                        if (on && !location.type.isLink) {
                             val groups = SyncRunner.groupsAt(context, location).getOrNull().orEmpty()
                             val mine = repository.settings.first().autoBackup.sync.group
                             if (groups.isNotEmpty() && mine !in groups) {
@@ -1937,7 +2156,7 @@ internal fun BackupSyncSettings(repository: SettingsRepository, settings: LiveSe
         SyncGroupDialog(
             current = auto.sync.group,
             locations = (auto.sync.targets(auto.locations) + listOfNotNull(joining))
-                .filter { it.type != BackupDestination.NEARBY }
+                .filter { !it.type.isLink }
                 .distinctBy { it.id },
             joining = joining,
             onSave = { entered ->

@@ -51,6 +51,18 @@ data class SummonButtonSettings(
      * at once instead of waiting out the double-tap window.
      */
     val doubleTapTyping: FloatingAction? = null,
+    /**
+     * Fixed in place (#1171): a drag no longer moves the button, and a swipe
+     * from it runs the action of the direction it goes ([flicks]) instead. It
+     * stays where it was last put; turning this off is how to move it again.
+     */
+    val docked: Boolean = false,
+    /**
+     * What a swipe from the fixed button does, by direction (#1171). Only
+     * read while [docked]; a direction with nothing here does nothing, and a
+     * swipe near it goes to the nearest one bound ([flickDirectionOf]).
+     */
+    val flicks: Map<FlickDirection, FloatingAction> = emptyMap(),
     /** The quick menu's slots, in the order they fan out; at most [MAX_FLOATING_MENU_ITEMS]. */
     val menu: List<FloatingAction> = DefaultFloatingMenu,
     /**
@@ -67,11 +79,32 @@ data class SummonButtonSettings(
     val menuGapDp: Int = 22,
     /** How a ring's slots come out of the button (#923). */
     val menuAnimation: FloatingMenuAnimation = FloatingMenuAnimation.SPRING,
+    /**
+     * How fast the button's motion runs (#1138), as a multiple of its own
+     * pace: the rings opening and closing, the button appearing and settling
+     * against its edge. 2 is twice as fast. See [FloatingAnimationSpeedRange].
+     */
+    val animationSpeed: Float = 1f,
     /** The button's diameter in dp; see [FloatingButtonSizeRange]. */
     val sizeDp: Int = 52,
     val style: FloatingButtonStyle = FloatingButtonStyle.AUTO,
     /** The button's outline, and its slots' (#933). */
     val shape: FloatingButtonShape = FloatingButtonShape.CIRCLE,
+    /**
+     * Drawn as a thin pill flat against the side it rests on (#1137), in
+     * place of the disc: a few pixels of the screen's edge rather than a
+     * button over the app. Its gestures and its quick menu are the button's.
+     */
+    val edgePill: Boolean = false,
+    /** How thick the pill is drawn, in dp; see [FloatingPillThicknessRange]. */
+    val pillThicknessDp: Int = 6,
+    /** How tall the pill is, in dp, which is also how tall its touch area is; see [FloatingPillLengthRange]. */
+    val pillLengthDp: Int = 72,
+    /**
+     * How far in from the edge a touch still lands on the pill, in dp; see
+     * [FloatingPillTouchRange]. Never less than the pill's own thickness.
+     */
+    val pillTouchDp: Int = 20,
     /** How solid the button is while it is being used, 0.3 to 1. */
     val opacity: Float = 0.92f,
     /**
@@ -98,6 +131,13 @@ data class SummonButtonSettings(
     val hideInLandscape: Boolean = false,
     /** A tick on a tap, a firmer one when the menu opens or a slot is picked. */
     val haptics: Boolean = true,
+    /**
+     * A tap anywhere outside a tool's floating box (#1155) closes it, for a
+     * box that comes up for one sum and goes. Kept here, with the button
+     * whose overlay grant the box draws through, rather than a top-level
+     * slot of its own. Off, the box stays until its close button.
+     */
+    val boxClosesOutside: Boolean = false,
 )
 
 /** What a tap does with the keyboard up or down. */
@@ -108,9 +148,13 @@ fun SummonButtonSettings.tapFor(keyboardUp: Boolean): FloatingAction =
 fun SummonButtonSettings.doubleTapFor(keyboardUp: Boolean): FloatingAction =
     if (keyboardUp) doubleTapTyping ?: doubleTap else doubleTap
 
-/** Every action a gesture is bound to, the keyboard-up ones included. */
+/** Every action a gesture is bound to, the keyboard-up ones and, while fixed in place, the swipes (#1171) included. */
 fun SummonButtonSettings.gestureActions(): List<FloatingAction> =
-    listOfNotNull(tap, doubleTap, hold, tapTyping, doubleTapTyping)
+    listOfNotNull(tap, doubleTap, hold, tapTyping, doubleTapTyping) + activeFlicks.values
+
+/** The swipes that run (#1171): the bound ones while the button is fixed in place, else none. */
+val SummonButtonSettings.activeFlicks: Map<FlickDirection, FloatingAction>
+    get() = if (docked) flicks else emptyMap()
 
 /** Whether any of the button's gestures, or its quick menu, asks the AI. */
 fun SummonButtonSettings.usesAskAi(): Boolean =
@@ -121,6 +165,16 @@ fun SummonButtonSettings.readsScreen(): Boolean {
     val bound = gestureActions() + opensMenuItems()
     return FloatingAction.AskAi in bound || FloatingAction.LookUp in bound
 }
+
+/**
+ * Whether any of the button's gestures, or its quick menu, presses a system
+ * button through the system buttons service: Screenshot (#1148), or Back,
+ * recent apps and the rest (#1170).
+ */
+fun SummonButtonSettings.pressesSystemButtons(): Boolean =
+    (gestureActions() + opensMenuItems()).any {
+        it is FloatingAction.System || it == FloatingAction.Tool(ToolbarTool.SCREENSHOT)
+    }
 
 /**
  * Every slot a gesture can reach: the quick menu's when some gesture opens
@@ -149,3 +203,9 @@ fun SummonButtonSettings.ringOf(action: FloatingAction): List<FloatingAction>? =
 
 /** Whether the button sits over the keys while the keyboard is up (#926), as set. */
 val SummonButtonSettings.floatsOverKeyboard: Boolean get() = whileTyping && overKeyboard
+
+/** The pill's touch area across, in dp (#1137): as set, but never thinner than the pill. */
+val SummonButtonSettings.pillTouchWidthDp: Int get() = maxOf(pillTouchDp, pillThicknessDp)
+
+/** Tucking slides half the disc off the edge; a pill is already against it (#1137). */
+val SummonButtonSettings.tucks: Boolean get() = tuck && !edgePill

@@ -51,15 +51,15 @@ The message box is one rounded box. What you write is at the top; along its bott
 
 The **+** button in the message box opens a row of icons over it. Long-press an icon to see its name.
 
-- **Pictures from the gallery** opens the system photo picker. Pick several at once.
-- **A file** opens the system file picker, for a text file, a recording, a video or a PDF. See [Sending files](#sending-files).
+- **Pictures from the gallery** opens the keyboard's [file manager](/tools/files/), or the system photo picker in the Play Store build. Pick several at once.
+- **A file** opens the same file manager, or the system file picker in the Play Store build, for a text file, a recording, a video or a PDF. See [Sending files](#sending-files).
 - **Take a photo** opens your camera app, and the photo you take is added. The first time, it asks for the camera permission.
 - **Copied picture** takes the newest picture in your [clipboard history](/tools/clipboard/).
 - **Newest screenshot** takes the last screenshot on the phone, whenever you took it. The first time, it asks for access to your photos, and the screenshot is added once you come back from allowing it.
 - **Send the text of the field** quotes what you're working on. With text selected in the field, it takes the selection; otherwise it takes the whole field. A line above the message box says which, and how long it is. The model gets your message followed by that text, clearly marked off, and the bubble notes that text went with it. Tap it again to drop the text. It's greyed out over an empty field, and it never reads a password field.
 - **Paste** pastes your latest clip at the caret.
 
-The photo picker, the file picker and the camera are system screens, so the keyboard steps aside while one is open and picks up where it was when you come back. Copied picture and Newest screenshot don't leave the keyboard at all.
+The photo picker, the file picker and the camera are system screens, so the keyboard steps aside while one is open and picks up where it was when you come back. The file manager, Copied picture and Newest screenshot don't leave the keyboard at all.
 
 Up to four pictures and four files can go with one message. They wait above the message box with a cross on each to take it off, and a message can be pictures or files alone. Sent, they show at the top of your bubble, on the keyboard and in the app alike. What the model does with them is the same as in the app: see [Sending pictures](#sending-pictures) and [Sending files](#sending-files).
 
@@ -135,7 +135,7 @@ The keyboard's chat has the same menu, plus the clipboard's picture and your new
 
 ### Sending files
 
-**A file**, in the **+** menu on the keyboard or in the app, opens the system file picker. Up to four files go with one message, each shown as a chip with its name.
+**A file**, in the **+** menu, opens the [file manager](/tools/files/) on the keyboard and the system file picker in the app or in the Play Store build. Up to four files go with one message, each shown as a chip with its name.
 
 - **A text file** (plain text, Markdown, CSV, JSON, source code and the like) is read when you pick it, and its text goes with your message, marked off with the file's name, to any model. Up to 20,000 characters of it are kept; the rest is cut.
 - **A recording, a video or a PDF** is copied into the chat, up to 14 MB. Gemini is sent the file itself with your newest message. Every other model is told a file of that name and type is there, but can't open it.
@@ -166,6 +166,25 @@ The conversation is kept only while the app is running and is never saved. With 
 Two ways in open the chat as a sheet over whatever app you're in, with the app still showing above it. The [floating button](/reference/settings/floating-button/#asking-the-ai-about-the-screen)'s **Ask AI about this screen** brings the text on screen along when its screen reading is on. **Ask AI** in any app's text selection menu brings the selected text. Either way it waits above the message box, where **View** shows all of it and **Delete** drops it, and the first message you send carries it. The conversation lands in the same list as the rest.
 
 If you don't want **Ask AI** in the selection menu, turn off **Ask AI in the selection menu** in the [AI tool's options](/tools/ai/#options). Turning the AI tool itself off takes it out too. Either way **Look up** and the other apps' entries move up into the space it leaves.
+
+## Using it as the phone's assistant
+
+<SettingsPath path="Tools / AI writing tools / Use as the phone's assistant" />
+
+WM Keyboard can be the app Android opens for the assistant gesture: a long press on the home or power button, a swipe up from a bottom corner, or a headset's assistant button, whichever your phone uses. Turn on **Use as the phone's assistant** on the AI tool's page, then pick WM Keyboard under **Choose the phone's assistant**, the row that appears under it. That opens Android's own page, usually **Default apps › Digital assistant app**. The switch alone changes nothing; until you pick WM Keyboard there, the phone keeps the assistant it had. It is off by default, and it goes with the AI tool: turn the tool off and WM Keyboard leaves the list.
+
+The gesture then opens a short menu at the bottom of the screen, over the app you were in:
+
+- **Ask about this screen** opens the chat with the screen's text attached, as the floating button's **Ask AI about this screen** does.
+- **Explain this screen** and **Translate this screen** do the same with a question already in the message box ("Explain what is on this screen.", or "Translate this into" your phone's language). Change it or send it as it is.
+- **Ask by voice** listens with your [voice typing](/tools/voice/) engines, then opens the chat with what you said in the message box, and the screen attached when there is one.
+- **New chat** opens the chat with nothing attached.
+
+Every item ends in the same chat sheet as the other ways in, with the AI tool's models, its [tools](/tools/ai/) and its history, so a question that needs a tool (set a timer, add a calendar event, look something up) works the way it does anywhere else in the chat. Nothing is sent until you send it.
+
+The three screen items only appear when Android hands the assistant the screen's text, which it does when **Use text from screen** is on in its assistant settings (behind the gear next to **Digital assistant app**). Without it, a line under the menu says so, with a button to that page. Password fields are never read, and at most 8,000 characters come along.
+
+Android gives every assistant a speech recognizer of its own and makes it the phone's while the assistant is picked. WM Keyboard's is the one [Voice input for other apps](/tools/voice/#voice-input-for-other-apps) uses, so while WM Keyboard is the assistant, apps that ask Android's speech recognizer are heard by your voice typing engines too. With **Phone's recognizer** as the engine, their requests go on to the recognizer you had before. Turning on the assistant doesn't put WM Keyboard's voice input window in front of other apps' microphone buttons; that is still **Voice input for other apps**' own switch.
 
 ## Modes and answer formats
 
@@ -316,6 +335,7 @@ Exactly what the AI tool sends, and only when you hit send:
 - **An on-device model** sends nothing. The whole conversation stays on the phone.
 - **Any other provider** gets the conversation so far, because that's what makes a reply follow on from the last one. Your saved [AI memory](/tools/ai-memory/) goes with it only if you've turned on **Use with cloud models**. Pictures you sent go with your newest message, to a provider that takes them. That includes any field text you attached with the paperclip, and only the text you attached: the keyboard's chat never reads the field on its own. A fixed instruction rides along with it: answer in plain text, and keep it as short as the question allows. Your API keys stay on the device.
 - **Deep research and Summarize** also go to the web. Deep research sends the searches its plan made to your [search provider](/tools/search/), then fetches each page it reads straight from its site, and the pages' text goes to your AI provider with your question. Summarize fetches the links in your message the same way. Nothing goes to a page but an ordinary request for it.
+- **The assistant's menu** reads the screen's text only when Android sends it, and keeps it on the phone until you send a message that carries it. Its **Ask by voice** hears with your voice typing engine, which keeps the audio on the phone or sends it where that engine sends it.
 - **The transcript itself** goes nowhere. It's deliberately left out of settings backups, the same as the [AI history](/tools/ai/#history) and for the same reason: your own conversations shouldn't ride along in a file you export and mail to yourself. See [Your data](/privacy/data/).
 
 ## Details & edge cases

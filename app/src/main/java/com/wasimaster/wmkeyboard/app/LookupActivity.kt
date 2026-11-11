@@ -1,11 +1,10 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
-import android.media.AudioAttributes
-import android.media.MediaPlayer
 import android.os.Bundle
 import android.os.UserManager
 import android.text.TextUtils
@@ -51,6 +50,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -74,6 +74,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeUp
+import com.wasimaster.wmkeyboard.core.netlog.OfflineBuild
 import com.wasimaster.wmkeyboard.core.settings.AnkiMode
 import com.wasimaster.wmkeyboard.core.settings.DeviceForm
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
@@ -92,11 +93,14 @@ import com.wasimaster.wmkeyboard.core.vocab.VocabLanguages
 import com.wasimaster.wmkeyboard.core.vocab.VocabPackFile
 import com.wasimaster.wmkeyboard.core.vocab.VocabPacks
 import com.wasimaster.wmkeyboard.core.vocab.VocabSpeaker
+import com.wasimaster.wmkeyboard.core.tools.pronounce.PronunciationPlayer
+import com.wasimaster.wmkeyboard.core.tools.pronounce.PronunciationSource
+import com.wasimaster.wmkeyboard.core.tools.pronounce.Recording
+import com.wasimaster.wmkeyboard.core.vocab.spokenLocale
 import com.wasimaster.wmkeyboard.ime.aichat.AskAiContext
 import com.wasimaster.wmkeyboard.ime.lookup.LookupLaunch
 import com.wasimaster.wmkeyboard.ime.lookup.WordLookup
 import com.wasimaster.wmkeyboard.tools.R as ToolsR
-import java.util.Locale
 import kotlin.math.max
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -402,12 +406,12 @@ private fun LookupCard(
             CardState.NoWord -> Message(stringResource(R.string.lookup_no_word))
             is CardState.Done -> when (val outcome = state.outcome) {
                 is WordLookup.Outcome.Found -> {
-                    LookupEntries(outcome)
+                    LookupEntries(outcome, settings)
                     LookupActions(request, settings, scan, state.word, outcome, onClose)
                 }
                 WordLookup.Outcome.NotFound -> Message(stringResource(R.string.lookup_not_found, state.word))
                 WordLookup.Outcome.NotOnDevice -> Message(stringResource(R.string.lookup_not_on_device, state.word))
-                WordLookup.Outcome.Failed -> Message(stringResource(R.string.lookup_failed))
+                WordLookup.Outcome.Failed -> Message(stringResource(OfflineBuild.network(R.string.lookup_failed)))
                 WordLookup.Outcome.NoSources -> Message(stringResource(R.string.lookup_no_sources))
             }
         }
@@ -439,15 +443,31 @@ private fun ScreenReadingOff() {
 }
 
 @Composable
-private fun LookupEntries(found: WordLookup.Outcome.Found) {
+private fun LookupEntries(found: WordLookup.Outcome.Found, settings: LiveSettings) {
     val context = LocalContext.current
-    val player = remember { MediaPlayer() }
     val speaker = remember { lazy { VocabSpeaker(context) } }
     DisposableEffect(Unit) {
         onDispose {
-            player.release()
             if (speaker.isInitialized()) speaker.value.shutdown()
         }
+    }
+    // People's recordings of each word (#1146), as the keyboard's Dictionary
+    // tool plays them: asked for on the first tap of the speaker.
+    val player = remember { lazy { PronunciationPlayer(context, speaker.value) } }
+    val scope = rememberCoroutineScope()
+    val voices = remember(found) { mutableStateMapOf<Int, List<Recording>>() }
+    val picked = remember(found) { mutableStateMapOf<Int, Int>() }
+    val lookup = settings.watch { it.lookup }
+    val options = PronunciationPlayer.Options(
+        enabled = lookup.recordings,
+        online = InternetPermission.granted,
+        keep = lookup.keepRecordings,
+        forvoKey = lookup.forvoKey,
+    )
+    fun playVoice(index: Int, entry: DictEntry, voice: Int) {
+        val recording = voices[index]?.getOrNull(voice) ?: return
+        picked[index] = voice
+        scope.launch { player.value.play(recording, entry.word, entry.spokenLocale(), options) }
     }
     found.entries.forEachIndexed { index, entry ->
         if (index > 0) Spacer(Modifier.size(14.dp))
@@ -470,8 +490,41 @@ private fun LookupEntries(found: WordLookup.Outcome.Found) {
                     }
                 }
             }
-            IconButton(onClick = { pronounce(context, player, speaker.value, entry) }) {
+            IconButton(
+                onClick = {
+                    scope.launch {
+                        val heard = voices[index] ?: player.value
+                            .voices(entry.word, entry.spokenLocale().language, options)
+                            .also { voices[index] = it }
+                        if (heard.isNotEmpty()) playVoice(index, entry, picked[index] ?: 0) else pronounce(speaker.value, entry)
+                    }
+                },
+            ) {
                 Icon(Icons.AutoMirrored.Outlined.VolumeUp, stringResource(R.string.lookup_play_desc, entry.word))
+            }
+        }
+        // One chip per recorded voice (#1146), once the speaker found any.
+        voices[index]?.takeIf { it.isNotEmpty() }?.let { recorded ->
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                recorded.forEachIndexed { voice, recording ->
+                    FilterChip(
+                        selected = voice == (picked[index] ?: 0),
+                        onClick = { playVoice(index, entry, voice) },
+                        label = {
+                            Text(
+                                if (recording.source == PronunciationSource.FORVO) {
+                                    stringResource(R.string.lookup_voice_forvo, recording.label)
+                                } else {
+                                    recording.label
+                                },
+                                maxLines = 1,
+                            )
+                        },
+                    )
+                }
             }
         }
         val pitchAndFrequency = entry.pitch.map { PitchNotation.format(entry.reading.ifEmpty { entry.word }, it) } +
@@ -540,29 +593,9 @@ private fun LookupEntries(found: WordLookup.Outcome.Found) {
     )
 }
 
-/** The source's recording when it has one, else the phone's voice in the dictionary's language. */
-private fun pronounce(context: Context, player: MediaPlayer, speaker: VocabSpeaker, entry: DictEntry) {
-    val url = entry.audioUrl
-    if (url != null) {
-        runCatching {
-            player.reset()
-            player.setAudioAttributes(
-                AudioAttributes.Builder()
-                    .setUsage(AudioAttributes.USAGE_MEDIA)
-                    .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
-                    .build(),
-            )
-            player.setDataSource(url)
-            player.setOnPreparedListener { it.start() }
-            player.prepareAsync()
-        }
-        return
-    }
-    val language = entry.origin.takeIf { it.isNotEmpty() }?.let { origin ->
-        YomichanDictionaries.installed().firstOrNull { it.info.title == origin }?.info?.sourceLanguage
-    }.orEmpty()
-    val locale = if (language.isNotEmpty()) Locale.forLanguageTag(language) else Locale.US
-    speaker.speak(entry.word, null, 1f, 1f, locale)
+/** The source's recording when it has one, else the phone's voice in the dictionary's language. Used when nobody recorded the word (#1146). */
+private fun pronounce(speaker: VocabSpeaker, entry: DictEntry) {
+    speaker.speak(entry.word, entry.audioUrl?.takeIf { InternetPermission.granted }, 1f, 1f, entry.spokenLocale())
 }
 
 @Composable

@@ -259,6 +259,8 @@ class ProviderType(
      * build's. A row with neither needs a key.
      */
     val keyFrom: String? = null,
+    /** Joins a list switched off, on a new install and after an update alike: nobody gets it without asking. */
+    val startsOff: Boolean = false,
 ) {
     @StringRes
     fun descriptionRes(tool: ProviderTool): Int = toolDescRes[tool] ?: descRes
@@ -465,6 +467,12 @@ object ProviderTypes {
         toolDescRes = mapOf(ProviderTool.SYNONYMS to R.string.core_tools_synonym_source_dictionary_api_desc),
     )
 
+    val URBAN_DICTIONARY = ProviderType(
+        "urban_dictionary", setOf(ProviderTool.DICTIONARY),
+        R.string.core_tools_dictionary_source_urban_dictionary, R.string.core_tools_dictionary_source_urban_dictionary_desc,
+        startsOff = true,
+    )
+
     /** The offline dictionaries (#665): the ids are their `DictionarySource` ids. */
     val OFFLINE_WIKTIONARY = ProviderType(
         "offline_wiktionary", setOf(ProviderTool.DICTIONARY),
@@ -479,6 +487,11 @@ object ProviderTypes {
     val OFFLINE_BENGALI = ProviderType(
         "offline_bn_wiktionary", setOf(ProviderTool.DICTIONARY),
         R.string.core_tools_dictionary_source_offline_bengali, R.string.core_tools_dictionary_source_offline_bengali_desc,
+        onDevice = true, freeSoftware = true,
+    )
+    val OFFLINE_LANGUAGES = ProviderType(
+        "offline_languages", setOf(ProviderTool.DICTIONARY),
+        R.string.core_tools_dictionary_source_offline_languages, R.string.core_tools_dictionary_source_offline_languages_desc,
         onDevice = true, freeSoftware = true,
     )
     /** The Yomichan / Yomitan dictionaries the user imported (#765); the id is its `DictionarySource` id. */
@@ -532,6 +545,9 @@ object ProviderTypes {
     val FRANKFURTER = ProviderType(
         "frankfurter", FIAT, R.string.core_tools_provider_frankfurter, R.string.core_tools_provider_frankfurter_desc,
         freeSoftware = true,
+    )
+    val ALLRATESTODAY = ProviderType(
+        "allratestoday", FIAT, R.string.core_tools_provider_allratestoday, R.string.core_tools_provider_allratestoday_desc,
     )
     val COINBASE = ProviderType(
         "coinbase", FIAT + COINS, R.string.core_tools_provider_coinbase, R.string.core_tools_provider_coinbase_desc,
@@ -650,6 +666,16 @@ object ProviderTypes {
         CredentialSpec(key = Need.OPTIONAL, url = Need.REQUIRED, model = true, modelRequired = true), multiInstance = true,
     )
 
+    /**
+     * Privatemode AI (#1145): the key, and optionally the address of the
+     * user's own privatemode-proxy. Without one the phone encrypts each
+     * request itself; with one the proxy does, and may hold the key.
+     */
+    val PRIVATEMODE = ProviderType(
+        "privatemode", AI, R.string.core_tools_provider_privatemode, R.string.core_tools_provider_privatemode_desc,
+        CredentialSpec(key = Need.OPTIONAL, url = Need.OPTIONAL, model = true),
+    )
+
     /** The downloaded model the AI page's model manager picked; only where the build carries the runtime. */
     val ON_DEVICE_AI = ProviderType(
         "on_device_ai", AI, R.string.core_tools_provider_on_device_ai, R.string.core_tools_provider_on_device_ai_desc,
@@ -689,6 +715,12 @@ object ProviderTypes {
     )
     val OMNILINGUAL = ProviderType(
         "omnilingual", VOICE, R.string.core_tools_provider_omnilingual, R.string.core_tools_provider_omnilingual_desc,
+        onDevice = true, freeSoftware = true,
+    )
+
+    /** Alpha Cephei's Vosk (#1165): small Kaldi models, one per language. */
+    val VOSK = ProviderType(
+        "vosk", VOICE, R.string.core_tools_provider_vosk, R.string.core_tools_provider_vosk_desc,
         onDevice = true, freeSoftware = true,
     )
 
@@ -896,6 +928,7 @@ object ProviderTypes {
             MOONSHINE.id to "moonshine",
             SHERPA.id to "sherpa",
             OMNILINGUAL.id to "omnilingual",
+            VOSK.id to "vosk",
             TRANSCRIPTION_SERVER.id to ENGINE_SERVER,
         )
     }
@@ -910,16 +943,16 @@ object ProviderTypes {
     val all: List<ProviderType> = listOf(
         KLIPY, GIPHY, COMMONS, GIFCITIES, OFFLINE_GIFS, STICKER_PACKS,
         ML_KIT, BERGAMOT, NLLB, TRANSLATE_SERVER, DEEPL, LIBRETRANSLATE, MOZHI, SIMPLYTRANSLATE, LINGVA, TRANSLITE, GOOGLE_TRANSLATE,
-        VOCAB_PACKS, WIKTIONARY, WIKTIONARY_REST, DICTIONARY_API, OFFLINE_WIKTIONARY, OFFLINE_WORDNET, OFFLINE_BENGALI,
-        IMPORTED_DICTIONARIES,
+        VOCAB_PACKS, WIKTIONARY, WIKTIONARY_REST, DICTIONARY_API, OFFLINE_WIKTIONARY, OFFLINE_WORDNET, OFFLINE_BENGALI, OFFLINE_LANGUAGES,
+        IMPORTED_DICTIONARIES, URBAN_DICTIONARY,
         DATAMUSE, SIMILAR_WORDS,
         SEARXNG, TAVILY, BRAVE,
         UNSPLASH, PEXELS,
-        ER_API, FRANKFURTER, COINBASE, CURRENCY_API, COINGECKO,
+        ER_API, FRANKFURTER, ALLRATESTODAY, COINBASE, CURRENCY_API, COINGECKO,
         HOME_ASSISTANT, GOOGLE_HOME, SMARTTHINGS, HUE, OPENHAB, TUYA, SWITCHBOT,
         VISION_OCR, RENS,
-        ANTHROPIC, OPENAI, GEMINI, XAI, DEEPSEEK, BRAVE_ANSWERS, OLLAMA, LM_STUDIO, OPENAI_COMPATIBLE, ON_DEVICE_AI,
-        SYSTEM_RECOGNIZER, WHISTLE, WHISPER, ASR4ALL, PARAKEET, MOONSHINE, SHERPA, OMNILINGUAL, TRANSCRIPTION_SERVER,
+        ANTHROPIC, OPENAI, GEMINI, XAI, DEEPSEEK, BRAVE_ANSWERS, PRIVATEMODE, OLLAMA, LM_STUDIO, OPENAI_COMPATIBLE, ON_DEVICE_AI,
+        SYSTEM_RECOGNIZER, WHISTLE, WHISPER, ASR4ALL, PARAKEET, MOONSHINE, SHERPA, OMNILINGUAL, VOSK, TRANSCRIPTION_SERVER,
         HARPER, LANGUAGETOOL,
         ON_DEVICE_IMAGE, POLLINATIONS, AI_HORDE, OPENAI_IMAGE, GEMINI_IMAGE, XAI_IMAGE, STABILITY, BFL, RECRAFT,
         REPLICATE, FAL, TOGETHER, HUGGING_FACE, CLOUDFLARE_AI, AUTOMATIC1111, COMFYUI, OPENAI_COMPATIBLE_IMAGE,
@@ -1042,8 +1075,9 @@ data class ProviderChain(
 
     /**
      * The word sources (dictionary, synonyms, vocabulary) a later build added
-     * join the end of a saved list, switched on, as they did before the lists
-     * were provider lists: an update adds a backup rather than hiding it.
+     * join the end of a saved list, switched on unless they [ProviderType.startsOff],
+     * as they did before the lists were provider lists: an update adds a backup
+     * rather than hiding it.
      * Only kinds that need nothing set up, and never one the user removed.
      */
     fun withNewTypes(tool: ProviderTool): ProviderChain {
@@ -1053,7 +1087,7 @@ data class ProviderChain(
         val added = ProviderTypes.serving(tool)
             .filter { it.id !in known && it.credential.none && !it.multiInstance }
             .filter { type -> entries.none { it.typeId == type.id } }
-        return if (added.isEmpty()) this else copy(entries = entries + added.map { ProviderEntry(it.id) })
+        return if (added.isEmpty()) this else copy(entries = entries + added.map { ProviderEntry(it.id, enabled = !it.startsOff) })
     }
 
     /**

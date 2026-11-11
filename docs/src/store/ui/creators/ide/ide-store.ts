@@ -12,6 +12,8 @@ export interface PluginManifest {
 	author: string;
 	description: string;
 	apiVersion: number;
+	/** Optional in a file; the app runs nothing but "python". */
+	language?: string;
 	entry: string;
 	permissions: string[];
 }
@@ -40,7 +42,9 @@ export const MAX_SNAPSHOTS = 30;
 export const MAX_SNAPSHOT_CHARACTERS = 512 * 1024;
 export const MAX_SCRIPT_BYTES = 256 * 1024;
 export const MANIFEST_FORMAT = 'wmkeyboard-plugin';
-export const API_VERSION = 2;
+export const API_VERSION = 4;
+export const LANGUAGE = 'python';
+export const DEFAULT_ENTRY = 'main.py';
 export const STORAGE_PERMISSION = 'storage';
 export const REMINDERS_PERMISSION = 'reminders';
 /** Every permission the app knows, in the order the manifest form lists them (PluginPermission.all). */
@@ -61,7 +65,7 @@ interface Stored {
 }
 
 export function blankManifest(): PluginManifest {
-	return { format: MANIFEST_FORMAT, id: '', name: '', pluginVersion: '', author: '', description: '', apiVersion: API_VERSION, entry: 'main.lua', permissions: [] };
+	return { format: MANIFEST_FORMAT, id: '', name: '', pluginVersion: '', author: '', description: '', apiVersion: API_VERSION, language: LANGUAGE, entry: DEFAULT_ENTRY, permissions: [] };
 }
 
 /** `PluginManifestCodec.displayText`: one line, trimmed, cut to `max`. */
@@ -78,13 +82,17 @@ export function sanitise(raw: string, field: ManifestField): string {
 		case 'VERSION': return displayText(raw, MAX_VERSION);
 		case 'AUTHOR': return displayText(raw, MAX_AUTHOR);
 		case 'DESCRIPTION': return displayText(raw, MAX_DESCRIPTION);
-		case 'ENTRY': return displayText(raw, MAX_ENTRY) || 'main.lua';
+		case 'ENTRY': {
+			// A draft saved before API 4 names another entry; it becomes main.py.
+			const entry = displayText(raw, MAX_ENTRY);
+			return entry.endsWith('.py') ? entry : DEFAULT_ENTRY;
+		}
 	}
 }
 
-/** The manifest as the importer would keep it. */
+/** The manifest as the importer would keep it, written for the current API. */
 export function sanitised(m: PluginManifest): PluginManifest {
-	return { ...m, format: MANIFEST_FORMAT, id: sanitise(m.id, 'ID'), name: sanitise(m.name, 'NAME'), pluginVersion: sanitise(m.pluginVersion, 'VERSION'), author: sanitise(m.author, 'AUTHOR'), description: sanitise(m.description, 'DESCRIPTION'), entry: sanitise(m.entry, 'ENTRY'), permissions: m.permissions.slice(0, 16) };
+	return { ...m, format: MANIFEST_FORMAT, apiVersion: API_VERSION, language: LANGUAGE, id: sanitise(m.id, 'ID'), name: sanitise(m.name, 'NAME'), pluginVersion: sanitise(m.pluginVersion, 'VERSION'), author: sanitise(m.author, 'AUTHOR'), description: sanitise(m.description, 'DESCRIPTION'), entry: sanitise(m.entry, 'ENTRY'), permissions: m.permissions.slice(0, 16) };
 }
 
 function read(): Stored {
@@ -285,30 +293,34 @@ export function takenIds(): Set<string> {
 	return new Set(Object.values(s.manifests).map((m) => m.id));
 }
 
-/** `PluginFile.fileName`: the name, or the id, with only letters, digits, spaces, dashes and underscores. */
+/**
+ * `PluginFile.fileName`: the name, or the id, with only letters, digits, spaces,
+ * dashes and underscores, and the plugin's version after it (#970), `Demo-1.2.wmplugin`.
+ */
 export function fileNameOf(manifest: PluginManifest): string {
 	const stem = (manifest.name.trim() || manifest.id).replace(/[^\p{L}\p{N} _-]/gu, '').trim() || 'plugin';
-	return `${stem}.wmplugin`;
+	const version = manifest.pluginVersion.replace(/[^\p{L}\p{N} ._-]/gu, '').replace(/^[. ]+|[. ]+$/g, '');
+	return version ? `${stem}-${version}.wmplugin` : `${stem}.wmplugin`;
 }
 
 /** The plugin a new draft starts as (PluginIdeState.BLANK_PLUGIN_SCRIPT). */
-export const BLANK_PLUGIN_SCRIPT = `-- A plugin draws a panel in the keyboard. render() says what the panel shows,
--- and on_event(e) hears what the user pressed.
+export const BLANK_PLUGIN_SCRIPT = `# A plugin draws a panel in the keyboard. render() says what the panel shows,
+# and on_event(e) hears what the user pressed.
 
-local count = 0
+count = 0
 
-function on_event(e)
-  if e.type == "click" and e.id == "add" then
-    count = count + 1
-  end
-end
 
-function render()
-  return ui.column {
-    ui.label { text = "Pressed " .. count .. " times", style = "title" },
-    ui.button { id = "add", text = "Press me", style = "primary" },
-  }
-end
+def on_event(e):
+    global count
+    if e.type == "click" and e.id == "add":
+        count += 1
+
+
+def render():
+    return ui.column(
+        ui.label("Pressed " + str(count) + " times", style="title"),
+        ui.button("add", "Press me", style="primary"),
+    )
 `;
 
 /** The code key row's arrangement (CodeKeyPrefs). */

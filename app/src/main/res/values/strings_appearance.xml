@@ -55,10 +55,17 @@
     <!-- One-of-three choice: where the pinned tools are drawn. -->
     <string name="appearance_toolbar_placement_title">Where the tools go</string>
     <string name="appearance_toolbar_placement_subtitle">Share the suggestion strip, or use a row above it</string>
-    <string name="appearance_toolbar_placement_info">With \"The strip\", the tools and the suggestions share one row. The tools rest there, the suggestions take the row while you type, and the arrow button changes between them. This costs no height. With \"A button\", the arrow button opens a row of tools above the suggestions, and the button closes it again. With \"Always\", that row of tools stays open. Both of the last two keep the tools in reach while you type, and both use the height of one more row.</string>
+    <string name="appearance_toolbar_placement_info">With \"The strip\", the tools and the suggestions share one row. The tools rest there, the suggestions take the row while you type, and the arrow button changes between them. This costs no height. With \"A button\", the arrow button opens a row of tools above the suggestions, and the button closes it again. With \"Always\", that row of tools stays open. Both of these keep the tools in reach while you type, and both use the height of one more row. With \"On a swipe\", the tools share the strip again but only come when you ask: swipe up on the strip\'s toolbox button to bring them and down to put them away. Turn on Toolbox button under Emoji for the strip to have that button.</string>
     <string name="appearance_toolbar_placement_strip_label">The strip</string>
     <string name="appearance_toolbar_placement_button_label">A button</string>
     <string name="appearance_toolbar_placement_always_label">Always</string>
+    <string name="appearance_toolbar_placement_swipe_label">On a swipe</string>
+    <string name="appearance_toolbar_placement_swipe_desc">The tools share the strip, and come up when you swipe up on its toolbox button</string>
+    <string name="appearance_toolbar_bar_toolbox_title">Toolbox button before the tools</string>
+    <string name="appearance_toolbar_bar_toolbox_subtitle">Off leaves the toolbox to the button beside the suggestions. An open tool still shows it</string>
+    <string name="appearance_toolbar_tools_arrow_title">Arrow to the tools</string>
+    <string name="appearance_toolbar_tools_arrow_subtitle">Off leaves opening and closing the tools to a swipe up and down on a toolbox button</string>
+    <string name="appearance_toolbar_needs_strip_toolbox">Needs the toolbox button beside the suggestions, under Emoji</string>
     <string name="appearance_toolbar_placement_strip_desc">The tools and the suggestions share one row, and the arrow flips between them</string>
     <string name="appearance_toolbar_placement_button_desc">The tools get a row of their own, opened and closed from the arrow</string>
     <string name="appearance_toolbar_show_strip_title">Suggestion strip</string>
@@ -96,11 +103,11 @@
     <string name="appearance_toolbar_padding_top_title">Toolbar top padding</string>
     <string name="appearance_toolbar_padding_top_subtitle">Space above the tools and the suggestions</string>
     <!-- dp is the Android unit for screen size. Keep the two letters. -->
-    <string name="appearance_toolbar_padding_top_info">This adds space between the top edge of the keyboard and the toolbar. The default is 4 dp. The toolbar and the keyboard get taller by the same amount.</string>
+    <string name="appearance_toolbar_padding_top_info">This adds space between the top edge of the keyboard and the toolbar. The default is 4 dp. The toolbar and the keyboard get taller by the same amount. Below 0 the toolbar gets shorter instead.</string>
     <string name="appearance_toolbar_padding_bottom_title">Toolbar bottom padding</string>
     <string name="appearance_toolbar_padding_bottom_subtitle">Space between the toolbar and the keys</string>
     <!-- dp is the Android unit for screen size. Keep the two letters. -->
-    <string name="appearance_toolbar_padding_bottom_info">This adds space between the toolbar and the first row of keys. The default is 0 dp. The toolbar and the keyboard get taller by the same amount.</string>
+    <string name="appearance_toolbar_padding_bottom_info">This adds space between the toolbar and the first row of keys. The default is 0 dp. The toolbar and the keyboard get taller by the same amount. Below 0 the toolbar gets shorter instead.</string>
     <string name="appearance_toolbar_lock_title">Hide the toolbar and the clipboard on the lock screen</string>
     <string name="appearance_toolbar_lock_subtitle">Hide the top strip and block the clipboard while your device is locked</string>
     <string name="appearance_toolbar_lock_info">The keyboard opens over your lock screen when you answer a notification or use a search box there. This setting then hides the full top strip and blocks the clipboard panel. The strip holds the word suggestions and every pinned tool, so the clipboard tool and its paste chip also go. Copied text such as one-time codes and passwords stays off a screen that anyone can wake. This setting is off by default. When your device is unlocked, the keyboard does not change.</string>
@@ -152,6 +159,9 @@
     <string name="appearance_toolbox_paginate_info">When this is off, the toolbox is one grid that scrolls up and down. When it is on, the toolbox becomes pages that you swipe between. Dots below the grid show your position. Every tool then keeps the same place, so you can find it from memory. To move a tool to another page, drag it and hold it against the side edge of the toolbox until the page turns.</string>
     <string name="appearance_toolbox_search_button_title">Toolbox search</string>
     <string name="appearance_toolbox_search_button_subtitle">A search button on the toolbar while the toolbox is open</string>
+    <string name="appearance_toolbox_back_lowers_title">Back puts a tool\'s keys down first</string>
+    <string name="appearance_toolbox_back_lowers_subtitle">The next Back closes the tool</string>
+    <string name="appearance_toolbox_back_lowers_info">With the keys up under a tool\'s own box, such as Translate or find and replace, the first Back takes the keys down so the whole tool shows, and the second closes the tool. Off, Back closes the tool at once. Either way, the keyboard button at the end of the box\'s suggestion strip puts the keys down.</string>
     <string name="appearance_toolbox_search_button_info">While the toolbox is open, the toolbar shows a search button. Tapping it opens the search over the whole keyboard, with a back button that returns to the toolbox. Type a tool\'s name to find it, wherever it is, folders included. Turn this off to leave the toolbox without a search.</string>
     <string name="appearance_toolbox_search_at_end_title">Search button at the far end</string>
     <string name="appearance_toolbox_search_at_end_subtitle">Put the toolbox search at the far end of the toolbar, away from the back button</string>
@@ -193,6 +203,9 @@
     <string name="appearance_suggestion_primary_color_title">Autocorrect word color</string>
     <string name="appearance_suggestion_primary_color_subtitle">Color of the word that autocorrect will put in for a space</string>
     <string name="appearance_suggestion_primary_color_info">The strip draws its first suggestion in bold. Pick a color here and that word takes the color only when autocorrect has decided to put it in for you when you type a space. A bold word without the color is the top suggestion, and a space keeps what you typed. The other suggestions keep the theme color. Reset the row to follow the theme again.</string>
+    <string name="appearance_suggestion_new_word_color_title">New word color</string>
+    <string name="appearance_suggestion_new_word_color_subtitle">Color of a word that no word list or your dictionary knows yet</string>
+    <string name="appearance_suggestion_new_word_color_info">Pick a color here and a word on the strip that is in no word list, not in your personal dictionary, not one of your contacts and not accepted by the spell checker takes it. That is usually the word you are typing, so you can see that it would be new to the dictionary before you add it from its hold menu or the keyboard learns it on its own. The color goes as soon as the word is learned or added. The autocorrect word color wins where both apply. Not used on a layout that turns your keys into another script. Reset the row to follow the theme again.</string>
 
     <string name="appearance_toolbox_label_size_title">Toolbox label size</string>
     <string name="appearance_toolbox_label_size_subtitle">The name under each tool in the full tool panel</string>

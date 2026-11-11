@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import com.wasimaster.wmkeyboard.app.share.AppShareSheet
 import android.content.ClipData
 import android.content.ClipboardManager
@@ -58,6 +59,17 @@ import kotlinx.coroutines.withContext
 internal data class OfflineLink(val label: String, val url: String)
 
 /**
+ * How deep an [OfflineImportRow] sits on a screen that also downloads: a detail
+ * where the download works, and at every depth on the offline build, where the
+ * row is the only way in.
+ */
+internal val offlineImportLevel: SettingLevel
+    get() = if (offlineBuild) SettingLevel.BASIC else SettingLevel.ADVANCED
+
+/** The build with no internet permission, where a Download button can only fail. */
+internal val offlineBuild: Boolean get() = !InternetPermission.granted
+
+/**
  * The row every download screen carries for a phone that cannot download:
  * **Get the files** says where they are published (opened in the browser, or
  * shared to another device), and **Import** takes them from the file picker
@@ -75,6 +87,8 @@ internal fun OfflineImportRow(
     links: List<OfflineLink>,
     wordlistSize: DictionaryCatalog.DictionarySize = DictionaryCatalog.DictionarySize.LARGE,
     title: String = stringResource(R.string.offline_import_row_title),
+    /** Said under the links' explanation, for files with something of their own to know about where they come from. */
+    linksNote: String? = null,
     onImported: () -> Unit = {},
 ) {
     var showLinks by remember { mutableStateOf(false) }
@@ -96,7 +110,7 @@ internal fun OfflineImportRow(
         },
         modifier = Modifier.padding(horizontal = 4.dp),
     )
-    if (showLinks) OfflineLinksDialog(links) { showLinks = false }
+    if (showLinks) OfflineLinksDialog(links, note = linksNote) { showLinks = false }
 }
 
 /**
@@ -130,6 +144,7 @@ internal fun rememberOfflineImport(
     var choice by remember { mutableStateOf<WordlistChoice?>(null) }
     val install: (List<Uri>) -> Unit = install@{ uris ->
         if (uris.isEmpty()) return@install
+        PickerPlaces.remember(context, PickerPlaces.OFFLINE_IMPORT, uris.first())
         working = ""
         scope.launch {
             val outcomes = withContext(Dispatchers.IO) {
@@ -149,7 +164,7 @@ internal fun rememberOfflineImport(
             if (outcomes.any { it.ok }) onImported()
         }
     }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.OpenMultipleDocuments(), install)
+    val launcher = rememberLauncherForActivityResult(OpenMultipleDocumentsAt(PickerPlaces.OFFLINE_IMPORT), install)
     val pending = choice
     if (pending != null) {
         WordlistChoiceDialog(pending) { picked ->
@@ -300,7 +315,12 @@ private fun OfflineImportReport(outcomes: List<OfflineImport.Outcome>, onDismiss
  * for the files once they are on the phone.
  */
 @Composable
-internal fun OfflineLinksDialog(links: List<OfflineLink>, onImport: (() -> Unit)? = null, onDismiss: () -> Unit) {
+internal fun OfflineLinksDialog(
+    links: List<OfflineLink>,
+    onImport: (() -> Unit)? = null,
+    note: String? = null,
+    onDismiss: () -> Unit,
+) {
     val context = LocalContext.current
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -312,6 +332,14 @@ internal fun OfflineLinksDialog(links: List<OfflineLink>, onImport: (() -> Unit)
                     style = MaterialTheme.typography.bodyMedium,
                     modifier = Modifier.padding(bottom = 8.dp),
                 )
+                if (note != null) {
+                    Text(
+                        note,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
                 for (link in links) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(Modifier.weight(1f)) {

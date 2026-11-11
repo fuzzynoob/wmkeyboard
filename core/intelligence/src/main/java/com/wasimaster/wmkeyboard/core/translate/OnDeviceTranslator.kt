@@ -47,6 +47,14 @@ object OnDeviceTranslator {
     /** False in F-Droid's build, which carries no ML Kit. */
     val AVAILABLE: Boolean = BuildConfig.GOOGLE_SDKS
 
+    /**
+     * Whether the translate tool can offer this engine. The offline build has
+     * the code but no way to its models: ML Kit fetches them itself and takes
+     * none from a file (#1035). Language identification needs no model and
+     * goes by [AVAILABLE].
+     */
+    val offered: Boolean get() = AVAILABLE && InternetPermission.granted
+
     /** Longest text translated in one go, the same cut the online clients make. */
     private const val MAX_CHARS = 2500
 
@@ -192,6 +200,11 @@ object OnDeviceTranslator {
         // "no network" as a reason to wait, indefinitely and in silence. A
         // button that spins forever on a plane is worse than one that says no.
         if (!hasNetwork(context)) throw IOException("No network for the $code translation model")
+        // ML Kit polls the system DownloadManager from a thread of its own,
+        // where a SecurityException from the downloads provider (some ROMs
+        // lock it down) cannot be caught and ends the process. Asked here
+        // first, the same refusal is a failed download instead.
+        if (!downloadsReachable(context)) throw IOException("The system download manager refused the $code translation model")
         val task = engine.startDownload(code)
         val startedAt = SystemClock.elapsedRealtime()
         var lastBytes = 0L
@@ -379,6 +392,9 @@ object OnDeviceTranslator {
      * keyboard process that keeps sixty megabytes of translator for a tool
      * nobody has open is first in line when Android wants memory back.
      */
+    /** Whether a translation model is loaded; for the Resources screen (#1163). Any thread. */
+    val isLoaded: Boolean get() = loaded != null
+
     fun release() {
         val engine = loaded ?: return
         scope.launch { engineLock.withLock { engine.release() } }
@@ -421,6 +437,20 @@ object OnDeviceTranslator {
                 }
             }.getOrNull()
         }
+
+    /** Whether the system DownloadManager answers this app at all; ML Kit fetches through it. */
+    private suspend fun downloadsReachable(context: Context): Boolean = withContext(Dispatchers.IO) {
+        val dm = context.getSystemService(DownloadManager::class.java) ?: return@withContext false
+        try {
+            dm.query(DownloadManager.Query())?.close()
+            true
+        } catch (_: SecurityException) {
+            false
+        } catch (_: IllegalArgumentException) {
+            // No downloads provider on the device at all.
+            false
+        }
+    }
 
     /** Whether [uri] is the download of [code]'s model: `…/en_bn.zip` style names. */
     internal fun isModelAddress(uri: String, code: String): Boolean {

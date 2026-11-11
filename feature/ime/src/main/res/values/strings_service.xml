@@ -45,12 +45,18 @@
     <string name="ime_grammar_module_installing_info">The grammar checker is an extra part of the keyboard, and it is downloading…</string>
     <string name="ime_grammar_module_failed_info">The grammar checker did not download. Check the connection, then open this panel again.</string>
     <string name="ime_grammar_module_data_saver_info">The grammar checker is an extra part of the keyboard that downloads separately, and data saving is holding downloads.</string>
+    <!-- Name of GiellaLT, whose grammar checkers (Sámi languages, Faroese) the tool runs on the phone. -->
+    <string name="ime_grammar_giella_name" translatable="false">GiellaLT</string>
     <string name="ime_grammar_languagetool_private_info">LanguageTool is never sent a password field or text typed in incognito, so nothing checks this field. Harper checks English here when it is on the list.</string>
     <string name="ime_grammar_languagetool_data_saver_info">Data saving is holding online grammar checks, so LanguageTool is not asked. Harper checks English when it is on the list.</string>
     <string name="ime_grammar_nothing_on_info">Every grammar checker is off. Switch one on in the Grammar check settings.</string>
     <string name="ime_grammar_module_installing_toast">The grammar checker is downloading. Try again in a moment.</string>
 
     <!-- AI panel: one tap actions that run on the text in the field. -->
+    <string name="ime_symbols_unicode_label">Unicode</string>
+    <string name="ime_symbols_unicode_search">Search</string>
+    <string name="ime_symbols_unicode_search_hint">A name or a code: arrow, U+2192</string>
+    <string name="ime_symbols_unicode_search_close">Close search</string>
     <string name="ime_ai_model_label">Model:</string>
     <string name="ime_ai_setup_body">Set up an AI provider in the settings of the tool to use AI.</string>
     <string name="ime_ai_setup_local_body">Set up an AI provider, or download a model to your device. Both are in the settings of the tool.</string>
@@ -145,6 +151,10 @@
     <string name="ime_service_voice_error_busy">The microphone is busy. Close the other apps that use it and try again.</string>
     <string name="ime_service_voice_error_language">Speech recognition does not support this language on your device.</string>
     <string name="ime_service_voice_error_other">Speech recognition did not work. Try again.</string>
+    <!-- %1$d is the error number Android's speech recognizer gave, for example 5. -->
+    <string name="ime_service_voice_error_code">Speech recognition did not work (error %1$d). Try again, or choose a different voice engine.</string>
+    <!-- The keyboard has the microphone permission; the app that does the recognising does not. -->
+    <string name="ime_service_voice_error_recognizer_permission">The speech recognizer of your phone is not allowed to use the microphone. Allow it in the settings of your phone, or choose a different voice engine.</string>
     <string name="ime_service_voice_mic_error">The keyboard cannot start the microphone. Close the other apps that use it and try again.</string>
     <string name="ime_service_voice_transcribe_error">The transcription did not work. Try again.</string>
     <string name="ime_service_voice_model_download_error">The download of the offline model did not work. Try again later.</string>
@@ -221,6 +231,8 @@
     <!-- Plugins panel, from the keyboard service. -->
     <string name="ime_service_plugins_off_notice">Plugins are turned off. Turn them on in Settings to install and run them.</string>
     <string name="ime_service_plugins_all_off_notice">Every plugin you installed is turned off. Turn one on under Manage plugins.</string>
+    <!-- %1$s is a comma-separated list of plugin names. -->
+    <string name="ime_service_plugins_retired_notice">Plugins are now written in Python, so these Lua plugins were removed: %1$s. Settings › Plugins keeps their data.</string>
 
     <!-- GIFs, stickers and images the keyboard sends or saves. -->
     <string name="ime_service_sticker_pack_default_name">My stickers</string>
@@ -235,6 +247,7 @@
     <string name="ime_service_media_download_error_toast">The download did not work. Check your connection.</string>
 
     <!-- Clipboard: what the keyboard says when it copies or pastes for you. -->
+    <string name="ime_service_null_field_copy_toast">This app keeps its text from the keyboard. Use its own Copy.</string>
     <string name="ime_service_copied_toast">Copied</string>
     <string name="ime_service_copied_paste_toast">Copied. You can paste it anywhere.</string>
     <string name="ime_service_file_copy_error_toast">The keyboard cannot copy that file</string>
@@ -267,6 +280,7 @@
     <string name="ime_floating_lookup_label">Look up a word</string>
     <string name="ime_floating_pick_hint">Tap a word to look it up</string>
     <string name="ime_floating_pick_nothing">There is no text there to look up</string>
+    <string name="ime_screenshot_failed">Android did not take the screenshot</string>
     <string name="ime_floating_hide_label">Hide the button</string>
     <string name="ime_floating_none_label">Nothing</string>
     <string name="ime_floating_close_menu">Close menu</string>
@@ -277,6 +291,23 @@
     <!-- A slot that opens an app (#922), named here only when the app is gone. -->
     <string name="ime_floating_app_label">Open an app</string>
     <string name="ime_floating_app_missing">That app is no longer installed</string>
+    <string name="ime_floating_pair_label">Open an app pair</string>
+    <string name="ime_floating_applet_name">%1$s in a box</string>
+    <string name="ime_floating_system_back">Back</string>
+    <string name="ime_floating_system_recents">Recent apps</string>
+    <string name="ime_floating_system_app_drawer">App drawer</string>
+    <string name="ime_floating_system_notifications">Notifications</string>
+    <string name="ime_floating_system_quick_settings">Quick settings</string>
+    <string name="ime_floating_system_failed">Android did not press that button</string>
+    <string name="ime_applet_close">Close the box</string>
+    <string name="ime_applet_open_in_keyboard">Open in the keyboard</string>
+    <string name="ime_applet_resize">Drag to resize</string>
+    <string name="ime_applet_tuck">Tuck into the edge</string>
+    <!-- The tab a floating box leaves on the screen's edge. %1$s is the tool's name, for example Calculator. -->
+    <string name="ime_applet_untuck">Bring back <xliff:g id="tool" example="Calculator">%1$s</xliff:g></string>
+    <string name="ime_applet_copied">Copied</string>
+    <string name="ime_floating_pair_name">%1$s + %2$s</string>
+    <string name="ime_floating_pair_missing">One of the two apps is no longer installed</string>
     <!-- A slot that opens a ring of its own (#923), named here only when it has no name. -->
     <string name="ime_floating_category_label">Category</string>
     <string name="ime_floating_category_empty">This category is empty. Add actions to it in the floating button settings.</string>
@@ -292,6 +323,8 @@
     <string name="ime_disabled_translate_same_language">The text is already in the language you translate to.</string>
     <string name="ime_disabled_media_app_blocks">The app that is playing does not allow this.</string>
     <string name="ime_disabled_voice_undo">Nothing to undo yet. Undo takes back the last phrase you spoke.</string>
+    <string name="ime_disabled_correction_invalid">Type a different word to correct to. The word being corrected needs at least 3 letters, and the fix can be one word, or two for a missed space.</string>
+    <string name="ime_word_correct_saved">\"<xliff:g id="typed" example="kagay">%1$s</xliff:g>\" will be corrected to \"<xliff:g id="fixed" example="lagay">%2$s</xliff:g>\"</string>
     <string name="ime_disabled_spell_unchanged">Change the spelling first. An empty or unchanged spelling has nothing to apply.</string>
     <string name="ime_disabled_clip_tidy">Select a text clip first. Tidy works on text, not on images.</string>
     <string name="ime_disabled_clip_combine">Select two or more text clips to combine them.</string>

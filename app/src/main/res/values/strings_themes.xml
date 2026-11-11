@@ -164,10 +164,51 @@
     <!-- Button that reads a Multiling O Keyboard theme. Keep it short: it sits
          beside Import, FlorisBoard and HeliBoard. -->
     <string name="theme_import_multiling_action">Multiling O</string>
+    <!-- Button that reads a theme file from Clink, an iOS keyboard. Clink is
+         the name of that keyboard. Keep it short: it sits beside Import,
+         FlorisBoard and HeliBoard. -->
+    <string name="theme_import_clink_action" translatable="false">Clink</string>
+    <!-- Button that reads the theme out of a Kinetica keyboard backup file.
+         Kinetica is the name of that keyboard. Keep it short: it sits beside
+         Import, FlorisBoard and HeliBoard. -->
+    <string name="theme_import_kinetica_action" translatable="false">Kinetica</string>
+    <!-- Button that makes a theme from a screenshot of a keyboard. Keep it short:
+         it sits beside Import, FlorisBoard and HeliBoard. -->
+    <string name="theme_copy_action">Screenshot</string>
+    <!-- Title of the dialog that shows a theme read from a screenshot. -->
+    <string name="theme_copy_title">Theme from a screenshot</string>
+    <!-- Name given to a theme read from a screenshot. The user can change it. -->
+    <string name="theme_copy_default_name">Copied theme</string>
+    <!-- Dialog text under the preview of a theme read from a screenshot. -->
+    <string name="theme_copy_body">The colors, key shape and background come from the picture. The app cannot copy a font or the icons on the keys. To rebuild a photo background better, pick up to three screenshots of the same keyboard, such as letters and symbols.</string>
+    <!-- Checkbox in the same dialog: also use the sizes measured in the picture. -->
+    <string name="theme_copy_sizes">Also copy the sizes: number row, key height, gaps and the space under the keys</string>
+    <!-- Warning in the same dialog when the theme does not match the picture well. -->
+    <string name="theme_copy_small_picture">This picture is small, so thin lines and small labels may be missed. A full screenshot works better.</string>
+    <string name="theme_copy_key_opacity">Key opacity</string>
+    <string name="theme_copy_low_confidence">This copy does not match the picture closely. Check it before you use it.</string>
+    <!-- Shown when the picture has no keyboard the app can read. -->
+    <string name="theme_copy_not_found">The app did not find a keyboard in that picture. Use a screenshot that shows all the letter keys.</string>
+    <!-- Shown after a theme read from a screenshot is saved. -->
+    <string name="theme_copy_done">The app saved the theme with your themes.</string>
+    <!-- Shown when the on-demand library that reads screenshots is not on the phone. -->
+    <string name="theme_copy_needs_library">This uses the same library as the document scanner. Download it to continue.</string>
     <!-- Shown when the file the user selected is not a theme file. -->
     <string name="theme_import_wrong_file_error">That file is not a WM Keyboard theme.</string>
     <!-- Shown after a theme is imported. %1$s is the name of the theme. -->
     <string name="theme_import_done_message">The app imported <xliff:g id="theme_name" example="Midnight">%1$s</xliff:g>.</string>
+    <!-- Shown after the user picks several theme files at once. %d is how many
+         themes the app added. The keyboard does not switch to any of them. -->
+    <plurals name="theme_import_batch_saved">
+        <item quantity="one">The app imported %d theme. Tap it in Your themes to use it.</item>
+        <item quantity="other">The app imported %d themes. Tap one in Your themes to use it.</item>
+    </plurals>
+    <!-- Follows theme_import_batch_saved when some files were not themes.
+         %1$d is how many files, %2$s is their names, separated by commas. -->
+    <plurals name="theme_import_batch_failed">
+        <item quantity="one">The app could not read %1$d file: <xliff:g id="file_names" example="notes.txt">%2$s</xliff:g></item>
+        <item quantity="other">The app could not read %1$d files: <xliff:g id="file_names" example="notes.txt, old.zip">%2$s</xliff:g></item>
+    </plurals>
     <string name="theme_custom_section_title">Your themes</string>
     <string name="theme_builtin_section_title">Built-in</string>
 
@@ -232,6 +273,9 @@
     <string name="theme_background_image_replace">Press to change the image</string>
     <string name="theme_image_opacity_title">Image opacity</string>
     <string name="theme_image_blur_title">Image blur</string>
+    <!-- Switch: the background photo is cut up and shown across the keys, with a plain color between them. -->
+    <string name="theme_picture_on_keys_title">Picture on the keys</string>
+    <string name="theme_picture_on_keys_subtitle">Spread the image across the keys, each key showing its own piece, with the background color between them. Turns on glass for the keys and makes them see-through. Set the color between the keys with Background, and lower the Enter key\'s opacity to put the picture there too</string>
     <string name="theme_background_image_alpha_body">The board color became transparent when you selected this image. The image shows at full strength. Increase the opacity of the background color to tint the image or to make it dark.</string>
     <string name="theme_background_image_landscape_title">Landscape background image</string>
     <string name="theme_background_image_landscape_none">Optional: the keyboard shows this image in landscape, or the image above if this one is empty</string>
@@ -330,6 +374,10 @@
     <string name="theme_other_suggestions_body">The suggestions beside the main one on the strip. On Auto they use the suggestion text colour.</string>
     <string name="theme_other_suggestions_size_title">Other suggestions size</string>
     <string name="theme_other_suggestions_size_body">How big the other suggestions are, as a share of the main one.</string>
+    <string name="theme_suggestion_pill_title">Suggestion pills</string>
+    <string name="theme_suggestion_pill_body">The rounded box behind each word on the strip. Pills show only while Coloured suggestions is on in Typing settings. On Auto they are the accent colour, made faint.</string>
+    <string name="theme_primary_suggestion_pill_title">Main suggestion pill</string>
+    <string name="theme_primary_suggestion_pill_body">The pill behind the main suggestion, the word a space puts in. On Auto it is the Suggestion pills colour laid twice, so it reads a little deeper.</string>
     <string name="theme_card_elevation_title">Card shadow</string>
     <string name="theme_secondary_text_title">Secondary text</string>
     <string name="theme_secondary_text_body">The quieter text beside the main text: the second word of a suggestion, and the kind and time of a clipboard entry.</string>
@@ -409,7 +457,7 @@
     <string name="theme_glass_dispersion_title">Color split</string>
     <string name="theme_glass_dispersion_body">How far red and blue part where the pane bends the backdrop, like light through the edge of a prism.</string>
     <string name="theme_glass_window_blur_title">Blur behind the keyboard</string>
-    <string name="theme_glass_window_blur_subtitle">The app behind the keyboard shows through the board, blurred. Android 12 and later. Off while the phone\'s blur or the keyboard\'s power saving is off, and in the floating keyboard</string>
+    <string name="theme_glass_window_blur_subtitle">The app behind the keyboard shows through the board, blurred. Android 12 and later. Off while the phone\'s blur or the keyboard\'s power saving is off, and in the floating keyboard. Turn this off, and set Behind the glass to Nothing, for a solid keyboard</string>
     <string name="theme_glass_window_blur_unavailable">This phone isn\'t blurring windows right now: its blur is off, or it has none. The glass shows your wallpaper instead of the app, so the background won\'t change from app to app. Look for a window blur switch in the phone\'s settings, or turn off battery saver.</string>
     <string name="theme_glass_blur_strength_title">Blur strength</string>
     <string name="theme_glass_blur_strength_body">How far the system blurs the app behind the board, and the keys behind a popup or menu.</string>
@@ -521,6 +569,13 @@
     <string name="theme_editor_undo_desc">Undo the last change to this theme</string>
     <string name="theme_editor_redo_desc">Redo the change you undid</string>
     <string name="theme_pick_hint">Press a key, a tool or the strip</string>
+    <string name="theme_pick_several_chip">Several keys</string>
+    <string name="theme_pick_several_hint">Press the keys to style together</string>
+    <string name="theme_pick_several_style">Style</string>
+    <plurals name="theme_pick_several_title">
+        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> key</item>
+        <item quantity="other"><xliff:g id="count" example="10">%1$d</xliff:g> keys</item>
+    </plurals>
     <!-- Words the preview's suggestion strip shows while the strip is being styled, separated by commas. -->
     <string name="theme_pick_strip_sample_words">Hello,Thanks,Okay</string>
     <string name="theme_parts_section_title">Toolbar, strip and popups</string>
@@ -584,14 +639,23 @@
     <string name="theme_font_sound_section_title">Font and sound</string>
     <string name="theme_font_sound_section_body">The theme can bring its own key font and key sound. If the device does not have them, the keyboard uses your global choices. Fonts and sounds install as add-ons, so you can also use them with other themes.</string>
     <string name="theme_font_title">Key font</string>
+    <string name="theme_font_overrides_body">Overrides your keyboard font setting. Picking a font here sets that setting back to Default.</string>
+    <string name="theme_font_hidden_body">Your keyboard font setting hides this font. Pick it again here to use it.</string>
     <string name="theme_sound_title">Key sound</string>
     <string name="theme_follow_settings_label">Follow settings</string>
     <!-- %1$s is the name of a script, such as Bengali. -->
     <string name="theme_script_font_title">%1$s font</string>
     <string name="theme_script_font_add_title">Add a font for a script</string>
-    <string name="theme_script_font_add_body">The key font above is used for Latin, Cyrillic and Greek. Other scripts keep their own font unless the theme gives them one.</string>
+    <string name="theme_script_font_add_body">The key font above is used for Latin, Cyrillic and Greek. Other scripts keep their own font unless the theme gives them one. A font picked here overrides your own font for that script.</string>
     <string name="theme_script_font_default_label">Use the script default</string>
     <string name="theme_script_font_all_set_body">Every script already has a font in this theme.</string>
+
+    <!-- Theme editor: the glyphs the theme draws on the keyboard's own keys. -->
+    <string name="theme_key_icons_section_title">Key icons</string>
+    <string name="theme_key_icons_section_body">The theme can draw its own icon on the delete, shift, enter and other keys. Pick a picture from Your icons. The theme keeps its own copy, so the icon goes with the theme when you export it. An icon pack or an icon you picked under Appearance, then Icons, comes first.</string>
+    <string name="theme_key_icons_from_theme_label">From this theme</string>
+    <string name="theme_key_icons_hidden_label">Hidden by your icon pack or the Icons screen</string>
+    <string name="theme_key_icons_remove_action">Remove from the theme</string>
 
     <!-- Gradient editor. -->
     <!-- Caption over the choice of gradient shape. -->
@@ -634,6 +698,17 @@
     <string name="theme_color_opacity_label">Opacity</string>
     <string name="theme_color_apply_action">Apply</string>
     <string name="theme_color_presets_label">Presets</string>
+    <!-- Tabs of the color picker: the shades of the phone's Material You wallpaper colors, or any color. -->
+    <string name="theme_color_palette_tab">Palette</string>
+    <string name="theme_color_custom_tab">Custom</string>
+    <!-- How light a shade is, from 0 for black to 100 for white. -->
+    <string name="theme_color_tone_label">Tone</string>
+    <!-- Screen reader names of the wallpaper's color palettes, as Material You calls them. -->
+    <string name="theme_color_palette_primary">Primary</string>
+    <string name="theme_color_palette_secondary">Secondary</string>
+    <string name="theme_color_palette_tertiary">Tertiary</string>
+    <string name="theme_color_palette_neutral">Neutral</string>
+    <string name="theme_color_palette_neutral_variant">Neutral variant</string>
     <!-- Name of the button that shows the color wheel. -->
     <string name="theme_color_wheel_action">Color wheel</string>
     <!-- Name of the button that shows the hue and saturation bars. -->
@@ -703,4 +778,223 @@
     <string name="theme_assets_readme_screen">Screen: %1$s, density %2$.2f</string>
     <string name="theme_assets_readme_on_screen" tools:ignore="PluralsCandidate">On screen: %1$d × %2$d px</string>
     <string name="theme_assets_readme_template" tools:ignore="PluralsCandidate">Draw at: %1$d × %2$d px</string>
+
+    <!-- Key materials, moving backgrounds, key lighting and key art (theme editor). -->
+    <string name="theme_material_section_title">Key material</string>
+    <string name="theme_material_section_body">What the keys look like they are made of: a raised key cap, brushed metal, wood, stitched cloth, a neon tube and more. Each material is a starting point. Change any part of it below, or pick Custom and build one from nothing.</string>
+    <string name="theme_material_title">Material</string>
+    <string name="theme_material_bevel_title">Key cap height</string>
+    <string name="theme_material_inset_title">Top face inset</string>
+    <string name="theme_material_skirt_title">Cap side shade</string>
+    <string name="theme_material_gloss_title">Gloss</string>
+    <string name="theme_material_light_title">Light direction</string>
+    <string name="theme_material_texture_title">Surface texture</string>
+    <string name="theme_material_texture_opacity_title">Texture strength</string>
+    <string name="theme_material_edge_title">Edge</string>
+    <string name="theme_material_edge_color_title">Edge colour</string>
+    <string name="theme_material_edge_width_title">Edge width</string>
+    <string name="theme_material_label_title">Label effect</string>
+    <string name="theme_material_iridescence_title">Rainbow sheen</string>
+    <string name="theme_material_soft_shadow_title">Soft shadow</string>
+    <string name="theme_board_effect_section_title">Moving background</string>
+    <string name="theme_board_effect_section_body">Something that moves on the board behind the keys, such as snow, stars, bubbles or an aurora. It stops when Reduce motion or power saving is on.</string>
+    <string name="theme_board_effect_title">Effect</string>
+    <string name="theme_board_effect_density_title">Amount</string>
+    <string name="theme_board_effect_speed_title">Speed</string>
+    <string name="theme_board_effect_intensity_title">Brightness</string>
+    <string name="theme_board_effect_scale_title">Size</string>
+    <string name="theme_board_effect_reactive_title">Reacts to typing</string>
+    <string name="theme_board_effect_reactive_body">How much typing drives the effect. Each key press makes it move faster and glow brighter for a moment. At 0 the effect ignores the keys.</string>
+    <string name="theme_board_effect_color_title">First colour</string>
+    <string name="theme_board_effect_color2_title">Second colour</string>
+    <string name="theme_lighting_section_title">Key lighting</string>
+    <string name="theme_lighting_section_body">Light on the keys, like a backlit keyboard. Some patterns run on their own. Others light up from the key you press and fade when you stop typing. It stops when Reduce motion or power saving is on.</string>
+    <string name="theme_lighting_title">Pattern</string>
+    <string name="theme_lighting_target_title">Light on</string>
+    <string name="theme_lighting_color_title">Light colour</string>
+    <string name="theme_lighting_intensity_title">Brightness</string>
+    <string name="theme_lighting_size_title">Glow size</string>
+    <string name="theme_lighting_speed_title">Speed</string>
+    <string name="theme_lighting_hue_span_title">Rainbow spread</string>
+    <string name="theme_lighting_hue_span_body">How far the colour turns from the left of the keyboard to the right. At 0 every key has the same colour. At 360 the keys show the whole rainbow.</string>
+    <string name="theme_lighting_decay_title">Fade time</string>
+    <string name="theme_motion_held_body">Reduce motion is on, so the moving background holds still, and key lighting, touch bloom and Reacts to typing are off. Let the theme\'s effects play anyway and Reduce motion keeps everything else still, or turn it off.</string>
+    <string name="theme_motion_held_system_body">Your phone is set to remove animations, so on the keyboard the moving background holds still, and key lighting, touch bloom and Reacts to typing are off. The preview here still moves. Let the theme\'s effects play anyway to see them move on the keyboard too.</string>
+    <string name="theme_motion_held_turn_off">Turn off Reduce motion</string>
+    <string name="theme_motion_held_play_anyway">Play effects anyway</string>
+    <string name="theme_touch_bloom_section_title">Touch bloom</string>
+    <string name="theme_touch_bloom_section_body">The keyboard answers your finger. A soft light blooms out from where you touch, and the keys near your finger dip and spring back with a small wobble while the rest stay still. When you glide, the light and the dip follow your finger, and the bubble over a pressed key lights up in the same colour. It stops when Reduce motion or power saving is on.</string>
+    <string name="theme_touch_bloom_title">Touch bloom</string>
+    <string name="theme_touch_bloom_subtitle">Light and a springy dip under your finger</string>
+    <string name="theme_touch_bloom_color_title">Light colour</string>
+    <string name="theme_touch_bloom_light_title">Light strength</string>
+    <string name="theme_touch_bloom_radius_title">Reach</string>
+    <string name="theme_touch_bloom_radius_body">How far from your finger the light spreads and the keys dip.</string>
+    <string name="theme_touch_bloom_dip_title">Key dip</string>
+    <string name="theme_touch_bloom_dip_body">How deep the keys near your finger sink. At 0 the keys stay still and only the light shows.</string>
+    <string name="theme_touch_bloom_wobble_title">Wobble</string>
+    <string name="theme_touch_bloom_wobble_body">How much the keys bounce as they spring back. At 0 they settle without bouncing.</string>
+    <string name="theme_skin_section_title">Key art</string>
+    <string name="theme_skin_section_body">Hand-drawn keys from a file: each kind of key drawn as layers of vector shapes, coloured by the theme\'s own colours. The file layout matches the skin documents of the Kyng keyboard. Key art replaces the key colours, material and border.</string>
+    <string name="theme_skin_load_title">Load key art from a file</string>
+    <string name="theme_skin_loaded_label">In use</string>
+    <string name="theme_skin_remove_action">Remove key art</string>
+    <string name="theme_skin_unreadable">This file has no key art that WM Keyboard can read.</string>
+    <string name="theme_material_kind_custom_label">Custom</string>
+    <string name="theme_material_kind_cap_label">Key cap</string>
+    <string name="theme_material_kind_metal_label">Metal</string>
+    <string name="theme_material_kind_wood_label">Wood</string>
+    <string name="theme_material_kind_stone_label">Stone</string>
+    <string name="theme_material_kind_stitched_label">Stitched cloth</string>
+    <string name="theme_material_kind_leather_label">Leather</string>
+    <string name="theme_material_kind_carbon_label">Carbon fibre</string>
+    <string name="theme_material_kind_paper_label">Paper cut-out</string>
+    <string name="theme_material_kind_letterpress_label">Letterpress</string>
+    <string name="theme_material_kind_neon_label">Neon</string>
+    <string name="theme_material_kind_holo_label">Holographic</string>
+    <string name="theme_material_kind_terminal_label">Terminal</string>
+    <string name="theme_material_kind_cartoon_label">Cartoon</string>
+    <string name="theme_material_kind_glass_label">Art glass</string>
+    <string name="theme_material_kind_candy_label">Candy</string>
+    <string name="theme_material_kind_ceramic_label">Ceramic</string>
+    <string name="theme_material_kind_resin_label">Resin</string>
+    <string name="theme_material_kind_arcade_label">Arcade button</string>
+    <string name="theme_material_kind_typewriter_label">Typewriter</string>
+    <string name="theme_material_kind_instrument_label">Instrument panel</string>
+    <string name="theme_material_kind_molten_label">Molten</string>
+    <string name="theme_material_kind_neumorph_label">Soft (neumorphic)</string>
+    <string name="theme_material_kind_pixel_label">Pixel block</string>
+    <string name="theme_material_kind_dot_matrix_label">Dot matrix</string>
+    <string name="theme_material_texture_none_label">None</string>
+    <string name="theme_material_texture_noise_label">Grain</string>
+    <string name="theme_material_texture_linen_label">Linen</string>
+    <string name="theme_material_texture_dots_label">Dots</string>
+    <string name="theme_material_texture_scanlines_label">Scan lines</string>
+    <string name="theme_material_texture_brushed_label">Brushed</string>
+    <string name="theme_material_texture_wood_label">Wood grain</string>
+    <string name="theme_material_texture_stone_label">Stone</string>
+    <string name="theme_material_texture_paper_label">Paper</string>
+    <string name="theme_material_texture_carbon_label">Carbon weave</string>
+    <string name="theme_material_texture_leather_label">Leather</string>
+    <string name="theme_material_texture_pixels_label">Pixels</string>
+    <string name="theme_material_texture_planks_label">Planks</string>
+    <string name="theme_material_edge_none_label">None</string>
+    <string name="theme_material_edge_stitch_label">Stitching</string>
+    <string name="theme_material_edge_glow_label">Glow</string>
+    <string name="theme_material_edge_ink_label">Ink outline</string>
+    <string name="theme_material_edge_rim_label">Glazed rim</string>
+    <string name="theme_material_edge_inset_label">Pressed in</string>
+    <string name="theme_material_edge_double_label">Double ring</string>
+    <string name="theme_material_edge_dotted_label">Dotted</string>
+    <string name="theme_material_edge_bevel_label">Pixel bevel</string>
+    <string name="theme_material_label_none_label">None</string>
+    <string name="theme_material_label_glow_label">Glow</string>
+    <string name="theme_material_label_deboss_label">Pressed in</string>
+    <string name="theme_material_label_emboss_label">Raised</string>
+    <string name="theme_material_label_shadow_label">Shadow</string>
+    <string name="theme_material_label_dots_label">Dot matrix</string>
+    <string name="theme_board_effect_kind_snow_label">Snow</string>
+    <string name="theme_board_effect_kind_rain_label">Rain</string>
+    <string name="theme_board_effect_kind_code_rain_label">Code rain</string>
+    <string name="theme_board_effect_kind_bokeh_label">Bokeh</string>
+    <string name="theme_board_effect_kind_starfield_label">Stars</string>
+    <string name="theme_board_effect_kind_warp_label">Warp speed</string>
+    <string name="theme_board_effect_kind_fireflies_label">Fireflies</string>
+    <string name="theme_board_effect_kind_motes_label">Dust</string>
+    <string name="theme_board_effect_kind_embers_label">Embers</string>
+    <string name="theme_board_effect_kind_bubbles_label">Bubbles</string>
+    <string name="theme_board_effect_kind_confetti_label">Confetti</string>
+    <string name="theme_board_effect_kind_fireworks_label">Fireworks</string>
+    <string name="theme_board_effect_kind_aurora_label">Aurora</string>
+    <string name="theme_board_effect_kind_nebula_label">Nebula</string>
+    <string name="theme_board_effect_kind_lava_label">Lava lamp</string>
+    <string name="theme_board_effect_kind_waves_label">Waves</string>
+    <string name="theme_board_effect_kind_smoke_label">Smoke</string>
+    <string name="theme_board_effect_kind_dot_grid_label">Dot grid</string>
+    <string name="theme_board_effect_kind_contour_label">Contour lines</string>
+    <string name="theme_board_effect_kind_equalizer_label">Equaliser</string>
+    <string name="theme_board_effect_kind_scan_label">Scanner</string>
+    <string name="theme_board_effect_kind_sheen_label">Sheen</string>
+    <string name="theme_board_effect_kind_ripples_label">Ripples</string>
+    <string name="theme_board_effect_kind_orbs_label">Colour orbs</string>
+    <string name="theme_board_effect_kind_paint_label">Paint splash</string>
+    <string name="theme_board_effect_kind_ink_label">Ink blot</string>
+    <string name="theme_board_effect_kind_light_pool_label">Light pool</string>
+    <string name="theme_board_effect_kind_flood_label">Colour flood</string>
+    <string name="theme_board_effect_kind_puff_label">Smoke puff</string>
+    <string name="theme_board_effect_kind_glint_label">Glint</string>
+    <string name="theme_board_effect_kind_pop_label">Pop</string>
+    <string name="theme_board_effect_kind_swoosh_label">Swoosh</string>
+    <string name="theme_board_effect_kind_specks_label">Specks</string>
+    <string name="theme_board_effect_kind_meld_label">Meld</string>
+    <string name="theme_board_effect_kind_body">Snow, Stars and the effects up to Ripples move behind the keys all the time. Paint splash, Ink blot and the effects after them splash over the keys each time you press one, and go away a moment later. If you do not choose a colour, each press gets a colour of its own.</string>
+    <string name="theme_lighting_pattern_steady_label">Steady</string>
+    <string name="theme_lighting_pattern_breathe_label">Breathe</string>
+    <string name="theme_lighting_pattern_wave_label">Wave</string>
+    <string name="theme_lighting_pattern_sweep_label">Sweep</string>
+    <string name="theme_lighting_pattern_twinkle_label">Twinkle</string>
+    <string name="theme_lighting_pattern_heartbeat_label">Heartbeat</string>
+    <string name="theme_lighting_pattern_key_label">Pressed key</string>
+    <string name="theme_lighting_pattern_ripple_label">Ripple</string>
+    <string name="theme_lighting_pattern_echo_label">Echo</string>
+    <string name="theme_lighting_pattern_splash_label">Splash</string>
+    <string name="theme_lighting_pattern_cross_label">Cross</string>
+    <string name="theme_lighting_pattern_rain_label">Rain</string>
+    <string name="theme_lighting_target_face_label">Key faces</string>
+    <string name="theme_lighting_target_edge_label">Key edges</string>
+    <string name="theme_lighting_target_glow_label">Behind the keys</string>
+    <string name="theme_lighting_target_fill_label">Filled key</string>
+    <string name="theme_lighting_target_gradient_label">Two-tone fill</string>
+    <string name="theme_lighting_target_glitter_label">Glitter</string>
+    <string name="theme_lighting_color_mode_title">Colour choice</string>
+    <string name="theme_lighting_color_mode_body">On a pattern that answers presses, each press gets a colour of its own. On a pattern that runs by itself, each key gets a colour of its own.</string>
+    <string name="theme_lighting_color_mode_fixed_label">Light colour</string>
+    <string name="theme_lighting_color_mode_random_label">Bright, each press</string>
+    <string name="theme_lighting_color_mode_pastel_label">Pastel, each press</string>
+    <string name="theme_touch_bloom_motion_title">Key motion</string>
+    <string name="theme_touch_bloom_motion_body">Sink moves all the keys near your finger, and the nearest key moves the most. The other motions move only the key under your finger. Key dip sets how far the key moves, and Wobble sets how much it bounces back.</string>
+    <string name="theme_touch_bloom_motion_sink_label">Sink</string>
+    <string name="theme_touch_bloom_motion_grow_label">Grow</string>
+    <string name="theme_touch_bloom_motion_shrink_label">Shrink</string>
+    <string name="theme_touch_bloom_motion_rise_label">Rise</string>
+    <string name="theme_touch_bloom_motion_tilt_label">Tilt</string>
+    <string name="theme_touch_bloom_motion_jelly_label">Jelly</string>
+    <string name="theme_touch_bloom_motion_pop_label">Pop</string>
+    <string name="theme_touch_bloom_motion_squish_label">Squish</string>
+    <string name="theme_touch_bloom_motion_fade_label">Fade</string>
+    <string name="theme_deleted_snackbar">Deleted %1$s</string>
+    <!-- Accessibility label for long-pressing a theme card: it ticks the card for deleting several themes at once. -->
+    <string name="theme_pick_label">Select</string>
+    <!-- %1$d is how many theme cards are ticked in the gallery. -->
+    <plurals name="theme_picked_count">
+        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> selected</item>
+        <item quantity="other"><xliff:g id="count" example="3">%1$d</xliff:g> selected</item>
+    </plurals>
+    <!-- %1$d is how many themes are about to be deleted. -->
+    <plurals name="theme_bulk_delete_title">
+        <item quantity="one">Delete <xliff:g id="count" example="1">%1$d</xliff:g> theme?</item>
+        <item quantity="other">Delete <xliff:g id="count" example="3">%1$d</xliff:g> themes?</item>
+    </plurals>
+    <string name="theme_bulk_delete_message">The app deletes the selected themes. Undo at the bottom of the screen puts them back for a few seconds afterwards.</string>
+    <!-- %1$d is how many themes were just deleted. -->
+    <plurals name="theme_bulk_deleted_snackbar">
+        <item quantity="one">Deleted <xliff:g id="count" example="1">%1$d</xliff:g> theme</item>
+        <item quantity="other">Deleted <xliff:g id="count" example="3">%1$d</xliff:g> themes</item>
+    </plurals>
+    <!-- Content description of the pick bar's button that puts the selected themes into one theme, as looks of it. -->
+    <string name="theme_group_action">Group into one theme</string>
+    <!-- Content description of the pick bar's button that lets each look of the selected themes stand as a theme of its own. -->
+    <string name="theme_ungroup_action">Ungroup</string>
+    <!-- A look taken out of its theme by Ungroup: %1$s is the theme's name, %2$s the look's own name. -->
+    <string name="theme_ungrouped_look_name"><xliff:g id="theme_name" example="Nord">%1$s</xliff:g> (<xliff:g id="look_name" example="Dark">%2$s</xliff:g>)</string>
+    <!-- %1$d is how many themes were grouped, %2$s the name of the theme they now make up. -->
+    <plurals name="theme_grouped_snackbar">
+        <item quantity="one">Grouped <xliff:g id="count" example="1">%1$d</xliff:g> theme into <xliff:g id="theme_name" example="Nord">%2$s</xliff:g></item>
+        <item quantity="other">Grouped <xliff:g id="count" example="3">%1$d</xliff:g> themes into <xliff:g id="theme_name" example="Nord">%2$s</xliff:g></item>
+    </plurals>
+    <!-- %1$d is how many themes the selection became after Ungroup. -->
+    <plurals name="theme_ungrouped_snackbar">
+        <item quantity="one">Ungrouped into <xliff:g id="count" example="1">%1$d</xliff:g> theme</item>
+        <item quantity="other">Ungrouped into <xliff:g id="count" example="3">%1$d</xliff:g> themes</item>
+    </plurals>
 </resources>

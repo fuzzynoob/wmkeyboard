@@ -1,0 +1,715 @@
+{
+  "format": "wmkeyboard-layout",
+  "version": 1,
+  "layout": {
+    "id": "asset_gb_ne_nepali_nepal_romanized",
+    "name": "Nepali Romanized (Gboard)",
+    "langId": "ne",
+    "version": 1,
+    "layers": {
+      "letters": {
+        "rows": [
+          [
+            {
+              "label": "ट",
+              "shiftLabel": "ठ",
+              "longPress": [
+                "१",
+                "ॽ",
+                "॰",
+                "ऽ"
+              ]
+            },
+            {
+              "label": "ौ",
+              "shiftLabel": "औ",
+              "longPress": [
+                "२"
+              ]
+            },
+            {
+              "label": "े",
+              "shiftLabel": "ै",
+              "longPress": [
+                "३"
+              ]
+            },
+            {
+              "label": "र",
+              "shiftLabel": "ृ",
+              "longPress": [
+                "४"
+              ]
+            },
+            {
+              "label": "त",
+              "shiftLabel": "थ",
+              "longPress": [
+                "५"
+              ]
+            },
+            {
+              "label": "य",
+              "shiftLabel": "ञ",
+              "longPress": [
+                "६"
+              ]
+            },
+            {
+              "label": "ु",
+              "shiftLabel": "ू",
+              "longPress": [
+                "७"
+              ]
+            },
+            {
+              "label": "ि",
+              "shiftLabel": "ी",
+              "longPress": [
+                "८"
+              ]
+            },
+            {
+              "label": "ो",
+              "shiftLabel": "ओ",
+              "longPress": [
+                "९"
+              ]
+            },
+            {
+              "label": "प",
+              "shiftLabel": "फ",
+              "longPress": [
+                "०"
+              ]
+            },
+            {
+              "label": "इ",
+              "shiftLabel": "ई"
+            }
+          ],
+          [
+            {
+              "label": "ा",
+              "shiftLabel": "आ"
+            },
+            {
+              "label": "स",
+              "shiftLabel": "श"
+            },
+            {
+              "label": "द",
+              "shiftLabel": "ध"
+            },
+            {
+              "label": "उ",
+              "shiftLabel": "ऊ"
+            },
+            {
+              "label": "ग",
+              "shiftLabel": "घ"
+            },
+            {
+              "label": "ह",
+              "shiftLabel": "अ"
+            },
+            {
+              "label": "ज",
+              "shiftLabel": "झ"
+            },
+            {
+              "label": "क",
+              "shiftLabel": "ख"
+            },
+            {
+              "label": "ल",
+              "shiftLabel": "॥"
+            },
+            {
+              "label": "ए",
+              "shiftLabel": "ऐ"
+            },
+            {
+              "label": "ॐ",
+              "shiftLabel": "ः"
+            }
+          ],
+          [
+            {
+              "label": "⇧",
+              "action": {
+                "type": "shift"
+              },
+              "width": 1.65
+            },
+            {
+              "label": "ष",
+              "shiftLabel": "ऋ",
+              "width": 0.96
+            },
+            {
+              "label": "ड",
+              "shiftLabel": "ढ",
+              "width": 0.96
+            },
+            {
+              "label": "च",
+              "shiftLabel": "छ",
+              "width": 0.96
+            },
+            {
+              "label": "व",
+              "shiftLabel": "ँ",
+              "width": 0.96
+            },
+            {
+              "label": "ब",
+              "shiftLabel": "भ",
+              "width": 0.96
+            },
+            {
+              "label": "न",
+              "shiftLabel": "ण",
+              "width": 0.96
+            },
+            {
+              "label": "म",
+              "shiftLabel": "ं",
+              "width": 0.96
+            },
+            {
+              "label": "्",
+              "shiftLabel": "ङ",
+              "longPress": [
+                "ऽ"
+              ],
+              "width": 0.96
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.65
+            }
+          ],
+          [
+            {
+              "label": "?१२३",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4.25
+            },
+            {
+              "label": "◌│◌",
+              "output": "‌",
+              "width": 0.75
+            },
+            {
+              "label": "।",
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      },
+      "symbols": {
+        "rows": [
+          [
+            {
+              "label": "१",
+              "longPress": [
+                "1",
+                "¹",
+                "½",
+                "⅓",
+                "¼",
+                "⅕",
+                "⅙",
+                "⅐",
+                "⅛",
+                "⅑",
+                "⅒"
+              ]
+            },
+            {
+              "label": "२",
+              "longPress": [
+                "2",
+                "²",
+                "⅔",
+                "⅖"
+              ]
+            },
+            {
+              "label": "३",
+              "longPress": [
+                "3",
+                "³",
+                "¾",
+                "⅗",
+                "⅜"
+              ]
+            },
+            {
+              "label": "४",
+              "longPress": [
+                "4",
+                "⁴",
+                "⅘"
+              ]
+            },
+            {
+              "label": "५",
+              "longPress": [
+                "5",
+                "⁵",
+                "⅚",
+                "⅝"
+              ]
+            },
+            {
+              "label": "६",
+              "longPress": [
+                "6",
+                "⁶"
+              ]
+            },
+            {
+              "label": "७",
+              "longPress": [
+                "7",
+                "⁷",
+                "⅞"
+              ]
+            },
+            {
+              "label": "८",
+              "longPress": [
+                "8",
+                "⁸"
+              ]
+            },
+            {
+              "label": "९",
+              "longPress": [
+                "9",
+                "⁹"
+              ]
+            },
+            {
+              "label": "०",
+              "longPress": [
+                "0",
+                "⁰",
+                "ⁿ",
+                "∅"
+              ]
+            }
+          ],
+          [
+            {
+              "label": "@"
+            },
+            {
+              "label": "#",
+              "longPress": [
+                "№"
+              ]
+            },
+            {
+              "label": "रु.",
+              "longPress": [
+                "$",
+                "¢",
+                "€",
+                "£",
+                "¥",
+                "₱",
+                "₹"
+              ]
+            },
+            {
+              "label": "_"
+            },
+            {
+              "label": "&"
+            },
+            {
+              "label": "-",
+              "longPress": [
+                "_",
+                "–",
+                "—",
+                "·"
+              ]
+            },
+            {
+              "label": "+",
+              "longPress": [
+                "±"
+              ]
+            },
+            {
+              "label": "(",
+              "longPress": [
+                "<",
+                "{",
+                "["
+              ]
+            },
+            {
+              "label": ")",
+              "longPress": [
+                ">",
+                "}",
+                "]"
+              ]
+            },
+            {
+              "label": "/"
+            }
+          ],
+          [
+            {
+              "label": "=\\<",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "*",
+              "longPress": [
+                "†",
+                "‡",
+                "★"
+              ]
+            },
+            {
+              "label": "\"",
+              "longPress": [
+                "„",
+                "“",
+                "”",
+                "«",
+                "»"
+              ]
+            },
+            {
+              "label": "'",
+              "longPress": [
+                "‚",
+                "‘",
+                "’",
+                "‹",
+                "›"
+              ]
+            },
+            {
+              "label": ":"
+            },
+            {
+              "label": ";"
+            },
+            {
+              "label": "!",
+              "longPress": [
+                "¡"
+              ]
+            },
+            {
+              "label": "?",
+              "longPress": [
+                "¿",
+                "‽"
+              ]
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      },
+      "symbols2": {
+        "rows": [
+          [
+            {
+              "label": "~"
+            },
+            {
+              "label": "`"
+            },
+            {
+              "label": "|"
+            },
+            {
+              "label": "•",
+              "longPress": [
+                "♪",
+                "♥",
+                "♠",
+                "♦",
+                "♣"
+              ]
+            },
+            {
+              "label": "√"
+            },
+            {
+              "label": "π",
+              "longPress": [
+                "Π",
+                "μ",
+                "Ω"
+              ]
+            },
+            {
+              "label": "÷"
+            },
+            {
+              "label": "×"
+            },
+            {
+              "label": "§",
+              "longPress": [
+                "¶"
+              ]
+            },
+            {
+              "label": "∆"
+            }
+          ],
+          [
+            {
+              "label": "£"
+            },
+            {
+              "label": "€"
+            },
+            {
+              "label": "$",
+              "longPress": [
+                "¢",
+                "£",
+                "€",
+                "¥",
+                "₱",
+                "₹"
+              ]
+            },
+            {
+              "label": "¢"
+            },
+            {
+              "label": "^",
+              "longPress": [
+                "↑",
+                "↓",
+                "←",
+                "→"
+              ]
+            },
+            {
+              "label": "°",
+              "longPress": [
+                "′",
+                "″"
+              ]
+            },
+            {
+              "label": "=",
+              "longPress": [
+                "≠",
+                "≈",
+                "∞"
+              ]
+            },
+            {
+              "label": "{",
+              "longPress": [
+                "("
+              ]
+            },
+            {
+              "label": "}",
+              "longPress": [
+                ")"
+              ]
+            },
+            {
+              "label": "\\"
+            }
+          ],
+          [
+            {
+              "label": "?123",
+              "action": {
+                "type": "symbols"
+              },
+              "width": 1.5
+            },
+            {
+              "label": "%",
+              "longPress": [
+                "‰",
+                "℅"
+              ]
+            },
+            {
+              "label": "©"
+            },
+            {
+              "label": "®"
+            },
+            {
+              "label": "™"
+            },
+            {
+              "label": "✓"
+            },
+            {
+              "label": "["
+            },
+            {
+              "label": "]"
+            },
+            {
+              "label": "⌫",
+              "action": {
+                "type": "delete"
+              },
+              "width": 1.5
+            }
+          ],
+          [
+            {
+              "label": "ABC",
+              "action": {
+                "type": "letters"
+              },
+              "width": 1.5
+            },
+            {
+              "label": ",",
+              "longPress": [
+                "!",
+                "?"
+              ],
+              "role": "Comma"
+            },
+            {
+              "label": "🌐",
+              "action": {
+                "type": "language_switch"
+              }
+            },
+            {
+              "label": " ",
+              "action": {
+                "type": "space"
+              },
+              "width": 4
+            },
+            {
+              "label": ".",
+              "longPress": [
+                "…",
+                ",",
+                "?",
+                "!",
+                ":",
+                ";"
+              ],
+              "role": "Period"
+            },
+            {
+              "label": "⏎",
+              "action": {
+                "type": "enter"
+              },
+              "width": 1.5
+            }
+          ]
+        ]
+      }
+    }
+  }
+}

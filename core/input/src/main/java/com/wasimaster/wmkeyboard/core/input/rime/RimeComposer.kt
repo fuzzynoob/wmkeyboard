@@ -1,7 +1,22 @@
 package com.wasimaster.wmkeyboard.core.input.rime
 
+import com.wasimaster.wmkeyboard.core.input.composer.HanVariant
 import com.wasimaster.wmkeyboard.core.input.composer.Composer
 import com.wasimaster.wmkeyboard.core.input.composer.T9Pinyin
+
+/**
+ * The letter that carries on a candidate's reading, from the spelling RIME
+ * hints for it (`xi an` for 西安). Null when [buffer] does not spell that far.
+ */
+internal fun commentNextLetter(comment: String, buffer: String): Char? {
+    val syllables = comment.split(' ').filter { it.isNotEmpty() }
+    // Only a plain spelling: another schema's comment is a gloss, and a gloss
+    // would put a word over a key its reading does not reach.
+    if (syllables.isEmpty() || syllables.any { s -> s.any { it !in 'a'..'z' } }) return null
+    val reading = syllables.joinToString("")
+    val typed = buffer.filter { it.isLetter() }.lowercase()
+    return if (reading.startsWith(typed)) reading.getOrNull(typed.length) else null
+}
 
 /**
  * A Chinese conversion composer backed by librime: the candidates, their
@@ -18,8 +33,9 @@ import com.wasimaster.wmkeyboard.core.input.composer.T9Pinyin
  * The prefix-commit contract holds by construction: a candidate's span is
  * the end RIME's own menu gives it, mapped back through [RimeKeys] to buffer
  * characters, and indexed by position, never by text. RIME's Simplified and
- * Traditional switches run inside its menu ([RimeOptions]); nothing rewrites
- * a candidate after its span is known.
+ * Traditional switches run inside its menu ([RimeOptions]). The one rewrite
+ * after that is the region's character forms ([HanVariant.localize]), since not
+ * every schema has a switch for them; it keeps each candidate's span.
  *
  * On the 9-key pad the syllable column is [base]'s, since what a digit run
  * can spell is the keypad's business, but led by the syllable RIME's own
@@ -48,6 +64,8 @@ class RimeComposer internal constructor(
         val consumed: IntArray?,
         /** Each candidate's spelling as RIME hints it (`xi an`), or empty; null when [base] ranked it. */
         val comments: List<String>?,
+        /** RIME's own menu position for each candidate; null when [base] ranked it. */
+        val menuIndex: IntArray? = null,
     )
 
     @Volatile private var last: Ranked? = null
@@ -66,6 +84,9 @@ class RimeComposer internal constructor(
     override val glideKeys: Set<Int> get() = base.glideKeys
     override val isConversion: Boolean get() = true
     override val keepsUnconvertedReading: Boolean get() = base.keepsUnconvertedReading
+
+    /** Not on the 9-key pad, which shows RIME's spelling rather than the keys. */
+    override val editsReadingInPlace: Boolean get() = method != RimeMethod.T9_PINYIN && base.editsReadingInPlace
     override val readsLatinLetters: Boolean get() = base.readsLatinLetters
     override fun pickReading(buffer: String, reading: String): String? = base.pickReading(buffer, reading)
 
@@ -132,26 +153,57 @@ class RimeComposer internal constructor(
         }
         val consumed = ranked.consumed.getOrNull(index) ?: return
         val input = RimeKeys.translate(method, buffer)
-        RimeRuntime.pick(schema, options(), input.input, index, inputCharsFor(input, consumed))
+        val menuIndex = ranked.menuIndex?.getOrNull(index) ?: return
+        RimeRuntime.pick(schema, options(), input.input, menuIndex, inputCharsFor(input, consumed))
         last = null
     }
 
     private fun ranked(buffer: String): Ranked {
         val opts = options()
-        val key = "$schema|$opts|$buffer"
+        // The region and whether its tables have landed change the text too.
+        val key = "$schema|$opts|${HanVariant.region}|${HanVariant.s2t.isEmpty()}|$buffer"
         val generation = RimeRuntime.generation
         last?.takeIf { it.key == key && it.generation == generation }?.let { return it }
         val input = RimeKeys.translate(method, buffer)
         val menu = if (input.input.isEmpty()) null else RimeRuntime.menu(schema, opts, input.input, DEPTH)
         val ranked = if (menu != null) {
-            val consumed = IntArray(menu.texts.size) { i -> input.bufferChars(menu.consumed[i]).coerceIn(1, buffer.length) }
-            Ranked(key, generation, menu.texts, consumed, menu.comments)
+            // Two forms can come out as one (裏 and 裡 under Taiwan), and the
+            // strip wants each word once: the first keeps its place.
+            val localized = menu.texts.map(HanVariant::localize)
+            val seen = HashSet<String>()
+            val kept = localized.indices.filter { seen.add(localized[it]) }
+            Ranked(
+                key,
+                generation,
+                kept.map { localized[it] },
+                IntArray(kept.size) { i -> input.bufferChars(menu.consumed[kept[i]]).coerceIn(1, buffer.length) },
+                kept.map { menu.comments[it] },
+                kept.toIntArray(),
+            )
         } else {
             // Not cached under the RIME key: the next call may find RIME back.
             return Ranked("", -1, base.candidates(buffer, DEPTH), null, null)
         }
         last = ranked
         return ranked
+    }
+
+    /**
+     * The key a candidate floats over (#1063), from RIME's own spelling of it.
+     * Full pinyin only: on the other boards the keys do not spell that comment.
+     */
+    override fun nextReadingLetter(buffer: String, index: Int): Char? {
+        if (method != RimeMethod.PINYIN) return null
+        val comments = ranked(buffer).comments ?: return base.nextReadingLetter(buffer, index)
+        return commentNextLetter(comments.getOrNull(index) ?: return null, buffer)
+    }
+
+    /** After a commit the words are [predictor]'s, so it knows their readings. */
+    override fun predictionKey(word: String): Char? =
+        if (method == RimeMethod.PINYIN) predictor?.predictionKey(word) else null
+
+    override fun primePredictionKeys() {
+        if (method == RimeMethod.PINYIN) predictor?.primePredictionKeys()
     }
 
     /**

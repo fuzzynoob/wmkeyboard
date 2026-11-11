@@ -9,6 +9,9 @@ import android.provider.OpenableColumns
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.core.dictionaries.AvroDictionaryDownloads
+import com.wasimaster.wmkeyboard.core.dictionaries.CompoundLexiconDownloads
+import com.wasimaster.wmkeyboard.core.dictionaries.ContextModelCatalog
+import com.wasimaster.wmkeyboard.core.dictionaries.ContextModelDownloadManager
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
 import com.wasimaster.wmkeyboard.core.dictionaries.KhiproGlideDownloads
@@ -17,6 +20,7 @@ import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackDownloadManager
 import com.wasimaster.wmkeyboard.core.dictionaries.NgramPackEntry
 import com.wasimaster.wmkeyboard.core.dictionaries.PhoneticIndexDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.WordlistDownloadManager
+import com.wasimaster.wmkeyboard.core.dictionaries.WordlistSource
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictCatalog
 import com.wasimaster.wmkeyboard.core.emoji.EmojiDictDownloadManager
 import com.wasimaster.wmkeyboard.core.gesture.latinime.LatinImeLibrary
@@ -38,14 +42,23 @@ import com.wasimaster.wmkeyboard.core.ocr.OcrPacks
 import com.wasimaster.wmkeyboard.core.ocr.PaddleOcrModel
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.stickers.CutoutModel
+import com.wasimaster.wmkeyboard.core.tools.TranslateClient
+import com.wasimaster.wmkeyboard.core.translate.BergamotCatalog
+import com.wasimaster.wmkeyboard.core.translate.BergamotTranslator
+import com.wasimaster.wmkeyboard.core.translate.OfflineTranslation
 import com.wasimaster.wmkeyboard.core.tools.offlinedict.OfflineDictionaries
 import com.wasimaster.wmkeyboard.core.tools.offlinedict.OfflineDictionaryDownloads
 import com.wasimaster.wmkeyboard.core.tools.offlinegif.OfflineGifPacks
+import com.wasimaster.wmkeyboard.core.tools.stardict.StarDictArchive
 import com.wasimaster.wmkeyboard.core.tools.yomichan.YomichanDictionaries
 import com.wasimaster.wmkeyboard.core.tools.yomichan.YomichanImport
 import com.wasimaster.wmkeyboard.core.transliteration.KhiproSpecs
+import com.wasimaster.wmkeyboard.core.xlit.IndicXlitDownloads
+import com.wasimaster.wmkeyboard.core.xlit.IndicXlitLatinDownloads
+import com.wasimaster.wmkeyboard.core.xlit.IndicXlitModels
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtDownloadManager
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtImport
+import com.wasimaster.wmkeyboard.core.voice.futoswipe.FutoSwipe
 import com.wasimaster.wmkeyboard.core.voice.whisper.WhisperDownloadManager
 import com.wasimaster.wmkeyboard.core.voice.whistle.WhistleModelDownloadManager
 import com.wasimaster.wmkeyboard.core.voice.whistle.WhistleModelStore
@@ -148,8 +161,9 @@ object OfflineImport {
                 NgramPackCatalog.byFileName(leaf) != null ||
                 EmojiDictCatalog.byFileName(leaf) != null ||
                 CjkDictCatalog.byFileName(leaf) != null ||
+                ContextModelCatalog.byFileName(leaf) != null ||
                 leaf == AvroDictionaryDownloads.PUBLISHED_NAME ||
-                leaf == KhiproGlideDownloads.PUBLISHED_NAME ||
+                KhiproGlideDownloads.byPublishedName(leaf) != null ||
                 KhiproSpecs.isSetFile(leaf) ||
                 PhoneticIndexDownloads.languageOfPublishedName(leaf) != null -> Kind.LANGUAGE_FILES
             OfflineDictionaries.recognises(leaf) -> Kind.DICTIONARY
@@ -203,14 +217,17 @@ object OfflineImport {
     /** [recognises], saying what the file is; every file only it tells is a model. */
     fun kindOf(context: Context, name: String, size: Long): Kind? {
         kindOf(name)?.let { return it }
+        // A StarDict book, the shape they are mostly shipped in.
+        if (StarDictArchive.isTarName(name)) return Kind.DICTIONARY
         val leaf = name.substringAfterLast('/').substringAfterLast('\\')
         val extension = leaf.substringAfterLast('.', "").lowercase()
         val model = (size > 0 && WhisperDownloadManager.recognises(leaf, size)) ||
             leaf == WhistleModelStore.MODEL_FILE_NAME || leaf == CutoutModel.FILE_NAME ||
             PaddleOcrModel.partOf(leaf) != null || OcrPacks.packOf(leaf) != null || InkOcrModels.partOf(leaf) != null ||
+            IndicXlitModels.partOf(leaf) != null || FutoSwipe.sizeMatches(size) ||
             ModelFormat.entries.any { it.extension == extension } ||
             (size > 0 && InkPackImports.isPackFile(context, leaf, size)) ||
-            EtImport.sizeMatches(size)
+            EtImport.sizeMatches(size) || BergamotTranslator.sizeMatches(size)
         return if (model) Kind.MODEL else null
     }
 
@@ -230,7 +247,7 @@ object OfflineImport {
     fun kindOfArchive(entryNames: List<String>): Kind? {
         val leaves = entryNames.map { it.substringAfterLast('/') }
         if (OfflineGifPacks.MANIFEST_NAME in leaves && OfflineGifPacks.DATABASE_NAME in leaves) return Kind.GIF_PACK
-        if (YomichanDictionaries.looksLikeDictionary(entryNames)) return Kind.DICTIONARY
+        if (YomichanDictionaries.looksLikeDictionary(entryNames) || StarDictArchive.holdsBook(entryNames)) return Kind.DICTIONARY
         if (leaves.any { it.endsWith(RIME_SCHEMA_SUFFIX) }) return Kind.RIME_SCHEMAS
         val kinds = leaves.mapNotNullTo(HashSet(), ::kindOf)
         return when (kinds.size) {
@@ -274,6 +291,13 @@ object OfflineImport {
                     staged.delete()
                     return@forEachIndexed
                 }
+                // A StarDict book in a tar. Installed from here, like the zips
+                // below that are the thing itself.
+                if (StarDictArchive.isTarName(name)) {
+                    outcomes += installStarDict(context, name, staged, onFile)
+                    staged.delete()
+                    return@forEachIndexed
+                }
                 // A handwriting pack is a zip ML Kit unpacks itself, and a
                 // published RIME pack is checked against its pin whole, so
                 // both are installed as files rather than opened here.
@@ -284,7 +308,10 @@ object OfflineImport {
                 val isGifPack = runCatching { ZipFile(staged).use { OfflineGifPacks.isPack(it) } }.getOrDefault(false)
                 val isYomichan = !isGifPack &&
                     runCatching { ZipFile(staged).use { YomichanDictionaries.isDictionary(it) } }.getOrDefault(false)
-                val isRimeSchemas = !isGifPack && !isYomichan && runCatching {
+                val isStarDict = !isGifPack && !isYomichan && runCatching {
+                    ZipFile(staged).use { zip -> StarDictArchive.holdsBook(zip.entries().asSequence().map { it.name }.toList()) }
+                }.getOrDefault(false)
+                val isRimeSchemas = !isGifPack && !isYomichan && !isStarDict && runCatching {
                     ZipFile(staged).use { zip -> zip.entries().asSequence().any { it.name.endsWith(RIME_SCHEMA_SUFFIX) } }
                 }.getOrDefault(false)
                 if (isGifPack) {
@@ -295,8 +322,21 @@ object OfflineImport {
                 } else if (isYomichan) {
                     outcomes += installYomichan(context, name, staged, onFile)
                     staged.delete()
+                } else if (isStarDict) {
+                    outcomes += installStarDict(context, name, staged, onFile)
+                    staged.delete()
                 } else {
-                    runCatching { files += unzip(staged, File(dir, "zip")) }
+                    // A vendor's .aar inside the zip goes the way a picked one
+                    // does: any name, and the entries the pins name decide (#970).
+                    runCatching {
+                        val (libraries, unpacked) = unzip(staged, File(dir, "zip"))
+                            .partition { NativeDelivery.active && it.name.endsWith(".aar", ignoreCase = true) }
+                        for (library in libraries) {
+                            outcomes += installLibraryArchive(library.name, library)
+                            library.delete()
+                        }
+                        files += unpacked
+                    }
                         .onFailure { outcomes += Outcome(name, false, R.string.offline_import_unreadable_zip) }
                     staged.delete()
                 }
@@ -317,6 +357,8 @@ object OfflineImport {
                     Outcome(label, false, R.string.offline_import_failed)
                 }
             }
+            // The translation library arriving unpacks the models waiting for it.
+            if (BergamotTranslator.available) runCatching { BergamotTranslator.refresh(context) }
             // A RIME pack or schema zip changes what RIME compiles; the
             // runtime notices and the RIME screen deploys again.
             RimeRuntime.recheck(context)
@@ -364,8 +406,19 @@ object OfflineImport {
             // A language pack carries a CJK table's earlier version too, for
             // app versions that pin it; this one would fail its checksum.
             if (CjkDictCatalog.isLegacyFileName(name)) continue
+            // A pack also carries a list's earlier file (bn_full beside
+            // bn_full_v2) for the app versions that fetch it: taken only from
+            // an older pack, which has no current one to prefer.
             val wordlist = DictionaryCatalog.byFileName(name)
+                ?: DictionaryCatalog.byLegacyFileName(name)?.takeIf { legacy ->
+                    files.none { DictionaryCatalog.byFileName(it.name)?.fileName == legacy.fileName }
+                }
             val pair = if (wordlist == null) NgramPackCatalog.byFileName(name) else null
+            // Likewise a rebuilt pack's earlier lists (af_bigrams beside af_bigrams_v2).
+            if (pair != null) {
+                val current = (if (pair.second) pair.first.trigramFileName else pair.first.bigramFileName).removeSuffix(".gz")
+                if (name.removeSuffix(".gz") != current && files.any { it.name.removeSuffix(".gz") == current }) continue
+            }
             when {
                 wordlist != null -> wordlists.getOrPut(wordlist.languageId) { ArrayList() } += wordlist to file
                 pair != null -> pairs.getOrPut(pair.first) { arrayOfNulls(2) }[if (pair.second) 1 else 0] = file
@@ -373,7 +426,8 @@ object OfflineImport {
             }
         }
         if (khipro.isNotEmpty()) outcomes += installKhiproSpecs(khipro, onFile)
-        for (file in installEtModels(context, single, outcomes, onFile)) {
+        val notDictation = installEtModels(context, single, outcomes, onFile)
+        for (file in installBergamotModels(context, notDictation, outcomes, onFile)) {
             onFile(file.name)
             outcomes += installOne(context, file)
         }
@@ -397,6 +451,11 @@ object OfflineImport {
             onFile(file.name)
             outcomes += attempt(file.name, busy = WordlistDownloadManager.isBusy) {
                 val words = WordlistDownloadManager.install(filesDir, entry, size, file)
+                // An offline build's only way to its compound spellings: the
+                // list that holds them, read whole (#1014).
+                if (entry.source == WordlistSource.FREQUENCY) {
+                    runCatching { CompoundLexiconDownloads.install(filesDir, entry.languageId, file) }
+                }
                 Outcome(
                     file.name, true, R.string.offline_import_wordlist_done,
                     listOf(languageName(langId), count(words)),
@@ -477,6 +536,45 @@ object OfflineImport {
         return rest + result.unclaimed
     }
 
+    /**
+     * Firefox Translations' model files (#1035), told by size and checksum since
+     * their published names say nothing. Adds a line per file it placed to
+     * [outcomes] and returns the files that are none of them.
+     */
+    private suspend fun installBergamotModels(
+        context: Context,
+        files: List<File>,
+        outcomes: MutableList<Outcome>,
+        onFile: (String) -> Unit,
+    ): List<File> {
+        val (candidates, rest) = files.partition { BergamotTranslator.sizeMatches(it.length()) }
+        if (candidates.isEmpty() || !BergamotTranslator.available) return files
+        if (BergamotTranslator.isBusy) {
+            candidates.forEach { outcomes += Outcome(it.name, false, R.string.offline_import_busy) }
+            return rest
+        }
+        onFile(candidates.joinToString(", ") { it.name })
+        val result = runCatching { BergamotTranslator.importFiles(context, candidates) }.getOrElse { error ->
+            candidates.forEach { outcomes += failure(it.name, error) }
+            return rest
+        }
+        val engine = context.getString(R.string.tooldetail_translate_bergamot_engine)
+        fun names(directions: List<BergamotCatalog.Direction>) = directions.joinToString(", ") {
+            OfflineTranslation.label(BergamotTranslator.keyOf(it), TranslateClient::languageName, engine)
+        }
+        for (r in result.results) {
+            outcomes += when (r) {
+                is BergamotTranslator.Imported.Placed -> if (r.ready.isNotEmpty()) {
+                    Outcome(r.fileName, true, R.string.offline_import_et_ready, listOf(names(r.ready)))
+                } else {
+                    Outcome(r.fileName, true, R.string.offline_import_bergamot_waiting, listOf(names(r.directions)))
+                }
+                is BergamotTranslator.Imported.Shared -> Outcome(r.fileName, false, R.string.offline_import_et_shared)
+            }
+        }
+        return rest + result.unclaimed
+    }
+
     /** Everything that is one file, one installer. */
     private fun installOne(context: Context, file: File): Outcome {
         val filesDir = context.filesDir
@@ -505,6 +603,36 @@ object OfflineImport {
                     is WhisperDownloadManager.Installed.Vocab ->
                         Outcome(name, true, R.string.offline_import_whisper_vocab, listOf(count(result.models.size)))
                     null -> Outcome(name, false, R.string.offline_import_unknown)
+                }
+            }
+        }
+        // A language's context model (#1000), by the name it is published under.
+        ContextModelCatalog.byFileName(name)?.let { entry ->
+            return attempt(name) {
+                ContextModelDownloadManager.install(filesDir, entry, file)
+                Outcome(name, true, R.string.offline_import_context_model_done, listOf(languageName(entry.languageId)))
+            }
+        }
+        // The transliteration models (#998): romanized dictation's, and the
+        // phonetic layouts' neural readings. Checked as their download is.
+        IndicXlitModels.partOf(name)?.let { (pack, part) ->
+            return attempt(name) {
+                val downloads = if (pack === IndicXlitModels.LATIN) IndicXlitLatinDownloads else IndicXlitDownloads
+                when {
+                    !downloads.install(context, part, file) -> Outcome(name, false, R.string.offline_import_mismatch)
+                    pack.isDownloaded(context.noBackupFilesDir) -> Outcome(name, true, R.string.offline_import_xlit_ready)
+                    else -> Outcome(name, true, R.string.offline_import_xlit_waiting)
+                }
+            }
+        }
+        // FUTO Swipe's two files (#1002), both served as model_fp32.pte, so
+        // told by size and digest whatever they are called.
+        if (FutoSwipe.sizeMatches(file.length())) {
+            return attempt(name) {
+                when {
+                    !FutoSwipe.install(filesDir, file) -> Outcome(name, false, R.string.offline_import_mismatch)
+                    FutoSwipe.isDownloaded(filesDir) -> Outcome(name, true, R.string.offline_import_futo_ready)
+                    else -> Outcome(name, true, R.string.offline_import_futo_waiting)
                 }
             }
         }
@@ -550,9 +678,9 @@ object OfflineImport {
                 Outcome(name, true, R.string.offline_import_avro_done)
             }
         }
-        if (name == KhiproGlideDownloads.PUBLISHED_NAME) {
-            return attempt(name, busy = KhiproGlideDownloads.isBusy) {
-                KhiproGlideDownloads.install(filesDir, file)
+        KhiproGlideDownloads.byPublishedName(name)?.let { table ->
+            return attempt(name, busy = table.isBusy) {
+                table.install(filesDir, file)
                 Outcome(name, true, R.string.offline_import_khipro_glide_done)
             }
         }
@@ -693,6 +821,21 @@ object OfflineImport {
             }
         }
         Outcome(name, true, R.string.offline_import_yomichan_done, listOf(info.title, count(info.terms)))
+    }
+
+    /** A StarDict book: into the same list as a Yomichan dictionary, one line per book the archive held. */
+    private fun installStarDict(context: Context, name: String, archive: File, onFile: (String) -> Unit): List<Outcome> {
+        var shown = -1
+        val infos = runCatching {
+            YomichanDictionaries.importStarDict(context.filesDir, archive) { done, total ->
+                val percent = if (total > 0) (done * 100 / total).toInt().coerceAtMost(100) else 0
+                if (percent != shown) {
+                    shown = percent
+                    onFile("$name · $percent%")
+                }
+            }
+        }.getOrElse { return listOf(failure(name, it)) }
+        return infos.map { Outcome(name, true, R.string.offline_import_yomichan_done, listOf(it.title, count(it.terms))) }
     }
 
     /** The pinned libraries an `.aar` holds, one line each. */

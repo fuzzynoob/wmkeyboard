@@ -148,6 +148,10 @@
     <string name="keypress_alternates_columns_auto">Auto</string>
     <string name="keypress_alternates_columns_info">Auto puts as many alternates on a row as fit on the screen, so the shape of the popup follows the width of the characters.\n\nA number from 3 to 11 gives every row that many columns of the same width. A key with many alternates then reads as a block, and each alternate is in the same place each time that you open it.</string>
 
+    <string name="keypress_alternates_balanced_title">Even rows</string>
+    <string name="keypress_alternates_balanced_subtitle">Use the column count as a most and share alternates evenly between rows</string>
+    <string name="keypress_alternates_balanced_info">Off: every row is filled to the column count. With 4 columns, a key with 5 alternates shows 4 on one row and 1 on its own below.\n\nOn: the column count is the most a row holds. The popup keeps the rows it needs and shares the alternates evenly between them, so with 4 columns, 5 alternates show as 3 and 2, 6 as 3 and 3, and 4 still fit on one row of 4.\n\nWith Auto, the rows that the screen width makes are evened out the same way.</string>
+
     <string name="keypress_alternates_nearest_title">Closest to the key first</string>
     <string name="keypress_alternates_nearest_subtitle">Fill the popup from the key outward</string>
     <string name="keypress_alternates_nearest_info">The popup opens above the key that you hold. This decides which end of it the first alternate goes to.\n\nOff: the first alternate is at the top left and the popup fills downward, like lines of text. On a popup of several rows, the first alternate is then the furthest from your finger.\n\nOn: the first alternate is on the row nearest the key, and the rest climb away from it. This is what most stock keyboards do, and it is a shorter reach on a key with many alternates. A popup of one row looks the same either way.</string>
@@ -155,6 +159,10 @@
     <string name="keypress_alternates_centred_title">Centre on the key</string>
     <string name="keypress_alternates_centred_subtitle">Put the other alternates on both sides of the first</string>
     <string name="keypress_alternates_centred_info">The first alternate always opens right over the key that you hold.\n\nOn: the others go on both sides of it, one to the right, one to the left, and so on outward, so a slide either way reaches the next one. A key near the edge of the screen has no room on one side, so its popup runs away from the edge instead.\n\nOff: the others follow the first in reading order, all to one side of it.</string>
+
+    <string name="keypress_remember_punctuation_title">Remember the punctuation key\'s pick</string>
+    <string name="keypress_remember_punctuation_subtitle">The comma and full stop keys type what you last picked from them</string>
+    <string name="keypress_remember_punctuation_info">For the two punctuation keys beside the spacebar on the letters page.\n\nPick ? from the comma\'s popup and the key becomes a ? key: a tap types ?, and , moves to the front of its popup. It stays that way until you pick something else, and picking , puts the key back as it was.\n\nOnly single marks are remembered, so a domain ending such as .com is not. In an email or web address field the keys stay as that field needs them. Turning this off forgets every pick.</string>
 
     <string name="keypress_alternates_order_title">Order of the alternates</string>
     <string name="keypress_alternates_order_subtitle">Which group comes first in a letter\'s popup</string>
@@ -227,9 +235,15 @@
     <string name="keypress_top_row_holds_auto">Auto</string>
     <string name="keypress_hold_symbols_title">Your hold symbols</string>
     <string name="keypress_hold_symbols_subtitle">Pick the symbol each letter holds, on every layout</string>
-    <string name="keypress_hold_symbols_info">Type a symbol under a letter and a press and hold on that letter offers it first, on every layout, in place of the symbol or digit the layout puts there; the corner hint shows it too. Leave a box empty to keep the layout\'s own. SwiftKey fills in the set SwiftKey uses.</string>
+    <string name="keypress_hold_symbols_info">Type a symbol under a letter and a press and hold on that letter offers it first, on every layout, in place of the symbol or digit the layout puts there; the corner hint shows it too. Several symbols split by spaces fill the popup in that order. Leave a box empty to keep the layout\'s own. SwiftKey, Gboard and Samsung fill in the set each of those keyboards uses.</string>
     <string name="keypress_hold_symbols_swiftkey">SwiftKey</string>
+    <string name="keypress_hold_symbols_gboard">Gboard</string>
+    <string name="keypress_hold_symbols_samsung">Samsung</string>
     <string name="keypress_hold_symbols_clear">Clear all</string>
+    <string name="keypress_hold_symbols_digits">Number row</string>
+    <string name="keypress_hold_symbols_digits_info">What each digit holds, on the number row or a layout\'s own row of digits, in place of its own popup. Gboard and Samsung fill these in; SwiftKey leaves the digits as they are.</string>
+    <string name="keypress_hold_symbols_number_row">Under a number row</string>
+    <string name="keypress_hold_symbols_number_row_info">What q to p hold while a row of digits sits above them, the number row or one the layout draws itself. A box left empty keeps that letter\'s box from the rows above. Gboard fills these in; SwiftKey keeps its digits there and Samsung has none to trade.</string>
     <string name="keypress_top_row_holds_digits">Digits</string>
     <string name="keypress_top_row_holds_symbols">Symbols</string>
     <string name="keypress_top_row_holds_none">None</string>

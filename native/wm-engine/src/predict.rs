@@ -1251,6 +1251,8 @@ impl Predictor {
         walked
             .iter()
             .filter(|c| c.edits == 1 && c.completed_chars == 0 && key_of(&c.word) != key)
+            // The word with a hyphen in it is not a slip.
+            .filter(|c| c.word.replace('-', "").to_lowercase() != lower)
             .filter(|c| !self.suppressed(&c.word))
             .take(KNOWN_WORD_SLIPS)
             .map(|c| (c.word.clone(), c.score.min(ceiling)))
@@ -1274,8 +1276,10 @@ impl Predictor {
             *e = e.max(s);
         };
         let walked = self.ranked(&lower, limit);
+        let mut slips: Vec<String> = Vec::new();
         if known {
             for (word, score) in self.known_word_slips(&lower, &walked) {
+                slips.push(word.to_lowercase());
                 put(&mut merged, word, score);
             }
         }
@@ -1383,6 +1387,20 @@ impl Predictor {
             let rest: Vec<String> = ranked.into_iter().filter(|w| !head.contains(w)).collect();
             ranked = head.into_iter().chain(rest).collect();
         }
+        // A slip stays behind the word typed, whatever context says of it. The
+        // typed letters with an apostrophe put back are no slip.
+        if let Some(at) = ranked.iter().position(|w| w.to_lowercase() == lower) {
+            let (jumped, kept): (Vec<String>, Vec<String>) =
+                ranked[..at].iter().cloned().partition(|w| {
+                    let letters: String = w.chars().filter(|c| c.is_alphanumeric()).collect();
+                    slips.contains(&w.to_lowercase()) && letters.to_lowercase() != lower
+                });
+            if !jumped.is_empty() {
+                let tail = ranked[at + 1..].to_vec();
+                let typed = ranked[at].clone();
+                ranked = kept.into_iter().chain([typed]).chain(jumped).chain(tail).collect();
+            }
+        }
         ranked
             .into_iter()
             .take(limit)
@@ -1456,7 +1474,11 @@ impl Predictor {
                 let skip2 = prev3.as_deref().map_or(0, |p3| lex.skip2gram_count(p3, &w));
                 let pack3 = prev2.as_deref().map_or(0, |p2| pack_trigram(p2, &prev, &w));
                 let pack2 = pack_bigram(&prev, &w);
-                let seed = self.seeds.count(&prev, &w);
+                let seed = if self.english_sources {
+                    self.seeds.count(&prev, &w)
+                } else {
+                    0
+                };
                 let skip_user = skip.map_or(0, |s| lex.bigram_count(s, &w));
                 let skip_pack = skip.map_or(0, |s| pack_bigram(s, &w));
                 let evidence = term(1.2, user3, 2.5)

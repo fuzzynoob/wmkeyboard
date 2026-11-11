@@ -179,6 +179,46 @@ class SpellingMapTest {
         }
     }
 
+    @Test fun aWordTheRulesSpellIsNotOverruled() {
+        val m = java.io.File("src/main/assets/dictionaries/en_bn.tsv").inputStream().use { en ->
+            java.io.File("src/main/assets/dictionaries/bn_rom.tsv").inputStream().use { rom -> SpellingMap.load(en, rom) }
+        }
+        // The rules' word leads, and the other reading stays on the strip.
+        for (spelling in listOf("ta", "kot", "kach", "dan", "dosh", "bon", "kara", "keno", "hot", "car")) {
+            val rules = com.wasimaster.wmkeyboard.core.transliteration.AvroPhonetic.transliterate(spelling)
+            assertEquals(spelling, rules, m.lookup(spelling).first())
+        }
+        // A chat spelling that means one word overwhelmingly keeps it.
+        assertEquals("\u09A4\u09CB\u09AE\u09BE\u09B0", m.lookup("tmr").first())
+        // Translations are not spellings: `tree` is not গাছ.
+        for (spelling in listOf("tree", "society", "until", "brb", "alright")) {
+            assertFalse("$spelling is listed", m.contains(spelling))
+        }
+        assertFalse("\u09AF\u09C1\u09A6\u09CD\u09A7" in m.lookup("war"))
+        // A reading of another word, or one dropping the -ই the user typed.
+        for (spelling in listOf("thekew", "netara", "koleje", "hoyei", "bujhtei")) {
+            assertFalse("$spelling is listed", m.contains(spelling))
+        }
+    }
+
+    @Test fun theMinedSpellingsCarryNoPlaceholdersOrLookalikes() {
+        // BanglaTLit anonymized its commenters' names, so `imran` was annotated
+        // ইউজার. Mining kept that out; a re-run with a looser filter must not
+        // put it back, or typing a name would write "user".
+        val lines = java.io.File("src/main/assets/dictionaries/bn_rom.tsv")
+            .readLines()
+            .filterNot { it.isBlank() || it.startsWith("#") }
+            .map { it.split("\t") }
+        for ((spelling, form) in lines) {
+            if (spelling == "user") continue
+            assertFalse("placeholder: $spelling", form in setOf("\u0987\u0989\u099C\u09BE\u09B0", "\u0987\u0989\u09B8\u09BE\u09B0"))
+        }
+        // A curated first reading the forum's habits must not displace.
+        assertEquals("\u09AB\u09C7\u09B8\u09AC\u09C1\u0995", lines.first { it[0] == "fb" }[1])
+        // And what the mining was for.
+        assertEquals("\u09AA\u09CD\u09B2\u09BF\u099C", lines.first { it[0] == "plz" }[1])
+    }
+
     private companion object {
         /** ZWNJ (Persian می‌), the apostrophe (Assamese ক'ত) and the hyphen (ৱাই-ফাই). */
         val ALLOWED = setOf('\u200C', '\'', '-')

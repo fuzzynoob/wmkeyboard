@@ -3,6 +3,26 @@
 
     <!-- The Storage screen, opened from About. -->
     <string name="about_storage_title">Storage</string>
+    <string name="import_hub_title">Import</string>
+    <string name="import_hub_subtitle">Every import in one place, for setting up after an install</string>
+    <string name="import_hub_files_group">Downloaded files</string>
+    <string name="import_hub_screens_group">Your own files</string>
+    <string name="import_hub_backup_title">A backup</string>
+    <string name="import_hub_backup_subtitle">Everything at once, from this app or another keyboard</string>
+    <string name="import_hub_languages_title">Layouts and word lists</string>
+    <string name="import_hub_languages_subtitle">Under the language they are for</string>
+    <string name="import_hub_themes_title">Themes</string>
+    <string name="import_hub_themes_subtitle">Your own files, and themes from other keyboards</string>
+    <string name="import_hub_icons_title">Icon packs</string>
+    <string name="import_hub_icons_subtitle">Icons for the keys and tools</string>
+    <string name="import_hub_stickers_title">Stickers</string>
+    <string name="import_hub_stickers_subtitle">Packs, and sets from Signal, WhatsApp and Telegram</string>
+    <string name="import_hub_sounds_title">Sounds</string>
+    <string name="import_hub_sounds_subtitle">Key sounds and sound packs</string>
+    <string name="import_hub_vocab_title">Vocabulary</string>
+    <string name="import_hub_vocab_subtitle">Word lists to study</string>
+    <string name="import_hub_plugins_title">Plugins</string>
+    <string name="import_hub_plugins_subtitle_python">Python plugins</string>
     <string name="about_storage_subtitle">See what the app keeps on your device, and delete it</string>
 
     <!-- the summary at the top -->
@@ -77,8 +97,64 @@
     <string name="storage_play_module_removing">Play removes it later, usually within a day</string>
     <string name="storage_language_packs_title">Interface languages</string>
     <string name="storage_language_packs_subtitle">The app\'s menus and settings in languages other than English, downloaded when you picked them</string>
-    <string name="storage_feature_libraries_subtitle">Native code that features such as voice typing, grammar checking, the scanner and on-device AI downloaded the first time you used them</string>
+    <string name="storage_feature_libraries_subtitle">Native code that features such as voice typing, grammar checking, the scanner and on-device AI downloaded the first time you used them Press one to open the settings of the feature it belongs to.</string>
+    <!-- Under each file on Feature libraries: what the library is for. -->
+    <string name="storage_lib_llm">On-device AI, for models in the LiteRT format</string>
+    <string name="storage_lib_translate">ML Kit\'s on-device translator, for the Translate tool</string>
+    <string name="storage_lib_litert">Offline Whisper voice typing and the sticker background remover</string>
+    <string name="storage_lib_handwriting">ML Kit\'s handwriting recognizer</string>
+    <string name="storage_lib_speech">whisper.cpp and Whistle voice typing, and noise removal for dictation</string>
+    <string name="storage_lib_opus">Makes dictation audio smaller before it goes to a transcription server</string>
+    <string name="storage_lib_executorch">Asr4All, Parakeet and Moonshine voice typing, and the FUTO Swipe glide engine</string>
+    <string name="storage_lib_onnx">Sherpa voice typing and the voices that read text aloud</string>
+    <string name="storage_lib_vosk">Vosk voice typing</string>
+    <string name="storage_lib_xlit">Neural suggestions on phonetic layouts</string>
+    <string name="storage_lib_nikud">Add niqqud for Hebrew</string>
+    <string name="storage_lib_kiwi">Korean spacing correction</string>
+    <string name="storage_lib_webrtc">PairDrop in Send files</string>
+    <string name="storage_lib_grammar">Harper, the on-device grammar checker</string>
+    <string name="storage_lib_plugins">The Python interpreter plugins run in, and the plugin editor\'s checks</string>
+    <string name="storage_lib_spell">Spell checking with Hunspell, Divvunspell and Voikko dictionaries</string>
+    <string name="storage_lib_ocr">Tesseract, for offline text scanning</string>
+    <string name="storage_lib_rime">The RIME engine for Chinese</string>
+    <string name="storage_lib_mozc">The Mozc engine for Japanese</string>
+    <string name="storage_lib_langid">fastText and CLD3, which tell the Translate tool what language a text is in on builds without Google\'s</string>
+    <string name="storage_lib_bergamot">Bergamot, the free on-device engine in the Translate tool</string>
+    <string name="storage_lib_ct2">The NLLB engine in the Translate tool</string>
+    <string name="storage_lib_zinnia">Offline handwriting for Chinese and Japanese</string>
+    <string name="storage_lib_llama">On-device AI, for GGUF models</string>
+    <string name="storage_lib_docscan">The built-in document scanner</string>
+    <string name="storage_lib_zxing">The built-in QR code scanner</string>
+    <string name="storage_lib_imagegen">The sticker generator, and text scanning with PaddleOCR</string>
+    <string name="storage_lib_npu">On-device AI on the phone\'s NPU</string>
+    <string name="storage_lib_scanner">ML Kit\'s text and barcode readers, for the scanner tools</string>
     <string name="storage_addon_index_subtitle">The list of add-on sources, and what you installed from them</string>
+
+    <!-- The Feature libraries page: every native library on one screen. -->
+    <string name="feature_libraries_title">Feature libraries</string>
+    <!-- Under a feature's download when its model needs a native library that is not on the phone yet, so one press fetches two files. -->
+    <string name="feature_libraries_first_line">Also downloads the library that runs it</string>
+    <string name="feature_libraries_first_sized_line">Also downloads the library that runs it (<xliff:g id="size" example="6.9 MB">%1$s</xliff:g>)</string>
+    <!-- While that library is the file coming in. -->
+    <string name="feature_libraries_step_line">Downloading the library that runs it</string>
+    <string name="feature_libraries_step_sized_line">Downloading the library that runs it: <xliff:g id="downloaded" example="3.1 MB">%1$s</xliff:g> of <xliff:g id="total" example="6.9 MB">%2$s</xliff:g></string>
+    <string name="feature_libraries_subtitle">See which libraries are missing, and download them in one place</string>
+    <!-- %1$d of %2$d: libraries on the phone, of all this phone can use. -->
+    <string name="feature_libraries_summary">%1$d of %2$d on this phone</string>
+    <string name="feature_libraries_caption">Each feature downloads its library when you first use it. Download them here to have them ready. Press a row to open the settings of its feature.</string>
+    <string name="feature_libraries_download_all">Download all missing</string>
+    <!-- %1$s is a size. -->
+    <string name="feature_libraries_download_all_sized">Download all missing (%1$s)</string>
+    <string name="feature_libraries_downloading">Downloading…</string>
+    <string name="feature_libraries_state_here">On this phone</string>
+    <string name="feature_libraries_state_missing">Not on this phone</string>
+    <string name="feature_libraries_state_failed">The download did not finish</string>
+    <string name="feature_libraries_built_in">This build has every feature library in the app. There is nothing to download.</string>
+    <!-- After a backup is restored. A backup does not carry downloads. -->
+    <plurals name="feature_libraries_after_restore">
+        <item quantity="one">A backup does not include downloads. %1$d feature library is not on this phone.</item>
+        <item quantity="other">A backup does not include downloads. %1$d feature libraries are not on this phone.</item>
+    </plurals>
 
     <string name="storage_themes_title">Themes and photos</string>
     <string name="storage_themes_subtitle">Background images for your themes</string>

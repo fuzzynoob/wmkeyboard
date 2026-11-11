@@ -67,9 +67,12 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FileOpen
 import com.wasimaster.wmkeyboard.core.imagegen.ClipTokenizer
 import com.wasimaster.wmkeyboard.core.imagegen.ImageGen
 import com.wasimaster.wmkeyboard.core.imagegen.ImageGenDownloads
+import com.wasimaster.wmkeyboard.core.modules.FeatureModules
 import com.wasimaster.wmkeyboard.core.imagegen.ImageGenEngine
 import com.wasimaster.wmkeyboard.core.imagegen.ImageGenEvent
 import com.wasimaster.wmkeyboard.core.imagegen.ImageGenImport
+import com.wasimaster.wmkeyboard.core.modules.ModuleState
+import com.wasimaster.wmkeyboard.core.imagegen.ImageGenNative
 import com.wasimaster.wmkeyboard.core.imagegen.ImageGenModels
 import com.wasimaster.wmkeyboard.core.imagegen.ImageGenRequest
 import com.wasimaster.wmkeyboard.core.imagegen.ImageRuntime
@@ -90,6 +93,7 @@ import com.wasimaster.wmkeyboard.core.settings.providerMode
 import com.wasimaster.wmkeyboard.core.settings.resolveProviders
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackStore
 import com.wasimaster.wmkeyboard.core.stickers.SubjectCutout
+import com.wasimaster.wmkeyboard.core.util.PhoneGpu
 import java.io.ByteArrayOutputStream
 import java.io.File
 import kotlin.random.Random
@@ -147,16 +151,24 @@ internal fun StickerGeneratorScreen(
     }
     var spec by remember { mutableStateOf<ModelSpec?>(null) }
     var tokenizer by remember { mutableStateOf<ClipTokenizer?>(null) }
+    // A model on the phone whose files could not be read (#903): said, rather
+    // than leaving Generate off with the model reading as ready.
+    var unreadable by remember { mutableStateOf(false) }
     LaunchedEffect(modelId, modelReady) {
         spec = null
         tokenizer = null
+        unreadable = false
         if (!modelReady) return@LaunchedEffect
         withContext(Dispatchers.IO) {
             val loaded = loadSpec(context, modelId)
             spec = loaded?.first
             tokenizer = loaded?.second
+            unreadable = loaded == null
         }
     }
+    // The generator's engine is a library of its own; the offline build and
+    // F-Droid before the opt-in have to be told where it comes from (#903).
+    val imageModule by ImageGenNative.moduleState.collectAsState()
 
     var prompt by remember { mutableStateOf("") }
     var style by remember { mutableStateOf(StickerPrompt.Style.byId(prefs.getString(KEY_STYLE, null))) }
@@ -171,6 +183,7 @@ internal fun StickerGeneratorScreen(
     var seed by remember { mutableStateOf(Random.nextLong(0, MAX_SEED)) }
     var safety by remember { mutableStateOf(prefs.getBoolean(KEY_SAFETY, true)) }
     var removeBackground by remember { mutableStateOf(prefs.getBoolean(KEY_CUTOUT, true)) }
+    var onGpu by remember { mutableStateOf(prefs.getBoolean(KEY_GPU, false)) }
 
     var job by remember { mutableStateOf<Job?>(null) }
     var status by remember { mutableStateOf<String?>(null) }
@@ -300,6 +313,7 @@ internal fun StickerGeneratorScreen(
                             seed = seed,
                             variants = count,
                             safetyFilter = safety,
+                            gpu = onGpu && current!!.runtime == ImageRuntime.MNN,
                         ),
                     )
                 } else {
@@ -418,6 +432,15 @@ internal fun StickerGeneratorScreen(
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             )
         }
+        val engineConsent = (imageModule as? ModuleState.Missing)?.consent
+        item(visible = engineConsent != null && engine != null && !online) {
+            val npu = (selectedCatalog?.runtime ?: spec?.runtime) == ImageRuntime.QNN
+            if (npu) {
+                NativeConsentBanner(engineConsent.orEmpty(), "imagegen", "npu")
+            } else {
+                NativeConsentBanner(engineConsent.orEmpty(), "imagegen")
+            }
+        }
     }
 
     // --- Model ---------------------------------------------------------------
@@ -431,7 +454,11 @@ internal fun StickerGeneratorScreen(
                 val state = states[model.id] ?: ImageGenDownloads.Status.NotDownloaded
                 ModelRow(
                     title = model.displayName,
-                    subtitle = modelSubtitle(context, model, state),
+                    // MNN, when it is not here yet: the download fetches it too.
+                    subtitle = withLibraryLine(
+                        modelSubtitle(context, model, state),
+                        libraryFirstLine(FeatureModules.imagegen).takeIf { state != ImageGenDownloads.Status.Downloaded },
+                    ),
                     selected = modelId == model.id,
                     downloaded = state == ImageGenDownloads.Status.Downloaded,
                     downloading = state is ImageGenDownloads.Status.Downloading,
@@ -577,6 +604,9 @@ internal fun StickerGeneratorScreen(
                 }
                 if (!online && engine != null && spec == null && !modelReady) {
                     CaptionText(stringResource(R.string.stickergen_need_model), modifier = Modifier.padding(top = 4.dp))
+                }
+                if (!online && engine != null && unreadable) {
+                    CaptionText(stringResource(R.string.stickergen_model_unreadable), modifier = Modifier.padding(top = 4.dp), error = true)
                 }
                 status?.let {
                     LinearProgressIndicator(
@@ -731,6 +761,20 @@ internal fun StickerGeneratorScreen(
                 prefs.edit().putBoolean(KEY_SAFETY, it).apply()
             }
         }
+        // MNN's OpenCL and Vulkan backends, for a model that runs on MNN on a
+        // phone with a GPU either can drive; the NPU's models have their own.
+        if (current != null && current.runtime == ImageRuntime.MNN && (PhoneGpu.adreno || PhoneGpu.vulkan)) {
+            item {
+                ToggleSetting(
+                    title = R.string.stickergen_gpu_title,
+                    subtitle = stringResource(R.string.stickergen_gpu_subtitle),
+                    checked = onGpu,
+                ) {
+                    onGpu = it
+                    prefs.edit().putBoolean(KEY_GPU, it).apply()
+                }
+            }
+        }
     }
 
     // --- Engines ---------------------------------------------------------------
@@ -832,7 +876,7 @@ private fun ModelRow(
                 downloaded -> IconButton(onClick = onDelete) {
                     Icon(Icons.Outlined.Delete, contentDescription = stringResource(R.string.stickergen_model_delete, title))
                 }
-                else -> IconButton(onClick = onDownload) {
+                else -> if (!offlineBuild) IconButton(onClick = onDownload) {
                     Icon(Icons.Outlined.Download, contentDescription = stringResource(R.string.stickergen_model_download, title))
                 }
             }
@@ -1006,6 +1050,7 @@ private const val KEY_SIZE = "size"
 private const val KEY_VARIANTS = "variants"
 private const val KEY_SAFETY = "safety"
 private const val KEY_CUTOUT = "cutout"
+private const val KEY_GPU = "gpu"
 private const val KEY_PACK = "pack"
 private const val KEY_ENGINE = "engine"
 

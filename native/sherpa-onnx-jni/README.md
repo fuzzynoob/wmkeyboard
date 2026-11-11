@@ -20,9 +20,14 @@ The same library reads text aloud with Meta's MMS-TTS voices
 (`vits_jni.cpp`, driven by `core.voice.speech.MmsSpeech`). That part is not
 sherpa-onnx: it runs the VITS network through ONNX Runtime's C++ API. An MMS
 voice reads characters, so its whole text frontend (lower-casing, one id per
-character, the blank between them) is a few lines of Kotlin, and building
-sherpa-onnx's TTS would link espeak-ng, which is GPL-3.0, for phonemes these
-voices never use.
+character, the blank between them) is a few lines of Kotlin.
+
+Kokoro voices go through sherpa-onnx's own offline TTS (`kokoro_jni.cpp`,
+driven by `core.voice.speech.KokoroSpeech`). Since 2.0 sherpa-onnx phonemises
+from the lexicon files a model ships (English and Chinese for Kokoro v1.0)
+and no longer links espeak-ng, so turning its TTS on brings no GPL code into
+this library. A word missing from the lexicon is skipped; `KokoroText` spells
+out English numbers before the text gets here.
 
 Add punctuation and capitals runs here too (`tagger_jni.cpp`, driven by
 `core.voice.punctuation.DictationPunctuation`): a generic token classifier on
@@ -37,6 +42,21 @@ DPDFNet baseline model (DeepFilterNet2 with dual-path RNN blocks, Apache-2.0,
 16 kHz), with 12 dB of the microphone mixed back under the cleaned audio. See
 [Choosing the Strong model](#choosing-the-strong-model) below for why that model
 and that mix.
+
+A second library, `libwmsherpa_qnn.so` (`qnn_jni.cpp`, arm64 only, its own
+gate `sherpaqnn`), is sherpa-onnx configured again with
+`SHERPA_ONNX_ENABLE_QNN`, for the NPU builds of Parakeet TDT 0.6B v3 and
+Moonshine Tiny: k2-fsa's QNN context binaries from the `asr-models-qnn-binary-2`
+and `-3` releases, one set per Snapdragon chip and fixed clip length, run by
+sherpa-onnx's offline recognizer (`provider=qnn`). The C API has no QNN
+fields, so this bridge uses the C++ API. It compiles against QAIRT
+2.40.0.251030's `include/QNN` (the SDK k2-fsa compiled the binaries with,
+fetched by `../executorch-jni/qnn_headers.py`) and opens Qualcomm's
+`libQnnHtp.so` and `libQnnSystem.so` by path from the `npu` gate's runtime
+directory at run time; `ADSP_LIBRARY_PATH` points the DSP at the chip's skel
+there. Kotlin side: `SherpaQnnNative` and `QnnSpeech`. Built by `build.sh`
+unless `WMKB_SHERPA_QNN=0`; `WMKB_SHERPA_PLAIN=0 WMKB_ABIS=arm64-v8a` builds
+only it.
 
 The bridge is a thin JNI layer over sherpa-onnx's C API, which is linked in
 statically with only speech recognition switched on (no TTS, no diarization,
@@ -75,10 +95,10 @@ about four minutes.
 
 ## Provenance
 
-- sherpa-onnx `v1.13.8`, commit `11afbd009a7f8c08f4bcf2fc1b265d0df4670fbf`,
+- sherpa-onnx `v2.0.1`, commit `af2d8d81dbfa61c4cea4c568da78f3982edca005`,
   unmodified, Apache-2.0.
-- ONNX Runtime headers `v1.30.0`, commit
-  `f2c39fe2f838cf35ce7da92824f5a5e3ee6e88a7`, MIT.
+- ONNX Runtime headers `v1.31.1`, commit
+  `6af1a932e2286d5c58166085d24c68783033edee`, MIT.
 
 The models are not bundled. `EtCatalog` in `:core:voice` pins each one to a
 Hugging Face revision and every file to its SHA-256, the same store and
@@ -99,8 +119,8 @@ of it themselves.
 
 | ABI | Size |
 |---|---|
-| arm64-v8a | about 2.3 MB |
-| armeabi-v7a | about 1.5 MB |
+| arm64-v8a | about 2.4 MB |
+| armeabi-v7a | about 1.6 MB |
 | x86_64 | about 2.5 MB |
 
 All three are 16 KB aligned (`-z max-page-size=16384`), as is Microsoft's
@@ -137,7 +157,7 @@ Handles are `Long`s, 0 on failure; text crosses as UTF-8 byte arrays.
   take (k2-fsa's v4 export, v4 as published, v5), 1 for TEN with sherpa-onnx's
   metadata (`model_type` `ten-vad`, `mean` and `inv_stddev` of 41, `window` of
   768), -1 otherwise. It makes exactly the checks after which sherpa-onnx
-  v1.13.8 would exit the process, on a plain ONNX Runtime session, so an
+  v2.0.1 (unchanged from v1.13.8) would exit the process, on a plain ONNX Runtime session, so an
   imported file is tried here first and never reaches sherpa-onnx unless it
   passes.
 - `nativeFireRed(model, mean, scale, threads)`: FireRedVAD's streaming model
@@ -212,7 +232,10 @@ and 34 minutes in all. Every denoiser was fed 100 ms chunks, as
 | DeepFilterNet3 (48 kHz, its own CLI) | 30.3% | |
 | DeepFilterNet3, 12 dB kept | 24.7% | |
 
-Blank cells are runs that did not finish. On clean clips Strong moved Whisper
+Blank cells are runs that did not finish. Light moved to RNNoise 0.2's
+little model on 2026-10-28; rerun on the same clips and DEMAND recordings
+with a new synthetic fan (raw 23.3% and 28.6% there), it scored 28.8% and
+34.7% against 0.1.1's 28.9% and 36.8%. Table in `native/rnnoise-jni/README.md`. On clean clips Strong moved Whisper
 from 8.2% to 9.0%. CPU per 10 ms of
 audio, one thread, on a heavily loaded M2: RNNoise 0.25 ms, GTCRN 1.07,
 DPDFNet baseline 1.20, DeepFilterNet3 1.23, DPDFNet2 2.62. DPDFNet2 is within
@@ -283,7 +306,7 @@ MatMulNBits lost as much; 8-bit weight-only MatMulNBits with int8 compute
 ships, with the int8 table dequantised after its Gather and the weights in an
 external data file, which ONNX Runtime maps: 319 MB of private memory for
 the same weights inline, 87 MB mapped. Checked identical on ONNX Runtime
-1.30.0, the app's.
+1.30.0.
 
 The JVM side was run against the same files: `GemmaTokenizer` a word at a
 time gives Hugging Face tokenizers' ids on all 3,200 test texts, the bridge's

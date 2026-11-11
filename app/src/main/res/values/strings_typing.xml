@@ -32,6 +32,7 @@
     <string name="typing_group_capitals_title">Capitals</string>
     <string name="typing_group_punctuation_title">Punctuation and spacing</string>
     <string name="typing_group_brackets_title">Brackets and lists</string>
+    <string name="typing_group_composing_title">Word being typed</string>
 
     <!-- The Gestures hub's three pages (SETTINGS_REDESIGN.md §4). The glide
          page keeps typing_group_glide_title as its name. -->
@@ -67,7 +68,7 @@
 
     <string name="typing_autocorrect_confidence_title">Autocorrect confidence</string>
     <string name="typing_autocorrect_confidence_subtitle">How certain the keyboard must be before it corrects a word</string>
-    <string name="typing_autocorrect_confidence_info">The keyboard corrects a word only when the best candidate scores higher than the second candidate by this factor. A low value corrects more typos, but it guesses wrong more often. A high value corrects only when the word is almost certain. The keyboard always applies a correction that two sources agree on.</string>
+    <string name="typing_autocorrect_confidence_info">The keyboard corrects a word only when the best candidate scores higher than the second candidate by this factor. A low value corrects more typos, but it guesses wrong more often. A high value corrects only when the word is almost certain. Below 1.5 it also accepts words two letters away from what you typed, and at 1.0 it takes the best candidate whatever the second one scores. A word already in a dictionary is still left alone. The keyboard always applies a correction that two sources agree on.</string>
 
     <string name="typing_context_rerank_title">Context-aware suggestions</string>
     <string name="typing_context_rerank_subtitle">Reorder suggestions by the words around them</string>
@@ -77,6 +78,10 @@
     <string name="typing_neural_context_subtitle">Read the whole sentence to predict and rank words</string>
     <string name="typing_neural_context_info">A small language model, downloaded for your language, reads the sentence you have typed so far and says which words are likely to come next. It fills the next-word suggestions, helps order corrections, and backs the learned autocorrect gate. It runs on this device and needs no network once downloaded. A word it does not know, such as a name or a word you taught the keyboard, is left to your dictionary as before. Turning this off reads no model file.</string>
 
+    <string name="typing_chips_at_end_title">Chips on the far side</string>
+    <string name="typing_chips_at_end_subtitle">A one-time code, a copied clip, a keyword or a join chip sits at the end of the strip, where a right thumb reaches it</string>
+    <string name="typing_shortcuts_converting_title">Shortcuts while converting</string>
+    <string name="typing_shortcuts_converting_subtitle">On Pinyin and other conversion layouts, a snippet trigger or tool keyword offers a chip at the end of the strip</string>
     <string name="typing_context_revision_title">Re-check the previous word</string>
     <string name="typing_context_revision_subtitle">Offer a fix for the word before, once the next word shows what you meant</string>
     <string name="typing_context_revision_info">After you type a word, the keyboard looks again at the word before it with the new word in sight. If one of the other readings it had fits the sentence much better (\"by a car\" → \"buy\"), a chip offers it. Nothing changes until you tap the chip. Needs the context model.</string>
@@ -91,7 +96,7 @@
 
     <string name="typing_number_row_corrections_title">Fix number row slips</string>
     <string name="typing_number_row_corrections_subtitle">Correct a stray digit to the letter below it</string>
-    <string name="typing_number_row_corrections_info">With the number row on, a tap meant for the top letter row can land on a digit, and "as3" appears instead of "ase". With this setting on, one digit inside a word can be corrected to the letter below it when you press space. The correction only ever swaps the digit for a letter. A word that starts with a digit, and a word with two or more digits, never change. This setting has an effect only while the number row is shown.</string>
+    <string name="typing_number_row_corrections_info">With the number row on, a tap meant for the top letter row can land on a digit, and "as3" appears instead of "ase". With this setting on, one digit inside a word can be corrected to the letter below it when you press space. When you type fast, the keyboard fixes these more readily: a word can have two digits (\"y97\" becomes \"you\"), and a digit you typed at the start of a word can be its first letter (\"5yped\" becomes \"typed\"). The correction only ever swaps a digit for a letter. Numbers stay as they are, \"5pm\", \"4th\" and \"10am\" included, and so does a word with three or more digits. This setting has an effect only while the number row is shown.</string>
 
     <string name="typing_autocorrect_splits_title">Add missing spaces</string>
     <string name="typing_autocorrect_splits_subtitle">Split two words typed together when you press space</string>
@@ -132,6 +137,9 @@
 
     <string name="typing_undo_chip_title">Undo a correction from the strip</string>
     <string name="typing_undo_chip_subtitle">Show a chip that puts back the word you typed</string>
+    <string name="typing_undo_delete_chip_title">Undo backspace from the strip</string>
+    <string name="typing_undo_delete_chip_subtitle">After you delete, a chip puts the text back, then deletes it again</string>
+    <string name="typing_undo_delete_chip_info">With this on, whatever backspace takes away waits on a chip on the suggestion strip. Press it and the text comes back where it was, and the chip turns into Redo, which deletes it again. Holding backspace or swiping on it counts as one delete, so a whole sentence comes back with one press. Text deleted after the cursor, by a swipe down on backspace or by the forward delete key, comes back too.\n\nThe chip goes as soon as you type, move the cursor or select something. It never appears in password fields.</string>
     <string name="typing_undo_chip_info">Backspace undoes a correction only in the moment. Type one more letter and the correction is out of reach, and this is when you usually see it. With this on, the keyboard puts a chip at the start of the suggestion strip with your own spelling on it. Press the chip and the keyboard puts that word back, and learns not to make the same correction again. The chip appears between words and stands until you end the sentence. Not every correction gets one. The setting below says which corrections do.</string>
 
     <string name="typing_undo_chip_obviousness_title">How often to offer the undo</string>
@@ -178,6 +186,9 @@
 
     <string name="typing_auto_capitalize_title">Automatic capital letters</string>
     <string name="typing_auto_capitalize_subtitle">Put a capital letter at the start of each sentence</string>
+    <string name="typing_auto_capitalize_words_title">Capitalize every word</string>
+    <string name="typing_auto_capitalize_words_subtitle">Put a capital letter at the start of each word, not just each sentence</string>
+    <string name="typing_auto_capitalize_words_info">Shift turns on by itself after every space, so \"new york city\" comes out as \"New York City\". Press shift before a word to type it in lower case. This works only in the fields that ask for capitals, so email addresses, web addresses and passwords keep their lower case.</string>
     <string name="typing_auto_capitalize_info">Shift turns on by itself at the start of a text field, and after the punctuation that ends a sentence (. ! ? ।). This happens only in the fields that ask for sentence capitals, and only in the scripts that have capital letters, which are Latin, Cyrillic, Greek and Armenian. Nothing changes in Bengali or any other script without letter case. The keyboard never changes caps lock by itself.</string>
 
 
@@ -185,6 +196,8 @@
     <string name="typing_auto_space_punctuation_title">Automatic space after punctuation</string>
     <string name="typing_auto_space_punctuation_subtitle">The keyboard adds a space after you type . , ? ! ; or :</string>
     <string name="typing_auto_space_punctuation_info">You do not need to press space at the end of a clause: \"hello,\" becomes \"hello, \" by itself. A group of marks (\"...\", \"?!\") stays together. A mark typed straight after a number gets no space, so \"5,000\", \"3.14\" and \"5:00\" stay whole. A domain ending or file extension typed after a full stop closes back up, so \"google. com\" becomes \"google.com\". If you press space yourself, the keyboard does not add a second space. Shift immediately after the space removes it. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads. A space in these fields is a mistake.</string>
+    <string name="typing_auto_space_punctuation_marks_title">Marks followed by a space</string>
+    <string name="typing_auto_space_punctuation_marks_hint">One character for each mark, with no spaces between them</string>
     <string name="typing_hug_punctuation_title">Remove a space before punctuation</string>
     <string name="typing_hug_punctuation_subtitle">\"Hey .\" becomes \"Hey.\" when you type the mark</string>
     <string name="typing_hug_punctuation_info">A space typed by mistake in front of a punctuation mark is removed when the mark lands. The mark must come after a word, a number or a closing bracket, so a mark at the start of a line is left alone. One backspace right after puts the space back. Languages that put a space in front of a mark on purpose, French among them, are handled by the setting below and are never hugged, whichever marks are listed here. The keyboard leaves structured fields alone: passwords, email addresses, web addresses, number pads and phone pads.</string>
@@ -196,6 +209,9 @@
 
     <string name="typing_space_after_suggestion_title">Space after a suggestion</string>
     <string name="typing_space_after_suggestion_subtitle">Add a space when you select a word from the suggestion strip</string>
+    <!-- The same row while some languages have their own switch turned off:
+         %1$s is their names, joined with commas. -->
+    <string name="typing_space_after_suggestion_except_subtitle">Add a space when you select a word from the suggestion strip. Not in <xliff:g id="languages" example="Bangla">%1$s</xliff:g>, which has its own switch in Languages &amp; layouts</string>
     <string name="typing_space_after_suggestion_info">This setting is on by default. When you press a suggestion, the keyboard types the word and a space after it, so the next word starts clean. Turn it off to type the word without the space. This helps in the languages or fields where a space after a word is usually wrong. If you go back to a word and continue it, the keyboard never adds a second space. To turn it off for one language only, open that language in Languages &amp; layouts.</string>
 
     <string name="typing_wrap_selection_title">Wrap the selection with brackets</string>
@@ -204,7 +220,25 @@
 
     <string name="typing_continue_lists_title">Continue lists</string>
     <string name="typing_continue_lists_subtitle">Enter after \"1. milk\" types \"2. \" on the next line, in any app</string>
+    <string name="typing_smart_punctuation_title">Smart punctuation key</string>
+    <string name="typing_smart_punctuation_subtitle">The period key shows the mark your sentence is heading for: ? after \"how are you\"</string>
+    <string name="typing_smart_punctuation_ready">On. The key reads the sentence as you type; hold it for the other marks</string>
+    <string name="typing_smart_punctuation_failed">The model could not be downloaded. Turn the switch off and on to try again</string>
+    <string name="typing_smart_punctuation_info">A small model, downloaded once (a few MB) and run on this phone, reads the sentence you have typed so far and guesses which mark it will end with: a full stop, a question mark or an exclamation mark. The key beside the spacebar shows that mark and types it; the full stop moves to the front of the key\'s hold, so a hold still types it. Nothing you type leaves the phone. The guess is only ever a guess: the model has seen millions of sentences in 58 languages, but a question with no question word in it can read as a statement, and it rarely guesses an exclamation mark. The key is left as laid out in email and web-address fields, in password fields, and on the symbol pages. Each language has its own switch too, on its page under Languages &amp; layouts.</string>
+    <string name="typing_smart_punctuation_size_title">Model size</string>
+    <string name="typing_smart_punctuation_size_subtitle">Standard, or Large for a few more sentences read right</string>
+    <string name="typing_smart_punctuation_size_info">Standard is the one the switch downloads by itself. Large is about twice the size and deeper, reads the sentence about as well as Standard on the current training text, and takes about twice as long on each keystroke, a millisecond or two. Picking the other size downloads it and replaces the one on the phone.</string>
+    <string name="typing_smart_punctuation_size_standard">Standard (<xliff:g id="size" example="3.2 MB">%1$s</xliff:g>)</string>
+    <string name="typing_smart_punctuation_size_large">Large (<xliff:g id="size" example="6.5 MB">%1$s</xliff:g>)</string>
+    <string name="typing_smart_punctuation_comma_title">Also offer the comma</string>
+    <string name="typing_smart_punctuation_comma_subtitle">The key shows , when the sentence looks unfinished</string>
+    <string name="typing_smart_punctuation_comma_info">With this on, the smart punctuation key may also show a comma when the model reads the sentence so far as a clause you are going on from, as after \"if you want\". Off, the key only ever shows one of the three sentence-ending marks, and a comma stays where the layout put it.</string>
     <string name="typing_continue_lists_info">This setting is off by default. With it on, pressing Enter on a line that starts with a list marker starts the next line with the next one: - * + and • carry on as they are, 1. and 1) count up, and a task box such as - [x] or ☐ carries on as an empty box. The indentation in front of the marker is kept. Pressing Enter on an item with nothing after its marker ends the list: the marker is taken off and no new line is typed. A number has to be three digits or fewer, so a line that opens with a year is left alone. Only fields where Enter makes a new line take part; a chat box that sends on Enter sends as usual, and Shift+Enter there makes the list line. Passwords, email fields, web addresses and number pads are left alone.</string>
+    <string name="typing_hide_composing_underline_title">Hide the underline under the word being typed</string>
+    <string name="typing_hide_composing_underline_subtitle">The word you are typing shows as plain text, the way Gboard shows it</string>
+    <string name="typing_hide_composing_underline_info">This setting is off by default. While you type a word, the app you are typing in underlines the part the keyboard can still change: an Avro word before it becomes Bengali, or a word a suggestion may still replace. With this on, the keyboard asks the app to show that word without the underline. Typing, suggestions and corrections work the same; you just no longer see where the open word starts. Chrome, web pages inside other apps and some code editors draw their own underline whatever this says. A Japanese conversion keeps its underline, because it marks the segments the arrow keys move between.</string>
+    <string name="typing_auto_close_quotes_title">Close quotes for me</string>
+    <string name="typing_auto_close_quotes_subtitle">Press \" or \' and the keyboard types the closing one too, unless it comes right after a letter or number</string>
     <string name="typing_auto_close_brackets_title">Close brackets for me</string>
     <string name="typing_auto_close_brackets_subtitle">Press ( [ { and the keyboard types the closing half, with the cursor between them</string>
     <string name="typing_auto_close_brackets_info">This setting is off by default. With it on, pressing an opening bracket types the closing one behind the cursor and leaves the cursor between the two, so you type straight inside the pair: press ( and you get (), ready for what goes in it. Pressing the closing bracket when it is already the next character steps over it instead of typing a second one, and one backspace on an empty pair takes both halves out. The CJK brackets are included, and so are the fullwidth ones. Quotes are not: the apostrophe in \"don\'t\" shares that key, and closing it would be wrong more often than right. Nor is &lt;, which outside code is a less-than sign. Passwords, email fields and number pads are left alone; a browser\'s address bar is not.</string>
@@ -275,6 +309,12 @@
     <string name="typing_inline_autofill_title">Password manager suggestions</string>
     <string name="typing_inline_autofill_subtitle">Show saved logins from your autofill service in the suggestion strip</string>
     <string name="typing_inline_autofill_info">When you select a login field, your password manager can offer saved entries as chips in the suggestion strip, instead of a separate popup. The password manager draws the chips itself. The keyboard gets only their size, and never sees the user name or the password inside them. The chips stay available in incognito mode, because they record nothing. This setting needs Android 11 or newer, and a password manager set as your system autofill service.</string>
+    <string name="typing_password_manager_chip_title">Password manager button</string>
+    <string name="typing_password_manager_chip_subtitle">In a password field with no saved login on the strip</string>
+    <string name="typing_password_manager_chip_info">Some apps and sites never ask your password manager to fill their login, and a keyboard cannot ask for them: only the app can. In a password field with nothing from the manager on the strip, this puts a button there that opens the manager you chose in Android\'s autofill settings, to unlock it and copy the password. Back in the field, the paste chip offers what you copied, masked. Android 9 and later.</string>
+    <string name="typing_password_manager_chip_wm_pass_title">WM Pass tool in password fields</string>
+    <string name="typing_password_manager_chip_wm_pass_subtitle">When WM Pass is the autofill service</string>
+    <string name="typing_password_manager_chip_wm_pass_info">When WM Pass is the password manager in Android\'s autofill settings, its own suggestions fill the field, so the password manager button stays off the strip. Turn this on to get the button back as the keyboard\'s WM Pass tool, which lists the logins for the app in front and types one in, without leaving the app.</string>
 
     <string name="typing_smart_replies_title">Smart replies</string>
     <string name="typing_smart_replies_subtitle">Let the system offer replies to the message you answer</string>
@@ -293,6 +333,16 @@
     <string name="typing_recent_word_bar_title">Recent words</string>
     <string name="typing_recent_word_bar_subtitle">Your last three words in a row above the strip, each with what else it could be, so you can fix one after you have typed past it</string>
     <string name="typing_recent_word_bar_info">The three words you wrote last sit in a row above the suggestion strip, the newest on the right, each followed by what else it could have been: what the strip offered as you wrote it, the other readings of its swipe, and the spelling it had before you changed it from here. Tap one and only that word changes, where it stands; the word you are typing and the cursor stay put. Only words you wrote in the field join the row. It is left out of password fields and incognito, starts empty in every new field, and shows in web address bars. Under Rows &amp; bars you can move the row, put the words at the start of the strip instead, and keep the row\'s height while it is empty.</string>
+    <!-- One-of-three choice (#1189): where the Retype button sits. -->
+    <string name="typing_retype_button_title">Retype button</string>
+    <string name="typing_retype_button_subtitle">Clear the word at the cursor to type it again, without Backspace or the word menu</string>
+    <string name="typing_retype_button_info">A Retype button at the end of the suggestion strip or of the recent words\' row. Press it and the word at the cursor comes out of the field so you can type it again, and the strip offers it back first, followed by the other readings of its swipe. A space the keyboard added goes with the word; a space you typed stays. It is the same Retype as in the menu of a held suggestion, and it does not depend on what Backspace is set to do. It always takes the word at the cursor, never a word shown on its bar. With no word right behind the cursor, or with the cursor inside a word, it changes nothing and says so. One press clears one word. The button is never shown in a password field. This setting is off by default.</string>
+    <string name="typing_retype_button_off">Off</string>
+    <string name="typing_retype_button_strip">Suggestion bar</string>
+    <string name="typing_retype_button_recent">Previous-words bar</string>
+    <string name="typing_retype_button_needs_strip">The suggestion strip is hidden, so the button is not shown.</string>
+    <string name="typing_retype_button_needs_recent">Turn on Recent words to show the button there.</string>
+    <string name="typing_retype_button_needs_own_row">Recent words are at the start of the strip: choose A row of their own under Rows and bars to show the button there.</string>
     <string name="typing_skip_typed_word_info">The suggestion strip normally keeps one slot for the word exactly as you typed it, which is how you keep a spelling the dictionary does not know. Turn this on and that slot is given to another suggestion instead, so all three offer something new. The cost is that a word the keyboard does not recognise has one fewer way to survive a correction, and the strip no longer shows you which candidate is the literal thing you wrote.</string>
 
     <string name="typing_group_octopus_title">Words on the keys</string>
@@ -450,6 +500,12 @@
     <string name="typing_otp_chip_title">Codes from notifications</string>
     <string name="typing_otp_chip_subtitle">When a verification code arrives in a notification, offer it above the keys. One press types it</string>
     <string name="typing_otp_chip_info">The keyboard watches incoming notifications for a one-time code. When it finds one, a chip with the code and the name of the app that sent it appears above the keys. Press the chip to type the code. This needs notification access. The keyboard reads notifications on your device only, keeps the code in memory only, and sends nothing anywhere. Turn this off and the keyboard stops reading notifications at once.</string>
+    <string name="typing_otp_redacted_title">Android hid a code from the keyboard</string>
+    <string name="typing_otp_redacted_subtitle">Android 15 and later hide codes in notifications from apps like this one, so no chip can appear. Copy the code from the notification and the keyboard offers it from there. To lift the block, run the adb command from a computer: tap to copy it</string>
+    <string name="typing_otp_redacted_subtitle_shizuku">Android 15 and later hide codes in notifications from apps like this one, so no chip can appear. Copy the code from the notification and the keyboard offers it from there. To lift the block, set up Shizuku or root under Privacy › Permissions, or tap to copy an adb command to run from a computer</string>
+    <string name="typing_otp_redacted_subtitle_shell">Android 15 and later hide codes in notifications from apps like this one, so no chip can appear. Tap to let the keyboard read them, using Shizuku or root</string>
+    <string name="typing_otp_redacted_unblocked">Done. The next code that arrives shows up as a chip</string>
+    <string name="typing_otp_redacted_copied">adb command copied. If it fails with MANAGE_APP_OPS_MODES, turn on Disable permission monitoring in Developer options, restart and run it again</string>
     <string name="typing_otp_access_title">Allow notification access</string>
     <string name="typing_otp_access_subtitle">The chip cannot see codes arrive yet. Press to open the system switch</string>
     <string name="typing_otp_code_fields_title">Only in code boxes</string>
@@ -463,6 +519,8 @@
     <string name="typing_otp_per_digit_title">Type codes one character at a time</string>
     <string name="typing_otp_per_digit_subtitle">For the forms that give each character of a code its own box</string>
     <string name="typing_otp_per_digit_info">Many apps and websites split a code across a row of small boxes, one character each, and move to the next box for you. A whole code sent at once goes into the first box, which keeps one character and drops the rest. With this on, the keyboard types the code character by character, so each box gets its own. This applies to codes from notifications and to codes pasted from the clipboard.</string>
+    <string name="typing_otp_keywords_title">Your own code words</string>
+    <string name="typing_otp_keywords_hint">Words that come before a code in your messages, commas between. Example: 验证码, 口令</string>
 
     <!-- ==== Typing settings: gestures ==== -->
     <string name="typing_glide_typing_title">Glide typing</string>
@@ -703,6 +761,37 @@
     <string name="typing_glide_backspace_undo_title">Backspace removes a glided word</string>
     <string name="typing_glide_backspace_undo_subtitle">One backspace after a glide deletes the whole word</string>
     <string name="typing_glide_backspace_undo_info">This setting is on by default. Right after you glide a word, one backspace deletes the whole word and its space, and the suggestion strip shows other words for the same glide. Turn this off to delete one letter at a time, as for a word you typed on the keys. Use this when your glides are usually correct except for one or two letters.</string>
+    <string name="typing_glide_backspace_undo_two_thumb_own_subtitle">For ordinary glides. Two-thumb typing uses Two-thumb Backspace</string>
+    <string name="typing_glide_backspace_undo_two_thumb_current_subtitle">For ordinary glides, and for two-thumb typing while Two-thumb Backspace is on Current behavior</string>
+
+    <!-- One-of-four choice (#1188): what Backspace does to a word typed with both thumbs. -->
+    <string name="typing_two_thumb_backspace_title">Two-thumb Backspace</string>
+    <string name="typing_two_thumb_backspace_current_subtitle">Current behavior: Backspace removes a glided word decides</string>
+    <!-- %1$s: the steps in the order one press takes them, joined by commas. -->
+    <string name="typing_two_thumb_backspace_order">One step a press: %1$s</string>
+    <string name="typing_two_thumb_backspace_step_join">restore the joined space</string>
+    <string name="typing_two_thumb_backspace_step_space">remove the auto-space</string>
+    <string name="typing_two_thumb_backspace_step_correction">undo a correction</string>
+    <string name="typing_two_thumb_backspace_step_undo">undo the last tap or swipe</string>
+    <string name="typing_two_thumb_backspace_step_retype">retype the word</string>
+    <string name="typing_two_thumb_backspace_step_character">delete a character</string>
+    <string name="typing_two_thumb_backspace_info">This applies only to words you type with Two-thumb typing on. One press does one step, in the order shown under the title. A selection is always deleted first. Away from a word you just typed, Backspace deletes one character. Holding Backspace uses your normal repeat after the first press. Current behavior keeps the rules from before this setting existed, where the switch Backspace removes a glided word decides for two-thumb words too.</string>
+    <string name="typing_two_thumb_backspace_current_label">Current behavior</string>
+    <string name="typing_two_thumb_backspace_current_desc">Keep the existing rules. Backspace removes a glided word decides, and the two switches below are not used.</string>
+    <string name="typing_two_thumb_backspace_undo_label">Undo input step</string>
+    <string name="typing_two_thumb_backspace_undo_desc">Remove the last tap or swipe and show the earlier reading again. This works on the open word, and on a word the all thumbs up pause just typed.</string>
+    <string name="typing_two_thumb_backspace_retype_label">Retype word</string>
+    <string name="typing_two_thumb_backspace_retype_desc">Clear the word so you can enter it again, and offer its old spelling on the strip. One press clears one word. The next press deletes a character.</string>
+    <string name="typing_two_thumb_backspace_character_label">Delete character</string>
+    <string name="typing_two_thumb_backspace_character_desc">Delete one character at a time, as for a word typed on the keys.</string>
+    <string name="typing_two_thumb_backspace_needs_action">Choose a Two-thumb Backspace action other than Current behavior to use this</string>
+    <string name="typing_two_thumb_backspace_space_first_title">Delete auto-space first</string>
+    <string name="typing_two_thumb_backspace_space_first_subtitle">The first press removes only the space the keyboard added after the word</string>
+    <string name="typing_two_thumb_backspace_space_first_info">After a word, the first Backspace removes only the space the keyboard typed. The next press undoes a correction or does the Two-thumb Backspace action. A space you typed with the spacebar is not an auto-space, so this never removes it. A space the keyboard was still holding back before a closing mark is cancelled, and no text is deleted. When this is off, Retype word and Undo input step take the auto-space together with the word.</string>
+    <string name="typing_two_thumb_backspace_join_first_title">Undo Take the space back first</string>
+    <string name="typing_two_thumb_backspace_join_first_subtitle">The first press puts back a space that Take the space back removed</string>
+    <string name="typing_two_thumb_backspace_join_first_needs_retract">Needs Finish a two-thumb word set to All thumbs up, and Take the space back above Off</string>
+    <string name="typing_two_thumb_backspace_join_first_info">Take the space back can join a letter to the word before it: car, the space, then p gives carp. With this on, the first Backspace puts the space back and keeps the letters you typed after it as a word of their own, so carp becomes car p. The space is not taken back again until you type a new word. The next press uses the Two-thumb Backspace action on that word. It works only for the latest join while you are still typing the word, and never for No space or a space you typed.</string>
     <string name="typing_space_after_glide_title">Space after a glided word</string>
     <string name="typing_space_after_glide_subtitle">Add a space when you lift your finger at the end of a glide</string>
     <string name="typing_space_after_glide_info">This setting is on by default. The keyboard types a space after a glided word, so the next word does not join it. You can glide the next word, or type it on the keys. Type . , ? ! ; : or a closing bracket next, and the keyboard removes the space first. A press on the spacebar counts as the space that is already there. Backspace takes back the glided word and its space together. The keyboard adds no space in a password, an email address, a web address, a number pad or a phone pad.</string>
@@ -748,6 +837,11 @@
     <string name="typing_glide_near_radius_title">Path error radius</string>
     <string name="typing_glide_near_radius_subtitle">How far a glide can pass from a letter on the way</string>
     <string name="typing_glide_near_radius_info">Measured in key widths. A letter is available to a word only when the glide passed this close to its key. A high value lets you cut corners and still get the letter. A low value keeps the keyboard to the keys you touched, which is faster and more exact, but a cut corner then loses the word. Move this up if long words come out with a letter missing.</string>
+    <string name="typing_glide_language_radii_title">Error radius by language</string>
+    <string name="typing_glide_language_radii_subtitle">Start, end and path radii that one language keeps for itself</string>
+    <string name="typing_glide_language_radii_none">None</string>
+    <string name="typing_glide_language_radii_info">A language can glide with radii of its own in place of the three above, for example a tighter path on Japanese Kana JIS, where the keys sit close together, while English stays forgiving. Set them on the language\'s page in Languages. A radius the language hasn\'t set follows the one above. The languages that have their own are listed under this row.</string>
+    <string name="typing_glide_language_radii_values">Start <xliff:g id="start" example="1.6×">%1$s</xliff:g> · end <xliff:g id="end" example="2.0×">%2$s</xliff:g> · path <xliff:g id="path" example="1.2×">%3$s</xliff:g></string>
 
     <!-- The three marks a stroke can carry on a key: a pause and a back and
          forth say the letter is in the word, a circle says it is there twice
@@ -854,6 +948,10 @@
     <string name="typing_space_short_swipe_subtitle">A swipe that starts to move immediately</string>
     <string name="typing_space_short_swipe_info">Swipe left or right on the spacebar without a pause. \"Language\" steps through your input modes, with a live preview above the spacebar. Lift your finger to switch. Press and hold the spacebar to show the picker before you swipe. That only works while \"Press and hold, then swipe\" is set to the language or to nothing, because that setting owns the hold. \"Cursor\" moves the text cursor one character for each step. A press without movement always types a space.</string>
 
+    <string name="typing_space_hold_delay_title">Hold delay</string>
+    <string name="typing_space_hold_delay_subtitle">How long the spacebar is held before a swipe counts as press and hold</string>
+    <string name="typing_space_hold_delay_info">A swipe that starts sooner is a quick swipe. Raise this if a quick swipe sometimes does the press and hold action. At the lowest setting the spacebar follows the keyboard\'s press and hold delay.</string>
+    <string name="typing_space_hold_delay_same">Same as other keys</string>
     <string name="typing_space_long_swipe_title">Press and hold, then swipe</string>
     <string name="typing_space_long_swipe_subtitle">Press and hold the spacebar, then swipe</string>
     <string name="typing_space_long_swipe_info">Press and hold the spacebar past the hold delay, then swipe. This gives the spacebar a second, separate swipe action. Example: a quick swipe switches the language, and a press and hold with a swipe moves the cursor. You can also set both to the same action. Anything but the language here takes the hold for itself, so holding the spacebar stops opening the language picker. The picker stays on the globe key and on the quick swipe.</string>
@@ -882,7 +980,7 @@
 
     <string name="typing_capital_flick_title">Swipe up for a capital</string>
     <string name="typing_capital_flick_subtitle">A quick swipe up on a letter types it as a capital</string>
-    <string name="typing_capital_flick_info">A short, quick swipe straight up on a letter types its capital, with no need to press shift first. On a key that has its own shifted character, such as a number key with a symbol above it, the swipe types that character. The swipe must be short, straight up and fast, like the swipe down for the hint. A longer or slower drag is a glide, as before. If Words on the keys shows a word on the key, a swipe up still takes that word. A swipe that ends on another letter, such as \"de\" from d to e, is a glided word, not a flick. This setting is off by default.</string>
+    <string name="typing_capital_flick_info">A short, quick swipe straight up on a letter types its capital, with no need to press shift first. On a key that has its own shifted character, such as a number key with a symbol above it, the swipe types that character. The swipe must be short, straight up and fast, like the swipe down for the hint. A longer or slower drag is a glide, as before. If Words on the keys shows a word on the key, a swipe up still takes that word. With glide typing on, a swipe that ends on another letter, such as \"de\" from d to e, is a glided word, not a flick. This setting is off by default.</string>
 
     <string name="typing_flick_hints_title">Show flick arms on keys</string>
     <string name="typing_flick_hints_subtitle">A key with flick characters shows them small at its edges and corners</string>
@@ -956,6 +1054,13 @@
     <string name="typing_backspace_preview_subtitle">Select the text as you swipe, and delete it when you lift your finger</string>
     <string name="typing_backspace_preview_info">The swipe highlights the text it is about to delete instead of deleting as it goes, so you can see how far you have got. Swipe back to the right to give text back, and lift your finger to delete what is left highlighted. Turn this off to delete each word or character the moment you swipe past it.</string>
 
+    <string name="typing_backspace_up_clears_title">Swipe up to clear all</string>
+    <string name="typing_backspace_lines_title">Swipe up or down to delete lines</string>
+    <string name="typing_backspace_lines_subtitle">Up deletes lines before the cursor, down the lines after it</string>
+    <string name="typing_backspace_lines_info">A swipe up on the delete key deletes back to the start of the line. With the cursor already at the start of a line, it deletes the whole line above. A swipe down deletes to the end of the line, then the line below. Keep your finger out after the swipe and it goes on, a line at a time. With Swipe up to clear all on too, the swipe up clears everything and only the swipe down deletes lines. A delete key your layout already gave a swipe up or down keeps it. Off by default.</string>
+    <string name="typing_backspace_up_clears_subtitle">Swipe up on backspace to delete everything in the text box</string>
+    <string name="typing_backspace_up_clears_info">Press backspace and swipe straight up. Once your finger is far enough up, the keyboard selects all the text in the box and deletes it when you lift. Bring your finger back down before you lift and nothing is deleted.\n\nThe swipe goes as far up as the first word of a backspace swipe goes sideways, the Word delete distance. In a box that shows only part of its text to the keyboard, the swipe does nothing, so it never leaves half a message behind.\n\nA backspace key with its own flick up, set in the layout editor, keeps that flick instead.</string>
+
     <string name="typing_forward_delete_swipe_title">Swipe on forward delete</string>
     <string name="typing_forward_delete_swipe_subtitle">Swipe right on the forward delete key to clear the text ahead</string>
     <string name="typing_web_backspace_key_title">Backspace as a key press on web pages</string>
@@ -1008,6 +1113,9 @@
     <string name="typing_hw_mac_subtitle">Command and Option behave as they do on a Mac</string>
     <string name="typing_hw_mac_info">For a keyboard made for a Mac. Command is the key next to the space bar.\n\nCommand+C, Command+V, Command+X and Command+A copy, paste, cut and select all. Command+Z is undo and Command+Shift+Z is redo. Command+Left and Command+Right go to the start and the end of the line. Option+Left and Option+Right move one word. Option+Backspace deletes one word, and Command+Backspace deletes to the start of the line. Hold Shift with a move to select.\n\nCtrl keeps its usual behaviour, and every other Command shortcut goes to the app. Some devices keep a small number of Command shortcuts for the system, and those do not reach the keyboard.</string>
     <string name="typing_hw_lang_chord_title">Ctrl+Space changes the language</string>
+    <string name="typing_hw_lang_ctrl_shift_title">Ctrl+Shift changes the language</string>
+    <string name="typing_hw_lang_ctrl_shift_subtitle">Press Ctrl and Shift together and let go, as on Windows</string>
+    <string name="typing_hw_lang_ctrl_shift_info">Press Ctrl and Shift together, with no other key, and let go: the keyboard goes to the next language and flashes the list so you can see where you landed. A shortcut like Ctrl+Shift+Z is left alone, because another key came between. For keyboards and phones where Ctrl+Space never reaches the keyboard, such as Huawei tablets, which keep it for their own keyboard. Off by default.</string>
     <string name="typing_hw_lang_chord_subtitle">Hold Ctrl to browse the language list, release to switch</string>
     <string name="typing_hw_lang_chord_info">Ctrl+Space goes to the next language and Ctrl+Shift+Space to the one before. Keep Ctrl held and press Space again to step through the list on screen. The keyboard switches when Ctrl comes back up. Esc cancels.\n\nSome apps use Ctrl+Space themselves, for example code editors use it to show completions. While this is on, the keyboard takes the shortcut when you type in those apps. Turn it off here to give it back.\n\nIf the shortcut key that opens tools is also set to Ctrl+Space, the language switch wins. A keyboard with its own language key does not need this setting: that key always works.</string>
 
@@ -1074,6 +1182,10 @@
     <string name="typing_suggestion_slots_info">The strip splits its width evenly between the suggestions, so more of them means each one is narrower and long words are shrunk further to fit. Three suits a phone. A tablet or a landscape screen has room for more. This setting is 3 by default.</string>
     <string name="typing_suggestion_emoji_slot_title">Emoji takes a slot</string>
     <string name="typing_suggestion_emoji_slot_subtitle">Count a suggested emoji as one of the suggestions</string>
+    <string name="typing_rtl_words_from_right_title">Right-to-left words start on the right</string>
+    <string name="typing_rtl_words_from_right_subtitle">Off keeps the strip, its best word and its buttons where they are in every other language</string>
+    <string name="typing_rest_words_title">Words before you type</string>
+    <string name="typing_rest_words_hint">Separated by commas. They replace the usual openers at the start of a sentence, and fill empty slots after a word</string>
     <string name="typing_suggestion_fixed_slots_title">Keep suggestions in place</string>
     <string name="typing_suggestion_fixed_slots_subtitle">Same-width slots, and the best word never moves</string>
     <string name="typing_suggestion_fixed_slots_info">Normally the words share the strip between them: two words split it in half, and an emoji, a row of punctuation marks or a tool\'s chip pushes the words aside to make room. With this setting on, the strip is always cut into the number of suggestions, every slot the same width, and a slot with nothing to show stays empty. The best word keeps the slot it always has. Anything that is not a word takes a slot of its own: a suggested emoji or the punctuation marks the last slot, a tool\'s keyword chip the first. This setting is off by default.</string>
@@ -1105,6 +1217,12 @@
     <string name="typing_double_space_window_subtitle">How quickly the two spaces have to follow each other</string>
     <string name="typing_double_space_window_info">Two spaces closer together than this count as a double space and become a full stop or a tab. Raise it if you type slowly and never get the full stop. Lower it if you get full stops you did not mean. This setting is 400 ms by default.</string>
 
+    <string name="typing_smart_date_formats_title">Date chip formats</string>
+    <!-- Supporting text under the field; the patterns are Java date patterns and stay as they are. -->
+    <string name="typing_smart_date_formats_hint">Your own date formats, separated by |, for example EEE d MMM | yyyy-MM-dd. Hold the chip for the next one. Empty uses the chip\'s own</string>
+    <string name="typing_space_swipe_distance_title">Space swipe distance</string>
+    <string name="typing_space_swipe_distance_subtitle">How far you slide on the spacebar before it counts as a swipe</string>
+    <string name="typing_space_swipe_distance_info">A press on the spacebar types a space until your finger has moved this far sideways. Raise it if your thumb slides a little on its way to a space and switches the language or moves the cursor when you meant a space. Lower it for a shorter, quicker swipe. This setting is 12 dp by default.</string>
     <string name="typing_space_cursor_step_title">Cursor speed</string>
     <string name="typing_space_cursor_step_subtitle">How far you slide along the spacebar to move one character</string>
     <string name="typing_space_cursor_edge_repeat_title">Keep moving while held</string>
@@ -1130,6 +1248,8 @@
     <!-- Long press on the greyed-out slider. -->
     <string name="typing_space_cursor_top_speed_info">The value is how many times faster than the normal cursor speed the cursor goes at the end of a long swipe. This setting is 4× by default.</string>
     <string name="typing_space_cursor_magnifier_title">Cursor magnifier</string>
+    <string name="typing_magnifier_follows_title">Follow the text</string>
+    <string name="typing_magnifier_follows_subtitle">Keep the magnifier over the cursor. Off, it stays above the keyboard</string>
     <string name="typing_space_cursor_magnifier_subtitle">Show the text at the cursor, larger, while a spacebar swipe moves the cursor</string>
     <string name="typing_space_cursor_magnifier_info">The magnifier shows the line of text around the cursor. It goes above the cursor when the app tells the keyboard where the cursor is. If the app does not, it goes above the keyboard. The trackpad tool has a separate setting for this.</string>
     <string name="typing_space_cursor_step_info">A smaller distance moves the cursor faster, so a short spacebar can still cross a long line. A larger one is steadier if your slides tend to overshoot. This setting is 16 dp by default.</string>
@@ -1169,6 +1289,7 @@
     <string name="typing_word_menu_item_delete">Delete</string>
     <string name="typing_word_menu_item_synonyms">Synonyms</string>
     <string name="typing_word_menu_item_rank">Suggest higher or lower</string>
+    <string name="typing_word_menu_item_correct">Correct to</string>
     <string name="typing_synonym_sources_title">Synonym sources</string>
     <string name="typing_synonym_sources_subtitle">Where the word menu looks for synonyms, in order</string>
     <string name="typing_synonym_sources_info">The keyboard asks the first source that is on. When it has no synonyms for the word, or cannot be reached, the keyboard asks the next one. Drag a source to change the order, and turn off a source to never ask it. Online sources receive only the word you held, and a look-up is not stopped by Data saver, because you ask for it.</string>
@@ -1193,8 +1314,8 @@
     <string name="typing_learn_corrections_subtitle">Typos you fix by hand teach autocorrect</string>
     <string name="typing_learn_corrections_info">When you go back and fix a word by hand, the keyboard remembers what you typed and what you changed it to. Fix the same typo twice and autocorrect makes that fix for you from then on. After one fix it offers the fix on the strip instead. The keyboard also learns the slip behind each fix, such as hitting 3 for e or b for the space bar, so the same slip in other words is understood. Undo a learned fix and the keyboard stops making it. A word that is itself a real word, like form for from, only changes after three fixes and when the words around it agree.</string>
     <string name="typing_learned_corrections_title">Learned corrections</string>
-    <string name="typing_learned_corrections_subtitle">Fixes you taught the keyboard, and the slips it has noticed</string>
-    <string name="typing_learned_corrections_empty">Nothing learned yet. Fix a typo by hand and the pair appears here once the text settles.</string>
+    <string name="typing_learned_corrections_subtitle">Fixes you taught, slips the keyboard noticed and corrections you undid</string>
+    <string name="typing_learned_corrections_empty">Nothing learned yet. Fix a typo by hand and the pair appears here once the text settles, or add a fix yourself.</string>
     <string name="typing_learned_corrections_no_matches">No learned corrections match \"%1$s\"</string>
     <string name="typing_learned_corrections_pairs_title">Fixes you taught</string>
     <plurals name="typing_learned_corrections_times">
@@ -1202,6 +1323,36 @@
         <item quantity="other">Fixed %d times</item>
     </plurals>
     <string name="typing_learned_corrections_delete_desc">Forget the fix of %1$s</string>
+    <string name="typing_learned_fix_add">Add a fix</string>
+    <string name="typing_learned_fix_edit">Edit fix</string>
+    <string name="typing_learned_fix_typed_label">When I type</string>
+    <string name="typing_learned_fix_fixed_label">Change it to</string>
+    <string name="typing_learned_fix_invalid">Type a word of 3 letters or more, and a different word or two words to change it to.</string>
+    <string name="typing_learned_fix_count_label">Times fixed</string>
+    <string name="typing_learned_fix_count_info">At 1 the keyboard offers the fix on the strip. At 2 it makes the fix for you. A typed word that is itself a real word needs 3, and the words before it have to agree. A fix you set here stays until you remove it, and saving it forgives any undo of it.</string>
+    <string name="typing_learned_fix_by_hand_subtitle">Set by you · %1$s</string>
+    <string name="typing_learned_fix_undone_subtitle">%1$s · Held back because you undid it</string>
+    <string name="typing_learned_fix_outranked_subtitle">%1$s · Not used, another fix of this word is as common</string>
+    <string name="typing_undone_title">Corrections you undid</string>
+    <string name="typing_undone_info">Corrections you undid, and how the keyboard treats each now. Change one, or forgive it to let the keyboard make it as usual. Remember my undos sets how the keyboard treats the next one you undo.</string>
+    <string name="typing_undone_memory_off">Remember my undos is off, so the keyboard ignores this list until you turn it on.</string>
+    <string name="typing_undone_add">Stop a correction</string>
+    <string name="typing_undone_add_subtitle">Keep the keyboard from changing one word into another</string>
+    <string name="typing_undone_edit">Edit correction</string>
+    <string name="typing_undone_fixed_label">Do not change it to</string>
+    <string name="typing_undone_forgive_desc">Forgive this correction: %1$s</string>
+    <string name="typing_undone_capitals_title">%1$s → capital letters</string>
+    <string name="typing_undone_standing_label">What the keyboard does</string>
+    <string name="typing_undone_standing_handicap">Only when very sure</string>
+    <string name="typing_undone_standing_retired">Stop for now</string>
+    <string name="typing_undone_standing_never">Never</string>
+    <string name="typing_undone_standing_handicap_desc">The keyboard can still make this change, but it has to be much more sure. Three corrections you keep forgive it.</string>
+    <string name="typing_undone_standing_retired_desc">The keyboard does not make this change. After a long time it offers the change on the strip again, without making it.</string>
+    <string name="typing_undone_standing_never_desc">The keyboard never makes or offers this change, however long it has been. This stays until you change it.</string>
+    <string name="typing_undone_row_handicap">Only when very sure</string>
+    <string name="typing_undone_row_retired">Stopped for now</string>
+    <string name="typing_undone_row_probation">Offered on the strip, never made</string>
+    <string name="typing_undone_row_never">Never</string>
     <string name="typing_learned_corrections_clear_title">Forget all learned corrections</string>
     <plurals name="typing_learned_corrections_clear_subtitle">
         <item quantity="one">%d fix and every slip the keyboard noticed</item>
@@ -1209,7 +1360,14 @@
     </plurals>
     <string name="typing_learned_corrections_clear_confirm">Every fix you taught and every slip the keyboard noticed is forgotten. Learned words and undone corrections are not affected.</string>
     <string name="typing_habits_title">Slips the keyboard has noticed</string>
-    <string name="typing_habits_info">How your fixes were made, letter by letter. Autocorrect treats these slips as likely for you, so the same slip in a word you never fixed is still understood.</string>
+    <string name="typing_habits_info">How your fixes were made, letter by letter, on each layout. Autocorrect treats these slips as likely for you, so the same slip in a word you never fixed is still understood. A higher count makes a slip more likely, and a layout needs 8 in total before any of them count.</string>
+    <string name="typing_habit_row_subtitle"><xliff:g id="layout" example="QWERTY">%1$s</xliff:g> · <xliff:g id="times" example="3 times">%2$s</xliff:g></string>
+    <string name="typing_habit_edit">Edit slip</string>
+    <string name="typing_habit_count_label">Times seen</string>
+    <string name="typing_habit_delete_desc">Forget the slip: %1$s</string>
+    <string name="typing_count_lower_desc">Lower the number</string>
+    <string name="typing_count_raise_desc">Raise the number</string>
+    <string name="typing_count_invalid">Type a number from %1$d to %2$d</string>
     <string name="typing_habit_substitution">%1$s typed instead of %2$s</string>
     <string name="typing_habit_missing">%1$s left out</string>
     <string name="typing_habit_stray">An extra %1$s</string>

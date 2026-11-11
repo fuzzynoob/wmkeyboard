@@ -28,16 +28,17 @@ ANDROID_NDK=/opt/homebrew/share/android-ndk native/docscan-jni/build.sh
 It needs CMake and Ninja on `PATH`, and fetches OpenCV at the pinned commit
 unless `OPENCV_SRC` points at a checkout of it. The committed libraries were
 built with NDK r29 (`29.0.14206865`), the one F-Droid's recipe names. Each ABI
-builds OpenCV's two modules first (about 190 compile steps) and deletes its
+builds those four OpenCV modules first and deletes its
 build tree before the next ABI starts, so the script never holds more than one
 tree of a few hundred MB.
 
 ## Provenance
 
-OpenCV `4.14.0`, commit `0654a42e19215ef25b1d367d822f3c630447e7c7`,
+OpenCV `5.0.0`, commit `40738fb16ceddb5fb3fea747585f7ce6abb0605b`,
 unmodified, under the Apache License 2.0
-(`app/src/main/assets/licenses/apache-2.0.txt`). Only the `core` and `imgproc`
-modules are built, static, `-Os`, with the options in `opencv.cmake`: no IPP,
+(`app/src/main/assets/licenses/apache-2.0.txt`). Only the `core`, `imgproc`,
+`flann` and `geometry` modules are built (OpenCV 5 moved the contour and
+perspective calls the scanner makes into `geometry`, which needs `flann`), static, `-Os`, with the options in `opencv.cmake`: no IPP,
 KleidiCV, FastCV, ITT, OpenCL, Eigen, LAPACK or TBB, and no Carotene, so
 nothing is downloaded at configure time and nothing prebuilt goes in. The one
 third-party file compiled in is Android's `cpufeatures` (Apache-2.0, in
@@ -97,6 +98,59 @@ the paper's grain does not speckle), and keeps anything very dark black, so
 a filled box is not hollowed out. A dilation-based paper estimate, the usual
 approach, was tried first and washed a large blue box out to white.
 
+## Theme copier
+
+`themecopy.cpp` reads a keyboard theme off a screenshot, in the same library for
+the OpenCV in it (`nativeCopyTheme(bitmaps, widthDp, texts, boxes)`, wrapped by `ThemeCopier`).
+It is measurement, not a trained model: a colour read from the pixels is exact and
+a network's would be an estimate. No length is in pixels, so a phone, a tablet, a
+landscape shot and a crop take the same path.
+
+Shapes come from a search, not one threshold: each outline is redrawn on a box that
+can move a little, and scored against the colours. Translucent keys come from a fit
+just inside and just outside each key's sides that drops outliers. When the picture
+is too busy for either grid reader, `labelCandidates` lists label-sized things, the
+Paddle recognizer reads each one (its detector skips lone letters), and QWERTY says
+where the rest of the keys are. More pictures of one keyboard clean up a photo a
+little. `tools/themecopy/builtins.py` scores against WM's own themes, rendered by the
+keyboard, with the answers from the Kotlin: use that before the fuzz numbers, whose
+painter is only an imitation of the renderer.
+
+**Grid.** Two readers. One takes everything smaller than a key from a top-hat and
+a black-hat per colour channel, at four thresholds; the pitch comes from a vote
+over every pair of blobs side by side, then rows from whichever blob has the most
+neighbours on its comb. The other takes closed outlines the size of a key. Rows
+have to be nearly full and not crowded, which rejects lines of text. If the theme
+redrawn over the grid matches poorly, the other reader gets a turn and the better
+one is kept. Keys' edges come from colour profiles out from each label, the row
+under the letters from where its keys part from the board. A line round each key
+is hard to tell from a photo's detail, so the whole copy runs up to three times,
+believing in lines less each time, and the best redraw wins. A picture of the board
+redraws whatever is in it, lines included, so it has to beat a colour or gradient by
+a clear margin. A grid lower on the screen beats one above it, since monospaced text
+can pass for keys. A row with a space bar in it is the last row, whatever the comb
+says. A phone drawn round the keyboard or a caption under it is cropped off and the
+copy runs again.
+
+**Surfaces.** Every key is scaled to one size and the per-pixel median taken, which
+removes the labels since no two share a glyph. Face, border, shadow, sheen and
+texture are read from that tile, and the outline by fitting the shapes of
+`ThemeRendering.kt` against its mask. The board is fitted as one colour, then
+linear, radial and sweep gradients with two to four stops, then a picture filled
+under the keys by push-pull. Where the board changes under the keys and their
+faces change with it, the slope of one against the other is the keys' alpha, and
+a picture is read back out of translucent keys.
+
+**Output.** JSON a `ThemeCodec` decodes, with sizes and a report under `_copy`, plus
+any pictures as RGBA. `confidence` is 1 less the 85th percentile of the Lab error
+between the picture and the theme redrawn over its grid, over 25. With a picture
+board only the keys count, at the 70th percentile, since the picture matches itself.
+
+`tools/themecopy/` is the test bench: `fuzz.py` draws keyboards with their answers
+(every outline, gradient, photo, border, shadow, alpha, screen and JPEG level),
+`run.py` runs the desktop tool (`desktop/themecopy_cli.cpp`) and writes importable
+`.wmtheme.json` files, `score.py` grades them per field.
+
 ## Desktop check
 
 `desktop/check.sh <photos> <out>` builds the same `docscan.cpp` against a host
@@ -124,11 +178,11 @@ the light grid is 18 px coarse at that size, and real shadows are softer.
 
 ## ABIs
 
-arm64-v8a, armeabi-v7a and x86_64, API 24, 16 KB page aligned. Only the three
+arm64-v8a, armeabi-v7a and x86_64, API 24, 16 KB page aligned. Only the four
 `Java_..._DocScanNative_*` symbols are exported. Sizes are in the table below.
 
 | ABI | libwmdocscan.so |
 |---|---|
-| arm64-v8a | 2,427,808 bytes |
-| armeabi-v7a | 1,713,228 bytes |
-| x86_64 | 2,633,776 bytes |
+| arm64-v8a | 3,523,952 bytes |
+| armeabi-v7a | 2,589,252 bytes |
+| x86_64 | 3,906,224 bytes |

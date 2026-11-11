@@ -56,6 +56,7 @@
     <string name="servers_pexels">Pexels</string>
     <string name="servers_wikipedia">Wikipedia or another MediaWiki</string>
     <string name="servers_dictionary_api">Free Dictionary API</string>
+    <string name="servers_urban_dictionary">Urban Dictionary</string>
     <string name="servers_datamuse">Datamuse (synonyms)</string>
     <string name="servers_kaikki">kaikki.org (Wiktextract)</string>
     <string name="servers_wiktionary">Wiktionary</string>
@@ -70,6 +71,7 @@
     <string name="servers_currency_api">currency-api</string>
     <string name="servers_currency_api_mirror">currency-api, second server</string>
     <string name="servers_frankfurter">Frankfurter</string>
+    <string name="servers_allratestoday">AllRatesToday</string>
     <string name="servers_er_api">ExchangeRate-API</string>
     <string name="servers_coinbase">Coinbase</string>
     <string name="servers_coingecko">CoinGecko</string>

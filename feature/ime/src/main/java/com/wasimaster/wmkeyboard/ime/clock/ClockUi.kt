@@ -86,15 +86,17 @@ data class AlarmEdit(
     val vibrate: Boolean = true,
     /** 0 takes the tool's default. */
     val snoozeMinutes: Int = 0,
+    /** Snoozes when nobody answers (#970), as [Alarm.autoSnoozes]; -1 takes the tool's setting. */
+    val autoSnoozes: Int = -1,
 ) {
     fun toAlarm(base: Alarm?): Alarm =
         (base ?: Alarm(id = 0, hour = hour, minute = minute)).copy(
             hour = hour, minute = minute, days = days, label = label.trim(),
-            vibrate = vibrate, snoozeMinutes = snoozeMinutes,
+            vibrate = vibrate, snoozeMinutes = snoozeMinutes, autoSnoozes = autoSnoozes,
         )
 
     companion object {
-        fun of(a: Alarm) = AlarmEdit(a.id, a.hour, a.minute, a.days, a.label, a.vibrate, a.snoozeMinutes)
+        fun of(a: Alarm) = AlarmEdit(a.id, a.hour, a.minute, a.days, a.label, a.vibrate, a.snoozeMinutes, a.autoSnoozes)
         val WEEKDAY_PRESETS = listOf(Weekdays.WORKDAYS, Weekdays.WEEKEND, Weekdays.ALL)
     }
 }
@@ -162,6 +164,12 @@ sealed interface ClockAction {
     data class ToggleAlarm(val id: Long, val on: Boolean) : ClockAction
     data class SkipAlarm(val id: Long) : ClockAction
     data class DeleteAlarm(val id: Long) : ClockAction
+
+    /** Hands the alarm to the phone's own clock app and drops it here (#1144). */
+    data class MoveAlarmToPhone(val id: Long) : ClockAction
+
+    /** Opens the phone's own clock app on its alarms (#1144). */
+    data object PhoneAlarms : ClockAction
     data object AskExact : ClockAction
     data object AskFullScreen : ClockAction
 

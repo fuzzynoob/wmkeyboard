@@ -2,6 +2,8 @@ package com.wasimaster.wmkeyboard.ime
 
 import com.wasimaster.wmkeyboard.core.notes.Note
 import com.wasimaster.wmkeyboard.core.notes.NoteFilter
+import com.wasimaster.wmkeyboard.core.notes.NotePassage
+import com.wasimaster.wmkeyboard.core.notes.NotePassages
 import com.wasimaster.wmkeyboard.core.notes.NoteShelf
 import com.wasimaster.wmkeyboard.core.notes.NoteSort
 import com.wasimaster.wmkeyboard.core.notes.NoteStore
@@ -94,6 +96,19 @@ sealed interface NotesConfirm {
     data object EmptyTrash : NotesConfirm
 }
 
+/**
+ * A passage of a note that the search matched (#1099), ready to insert:
+ * [text] is the passage as the note has it, and [matchStart] and [matchEnd]
+ * are where the match sits inside [text].
+ */
+data class NotePassageHit(
+    val noteId: Long,
+    val title: String,
+    val text: String,
+    val matchStart: Int,
+    val matchEnd: Int,
+)
+
 /** How many notes the Pinned, Archived and Trash chips can say they hold. */
 data class NotesCounts(val pinned: Int = 0, val archived: Int = 0, val trash: Int = 0)
 
@@ -108,6 +123,8 @@ data class NotesPanelUi(
     val available: Boolean = false,
     /** What the filter and the query show, sorted, pinned first. */
     val items: List<Note> = emptyList(),
+    /** The passages inside [items] that hold the query, listed above the notes (#1099). */
+    val passages: List<NotePassageHit> = emptyList(),
     /** Every tag, for the chip row and the editor's picker. */
     val tags: List<NoteTag> = emptyList(),
     val counts: NotesCounts = NotesCounts(),
@@ -183,6 +200,81 @@ object NotesLogic {
 
     /** How many notes the quick row lists; older ones are a scroll of the panel's list away. */
     const val QUICK_ROW_MAX = 20
+
+    /**
+     * The passages of [items] that hold [query] (#1099), in the list's order,
+     * a few per note. A locked note gives none, whatever matched it: its text
+     * never leaves the store through the keyboard.
+     */
+    fun passages(items: List<Note>, query: String, limit: Int = PASSAGES_MAX): List<NotePassageHit> {
+        if (query.trim().length < NotePassages.MIN_QUERY_LENGTH) return emptyList()
+        return collectPassages(items, limit) { body, room -> NotePassages.find(body, query, room) }
+    }
+
+    /** How many passages a search lists above the notes. */
+    const val PASSAGES_MAX = 24
+
+    /**
+     * The passages the clipboard's search lists above the clips (#1104), out
+     * of [notes]: read as a pattern with [regex] on, the way the clips are,
+     * and narrowed by the clipboard's [tag] filter to the notes with a tag of
+     * that name, any case, or with [tagExcluded] to the notes without it.
+     * The filters combined (#1187): a note carrying any of [tags], when there
+     * are some, and none of [withoutTags].
+     */
+    fun clipboardPassages(
+        notes: List<Note>,
+        query: String,
+        regex: Boolean,
+        tag: String? = null,
+        tagExcluded: Boolean = false,
+        limit: Int = CLIPBOARD_PASSAGES_MAX,
+        tags: List<String> = emptyList(),
+        withoutTags: List<String> = emptyList(),
+    ): List<NotePassageHit> {
+        val trimmed = query.trim()
+        if (trimmed.length < NotePassages.MIN_QUERY_LENGTH) return emptyList()
+        val pattern = if (regex) NotePassages.pattern(trimmed) else null
+        val anyOf = if (tag != null && !tagExcluded) tags + tag else tags
+        val noneOf = if (tag != null && tagExcluded) withoutTags + tag else withoutTags
+        fun Note.carries(wanted: String) = this.tags.any { it.equals(wanted, ignoreCase = true) }
+        val shelf = if (anyOf.isEmpty() && noneOf.isEmpty()) {
+            notes
+        } else {
+            notes.filter { note -> (anyOf.isEmpty() || anyOf.any { note.carries(it) }) && noneOf.none { note.carries(it) } }
+        }
+        return collectPassages(shelf, limit) { body, room ->
+            if (pattern != null) NotePassages.find(body, pattern, room) else NotePassages.find(body, trimmed, room)
+        }
+    }
+
+    /** Fewer than the panel's: the clipboard's search is a couple of rows tall, and the clips are under them. */
+    const val CLIPBOARD_PASSAGES_MAX = 12
+
+    /** [find]'s passages of each unlocked note in [items], in order, up to [limit] in all. */
+    private fun collectPassages(
+        items: List<Note>,
+        limit: Int,
+        find: (body: String, room: Int) -> List<NotePassage>,
+    ): List<NotePassageHit> {
+        val out = ArrayList<NotePassageHit>()
+        for (note in items) {
+            if (out.size >= limit) break
+            if (note.locked) continue
+            for (passage in find(note.body, minOf(NotePassages.PER_NOTE_MAX, limit - out.size))) {
+                out.add(
+                    NotePassageHit(
+                        noteId = note.id,
+                        title = note.displayTitle(),
+                        text = note.body.substring(passage.start, passage.end),
+                        matchStart = passage.matchStart - passage.start,
+                        matchEnd = passage.matchEnd - passage.start,
+                    ),
+                )
+            }
+        }
+        return out
+    }
 
     /** The chip counts for [store], locked notes left out while the device is locked. */
     fun counts(store: NoteStore, deviceLocked: Boolean): NotesCounts {
@@ -264,6 +356,17 @@ object NotesLogic {
         if (stored.updatedAt <= edit.original.updatedAt) return edit
         if (edit.dirty) return edit.copy(original = stored.copy(title = edit.original.title, body = edit.original.body, tags = edit.original.tags))
         return edit.copy(original = stored, titleDraft = stored.title, bodyDraft = stored.body, tags = stored.tags)
+    }
+
+    /**
+     * Where in [body] the match of a passage sits (#1099): the passage [text]
+     * found in the body, plus [matchStart] into it. The body's end when the
+     * note has changed since the search and the passage is no longer there.
+     */
+    fun passageOffset(body: String, text: String, matchStart: Int): Int {
+        val at = body.indexOf(text)
+        if (at < 0) return body.length
+        return (at + matchStart).coerceIn(0, body.length)
     }
 
     /** The UTF-16 offset where line [line] of [body] starts; the end for a line past the last. */

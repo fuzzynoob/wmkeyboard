@@ -45,6 +45,31 @@ class AiContinuationTest {
     }
 
     @Test
+    fun hanAndKanaEndAWord() {
+        // #990: Chinese and Japanese type no space, so a committed conversion
+        // is the end of a word; Korean spaces its words, so Hangul is not.
+        assertTrue(AiContinuation.atWordBoundary("你好"))
+        assertTrue(AiContinuation.atWordBoundary("ありがとう"))
+        assertTrue(AiContinuation.atWordBoundary("コーヒー"))
+        assertFalse(AiContinuation.atWordBoundary("안녕"))
+    }
+
+    @Test
+    fun twoHanCharactersAreEnoughContext() {
+        assertEquals("你好", AiContinuation.context("你好", 120, wordOnly = false))
+        assertNull(AiContinuation.context("你", 120, wordOnly = false))
+    }
+
+    @Test
+    fun hanTakesNoSpaceInFrontOfTheContinuation() {
+        assertEquals("吗", AiContinuation.insertion("你好", "吗"))
+        assertEquals("ค่ะ", AiContinuation.insertion("สวัสดี", "ค่ะ"))
+        assertEquals("lo", AiContinuation.insertion("hel", "lo", midWord = true))
+        assertEquals("世界", AiContinuation.insertion("hello", "世界"))
+        assertEquals(" world", AiContinuation.insertion("hello", "world"))
+    }
+
+    @Test
     fun contextIsTheTailCutToAWholeWord() {
         val before = "The quick brown fox jumps over the "
         assertEquals("The quick brown fox jumps over the", AiContinuation.context(before, 120, wordOnly = false))
@@ -109,6 +134,19 @@ class AiContinuationTest {
         assertNull(AiContinuation.accept("at the\r\nstation", "I will meet you"))
         // A line break the model only trailed is not a second line.
         assertEquals("at the station", AiContinuation.accept("at the station\n", "I will meet you"))
+    }
+
+    @Test
+    fun aConversionIsTheCharactersAndNothingElse() {
+        assertEquals("冰", AiContinuation.acceptConversion("冰", "bing"))
+        assertEquals("冰", AiContinuation.acceptConversion(" 「冰」\n", "bing"))
+        assertEquals("コーヒー", AiContinuation.acceptConversion("コーヒー", "こーひー"))
+        assertNull(AiContinuation.acceptConversion("", "bing"))
+        assertNull(AiContinuation.acceptConversion("bing", "bing"))
+        assertNull(AiContinuation.acceptConversion("冰ok", "bing"))
+        assertNull(AiContinuation.acceptConversion("冰\n冷", "bing"))
+        assertNull(AiContinuation.acceptConversion("这是一个很长的回答", "bing"))
+        assertEquals("这是一个很长的回答", AiContinuation.acceptConversion("这是一个很长的回答", "zheshiyigehenchangdehuida"))
     }
 
     @Test

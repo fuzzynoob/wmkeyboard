@@ -207,6 +207,12 @@
     <string name="tooldetail_camera_feedback_group">Feedback</string>
     <string name="tooldetail_camera_shutter_title">Shutter sound</string>
     <string name="tooldetail_camera_shutter_subtitle">Play the camera click when you take a photo</string>
+    <string name="tooldetail_camera_modes_group">Scanner modes</string>
+    <string name="tooldetail_camera_modes_info">The QR scanner, Text scan and the document scanner work as modes of the camera. A rail down the side of each one switches between Photo, QR code, Text and Document, so one tool on the toolbar reaches all of them. The separate tools still work, and each one opens the camera in its own mode.</string>
+    <string name="tooldetail_camera_mode_rail_title">Switch modes in the camera</string>
+    <string name="tooldetail_camera_mode_rail_subtitle">Photo, QR code, Text and Document on a rail beside the viewfinder</string>
+    <string name="tooldetail_camera_spot_codes_title">Spot QR codes in photo mode</string>
+    <string name="tooldetail_camera_spot_codes_subtitle">A chip shows when the camera sees a code. Tap it to read the code. Uses more battery.</string>
     <string name="tooldetail_camera_haptics_title">Haptics</string>
     <string name="tooldetail_camera_haptics_subtitle">Vibrate on the shutter, the controls and the timer countdown</string>
     <string name="tooldetail_camera_haptics_info">This uses the haptic style and strength of the keyboard, under Typing → Feedback. If the keyboard haptics are off, the camera tool stays silent too.</string>
@@ -222,14 +228,14 @@
     <string name="tooldetail_dictionary_translation_langs_title">Translate into</string>
     <string name="tooldetail_dictionary_translation_langs_none_subtitle">Your keyboard languages. Add a language other than English, or pick some here</string>
     <string name="tooldetail_dictionary_translation_langs_dialog_body">The tool shows the translations that Wiktionary has for these languages, in this order. Pick none to follow your keyboard languages.</string>
-    <string name="tooldetail_dictionary_info">Definitions come from the sources below, in their order. The keyboard sends the word that you look up to an online source only when you use the tool.</string>
+    <string name="tooldetail_dictionary_info">Definitions come from the sources below, in their order, and the built-in ones define English words. For another language, add a dictionary under Imported dictionaries or use a dictionary app on the phone. Word lists downloaded under Languages &amp; layouts are for typing: they hold spellings, not definitions, so they don\'t help here. The keyboard sends the word that you look up to an online source only when you use the tool.</string>
     <string name="tooldetail_dictionary_sources_title">Dictionary sources</string>
     <string name="tooldetail_dictionary_sources_subtitle">Where the tool looks for definitions, in order</string>
     <string name="tooldetail_dictionary_sources_info">The tool asks the first source that is on. When that source does not know the word, or cannot be reached, the tool asks the next one. Drag a source to change the order, and turn off a source to never ask it. Online sources receive only the word you look up.</string>
     <string name="tooldetail_dictionary_packs_title">Vocabulary packs</string>
     <string name="tooldetail_dictionary_offline_group">Offline dictionaries</string>
     <string name="tooldetail_dictionary_imported_group">Imported dictionaries</string>
-    <string name="tooldetail_dictionary_imported_info">Yomichan and Yomitan dictionaries, in any language: Japanese with readings and pitch accent (JMdict, Jitendex), Chinese, Korean, and the Wiktionary dictionaries for many other languages. Import the dictionary\'s zip file. Inflected Japanese words find their dictionary form. The source list above asks them as one source, Imported dictionaries; inside it they answer in this order.</string>
+    <string name="tooldetail_dictionary_imported_info">Yomichan and Yomitan dictionaries, in any language: Japanese with readings and pitch accent (JMdict, Jitendex), Chinese, Korean, and the Wiktionary dictionaries for many other languages. StarDict dictionaries work too, as plain text. Import the dictionary\'s zip or tar file. Inflected Japanese words find their dictionary form. The source list above asks them as one source, Imported dictionaries; inside it they answer in this order.</string>
     <plurals name="tooldetail_dictionary_imported_entries">
         <item quantity="one">%1$s entry</item>
         <item quantity="other">%1$s entries</item>
@@ -237,7 +243,7 @@
     <string name="tooldetail_dictionary_imported_up_desc">Move %1$s up</string>
     <string name="tooldetail_dictionary_imported_down_desc">Move %1$s down</string>
     <string name="tooldetail_dictionary_imported_import_title">Import a dictionary</string>
-    <string name="tooldetail_dictionary_imported_import_subtitle">A Yomichan or Yomitan dictionary zip. A large one takes some minutes.</string>
+    <string name="tooldetail_dictionary_imported_import_subtitle">A Yomichan or Yomitan dictionary zip, or a StarDict dictionary in a zip or tar. A large one takes some minutes.</string>
     <string name="tooldetail_dictionary_imported_link">Yomitan dictionaries</string>
     <string name="tooldetail_dictionary_offline_info">Whole English dictionaries kept on the phone, so the Dictionary tool can define ordinary words with no connection, and in the build without internet access. The vocabulary packs know only their own lists\' words. Once one is here, the source list above asks it wherever you put it; by default after the online sources, so it answers when they cannot be reached. Wiktionary, offline, is Wiktionary\'s common words with pronunciation (CC BY-SA 4.0). Open English WordNet has every single English word in WordNet, with shorter definitions (CC BY 4.0).</string>
     <string name="tooldetail_dictionary_offline_available">%1$s download, %2$s</string>
@@ -320,6 +326,8 @@
     <string name="tooldetail_incognito_private_clipboard_title">Keep copies in the keyboard</string>
     <string name="tooldetail_incognito_private_clipboard_subtitle">Copy and cut from the keyboard do not go to the system clipboard, so other apps cannot read them</string>
     <string name="tooldetail_incognito_private_clipboard_info">While incognito is on, text you copy or cut with the keyboard stays inside the keyboard. The paste keys of the keyboard paste it back. When incognito goes off, the keyboard forgets it.\n\nIf you have not copied with the keyboard yet, paste gives what is on the system clipboard, as usual. The copy and paste menu of the app itself still uses the system clipboard.</string>
+    <string name="tooldetail_incognito_watermark_title">Mark on the keyboard</string>
+    <string name="tooldetail_incognito_watermark_subtitle">A large, faint incognito sign behind the keys</string>
 
     <!-- Power saving tool: when power saving runs. -->
     <string name="tooldetail_chips_nav_title">Suggestion chip</string>
@@ -350,11 +358,11 @@
     <string name="tooldetail_power_preset_title">What to drop</string>
     <string name="tooldetail_power_preset_subtitle">A bundle of the switches further down</string>
     <string name="tooldetail_power_preset_light">Light</string>
-    <string name="tooldetail_power_preset_light_desc">Vibration, sounds, animations, the glide trail, glass blur and the background watchers</string>
+    <string name="tooldetail_power_preset_light_desc">Vibration, sounds, animations, moving themes, the glide trail, glass blur and the background watchers</string>
     <string name="tooldetail_power_preset_balanced">Balanced</string>
     <string name="tooldetail_power_preset_balanced_desc">Light, plus background fetches and the on-device models</string>
     <string name="tooldetail_power_preset_aggressive">Aggressive</string>
-    <string name="tooldetail_power_preset_aggressive_desc">Balanced, plus glide typing, emoji suggestions and smart chips</string>
+    <string name="tooldetail_power_preset_aggressive_desc">Balanced, plus glide typing, emoji suggestions, smart chips, the floating button and loaded models</string>
     <string name="tooldetail_power_preset_custom">Custom</string>
     <string name="tooldetail_power_preset_custom_desc">Your own mix of the switches further down</string>
     <string name="tooldetail_power_drop_helpers_group">Typing helpers to drop</string>
@@ -390,6 +398,15 @@
     <string name="tooldetail_power_drop_models_info">Offline voice typing and handwriting both run a neural model on the processor, which is the most expensive work the keyboard does. Voice typing goes back to the system recognizer, and the letter swipe goes back to glide typing.</string>
     <string name="tooldetail_power_drop_media_pin_title">Media tool pin</string>
     <string name="tooldetail_power_drop_media_pin_subtitle">Stop putting the media tool on the toolbar while music plays</string>
+    <string name="tooldetail_power_drop_moving_themes_title">Moving themes</string>
+    <string name="tooldetail_power_drop_moving_themes_subtitle">Hold animated backgrounds and board effects still, and stop key lighting</string>
+    <string name="tooldetail_power_drop_moving_themes_info">A theme that moves redraws the whole keyboard on every frame while it is open. This keeps the theme\'s colours, pictures and key finishes, shows an animated background as a still picture, holds a board effect on one frame, and drops the effects that are only motion: key lighting, the glow under your finger and press particles. Panels still open with their usual animation unless Animations is on too.</string>
+    <string name="tooldetail_power_drop_warm_models_title">Loaded models</string>
+    <string name="tooldetail_power_drop_warm_models_subtitle">Unload them 15 seconds after the keyboard hides, not 2 minutes</string>
+    <string name="tooldetail_power_drop_warm_models_info">After the keyboard has been hidden for a while, it unloads the models that it loaded: the language model, voice typing, the translator, text scanning and the rest. This shortens that wait. A loaded model costs memory more than battery, and loading it again for the next field is the part that uses battery, so this is off unless memory is what you are short of. The Resources screen in About shows what is loaded now.</string>
+    <string name="tooldetail_power_drop_floating_button_title">Floating button</string>
+    <string name="tooldetail_power_drop_floating_button_subtitle">Hide the button drawn over other apps</string>
+    <string name="tooldetail_power_drop_floating_button_info">The floating button is a small window that Android draws over every app. It comes back where you left it when power saving ends. With this off, the button stays, and Animations still stops its quick menu from animating.</string>
     <string name="tooldetail_power_drop_stats_title">Typing statistics</string>
     <string name="tooldetail_power_drop_stats_subtitle">Stop counting your typing. Days spent saving power record nothing</string>
     <string name="tooldetail_power_info">Power saving is a view of your settings and never a rewrite of them. Everything that it turns off here comes back exactly as you had it the moment power saving ends.</string>
@@ -447,6 +464,19 @@
     <string name="tooldetail_handwriting_zinnia_title">Offline recogniser for Chinese and Japanese</string>
     <string name="tooldetail_handwriting_zinnia_subtitle">Read Chinese and Japanese with zinnia instead of Google ML Kit</string>
     <string name="tooldetail_handwriting_zinnia_info">zinnia is a small open-source recogniser with models from the Tegaki project. It reads one character at a time and is less accurate than ML Kit, but needs nothing from Google. Builds without ML Kit, such as the F-Droid one, always use it. Simplified or Traditional Chinese follows the Traditional characters switch in Chinese settings.</string>
+    <string name="tooldetail_handwriting_pen_width_title">Pen thickness</string>
+    <string name="tooldetail_handwriting_pen_width_value">%1$d dp</string>
+    <string name="tooldetail_handwriting_pen_color_title">Pen color</string>
+    <string name="tooldetail_handwriting_pen_color_subtitle">Reset it to follow the theme\'s accent</string>
+    <string name="tooldetail_handwriting_ink_fade_title">When ink turns into text</string>
+    <string name="tooldetail_handwriting_ink_fade_subtitle">How the strokes leave the canvas</string>
+    <string name="tooldetail_handwriting_ink_fade_dissolve">Dissolve</string>
+    <string name="tooldetail_handwriting_ink_fade_fade">Fade</string>
+    <string name="tooldetail_handwriting_ink_fade_shrink">Shrink</string>
+    <string name="tooldetail_handwriting_ink_fade_rise">Rise</string>
+    <string name="tooldetail_handwriting_ink_fade_none">Disappear at once</string>
+    <string name="tooldetail_handwriting_height_title">Panel height</string>
+    <string name="tooldetail_handwriting_height_subtitle">Open the canvas taller than the keyboard, without changing the keys</string>
     <string name="tooldetail_handwriting_pause_title">Recognition pause</string>
     <string name="tooldetail_handwriting_pause_subtitle">How long after the last stroke the keyboard waits before it recognizes the word</string>
     <string name="tooldetail_handwriting_pause_info">A shorter pause feels faster, but it can cut multi-stroke letters and Bengali conjuncts in half. A longer pause gives you more time between strokes. Gboard uses about half a second.</string>
@@ -479,6 +509,10 @@
     <string name="tooldetail_translate_engine_info">Online sends the text to the translation service and knows the most languages. On device uses Google ML Kit models that you download, about 30 MB for each language: the text stays on the phone and it works with no connection. Automatic uses the device when the languages are downloaded and the online service for the rest. On-device translation is good for messages and short text, and less exact than the online service for long or technical text.</string>
     <string name="tooldetail_translate_downloaded_first_title">Downloaded languages first</string>
     <string name="tooldetail_translate_downloaded_first_subtitle">The language lists on the panel start with the languages on the device. With On device and Automatic.</string>
+    <string name="tooldetail_translate_clear_on_insert_title">Clear after inserting</string>
+    <string name="tooldetail_translate_clear_on_insert_subtitle">Insert empties the box and its translation, so you can type the next message straight away</string>
+    <string name="tooldetail_translate_hint_replaces_title">Translate "in …" where it stands</string>
+    <string name="tooldetail_translate_hint_replaces_subtitle">A tap on the chip for "good morning in spanish" puts the Spanish in place of the words, without opening Translate. The chip\'s Translate button still opens it</string>
     <string name="tooldetail_translate_only_downloaded_title">Only downloaded languages</string>
     <string name="tooldetail_translate_only_downloaded_subtitle">With On device, the language lists on the panel show the downloaded languages, the languages you type in and the current selection. All languages, at the end of the list, shows the rest.</string>
     <string name="tooldetail_translate_models_group">Languages on the device</string>
@@ -498,6 +532,8 @@
     <string name="tooldetail_translate_module_missing_info">On-device translation is an extra part of the keyboard that downloads when you first need it. Download it, then select the languages.</string>
     <string name="tooldetail_translate_module_installing_info">Downloading the on-device translation part…</string>
     <string name="tooldetail_translate_module_installing_sized_info">Downloading the on-device translation part: <xliff:g id="done" example="4.1 MB">%1$s</xliff:g> of <xliff:g id="total" example="9 MB">%2$s</xliff:g></string>
+    <string name="tooldetail_translate_offline_build_info">This offline build cannot translate on this phone: its one engine, Firefox Translations, needs a 64-bit phone with Android 9 or later. To translate, install the standard build.</string>
+    <string name="tooldetail_translate_offline_import_info">This offline build translates on the phone only. Open On device (Firefox Translations) under Providers, then get its library and the language directions you want on another device, and import them. Or install the standard build over this one from the same release page, which downloads it by itself. Your settings and learned words stay.</string>
     <string name="tooldetail_translate_module_failed_info">The download did not finish. Check the connection, then try again.</string>
     <string name="tooldetail_translate_module_metered_body">The on-device translation part is a separate download.</string>
     <string name="tooldetail_translate_model_builtin_label">Part of the engine. No download is necessary</string>
@@ -754,6 +790,13 @@
     <string name="tooldetail_grammar_no_suggestions_title">Underline only, no fix popup</string>
     <string name="tooldetail_grammar_no_suggestions_subtitle">Mark the spelling mistakes but offer no corrections</string>
     <string name="tooldetail_grammar_providers_group">Checkers</string>
+    <string name="tooldetail_grammar_giella_group">GiellaLT grammar checkers</string>
+    <string name="tooldetail_grammar_giella_info">Grammar checkers GiellaLT writes for North, Lule, South and Inari Sámi and for Faroese. They run on the phone, and when the keyboard is in one of these languages, the one you downloaded checks first, before the list above. Each is a large download: the whole checker, its rules and its dictionary, in one file. While it checks it also takes memory, about half its download. The part of the keyboard that runs them is a separate download of its own, licensed under the GPL-3.0 like GiellaLT\'s tools.</string>
+    <string name="tooldetail_grammar_giella_size"><xliff:g id="size" example="375 MB">%1$s</xliff:g> download, <xliff:g id="licence" example="GPL-3.0-only">%2$s</xliff:g></string>
+    <string name="tooldetail_grammar_giella_installed">Version <xliff:g id="version" example="1.0.6">%1$s</xliff:g>, <xliff:g id="size" example="375 MB">%2$s</xliff:g>. Checks first when the keyboard is in this language.</string>
+    <string name="tooldetail_grammar_giella_failed">The grammar checker did not download. Check the connection and the free storage.</string>
+    <string name="tooldetail_grammar_giella_delete_desc">Delete the grammar checker</string>
+    <string name="tooldetail_grammar_giella_module_info">GiellaLT grammar checking is an extra part of the keyboard. It is fetched with the first grammar checker you download.</string>
     <string name="tooldetail_grammar_providers_info">Who checks your writing, in order. A check goes to the first checker that is on and knows the language you are typing in, and to the next one when that one cannot answer.\n\nHarper runs on the phone, works offline, and checks English only. Nothing you type leaves the phone with it.\n\nLanguageTool checks more than 30 languages, but it runs on a server, so the text in the field is sent there each time it is checked: to api.languagetool.org, LanguageTool\'s public server, unless you enter the address of a server you run yourself. It is off until you switch it on. It is never sent a password field or text typed in incognito. The public server takes 20 checks a minute, so a long note is checked a piece at a time.</string>
     <string name="tooldetail_grammar_info">Harper, the grammar engine built into the keyboard, can also act as the system spell checker of Android. It runs on your device, works offline and uploads nothing that you type, whatever the Checkers list above says. The underlines and correction menus inside other apps then come from it as well. The button above opens the system Spell checker screen. Select WM Keyboard there. It follows the dialect that you select above. If your device hides that screen, the button opens the input method settings instead.</string>
 
@@ -767,6 +810,9 @@
 
     <!-- Special symbols tool. -->
     <string name="tooldetail_symbols_recents_group">Recents</string>
+    <string name="tooldetail_symbols_edit_group">Your symbols</string>
+    <string name="tooldetail_symbols_edit_hint">Symbols, with a space between each. To offer more when one is held, join them with |, as in →|⇒|⟶</string>
+    <string name="tooldetail_symbols_edit_reset">Reset</string>
     <string name="tooldetail_symbols_clear_title">Clear the recent symbols</string>
     <string name="tooldetail_symbols_clear_empty">No recent symbols yet</string>
     <!-- %1$d is how many symbols the tool remembers. -->
@@ -973,22 +1019,81 @@
         <item quantity="one">%1$d app hidden. Tap to show it again.</item>
         <item quantity="other">%1$d apps hidden. Tap to show all of them again.</item>
     </plurals>
+    <string name="tooldetail_launcher_toolbar_title">Apps on the toolbar</string>
+    <string name="tooldetail_launcher_toolbar_none_subtitle">No apps are on the toolbar. Press and hold an app in the panel and pick Put on the toolbar.</string>
+    <plurals name="tooldetail_launcher_toolbar_count">
+        <item quantity="one">%1$d app on the toolbar. Tap to take it off.</item>
+        <item quantity="other">%1$d apps on the toolbar. Tap to take all of them off.</item>
+    </plurals>
     <string name="tooldetail_launcher_open_mode_title">Open apps</string>
     <string name="tooldetail_launcher_open_mode_subtitle">What a tap on an app does</string>
     <string name="tooldetail_launcher_open_mode_normal_label">Normally</string>
     <string name="tooldetail_launcher_open_mode_floating_label">Floating</string>
     <string name="tooldetail_launcher_open_mode_split_label">Split screen</string>
-    <string name="tooldetail_launcher_open_mode_info">A press and hold on an app offers all three whatever you pick here. Split screen puts the app beside the one you are typing in and needs Android 12L or later. A floating window needs a device with a desktop or freeform window mode, such as many tablets; elsewhere the app opens full screen.</string>
-    <string name="tooldetail_launcher_open_mode_info_no_split">A press and hold on an app offers both whatever you pick here. A floating window needs a device with a desktop or freeform window mode, such as many tablets; elsewhere the app opens full screen. Split screen needs Android 12L or later.</string>
+    <string name="tooldetail_launcher_open_mode_info">A press and hold on an app offers all three whatever you pick here. Split screen puts the app beside the one you are typing in. The first time you use either, the keyboard tries the ways your phone\'s maker supports and keeps the one that works; Check what works on this phone below does the same on demand. Where nothing works the app opens normally and the keyboard says so.</string>
+    <string name="tooldetail_launcher_open_mode_info_no_split">A press and hold on an app offers both whatever you pick here. The first time you open an app floating, the keyboard tries the ways your phone\'s maker supports and keeps the one that works. Split screen isn\'t offered: this phone has none the keyboard can reach. Android 12L or later, the split screen helper or Shizuku would bring it.</string>
+    <string name="tooldetail_screenshot_service_title">System buttons service</string>
+    <string name="tooldetail_screenshot_service_off_subtitle">Off. The tool needs it to take a screenshot</string>
+    <string name="tooldetail_screenshot_service_on_subtitle">On. The tool presses Android\'s screenshot button</string>
+    <string name="tooldetail_launcher_split_helper_title">Split screen helper</string>
+    <string name="tooldetail_launcher_split_helper_off_subtitle">Off. Turn on if split screen opens apps full screen</string>
+    <string name="tooldetail_launcher_split_helper_on_subtitle">On. Split screen goes through Android\'s split screen switch</string>
     <string name="tooldetail_launcher_combos_title">Split screen pairs</string>
     <plurals name="tooldetail_launcher_combos_count">
         <item quantity="one">%1$d pair</item>
         <item quantity="other">%1$d pairs</item>
     </plurals>
     <string name="tooldetail_launcher_combos_none_subtitle">Two apps that open side by side with one tap</string>
+    <string name="tooldetail_launcher_check_title">Check what works on this phone</string>
+    <string name="tooldetail_launcher_check_never">Not checked yet. It checks by itself the first time you open an app floating or in split screen</string>
+    <string name="tooldetail_launcher_check_running">Checking… a test window opens and closes a few times</string>
+    <!-- %1$s is how this phone floats apps, %2$s how it splits them, each one of the tooldetail_launcher_route_* names. -->
+    <string name="tooldetail_launcher_check_result">Floating: %1$s. Split screen: %2$s</string>
+    <string name="tooldetail_launcher_check_copied">Result copied. Paste it into a bug report if something still doesn\'t work</string>
+    <string name="tooldetail_launcher_route_untested">not checked</string>
+    <string name="tooldetail_launcher_route_none">doesn\'t work here</string>
+    <string name="tooldetail_launcher_route_coloros">ColorOS floating window</string>
+    <string name="tooldetail_launcher_route_freeform">Android freeform window</string>
+    <string name="tooldetail_launcher_route_huawei_float">Huawei floating window</string>
+    <string name="tooldetail_launcher_route_flyme">Flyme floating window</string>
+    <string name="tooldetail_launcher_route_vivo">vivo small window</string>
+    <string name="tooldetail_launcher_route_motorola">Motorola floating window</string>
+    <string name="tooldetail_launcher_route_xiaomi">Xiaomi small window</string>
+    <string name="tooldetail_launcher_route_nubia">Nubia floating window</string>
+    <string name="tooldetail_launcher_route_desktop">desktop window</string>
+    <string name="tooldetail_launcher_route_shell">through Shizuku or root</string>
+    <string name="tooldetail_launcher_route_emulated">emulated window (experimental)</string>
+    <string name="tooldetail_launcher_route_android_split">Android split screen</string>
+    <string name="tooldetail_launcher_route_huawei_split">Huawei split screen</string>
+    <string name="tooldetail_launcher_route_helper">split screen helper</string>
+    <string name="tooldetail_launcher_float_fallback_title">When a floating window isn\'t possible</string>
+    <string name="tooldetail_launcher_float_fallback_subtitle">What happens on a phone with no floating windows of its own</string>
+    <string name="tooldetail_launcher_float_fallback_needs_shizuku">The emulated window needs Shizuku. Until then apps open normally</string>
+    <string name="tooldetail_launcher_float_fallback_needs_overlay">The emulated window needs Display over other apps. Until then apps open normally</string>
+    <string name="tooldetail_launcher_float_fallback_explain_label">Open normally and say why</string>
+    <string name="tooldetail_launcher_float_fallback_emulated_label">Emulated window (experimental)</string>
+    <string name="tooldetail_launcher_float_fallback_info">Most phones without a floating window of their own can\'t be given one. The emulated window draws the app inside a window of the keyboard\'s, the way Mi-FreeForm does, and passes your touches through to it. It needs Shizuku and Display over other apps. Typing inside it may bring the keyboard up on the main screen or not at all, apps that block screenshots show black, and some apps refuse to open in it. Expand puts the app back on the main screen.</string>
+    <string name="tooldetail_launcher_shizuku_title">Shizuku</string>
+    <string name="tooldetail_launcher_shizuku_on">Allowed. Floating windows and split screen can use it where nothing else works</string>
+    <string name="tooldetail_launcher_shizuku_allow">Running. Tap to allow WM Keyboard</string>
+    <string name="tooldetail_launcher_shizuku_start">Installed, not running. Tap to open it and start it</string>
+    <string name="tooldetail_launcher_shizuku_get">Lets apps open floating or split on phones that refuse it. Tap to get Shizuku</string>
+    <string name="tooldetail_launcher_root_title">Use root</string>
+    <string name="tooldetail_launcher_root_subtitle">On a rooted phone, use root where Shizuku would be used</string>
+    <string name="tooldetail_launcher_root_info">Your root manager asks the first time a floating window or split screen needs it. Root runs the same few window commands Shizuku would, and nothing else. The emulated window needs Shizuku even on a rooted phone.</string>
+    <string name="tooldetail_launcher_freeform_title">Android freeform windows</string>
+    <string name="tooldetail_launcher_freeform_builtin">Built in on this device</string>
+    <string name="tooldetail_launcher_freeform_on">On. Restart the phone if apps still don\'t float. Tap to turn off</string>
+    <string name="tooldetail_launcher_freeform_off">Off. Tap to turn on; it takes a restart</string>
+    <!-- %1$s is an adb command that grants WRITE_SECURE_SETTINGS to the keyboard. -->
+    <string name="tooldetail_launcher_freeform_needs_adb">Needs one command from a computer first. Tap to copy it: %1$s</string>
+    <string name="tooldetail_launcher_freeform_copied">Command copied. Run it from a computer with the phone connected over adb, then come back here</string>
+    <string name="tooldetail_launcher_freeform_restart">Restart the phone to finish</string>
     <string name="tooldetail_launcher_work_title">Work apps</string>
     <string name="tooldetail_launcher_work_subtitle">Also list the apps in your work profile</string>
     <string name="tooldetail_launcher_work_info">Work apps carry a briefcase on their icon. While work apps are paused they show dimmed, and opening one asks Android to turn work apps back on. The keyboard needs no extra permission for this.</string>
+    <string name="tooldetail_launcher_sole_title">Open the only match</string>
+    <string name="tooldetail_launcher_sole_subtitle">When a search leaves one app, open it as soon as you stop typing</string>
     <string name="tooldetail_launcher_folders_title">App folders</string>
     <string name="tooldetail_launcher_folders_none_subtitle">No folders yet. Press and hold an app in the panel and pick Add to folder.</string>
     <plurals name="tooldetail_launcher_folders_count">
@@ -1047,6 +1152,9 @@
     </plurals>
     <string name="tooldetail_notes_open_none_subtitle">Nothing saved yet</string>
     <string name="tooldetail_notes_tags_subtitle">Rename, recolour or remove the tags on your notes</string>
+    <string name="tooldetail_notes_share_title">Save to notes from other apps</string>
+    <string name="tooldetail_notes_share_subtitle">An entry in the share sheet</string>
+    <string name="tooldetail_notes_share_info">Share text from any app and choose Save to notes, and it becomes a note. Share a link, a page from the browser say, and the note gets the page\'s title and its text with the layout taken off, under the link and tagged Read later, so the Read back tool can read it to you. A page that cannot be read is saved as the link alone. Works with the keyboard closed.</string>
     <string name="tooldetail_notes_trash_subtitle">Notes you deleted, until they are gone for good</string>
     <string name="tooldetail_notes_sort_title">Sort notes by</string>
     <string name="tooldetail_notes_sort_updated_label">Last edited</string>
@@ -1058,6 +1166,10 @@
     <string name="tooldetail_notes_panel_start_subtitle">What you see when you tap the tool</string>
     <string name="tooldetail_notes_panel_start_list_label">The list of notes</string>
     <string name="tooldetail_notes_panel_start_last_label">The note you edited last</string>
+    <string name="tooldetail_notes_panel_layout_title">Keyboard panel layout</string>
+    <string name="tooldetail_notes_panel_layout_subtitle">How the list of notes is laid out in the keyboard</string>
+    <string name="tooldetail_notes_panel_layout_shelf_label">Shelf: pinned notes as wide cards, the rest in a grid</string>
+    <string name="tooldetail_notes_panel_layout_timeline_label">Timeline: one row per note, grouped by day</string>
     <string name="tooldetail_notes_trash_days_title">Keep trashed notes for</string>
     <string name="tooldetail_notes_trash_7_label">7 days</string>
     <string name="tooldetail_notes_trash_30_label">30 days</string>
@@ -1232,5 +1344,10 @@
     <!-- %1$s is the name of a tool, for example Redo. -->
     <string name="tooldetail_hold_default_pairing_subtitle">Runs <xliff:g id="tool" example="Redo">%1$s</xliff:g>, the same pair as HeliBoard</string>
     <string name="tooldetail_hold_settings_title">Settings page</string>
+    <string name="tooldetail_hold_floating_title">In a floating box</string>
+    <string name="tooldetail_hold_floating_subtitle">Opens the tool in a box over the app, which stays when the keyboard closes</string>
     <string name="tooldetail_hold_settings_subtitle">Opens the settings of this tool, as the hold did before</string>
+    <!-- The WM Pass tool's page while WM Pass is not on the phone. -->
+    <string name="tooldetail_wmpass_get_title">Get WM Pass</string>
+    <string name="tooldetail_wmpass_get_subtitle">This tool is built on WM Pass, a separate password manager, which is not installed. Opens its page on Google Play</string>
 </resources>

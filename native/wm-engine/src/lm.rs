@@ -71,12 +71,12 @@ pub struct Prefix {
     pub lang: u8,
 }
 
-struct I8Matrix {
+pub(crate) struct I8Matrix {
     /// Byte offset of the first weight in the file.
-    data: usize,
-    rows: usize,
-    cols: usize,
-    scales: Vec<f32>,
+    pub(crate) data: usize,
+    pub(crate) rows: usize,
+    pub(crate) cols: usize,
+    pub(crate) scales: Vec<f32>,
 }
 
 struct Layer {
@@ -122,16 +122,16 @@ pub struct Lm<B: AsRef<[u8]> = Vec<u8>> {
     ln_b: Vec<f32>,
 }
 
-fn u32_at(b: &[u8], at: usize) -> Option<u32> {
+pub(crate) fn u32_at(b: &[u8], at: usize) -> Option<u32> {
     Some(u32::from_le_bytes(b.get(at..at + 4)?.try_into().ok()?))
 }
 
-fn f32s(b: &[u8], at: usize, n: usize) -> Option<Vec<f32>> {
+pub(crate) fn f32s(b: &[u8], at: usize, n: usize) -> Option<Vec<f32>> {
     let s = b.get(at..at + n * 4)?;
     Some(s.chunks_exact(4).map(|c| f32::from_le_bytes([c[0], c[1], c[2], c[3]])).collect())
 }
 
-fn pad4(n: usize) -> usize {
+pub(crate) fn pad4(n: usize) -> usize {
     (n + 3) & !3
 }
 
@@ -282,29 +282,7 @@ impl<B: AsRef<[u8]>> Lm<B> {
     /// `key` spelled in pieces, greedy longest match from the left, or
     /// `None` when a letter has no piece (or the model has none).
     pub fn pieces_of(&self, key: &str) -> Option<Vec<u32>> {
-        if self.start_pieces.is_empty() || key == "<num>" {
-            return None;
-        }
-        let chars: Vec<char> = key.chars().collect();
-        let mut out = Vec::new();
-        let mut i = 0;
-        while i < chars.len() {
-            let table = if i == 0 { &self.start_pieces } else { &self.cont_pieces };
-            let mut taken = 0;
-            for j in (i + 1..=chars.len().min(i + MAX_PIECE)).rev() {
-                let piece: String = chars[i..j].iter().collect();
-                if let Some(&id) = table.get(&piece) {
-                    out.push(id);
-                    taken = j;
-                    break;
-                }
-            }
-            if taken == 0 {
-                return None;
-            }
-            i = taken;
-        }
-        Some(out)
+        pieces_greedy(&self.start_pieces, &self.cont_pieces, key)
     }
 
     /// Whether token `id` is a subword piece rather than a word.
@@ -351,6 +329,36 @@ impl<B: AsRef<[u8]>> Lm<B> {
     }
 }
 
+/// `key` spelled in pieces out of the two tables, greedy longest match from
+/// the left (`tools/wmlm/common.py`'s `Pieces.encode`), or `None` when a
+/// letter has no piece or the model has none. Shared with the punctuation
+/// model's reader (`punct.rs`), which carries the same two tables.
+pub(crate) fn pieces_greedy(start: &HashMap<String, u32>, cont: &HashMap<String, u32>, key: &str) -> Option<Vec<u32>> {
+    if start.is_empty() || key == "<num>" {
+        return None;
+    }
+    let chars: Vec<char> = key.chars().collect();
+    let mut out = Vec::new();
+    let mut i = 0;
+    while i < chars.len() {
+        let table = if i == 0 { start } else { cont };
+        let mut taken = 0;
+        for j in (i + 1..=chars.len().min(i + MAX_PIECE)).rev() {
+            let piece: String = chars[i..j].iter().collect();
+            if let Some(&id) = table.get(&piece) {
+                out.push(id);
+                taken = j;
+                break;
+            }
+        }
+        if taken == 0 {
+            return None;
+        }
+        i = taken;
+    }
+    Some(out)
+}
+
 /// The key a word is scored under: the engine's fold ([`word_key::of_str`])
 /// with the edges trimmed of punctuation, as `tools/wmlm/common.py` does it.
 /// `None` for something that is not a word; a word with a digit in it is
@@ -372,7 +380,7 @@ pub fn token_key(word: &str) -> Option<String> {
 }
 
 /// `x` as int8 into `out`; returns the scale (`x ≈ out * scale`).
-fn quantize(x: &[f32], out: &mut Vec<i8>) -> f32 {
+pub(crate) fn quantize(x: &[f32], out: &mut Vec<i8>) -> f32 {
     out.clear();
     let max = x.iter().fold(0.0f32, |m, v| m.max(v.abs()));
     if max == 0.0 {
@@ -385,7 +393,7 @@ fn quantize(x: &[f32], out: &mut Vec<i8>) -> f32 {
     scale
 }
 
-fn layer_norm(x: &[f32], w: &[f32], b: &[f32], out: &mut [f32]) {
+pub(crate) fn layer_norm(x: &[f32], w: &[f32], b: &[f32], out: &mut [f32]) {
     let n = x.len() as f32;
     let mean = x.iter().sum::<f32>() / n;
     let var = x.iter().map(|v| (v - mean) * (v - mean)).sum::<f32>() / n;
@@ -395,7 +403,7 @@ fn layer_norm(x: &[f32], w: &[f32], b: &[f32], out: &mut [f32]) {
     }
 }
 
-fn gelu(x: f32) -> f32 {
+pub(crate) fn gelu(x: f32) -> f32 {
     const C: f32 = 0.797_884_56; // sqrt(2 / pi)
     0.5 * x * (1.0 + (C * (x + 0.044715 * x * x * x)).tanh())
 }
@@ -807,7 +815,12 @@ mod tests {
     /// A tiny model written the way export.py writes one: d 4, one layer,
     /// two heads, ff 8, ctx 8, the sixteen specials plus two words.
     fn tiny_model() -> Vec<u8> {
-        let (d, ff, ctx, vocab) = (4usize, 8usize, 8usize, 18usize);
+        tiny_model_with(&[])
+    }
+
+    /// [`tiny_model`] with `extra` after its two words, for pieces.
+    fn tiny_model_with(extra: &[&str]) -> Vec<u8> {
+        let (d, ff, ctx, vocab) = (4usize, 8usize, 8usize, 18 + extra.len());
         let mut tensors = Vec::new();
         let mut data: Vec<u8> = Vec::new();
         let mut add = |name: &str, shape: &[usize], dtype: &str, data: &mut Vec<u8>| {
@@ -869,10 +882,11 @@ mod tests {
         out.extend_from_slice(&VERSION.to_le_bytes());
         out.extend_from_slice(&(header_bytes.len() as u32).to_le_bytes());
         out.extend_from_slice(&header_bytes);
-        let words = [
+        let mut words = vec![
             "<pad>", "<s>", "</s>", "<unk>", "<num>", "<reg:neutral>", "<reg:casual>", "<reg:formal>", "<field:other>",
             "<field:chat>", "<field:email>", "<field:search>", "<lang:0>", "<lang:1>", "<lang:2>", "<lang:3>", "hello", "world",
         ];
+        words.extend_from_slice(extra);
         out.extend_from_slice(&(words.len() as u32).to_le_bytes());
         for w in words {
             out.extend_from_slice(&(w.len() as u16).to_le_bytes());
@@ -915,6 +929,38 @@ mod tests {
         assert!(scores[0].is_some() && scores[1].is_some() && scores[2].is_none());
         assert_eq!(longer, s.tokens());
         assert!(s.top(3, f32::NEG_INFINITY).len() == 2);
+    }
+
+    #[test]
+    fn a_model_with_pieces_spells_the_words_it_does_not_list() {
+        let lm = Arc::new(
+            Lm::open(tiny_model_with(&["\u{2581}qu", "##ick", "\u{2581}a", "##a"])).expect("the tiny model opens"),
+        );
+        let (qu, ick) = (18, 19);
+        assert_eq!(Some(vec![qu, ick]), lm.pieces_of("quick"));
+        assert_eq!(vec![qu, ick], lm.tokens_of("quick"));
+        // A word the vocabulary holds stays one token, and a letter with no
+        // piece leaves the word unspellable.
+        assert_eq!(vec![16], lm.tokens_of("hello"));
+        assert_eq!(None, lm.pieces_of("zebra"));
+        assert_eq!(vec![UNK], lm.tokens_of("zebra"));
+        assert!(lm.is_piece(qu) && lm.is_piece(ick) && !lm.is_piece(16));
+
+        let mut s = Session::new(lm.clone());
+        s.set_context(Prefix::default(), &["hello"]);
+        let tokens = s.tokens().to_vec();
+        let dist = s.distribution().to_vec();
+        let first = s.logprob_id(qu);
+        let spelled = s.logprob("quick").expect("two pieces fit");
+        assert!(spelled.is_finite() && spelled < first, "{spelled} costs more than its first piece {first}");
+        // Spelling walks the session forward and has to put it back.
+        assert_eq!(tokens, s.tokens());
+        assert_eq!(dist, s.distribution().to_vec());
+        assert_eq!(None, s.logprob_listed("quick"));
+        // Past MAX_WORD_PIECES the model has no opinion.
+        assert_eq!(None, s.logprob("aaaaaaa"));
+        // Pieces are never offered as next words.
+        assert_eq!(2, s.top(8, f32::NEG_INFINITY).len());
     }
 
     #[test]

@@ -112,7 +112,11 @@ import com.wasimaster.wmkeyboard.core.settings.isUsableTool
 import com.wasimaster.wmkeyboard.core.settings.isOwnRow
 import com.wasimaster.wmkeyboard.core.settings.modesOverridingRow
 import com.wasimaster.wmkeyboard.core.settings.stripHidden
+import com.wasimaster.wmkeyboard.core.settings.AppGroup
 import com.wasimaster.wmkeyboard.core.settings.ModeField
+import com.wasimaster.wmkeyboard.core.settings.ModeOrientation
+import com.wasimaster.wmkeyboard.core.settings.ModeScreenSize
+import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.tools.BuiltInSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.resolveSymbolSets
 import com.wasimaster.wmkeyboard.core.tools.SymbolSet
@@ -1074,6 +1078,17 @@ internal fun modeEditIcon(settings: LiveSettings, modeId: String): (@Composable 
  * letter of a translated word is not ours to change. The lower-case field
  * names are their own resources for the same reason.
  */
+/** What the time condition starts on, a night: 22:00 to 07:00. */
+private const val MODE_NIGHT_FROM = 22 * 60
+private const val MODE_NIGHT_TO = 7 * 60
+
+private fun appGroupLabel(group: AppGroup): Int = when (group) {
+    AppGroup.BROWSER -> R.string.modes_group_browser
+    AppGroup.TERMINAL -> R.string.modes_group_terminal
+    AppGroup.MESSENGER -> R.string.modes_group_messenger
+    AppGroup.MAIL -> R.string.modes_group_mail
+}
+
 @Composable
 private fun modeBindingsSummary(mode: KeyboardMode): String {
     val resources = LocalContext.current.resources
@@ -1096,6 +1111,10 @@ private fun modeBindingsSummary(mode: KeyboardMode): String {
             R.plurals.rows_mode_bindings_hints, mode.hints.size, mode.hints.size,
         )
     }
+    if (mode.appGroups.isNotEmpty()) {
+        parts += mode.appGroups.joinToString(", ") { resources.getString(appGroupLabel(it)) }
+    }
+    if (mode.hasDeviceCondition) parts += resources.getString(R.string.rows_mode_bindings_device)
     // " + " rather than " · ": with several set, all have to match.
     return if (parts.isEmpty()) {
         resources.getString(R.string.rows_mode_bindings_manual)
@@ -1116,6 +1135,10 @@ private fun modeFieldLabel(field: ModeField): String = stringResource(
         ModeField.MULTILINE -> R.string.rows_mode_field_multiline_label
         ModeField.SINGLE_LINE -> R.string.rows_mode_field_single_line_label
         ModeField.NO_SUGGESTIONS -> R.string.rows_mode_field_no_suggestions_label
+        ModeField.SEND_KEY -> R.string.rows_mode_field_send_key_label
+        ModeField.SEARCH_KEY -> R.string.rows_mode_field_search_key_label
+        ModeField.GO_KEY -> R.string.rows_mode_field_go_key_label
+        ModeField.DONE_KEY -> R.string.rows_mode_field_done_key_label
     },
 )
 /** The same names, written the way they read inside a sentence. */
@@ -1131,6 +1154,10 @@ private fun modeFieldLowercaseLabel(field: ModeField): Int = when (field) {
     ModeField.MULTILINE -> R.string.rows_mode_field_multiline_lowercase_label
     ModeField.SINGLE_LINE -> R.string.rows_mode_field_single_line_lowercase_label
     ModeField.NO_SUGGESTIONS -> R.string.rows_mode_field_no_suggestions_lowercase_label
+    ModeField.SEND_KEY -> R.string.rows_mode_field_send_key_lowercase_label
+    ModeField.SEARCH_KEY -> R.string.rows_mode_field_search_key_lowercase_label
+    ModeField.GO_KEY -> R.string.rows_mode_field_go_key_lowercase_label
+    ModeField.DONE_KEY -> R.string.rows_mode_field_done_key_lowercase_label
 }
 /** Row height inside [ReorderableColumn] — fixed, so drags map to index shifts. */
 private val ReorderRowHeight = 52.dp
@@ -1533,6 +1560,8 @@ internal fun ModesSettings(
                         stringResource(R.string.modes_manual_duration_app_label),
                     ManualModeDuration.UNTIL_CHANGED to
                         stringResource(R.string.modes_manual_duration_changed_label),
+                    ManualModeDuration.FOR_EACH_APP to
+                        stringResource(R.string.modes_manual_duration_each_app_label),
                 ),
                 selected = settings.watch { it.rows.manualModeDuration },
                 info = stringResource(R.string.modes_manual_duration_info),
@@ -1540,10 +1569,10 @@ internal fun ModesSettings(
                 detail = { duration ->
                     ChoiceDetail(
                         stringResource(
-                            if (duration == ManualModeDuration.UNTIL_CHANGED) {
-                                R.string.modes_manual_duration_changed_desc
-                            } else {
-                                R.string.modes_manual_duration_app_desc
+                            when (duration) {
+                                ManualModeDuration.UNTIL_CHANGED -> R.string.modes_manual_duration_changed_desc
+                                ManualModeDuration.FOR_EACH_APP -> R.string.modes_manual_duration_each_app_desc
+                                ManualModeDuration.UNTIL_APP_CHANGES -> R.string.modes_manual_duration_app_desc
                             },
                         ),
                     )
@@ -1856,6 +1885,182 @@ internal fun ModeEditor(
                 selected = settings.watch { modeIn(it).twoThumb },
                 detail = inheritDetail(),
             ) { save(current().copy(twoThumb = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            val inherit = stringResource(R.string.modes_inherit_label)
+            val on = stringResource(CommonR.string.common_on)
+            val off = stringResource(CommonR.string.common_off)
+            ChoiceSetting(
+                title = R.string.modes_commit_as_typed_title,
+                info = stringResource(R.string.modes_commit_as_typed_info),
+                options = listOf(null to inherit, true to on, false to off),
+                selected = settings.watch { modeIn(it).commitAsTyped },
+                detail = inheritDetail(),
+            ) { save(current().copy(commitAsTyped = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_incognito_title,
+                info = stringResource(R.string.modes_incognito_info),
+                options = listOf(
+                    false to stringResource(R.string.modes_inherit_label),
+                    true to stringResource(CommonR.string.common_on),
+                ),
+                selected = settings.watch { modeIn(it).incognito },
+                default = false,
+            ) { save(current().copy(incognito = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            val inherit = stringResource(R.string.modes_inherit_label)
+            val on = stringResource(CommonR.string.common_on)
+            val off = stringResource(CommonR.string.common_off)
+            ChoiceSetting(
+                title = R.string.modes_key_sound_title,
+                info = stringResource(R.string.modes_key_sound_info),
+                options = listOf(null to inherit, true to on, false to off),
+                selected = settings.watch { modeIn(it).keySound },
+                detail = inheritDetail(),
+            ) { save(current().copy(keySound = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            val inherit = stringResource(R.string.modes_inherit_label)
+            val on = stringResource(CommonR.string.common_on)
+            val off = stringResource(CommonR.string.common_off)
+            ChoiceSetting(
+                title = R.string.modes_key_haptics_title,
+                info = stringResource(R.string.modes_key_haptics_info),
+                options = listOf(null to inherit, true to on, false to off),
+                selected = settings.watch { modeIn(it).keyHaptics },
+                detail = inheritDetail(),
+            ) { save(current().copy(keyHaptics = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_enter_newline_title,
+                info = stringResource(R.string.modes_enter_newline_info),
+                options = listOf(
+                    false to stringResource(R.string.modes_inherit_label),
+                    true to stringResource(CommonR.string.common_on),
+                ),
+                selected = settings.watch { modeIn(it).enterNewline },
+                default = false,
+            ) { save(current().copy(enterNewline = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_number_row_title,
+                options = listOf(
+                    null to stringResource(R.string.modes_inherit_label),
+                    true to stringResource(CommonR.string.common_on),
+                    false to stringResource(CommonR.string.common_off),
+                ),
+                selected = settings.watch { modeIn(it).numberRow },
+                detail = inheritDetail(),
+            ) { save(current().copy(numberRow = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_one_handed_override_title,
+                options = listOf(
+                    null to stringResource(R.string.modes_inherit_label),
+                    OneHandedMode.OFF to stringResource(CommonR.string.common_off),
+                    OneHandedMode.LEFT to stringResource(R.string.modes_one_handed_left),
+                    OneHandedMode.RIGHT to stringResource(R.string.modes_one_handed_right),
+                ),
+                selected = settings.watch { modeIn(it).oneHandedOverride },
+                detail = inheritDetail(),
+            ) { save(current().copy(oneHandedOverride = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_snippets_title,
+                info = stringResource(R.string.modes_snippets_info),
+                options = listOf(
+                    null to stringResource(R.string.modes_inherit_label),
+                    false to stringResource(CommonR.string.common_off),
+                ),
+                selected = settings.watch { modeIn(it).snippets },
+                detail = inheritDetail(),
+            ) { save(current().copy(snippets = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_key_height_title,
+                options = listOf(
+                    null to stringResource(R.string.modes_inherit_label),
+                    80 to "80%",
+                    90 to "90%",
+                    110 to "110%",
+                    120 to "120%",
+                ),
+                selected = settings.watch { modeIn(it).keyHeightPercent },
+                detail = inheritDetail(),
+            ) { save(current().copy(keyHeightPercent = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_key_preview_title,
+                options = listOf(
+                    null to stringResource(R.string.modes_inherit_label),
+                    true to stringResource(CommonR.string.common_on),
+                    false to stringResource(CommonR.string.common_off),
+                ),
+                selected = settings.watch { modeIn(it).keyPreview },
+                detail = inheritDetail(),
+            ) { save(current().copy(keyPreview = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_long_press_title,
+                options = listOf(
+                    null to stringResource(R.string.modes_inherit_label),
+                    150 to "150 ms",
+                    200 to "200 ms",
+                    300 to "300 ms",
+                    400 to "400 ms",
+                    500 to "500 ms",
+                ),
+                selected = settings.watch { modeIn(it).longPressDelayMs },
+                detail = inheritDetail(),
+            ) { save(current().copy(longPressDelayMs = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_clipboard_chip_title,
+                options = listOf(
+                    null to stringResource(R.string.modes_inherit_label),
+                    true to stringResource(CommonR.string.common_on),
+                    false to stringResource(CommonR.string.common_off),
+                ),
+                selected = settings.watch { modeIn(it).clipboardChip },
+                detail = inheritDetail(),
+            ) { save(current().copy(clipboardChip = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_key_swipes_title,
+                options = listOf(
+                    null to stringResource(R.string.modes_inherit_label),
+                    true to stringResource(CommonR.string.common_on),
+                    false to stringResource(CommonR.string.common_off),
+                ),
+                selected = settings.watch { modeIn(it).keySwipes },
+                detail = inheritDetail(),
+            ) { save(current().copy(keySwipes = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ModeListSetting(
+                R.string.modes_languages_title,
+                R.string.modes_languages_subtitle,
+                settings.watch { modeIn(it).languages },
+            ) { save(current().copy(languages = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ModeListSetting(
+                R.string.modes_voice_languages_title,
+                R.string.modes_voice_languages_subtitle,
+                settings.watch { modeIn(it).voiceLanguages },
+            ) { save(current().copy(voiceLanguages = it)) }
         }
         // Only the layouts the user actually has switched on: a mode naming one
         // they have since removed would pin the keyboard to something that
@@ -2247,6 +2452,224 @@ internal fun ModeEditor(
                 )
             }
         }
+        // Everything else matches and these still don't (#1025). One item, since
+        // the list is read inside it rather than in the group's builder.
+        item(level = SettingLevel.ADVANCED) {
+            val context = LocalContext.current
+            val excluded = settings.watch { modeIn(it).excludedApps }
+            var pickerOpen by remember { mutableStateOf(false) }
+            Column {
+                for (pkg in excluded) {
+                    val label = remember(pkg) {
+                        runCatching {
+                            context.packageManager.getApplicationLabel(
+                                context.packageManager.getApplicationInfo(pkg, 0),
+                            ).toString()
+                        }.getOrDefault(pkg)
+                    }
+                    WmRow(
+                        title = label,
+                        trailing = {
+                            IconButton(onClick = {
+                                val mode = current()
+                                save(mode.copy(excludedApps = mode.excludedApps - pkg))
+                            }) {
+                                Icon(
+                                    Icons.Outlined.Delete,
+                                    contentDescription = stringResource(R.string.modes_app_remove_desc),
+                                )
+                            }
+                        },
+                    )
+                }
+                WmRow(
+                    title = stringResource(R.string.modes_exclude_app_title),
+                    subtitle = stringResource(R.string.modes_exclude_app_subtitle),
+                    leading = { Icon(Icons.Outlined.Add, contentDescription = null) },
+                    onClick = { pickerOpen = true },
+                )
+            }
+            if (pickerOpen) {
+                AppPickerDialog(
+                    exclude = excluded,
+                    onPick = { pkg ->
+                        pickerOpen = false
+                        val mode = current()
+                        save(mode.copy(excludedApps = mode.excludedApps + pkg))
+                    },
+                    onDismiss = { pickerOpen = false },
+                )
+            }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_priority_title,
+                info = stringResource(R.string.modes_priority_info),
+                options = listOf(
+                    -1 to stringResource(R.string.modes_priority_low),
+                    0 to stringResource(R.string.modes_priority_normal),
+                    1 to stringResource(R.string.modes_priority_high),
+                ),
+                selected = settings.watch { modeIn(it).priority },
+                default = 0,
+            ) { save(current().copy(priority = it)) }
+        }
+        // Kinds of app, on the same terms as the list above (#1025).
+        for (group in AppGroup.entries) {
+            item(level = SettingLevel.ADVANCED) {
+                ToggleSetting(
+                    appGroupLabel(group),
+                    stringResource(R.string.modes_group_subtitle),
+                    settings.watch { group in modeIn(it).appGroups },
+                ) { on ->
+                    val mode = current()
+                    save(mode.copy(appGroups = if (on) mode.appGroups + group else mode.appGroups - group))
+                }
+            }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_orientation_title,
+                options = listOf(
+                    null to stringResource(R.string.modes_condition_any),
+                    ModeOrientation.PORTRAIT to stringResource(R.string.modes_orientation_portrait),
+                    ModeOrientation.LANDSCAPE to stringResource(R.string.modes_orientation_landscape),
+                ),
+                selected = settings.watch { modeIn(it).orientation },
+                default = null,
+            ) { save(current().copy(orientation = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_hardware_keyboard_title,
+                options = listOf(
+                    null to stringResource(R.string.modes_condition_any),
+                    true to stringResource(R.string.modes_hardware_keyboard_on),
+                    false to stringResource(R.string.modes_hardware_keyboard_off),
+                ),
+                selected = settings.watch { modeIn(it).hardwareKeyboard },
+                default = null,
+            ) { save(current().copy(hardwareKeyboard = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_screen_size_title,
+                info = stringResource(R.string.modes_screen_size_info),
+                options = listOf(
+                    null to stringResource(R.string.modes_condition_any),
+                    ModeScreenSize.PHONE to stringResource(R.string.modes_screen_size_phone),
+                    ModeScreenSize.TABLET to stringResource(R.string.modes_screen_size_tablet),
+                ),
+                selected = settings.watch { modeIn(it).screenSize },
+                default = null,
+            ) { save(current().copy(screenSize = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_one_handed_title,
+                options = listOf(
+                    null to stringResource(R.string.modes_condition_any),
+                    true to stringResource(R.string.modes_one_handed_on),
+                    false to stringResource(R.string.modes_one_handed_off),
+                ),
+                selected = settings.watch { modeIn(it).oneHanded },
+                default = null,
+            ) { save(current().copy(oneHanded = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_bluetooth_title,
+                options = listOf(
+                    null to stringResource(R.string.modes_condition_any),
+                    true to stringResource(R.string.modes_bluetooth_on),
+                    false to stringResource(R.string.modes_bluetooth_off),
+                ),
+                selected = settings.watch { modeIn(it).bluetoothAudio },
+                default = null,
+            ) { save(current().copy(bluetoothAudio = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ModeListSetting(
+                R.string.modes_bluetooth_names_title,
+                R.string.modes_bluetooth_names_subtitle,
+                settings.watch { modeIn(it).bluetoothNames },
+            ) { save(current().copy(bluetoothNames = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ModeListSetting(
+                R.string.modes_field_names_title,
+                R.string.modes_field_names_subtitle,
+                settings.watch { modeIn(it).fieldNames },
+            ) { save(current().copy(fieldNames = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ModeListSetting(
+                R.string.modes_field_languages_title,
+                R.string.modes_field_languages_subtitle,
+                settings.watch { modeIn(it).fieldLanguages },
+            ) { save(current().copy(fieldLanguages = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_field_empty_title,
+                options = listOf(
+                    null to stringResource(R.string.modes_condition_any),
+                    true to stringResource(R.string.modes_field_empty_on),
+                    false to stringResource(R.string.modes_field_empty_off),
+                ),
+                selected = settings.watch { modeIn(it).fieldEmpty },
+                default = null,
+            ) { save(current().copy(fieldEmpty = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ModeListSetting(
+                R.string.modes_text_starts_title,
+                R.string.modes_text_starts_subtitle,
+                settings.watch { modeIn(it).textStarts },
+            ) { save(current().copy(textStarts = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            val context = LocalContext.current
+            val from = settings.watch { modeIn(it).timeFrom }
+            val to = settings.watch { modeIn(it).timeTo }
+            fun pick(minute: Int, onPick: (Int) -> Unit) {
+                android.app.TimePickerDialog(
+                    context,
+                    { _, hour, min -> onPick(hour * 60 + min) },
+                    minute / 60,
+                    minute % 60,
+                    android.text.format.DateFormat.is24HourFormat(context),
+                ).show()
+            }
+            fun clock(minute: Int) = "%02d:%02d".format(minute / 60, minute % 60)
+            Column {
+                ToggleSetting(
+                    R.string.modes_time_title,
+                    stringResource(R.string.modes_time_subtitle),
+                    from != null && to != null,
+                ) { on ->
+                    save(
+                        if (on) {
+                            current().copy(timeFrom = MODE_NIGHT_FROM, timeTo = MODE_NIGHT_TO)
+                        } else {
+                            current().copy(timeFrom = null, timeTo = null)
+                        },
+                    )
+                }
+                if (from != null && to != null) {
+                    WmRow(
+                        title = stringResource(R.string.modes_time_from),
+                        subtitle = clock(from),
+                        onClick = { pick(from) { save(current().copy(timeFrom = it)) } },
+                    )
+                    WmRow(
+                        title = stringResource(R.string.modes_time_to),
+                        subtitle = clock(to),
+                        onClick = { pick(to) { save(current().copy(timeTo = it)) } },
+                    )
+                }
+            }
+        }
     }
     Row(modifier = Modifier.padding(horizontal = 16.dp)) {
         if (builtInDefault != null) {
@@ -2464,6 +2887,48 @@ private fun <T> inheritDetail(): @Composable (T) -> ChoiceDetail? = { value ->
  * "contains", so a word is enough — "extension" catches "Extension" and
  * "File extension" alike. Whitespace around it is not part of the match.
  */
+/** A mode's list of words or codes, edited as one comma-separated line; empty is the [subtitle]. */
+@Composable
+private fun ModeListSetting(
+    @StringRes title: Int,
+    @StringRes subtitle: Int,
+    values: List<String>,
+    onChange: (List<String>) -> Unit,
+) {
+    var editing by remember { mutableStateOf(false) }
+    WmRow(
+        title = stringResource(title),
+        subtitle = values.joinToString(", ").ifEmpty { stringResource(subtitle) },
+        onClick = { editing = true },
+    )
+    if (!editing) return
+    var text by remember { mutableStateOf(values.joinToString(", ")) }
+    AlertDialog(
+        onDismissRequest = { editing = false },
+        title = { Text(stringResource(title)) },
+        text = {
+            Column {
+                Text(stringResource(subtitle))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                editing = false
+                onChange(text.split(',').map { it.trim() }.filter { it.isNotEmpty() }.distinct())
+            }) { Text(stringResource(CommonR.string.common_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = { editing = false }) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+}
+
 @Composable
 private fun HintEditorDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf("") }

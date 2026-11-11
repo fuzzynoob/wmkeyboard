@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.settings.sync
 
+import com.wasimaster.wmkeyboard.core.settings.isLink
 import com.wasimaster.wmkeyboard.core.settings.needsNetwork
 import android.content.Context
 import android.util.Base64
@@ -7,8 +8,8 @@ import com.wasimaster.wmkeyboard.core.directboot.DirectBoot
 import com.wasimaster.wmkeyboard.core.net.BackupTraffic
 import com.wasimaster.wmkeyboard.core.settings.AutoBackupRunner
 import com.wasimaster.wmkeyboard.core.settings.AutoBackupSettings
-import com.wasimaster.wmkeyboard.core.settings.BackupDestination
 import com.wasimaster.wmkeyboard.core.settings.BackupCrypto
+import com.wasimaster.wmkeyboard.core.settings.BackupDestination
 import com.wasimaster.wmkeyboard.core.settings.BackupGate
 import com.wasimaster.wmkeyboard.core.settings.BackupInstall
 import com.wasimaster.wmkeyboard.core.settings.BackupLocation
@@ -20,12 +21,14 @@ import com.wasimaster.wmkeyboard.core.settings.sectionSet
 import com.wasimaster.wmkeyboard.core.settings.sink.BackupLog
 import com.wasimaster.wmkeyboard.core.settings.sink.BackupSink
 import com.wasimaster.wmkeyboard.core.settings.sink.BackupSinkException
+import com.wasimaster.wmkeyboard.core.settings.sink.ProfileLink
 import com.wasimaster.wmkeyboard.core.settings.sink.SinkEntry
 import com.wasimaster.wmkeyboard.core.settings.sink.SinkError
+import com.wasimaster.wmkeyboard.core.settings.sink.sinkErrorOf
 import com.wasimaster.wmkeyboard.core.settings.targets
 import com.wasimaster.wmkeyboard.core.util.runCancellable
-import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.InputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.sync.withLock
@@ -50,8 +53,18 @@ object SyncRunner {
     private const val STATE_FILE = "sync_state.json"
     private const val FILTER_FILE = "sync_filter.json"
 
+    /** The sync file being written, in the cache until every place has a copy. */
+    private const val STAGING_PREFIX = "sync-out-"
+
     /** A sync-only reason, beside the `SinkError` names, for a file sealed under another passphrase. */
     const val ERROR_PASSPHRASE = "SYNC_PASSPHRASE"
+
+    /**
+     * A sync-only reason for a file another device sealed in a way this
+     * version cannot open yet: the passphrase may well be right, and the fix
+     * is an update, not a new passphrase.
+     */
+    const val ERROR_NEWER = "SYNC_NEWER"
 
 
     /** Whether the active network costs data; true with none, which is no Wi-Fi either. */
@@ -78,7 +91,7 @@ object SyncRunner {
         try {
             runCancellable { runLocked(context.applicationContext, repository, force, nowMs) }
                 .getOrElse { failure ->
-                    val reason = (failure as? BackupSinkException)?.reason?.name ?: SinkError.IO.name
+                    val reason = sinkErrorOf(failure).name
                     BackupLog.w("sync failed: $reason", failure)
                     repository.setSyncOutcome(nowMs, reason)
                     Outcome.Failed(reason)
@@ -140,14 +153,18 @@ object SyncRunner {
             val group = groupAt(location, sync.group)
             val name = SyncNaming.name(me, device, encrypt, group).also { names[location.id] = it }
             val read = runCancellable { readRemotes(sink, me, auto, group) }
-            read.onSuccess { (files, passphraseMiss, mine) ->
+            read.onSuccess { (files, passphraseMiss, mine, newerMiss) ->
                 readable += location to sink
                 if (name in mine) hasMine += location.id
                 for (file in files) {
                     val known = remotes[file.installId]
                     if (known == null || file.writtenAtMs > known.writtenAtMs) remotes[file.installId] = file
                 }
-                if (passphraseMiss) failed[location.id] = ERROR_PASSPHRASE
+                if (passphraseMiss) {
+                    failed[location.id] = ERROR_PASSPHRASE
+                } else if (newerMiss) {
+                    failed[location.id] = ERROR_NEWER
+                }
             }.onFailure { failure ->
                 failed[location.id] = ((failure as? BackupSinkException)?.reason ?: SinkError.IO).name
             }
@@ -194,6 +211,11 @@ object SyncRunner {
             me = me,
             nowMs = nowMs,
             firstSync = firstSync,
+            // The copy in a private space or work profile takes the main
+            // copy's settings, even on a pass before its file has come over
+            // the link: otherwise that copy's defaults, stamped now, would
+            // win over everything set in the main profile (#1017).
+            joinAlone = ProfileLink.inProfile(context) && targets.any { it.type == BackupDestination.PROFILE },
             rejoining = { section, key ->
                 section == ConfigBackup.Section.SETTINGS.id && !lastFilter.syncable(key) && filter.syncable(key)
             },
@@ -217,13 +239,21 @@ object SyncRunner {
         // just received it, and it should cost a listing, not an upload.
         val unchanged = remembered != null && nextState == rememberedHere
         val file = SyncFile(me, device, nowMs, result.merged)
-        val bytes = encodeFile(file, auto, encrypt)
-        for ((location, sink) in readable) {
-            if (unchanged && location.id in hasMine) continue
-            writeOwn(sink, names.getValue(location.id), bytes, me)
-                .onFailure { failure ->
-                    failed[location.id] = ((failure as? BackupSinkException)?.reason ?: SinkError.IO).name
-                }
+        // Staged on disk and copied to each place from there: held in memory,
+        // the buffer that grew to fit it was the allocation that ran out of
+        // heap (#1080).
+        val staged = File.createTempFile(STAGING_PREFIX, null, context.cacheDir)
+        try {
+            encodeFile(file, auto, encrypt, staged)
+            for ((location, sink) in readable) {
+                if (unchanged && location.id in hasMine) continue
+                writeOwn(sink, names.getValue(location.id), staged, me)
+                    .onFailure { failure ->
+                        failed[location.id] = ((failure as? BackupSinkException)?.reason ?: SinkError.IO).name
+                    }
+            }
+        } finally {
+            staged.delete()
         }
         runCatching { stateFile.writeText(SyncStateCodec.encode(nextState)) }
         runCatching { filterFile.writeText(SyncFilter.encode(filter)) }
@@ -320,18 +350,21 @@ object SyncRunner {
             }
         }
         if (bundleSections.isNotEmpty()) {
-            repository.importConfig(ConfigBackup.encode(0, "", bundleSections))
+            // Straight in: encoding the merged sections to a bundle string
+            // only to parse it back held them twice more (#1080).
+            repository.importSections(bundleSections)
         }
         return count
     }
 
     /**
-     * The group this device syncs in at [location]. Never one at a Nearby
-     * device: a paired computer belongs to one person, and the KDE Connect
-     * share that carries the file there takes ungrouped names only.
+     * The group this device syncs in at [location]. Never one at a link
+     * ([isLink]): a paired computer, or the copy in another profile, belongs to
+     * the same person, and the KDE Connect share that carries the file to a
+     * computer takes ungrouped names only.
      */
     fun groupAt(location: BackupLocation, group: String): String =
-        if (location.type == BackupDestination.NEARBY) "" else group
+        if (location.type.isLink) "" else group
 
     /**
      * The sync groups other devices use at [location], sorted, with "" for
@@ -348,7 +381,13 @@ object SyncRunner {
         }
     }
 
-    private data class Remote(val files: List<SyncFile>, val passphraseMiss: Boolean, val mine: Set<String>)
+    private data class Remote(
+        val files: List<SyncFile>,
+        val passphraseMiss: Boolean,
+        val mine: Set<String>,
+        /** A file was sealed by a newer version, in a form this one cannot open. */
+        val newerMiss: Boolean = false,
+    )
 
     /**
      * The other devices' newest files in [group] at one location, whether any
@@ -367,33 +406,67 @@ object SyncRunner {
         val mine = all.filter { SyncNaming.installId(it.name) == me }.mapTo(HashSet()) { it.name }
         val newest = SyncNaming.newestOfOthers(all, me, group)
         var passphraseMiss = false
+        var newerMiss = false
         val files = newest.mapNotNull { entry ->
-            val bytes = sink.read(entry).getOrNull()?.use { it.readBytes() } ?: return@mapNotNull null
-            val text = if (BackupCrypto.looksEncrypted(bytes)) {
-                val opened = auto.passphrase.takeIf { it.isNotEmpty() }?.let {
-                    BackupCrypto.decrypt(bytes.inputStream(), it.toCharArray()) as? BackupCrypto.DecryptResult.Ok
+            // Read from the stream, not from a copy of the whole file: a plain
+            // file is parsed as it comes, and an encrypted one is opened a
+            // piece at a time (#1080). The parse reads to the end of the
+            // file, so a piece that fails its tag fails the parse before
+            // anything parsed is used; a file from before the pieces is still
+            // held once, by the cipher.
+            sink.read(entry).getOrNull()?.buffered()?.use { input ->
+                if (looksEncrypted(input)) {
+                    var newer = false
+                    val opened = auto.passphrase.takeIf { it.isNotEmpty() }?.let {
+                        BackupCrypto.decrypting(input, it.toCharArray()) { why ->
+                            newer = why == BackupCrypto.DecryptResult.UnsupportedVersion
+                        }
+                    }
+                    // Not the passphrase's fault when the file is from a newer
+                    // version: saying so would send the user to change a
+                    // passphrase that is right.
+                    if (opened == null && newer) newerMiss = true
+                    if (opened == null && !newer) passphraseMiss = true
+                    opened?.let { SyncFile.decode(it.buffered()) }
+                } else {
+                    SyncFile.decode(input)
                 }
-                if (opened == null) passphraseMiss = true
-                opened?.text
-            } else {
-                bytes.decodeToString()
             }
-            text?.let(SyncFile::decode)
         }
-        return Remote(files, passphraseMiss, mine)
+        return Remote(files, passphraseMiss, mine, newerMiss)
     }
 
-    private fun encodeFile(file: SyncFile, auto: AutoBackupSettings, encrypt: Boolean): ByteArray {
-        val text = SyncFile.encode(file)
-        if (!encrypt) return text.toByteArray()
-        val out = ByteArrayOutputStream()
-        BackupCrypto.encrypt(
-            out = out,
-            passphrase = auto.passphrase.toCharArray(),
-            salt = Base64.decode(auto.kdfSalt, Base64.NO_WRAP),
-            plaintext = text,
-        )
-        return out.toByteArray()
+    /** Whether [input] starts like an encrypted file, leaving it where it was. */
+    private fun looksEncrypted(input: InputStream): Boolean {
+        val head = ByteArray(BackupCrypto.MAGIC_SIZE)
+        input.mark(head.size)
+        var read = 0
+        while (read < head.size) {
+            val n = input.read(head, read, head.size - read)
+            if (n < 0) break
+            read += n
+        }
+        input.reset()
+        return read == head.size && BackupCrypto.looksEncrypted(head)
+    }
+
+    /**
+     * The file, encoded straight into [to]. A whole string first, its bytes,
+     * a growing in-memory buffer and the cipher's on top were what ran out of
+     * heap (#1080).
+     */
+    private fun encodeFile(file: SyncFile, auto: AutoBackupSettings, encrypt: Boolean, to: File) {
+        to.outputStream().buffered().use { out ->
+            if (encrypt) {
+                BackupCrypto.encrypting(
+                    out = out,
+                    passphrase = auto.passphrase.toCharArray(),
+                    salt = Base64.decode(auto.kdfSalt, Base64.NO_WRAP),
+                ).buffered().use { SyncFile.encodeTo(it, file) }
+            } else {
+                SyncFile.encodeTo(out, file)
+            }
+        }
     }
 
     /**
@@ -409,9 +482,9 @@ object SyncRunner {
      * spell one file's id the same way, and a mismatch would delete the file
      * just written.
      */
-    private suspend fun writeOwn(sink: BackupSink, name: String, bytes: ByteArray, me: String): Result<SinkEntry> {
+    private suspend fun writeOwn(sink: BackupSink, name: String, staged: File, me: String): Result<SinkEntry> {
         val mime = if (SyncNaming.isEncrypted(name)) ConfigBackup.ENCRYPTED_MIME_TYPE else ConfigBackup.MIME_TYPE
-        val written = sink.write(name, mime) { it.write(bytes) }
+        val written = sink.write(name, mime) { out -> staged.inputStream().use { it.copyTo(out) } }
         written.onSuccess { entry ->
             sink.list().getOrNull().orEmpty()
                 .filter { SyncNaming.installId(it.name) == me }

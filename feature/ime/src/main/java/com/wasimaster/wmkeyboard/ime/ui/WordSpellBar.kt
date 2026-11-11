@@ -23,6 +23,7 @@ import androidx.compose.foundation.text.BasicText
 import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentPaste
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -61,6 +62,7 @@ import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.R
 import com.wasimaster.wmkeyboard.ime.WordCardAction
 import com.wasimaster.wmkeyboard.core.ui.DisabledReason
+import com.wasimaster.wmkeyboard.core.prediction.CorrectionMemory
 
 /**
  * The word card's spelling editor (#138), drawn in the suggestion strip's own
@@ -104,6 +106,16 @@ internal fun WordSpellBar(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(6.dp),
     ) {
+        // Correcting, the word being fixed stays in sight beside the draft,
+        // since the draft starts as that word and is edited away from it.
+        if (spell.correcting) {
+            Text(
+                text = stringResource(R.string.ime_word_correct_label, spell.word),
+                style = MaterialTheme.typography.bodyMedium,
+                color = kb.suggestionText.copy(alpha = 0.7f),
+                maxLines = 1,
+            )
+        }
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -122,7 +134,10 @@ internal fun WordSpellBar(
                     // An empty draft cannot be applied, so the bar says what the
                     // keys are for rather than showing a blank box.
                     Text(
-                        text = stringResource(R.string.ime_word_spell_hint, spell.word),
+                        text = stringResource(
+                            if (spell.correcting) R.string.ime_word_correct_hint else R.string.ime_word_spell_hint,
+                            spell.word,
+                        ),
                         style = MaterialTheme.typography.bodyMedium,
                         color = kb.suggestionText.copy(alpha = 0.6f),
                         maxLines = 1,
@@ -147,6 +162,18 @@ internal fun WordSpellBar(
                 }
             }
         }
+        // The way in for a spelling the keys cannot type (#1190): the bar is
+        // no field of the app's, so the system's own Paste never reaches it.
+        SpellBarButton(
+            icon = Icons.Outlined.ContentPaste,
+            description = stringResource(R.string.ime_word_spell_paste_desc),
+            enabled = true,
+            tint = kb.suggestionText,
+            animate = animate,
+        ) {
+            feedback()
+            onAction(WordCardAction.PasteSpelling)
+        }
         SpellBarButton(
             icon = Icons.Outlined.Close,
             description = stringResource(R.string.ime_word_spell_cancel_desc),
@@ -162,10 +189,15 @@ internal fun WordSpellBar(
             description = stringResource(R.string.ime_word_spell_apply_desc),
             // A respelling to nothing would delete the word by the back door,
             // and one that changes nothing has nothing to apply.
-            enabled = spell.draft.isNotBlank() && spell.draft != spell.word,
+            enabled = spell.draft.isNotBlank() && spell.draft != spell.word &&
+                (!spell.correcting || CorrectionMemory.isPairValid(spell.word, spell.draft)),
             tint = kb.accent,
             animate = animate,
-            disabledReason = DisabledReason(stringResource(R.string.ime_disabled_spell_unchanged)),
+            disabledReason = DisabledReason(
+                stringResource(
+                    if (spell.correcting) R.string.ime_disabled_correction_invalid else R.string.ime_disabled_spell_unchanged,
+                ),
+            ),
         ) {
             feedback()
             onAction(WordCardAction.CommitSpelling)

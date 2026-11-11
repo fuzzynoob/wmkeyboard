@@ -1,8 +1,10 @@
 package com.wasimaster.wmkeyboard.core.translate
 
 import android.content.Context
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.withContext
 
 /**
  * The on-device engines together, for the callers that do not care which one
@@ -36,12 +38,12 @@ object OfflineTranslation {
 
     /** Whether this build and phone have any on-device engine at all. */
     val available: Boolean
-        get() = OnDeviceTranslator.AVAILABLE || BergamotTranslator.available || NllbTranslator.available
+        get() = OnDeviceTranslator.offered || BergamotTranslator.available || NllbTranslator.available
 
     /** The engines this build and phone have, in the order the default list puts them. */
     val engines: List<Engine>
         get() = listOfNotNull(
-            Engine.ML_KIT.takeIf { OnDeviceTranslator.AVAILABLE },
+            Engine.ML_KIT.takeIf { OnDeviceTranslator.offered },
             Engine.BERGAMOT.takeIf { BergamotTranslator.available },
             Engine.NLLB.takeIf { NllbTranslator.available },
         )
@@ -65,12 +67,13 @@ object OfflineTranslation {
         hints: List<String> = emptyList(),
     ): OfflineTranslateResult {
         // ML Kit's identifier, where the phone has it, beats a guess from the
-        // script for the two engines that have none of their own.
+        // script for the two engines that have none of their own; fastText and
+        // CLD3 stand in for it on the builds without ML Kit.
         val identified: suspend () -> List<OfflineTranslatePlan.Candidate> = {
-            if (sourceOverride.isBlank() && OnDeviceTranslator.AVAILABLE) {
-                OnDeviceTranslator.identify(context, text)
-            } else {
-                emptyList()
+            when {
+                sourceOverride.isNotBlank() -> emptyList()
+                OnDeviceTranslator.AVAILABLE -> OnDeviceTranslator.identify(context, text)
+                else -> withContext(Dispatchers.Default) { LanguageId.identify(text) }
             }
         }
         return when (engine) {

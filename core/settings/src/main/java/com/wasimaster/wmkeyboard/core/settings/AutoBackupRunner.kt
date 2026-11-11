@@ -15,6 +15,7 @@ import com.wasimaster.wmkeyboard.core.settings.sink.DropboxSink
 import com.wasimaster.wmkeyboard.core.settings.sink.FtpSink
 import com.wasimaster.wmkeyboard.core.settings.sink.GitSink
 import com.wasimaster.wmkeyboard.core.settings.sink.ImapSink
+import com.wasimaster.wmkeyboard.core.settings.sink.MailboxSink
 import com.wasimaster.wmkeyboard.core.settings.sink.OneDriveSink
 import com.wasimaster.wmkeyboard.core.settings.sink.S3Sink
 import com.wasimaster.wmkeyboard.core.settings.sink.BackupClients
@@ -23,9 +24,19 @@ import com.wasimaster.wmkeyboard.core.settings.sink.SftpSink
 import com.wasimaster.wmkeyboard.core.settings.sink.SmbSink
 import com.wasimaster.wmkeyboard.core.settings.sink.SinkError
 import com.wasimaster.wmkeyboard.core.settings.sink.WebDavSink
+import com.wasimaster.wmkeyboard.core.settings.sink.sinkErrorOf
+import com.wasimaster.wmkeyboard.core.settings.sink.BoxSink
+import com.wasimaster.wmkeyboard.core.settings.sink.ICloudSink
+import com.wasimaster.wmkeyboard.core.settings.sink.MegaSink
+import com.wasimaster.wmkeyboard.core.settings.sink.NfsSink
+import com.wasimaster.wmkeyboard.core.settings.sink.PCloudSink
+import com.wasimaster.wmkeyboard.core.settings.sink.ProfileLink
+import com.wasimaster.wmkeyboard.core.settings.sink.QnapSink
+import com.wasimaster.wmkeyboard.core.settings.sink.SynologySink
+import com.wasimaster.wmkeyboard.core.settings.sink.proton.ProtonDriveSink
 import com.wasimaster.wmkeyboard.core.util.runCancellable
 import java.io.File
-import java.io.OutputStreamWriter
+import java.io.OutputStream
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -69,8 +80,9 @@ object AutoBackupRunner {
     /**
      * How much embedded file data one export may carry: an eighth of the heap
      * this process may grow to, never under [MIN_EMBEDDED_BYTES]. The bundle is
-     * built as one string and, when encrypted, copied again, so the eighth
-     * leaves room for those copies and for the keyboard itself.
+     * written a section at a time and sealed a piece at a time (#1080), so
+     * what this bounds is the one section being built, which for stickers is
+     * a tree of base64 strings several times the files' size.
      */
     private fun maxEmbeddedBytes(): Long = maxOf(MIN_EMBEDDED_BYTES, Runtime.getRuntime().maxMemory() / 8)
 
@@ -251,9 +263,9 @@ object AutoBackupRunner {
     /**
      * The sink for [location], or null when this build cannot reach it.
      *
-     * Only Drive, Dropbox and OneDrive can be missing: Drive on a build with
-     * no Play services compiled in ([DriveAuth.provider] is what `:app` fills
-     * in behind that seam), the other two on a build with no client id. A null
+     * Only Drive, Dropbox, OneDrive and Box can be missing: Drive on a build
+     * with no Play services compiled in ([DriveAuth.provider] is what `:app`
+     * fills in behind that seam), the other three on a build with no client id. A null
      * is that build, not a failure.
      */
     fun sinkFor(context: Context, location: BackupLocation): BackupSink? =
@@ -286,8 +298,55 @@ object AutoBackupRunner {
             BackupDestination.IMAP -> ImapSink(location.imap)
             BackupDestination.NEARBY -> com.wasimaster.wmkeyboard.core.settings.sink.NearbySync
                 .dir(context, location.nearbyDeviceId)
-                ?.let { com.wasimaster.wmkeyboard.core.settings.sink.NearbySink(it, location.nearbyDeviceId) }
+                ?.let { dir ->
+                    MailboxSink(dir, "nearby:${location.nearbyDeviceId}") { name, bytes ->
+                        com.wasimaster.wmkeyboard.core.settings.sink.NearbySync.transport
+                            ?.send(location.nearbyDeviceId, name, bytes)
+                    }
+                }
+            BackupDestination.PROFILE -> MailboxSink(ProfileLink.mailbox(context), "profile", ProfileLink::send)
+            BackupDestination.BOX -> BackupClients.box()?.let {
+                BoxSink(location.refreshToken, it, location.box) { rotated ->
+                    storeRefreshToken(context, location.id, rotated)
+                }
+            }
+            BackupDestination.PCLOUD -> PCloudSink(location.pcloud)
+            BackupDestination.SYNOLOGY -> SynologySink(location.nas) { pin -> storeCertPin(context, location.id, pin) }
+            BackupDestination.QNAP -> QnapSink(location.nas) { pin -> storeCertPin(context, location.id, pin) }
+            BackupDestination.NFS -> NfsSink(location.nfs)
+            BackupDestination.MEGA -> MegaSink(location.mega)
+            BackupDestination.ICLOUD -> ICloudSink(location.icloud) { cookies, trust ->
+                storeLocation(context, location.id, "iCloud session") {
+                    it.copy(icloud = it.icloud.copy(cookies = cookies, trustToken = trust.ifEmpty { it.icloud.trustToken }))
+                }
+            }
+            BackupDestination.PROTON -> ProtonDriveSink(location.proton) { access, refresh ->
+                storeLocation(context, location.id, "Proton tokens") {
+                    it.copy(proton = it.proton.copy(accessToken = access, refreshToken = refresh))
+                }
+            }
         }
+
+    /**
+     * Saves the certificate the first connection to a NAS saw, so every later
+     * one is held to it, as [storeHostKey] does for SFTP. Only fills an empty
+     * slot.
+     */
+    private fun storeCertPin(context: Context, id: String, pin: String) {
+        storeLocation(context, id, "NAS certificate") {
+            if (it.nas.certPin.isEmpty()) it.copy(nas = it.nas.copy(certPin = pin)) else it
+        }
+    }
+
+    /**
+     * Saves what a sink learned mid-run: a rotated token, a new session.
+     * Blocking for the reason [storeRefreshToken] gives.
+     */
+    private fun storeLocation(context: Context, id: String, what: String, change: (BackupLocation) -> BackupLocation) {
+        runCatching {
+            runBlocking { SettingsRepository(context.applicationContext).updateBackupLocation(id, change) }
+        }.onFailure { BackupLog.w("could not store the $what for $id", it) }
+    }
 
     /**
      * Saves the host key the first SFTP connection saw, so every later one is
@@ -365,25 +424,29 @@ object AutoBackupRunner {
         if (sections.isEmpty()) return Outcome.Skipped
 
         val version = appVersion(appContext)
-        val bundle = repository.exportConfig(
-            sections = sections,
-            // The user's call, on the automatic backup's own switch. The screen
-            // strongly suggests a passphrase before it goes on, and warns when
-            // it is on without one; it does not quietly drop keys the user
-            // asked to keep.
-            includeSecrets = plan.includeSecrets,
-            appVersion = version.first,
-            appVersionName = version.second,
-            // Never the locations themselves. A backup at one location holding
-            // the passwords and sign-ins for all of them would hand every one
-            // of them to whoever can open that one.
-            excludeKeys = setOf(SettingsBackup.AUTO_BACKUP_LOCATIONS),
-        )
 
         // Staged and verified once, then copied to every location: the
         // expensive part and the safety check do not scale with how many
-        // places the user wants a copy in.
-        val staged = stage(appContext, bundle, settings, encrypt)
+        // places the user wants a copy in. Written straight to the file, never
+        // held whole as a string, because this runs inside the keyboard's own
+        // process and whatever heap the keyboard has left (#1080).
+        val staged = stage(appContext, settings, encrypt) { out ->
+            repository.exportConfigTo(
+                out = out,
+                sections = sections,
+                // The user's call, on the automatic backup's own switch. The screen
+                // strongly suggests a passphrase before it goes on, and warns when
+                // it is on without one; it does not quietly drop keys the user
+                // asked to keep.
+                includeSecrets = plan.includeSecrets,
+                appVersion = version.first,
+                appVersionName = version.second,
+                // Never the locations themselves. A backup at one location holding
+                // the passwords and sign-ins for all of them would hand every one
+                // of them to whoever can open that one.
+                excludeKeys = setOf(SettingsBackup.AUTO_BACKUP_LOCATIONS),
+            )
+        }
         try {
             if (!verify(staged, settings, encrypt)) {
                 return Outcome.Failed(SinkError.IO)
@@ -481,9 +544,9 @@ object AutoBackupRunner {
      */
     private suspend fun stage(
         appContext: Context,
-        bundle: String,
         settings: AutoBackupSettings,
         encrypt: Boolean,
+        write: suspend (OutputStream) -> Unit,
     ): File = withContext(Dispatchers.IO) {
         val dir = File(appContext.filesDir, STAGING_DIR).apply { mkdirs() }
         val part = File(dir, "staging.part")
@@ -491,43 +554,63 @@ object AutoBackupRunner {
         part.delete()
         staged.delete()
 
-        part.outputStream().use { out ->
-            if (encrypt) {
-                BackupCrypto.encrypt(
-                    out = out,
-                    passphrase = settings.passphrase.toCharArray(),
-                    salt = Base64.decode(settings.kdfSalt, Base64.NO_WRAP),
-                    plaintext = bundle,
-                )
-            } else {
-                OutputStreamWriter(out, Charsets.UTF_8).use { it.write(bundle) }
+        try {
+            part.outputStream().buffered().use { out ->
+                if (encrypt) {
+                    // The cipher's doFinal runs at the close, after [write] has
+                    // returned and let go of what it built.
+                    BackupCrypto.encrypting(
+                        out = out,
+                        passphrase = settings.passphrase.toCharArray(),
+                        salt = Base64.decode(settings.kdfSalt, Base64.NO_WRAP),
+                    ).buffered().use { write(it) }
+                } else {
+                    write(out)
+                }
             }
+        } catch (failure: Throwable) {
+            part.delete()
+            throw failure
         }
         if (!part.renameTo(staged)) throw BackupSinkException(SinkError.IO)
         staged
     }
 
     /**
-     * Reads the staged file back and parses it.
+     * Reads the staged file back to its last byte, and for an encrypted one
+     * checks its tag.
      *
      * Not paranoia about the disk: this is the check that a truncated or
      * garbled generation never reaches the destination, and so never gets
-     * counted as the reason an older one can be deleted.
+     * counted as the reason an older one can be deleted. It does not build the
+     * bundle again, which is what used to run a busy keyboard out of heap at
+     * the very end of a run, and an encrypted file is opened a piece at a
+     * time, every tag checked to the last, never held whole (#1080).
      */
     private suspend fun verify(
         staged: File,
         settings: AutoBackupSettings,
         encrypt: Boolean,
     ): Boolean = withContext(Dispatchers.IO) {
-        val text = if (encrypt) {
-            val result = staged.inputStream().use {
-                BackupCrypto.decrypt(it, settings.passphrase.toCharArray())
+        if (encrypt) {
+            staged.inputStream().use { raw ->
+                val opened = BackupCrypto.decrypting(raw, settings.passphrase.toCharArray())
+                    ?: return@withContext false
+                val plain = opened.buffered()
+                // The parser stops at the closing brace; the pieces after it,
+                // the last tag included, are checked by reading them out.
+                ConfigBackup.isComplete(plain) && runCatching { plain.skipToEnd() }.isSuccess
             }
-            (result as? BackupCrypto.DecryptResult.Ok)?.text ?: return@withContext false
         } else {
-            staged.readText()
+            staged.inputStream().use { ConfigBackup.isComplete(it.buffered()) }
         }
-        ConfigBackup.decode(text) != null
+    }
+
+    private fun java.io.InputStream.skipToEnd() {
+        val sink = ByteArray(8 * 1024)
+        do {
+            val read = read(sink)
+        } while (read >= 0)
     }
 
     /**
@@ -571,7 +654,7 @@ object AutoBackupRunner {
         location: BackupLocation?,
         frequent: Boolean = false,
     ): Outcome {
-        val reason = (failure as? BackupSinkException)?.reason ?: SinkError.IO
+        val reason = sinkErrorOf(failure)
         BackupLog.w("failed: $reason", failure)
         if (frequent) {
             repository.setFrequentBackupOutcome(ranAtMs = nowMs, error = reason.name)

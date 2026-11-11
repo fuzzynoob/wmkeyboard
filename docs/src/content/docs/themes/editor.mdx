@@ -76,6 +76,8 @@ Every color row in the app opens the same dialog, here and over in the tool scre
 
 The button in the dialog's title swaps the wheel for **Hue** and **Saturation** bars, for when you'd rather read exact numbers or move one channel at a time. Those bars are also the ones TalkBack can set. In landscape the wheel sits beside the bars instead of above them.
 
+From Android 12 the dialog has two tabs. **Custom** is everything above. **Palette** offers your wallpaper's Material You colors: five swatches for its Primary, Secondary, Tertiary, Neutral and Neutral variant palettes, and a **Tone** bar from 0 (black) to 100 (white) that sets how light all five are. A theme that follows the wallpaper opens on this tab. The shade you pick is saved as a plain color and keeps your opacity. On a theme that follows the wallpaper the keyboard draws that exact shade, rather than moving it onto whichever palette and tone its other colors would take. A new wallpaper moves it with everything else.
+
 ### What's what
 
 Every row in the editor paints one part of the keyboard, and the names are only obvious once you know which part is which. The two drawings below put a number on each part. The tables under them say which row colours it.
@@ -86,7 +88,7 @@ Every row in the editor paints one part of the keyboard, and the names are only 
 |---|---|---|
 | 1 | **Board**: everything behind the keys, including the gaps between them | Board › Background, Gradient background, Background image |
 | 2 | **Toolbar row**: the tools, each on its own circle | Toolbar, strip and popups › Toolbar: Toolbar background, Tool circles, Tool icons, Active tool circle, Active tool icon, Tool outline; shape and size under Tool background shape and Corners |
-| 3 | **Suggestion strip**: the word candidates. The middle one is the primary, the others the runner-ups | Toolbar, strip and popups › Suggestion strip: Suggestion strip (the fill), Suggestion text (the primary), Other suggestions and Other suggestions size (the rest); Panels & suggestions › Dividers (the hairlines between them) |
+| 3 | **Suggestion strip**: the word candidates. The middle one is the primary, the others the runner-ups | Toolbar, strip and popups › Suggestion strip: Suggestion strip (the fill), Suggestion text (the primary), Other suggestions and Other suggestions size (the rest), Suggestion pills and Main suggestion pill (the boxes behind the words, with Coloured suggestions on); Panels & suggestions › Dividers (the hairlines between them) |
 | 4 | **Letter key** and its label | Keys › Letter keys, Key text; the sheen under Key gradient; the picture under Key textures › Letter keys |
 | 5 | **Key hint**: the small alternate in the corner | Keys › Key hint text; its size under Layout › Key hint font size |
 | 6 | **Pressed key**: the flash while a key is held | Keys › Pressed key; the picture under Key textures › Pressed keys |
@@ -163,7 +165,7 @@ The picker lists **None** first, then the twelve shapes in this order. The five 
 | Ticket | Corners bitten inwards by a circle, like a cinema ticket | No |
 | Circle | A round cap centred in the key, like a typewriter's; wide keys (space, enter) keep a stadium | No |
 
-The shapes that ignore the slider aren't being lazy about it. Their whole look is a proportion of the key rather than a corner size, so they measure themselves off the key's own width and height. The arch is always half the key's height. The hexagon's points are always a sixth of its width. The scallops count out at roughly the same size whether it's a letter key or a spacebar. Wire them to a 0–28dp slider instead and one end of it flattens them into plain rectangles.
+The shapes that ignore the slider aren't being lazy about it. Their whole look is a proportion of the key rather than a corner size, so they measure themselves off the key's own width and height. The arch is always half the key's height. The hexagon's points are always a sixth of its width. The scallops count out at roughly the same size whether it's a letter key or a spacebar, up to 64 along a side; a box only a few pixels tall, such as a panel sliding open, is drawn as a plain rectangle until it is big enough for bumps. Wire them to a 0–28dp slider instead and one end of it flattens them into plain rectangles.
 
 Only the drawing changes. Touch targets stay rectangular for every shape, so the gap between two hexagons still belongs to one key or the other, and nothing gets harder to hit.
 
@@ -227,9 +229,58 @@ A small particle burst under every key press. Pick **Stars**, **Hearts**, **Spar
 
 Six more controls shape every particle at the moment it spawns: a **Colour** picker (Natural, Key text, Accent, Trail, Custom, or Random) and five sliders, **Size**, **Speed**, **Spread**, **Gravity** (how fast particles fall; zero leaves them drifting, and below zero they float upward), and **Duration** (200-2500 ms). The effect never plays under reduce motion or power saving, and high-contrast accessibility drops it with the rest of the decoration.
 
+### Key material
+
+What the keys look like they're made of. Pick **Key cap** (a raised cap on a darker skirt that sinks when pressed), **Metal**, **Wood**, **Stone**, **Stitched cloth**, **Leather**, **Carbon fibre**, **Paper cut-out**, **Letterpress**, **Neon**, **Holographic**, **Terminal**, **Cartoon**, **Art glass**, **Candy**, **Ceramic**, **Resin**, **Arcade button**, **Typewriter**, **Instrument panel**, **Molten**, **Soft (neumorphic)**, **Pixel block** or **Dot matrix**. **Custom** starts from a flat key.
+
+**Soft (neumorphic)** lifts each key off a board of its own colour with a light shadow on the side the light comes from and a dark one on the other; a press flattens it into the board. **Pixel block** is a game-style button cut from a pixel texture, with hard light and shade bands round its edge that swap sides while it's held, so it reads as pushed in. **Dot matrix** draws every label as a grid of dots, as on a dot-matrix display, and rings the key in dots.
+
+Each material is a preset of the same few parts, and every part has its own control under it: **Key cap height**, **Top face inset** and **Cap side shade** for the raised cap; **Gloss** and **Light direction** for the highlight; **Surface texture** (grain, linen, dots, scan lines, brushed, wood grain, stone, paper, carbon weave, leather, pixels or planks) and its strength; **Edge** (stitching, a glow, an ink outline, a glazed rim, a pressed-in top edge, a double ring, a dotted outline or a pixel bevel) with its colour and width; **Label effect** (glow, pressed in, raised, a shadow or dot matrix); **Rainbow sheen**; and **Soft shadow**, the strength of the neumorphic pair of shadows, which any material can carry. Picking another material starts its preset afresh. The textures are drawn in greys, so they take each key's own colour.
+
+### Moving background
+
+Something moving on the board behind the keys: **Snow**, **Rain**, **Code rain**, **Bokeh**, **Stars**, **Warp speed**, **Fireflies**, **Dust**, **Embers**, **Bubbles**, **Confetti**, **Fireworks**, **Aurora**, **Nebula**, **Lava lamp**, **Waves**, **Smoke**, **Dot grid**, **Contour lines**, **Equaliser**, **Scanner**, **Sheen**, **Ripples** or **Colour orbs**, a few big soft pools of colour that drift slowly behind the keys (with **Speed** at 0 they hold still, which is what glass keys over them look best with). **Amount**, **Speed**, **Brightness** and **Size** shape it, and two colour pickers set its colours (the accent and the label colour when left on Auto).
+
+**Reacts to typing** makes each key press push the effect: it speeds up and glows brighter, then settles back as the typing stops. A single press already shows, and a quick run of presses can drive it to more than three times its speed; a background with **Speed** at 0 stays still until you type. **Ripples** and **Dot grid** also send a ring out from each key you press. Under reduce motion or power saving the background stays as a still picture, unless **Theme effects with Reduce motion** is on under Accessibility.
+
+The last ten effects are splashes. Instead of moving all the time, each one lands on the keys when you press one and is gone a moment later:
+
+- **Paint splash**: a splat of paint with flung drops, and drips that run down the keys.
+- **Ink blot**: a soft, uneven blot that spreads and fades.
+- **Light pool**: a round pool of soft light a few keys wide.
+- **Colour flood**: a wash of colour that spreads from the key across the whole keyboard.
+- **Smoke puff**: a puff of smoke that drifts up and thins out.
+- **Glint**: a four-point star of light on the key.
+- **Pop**: a ring that pops outward and throws small bits.
+- **Swoosh**: short curved strokes that sweep round the key.
+- **Specks**: a scatter of tiny dots round the key.
+- **Meld**: the key you press reaches out to the keys around it in glassy bridges, like drops of liquid running together, and lets go as the press fades. It suits glass and translucent keys. On Android 13 and later the bridges are drawn with a shader; older phones get plainer straight bridges. Left on Auto it takes a cool grey on a light keyboard and near white on a dark one; a colour of your own tints the glass.
+
+Splashes are drawn over the keys, so they show on solid keys too, and **Brightness** keeps the labels readable through them. If you leave both colours on Auto, each press picks a colour of its own; choose a colour to use only that one, or two to alternate. **Speed** sets how fast a splash plays out and **Size** how big it is. **Reacts to typing** is hidden for splashes, because they already answer every press. A splash has no still picture, so under reduce motion or power saving there is none. In the effect list, each splash has a small tile that plays it in your theme's colours. While Reduce motion is on, or the phone is set to remove animations, the editor says so above **Moving background**. **Play effects anyway** turns on **Theme effects with Reduce motion**, so the theme moves while the rest of the keyboard stays still, and **Turn off Reduce motion** does what it says.
+
+### Key lighting
+
+Light on the keys, the way a backlit keyboard has it. **Steady**, **Breathe**, **Wave**, **Sweep**, **Twinkle** and **Heartbeat** run on their own. **Pressed key**, **Ripple**, **Echo**, **Splash**, **Cross** and **Rain** start from the key you press and go dark again when you stop. **Light on** puts it on the key faces, round the key edges, or behind the keys, where it shows in the gaps. **Filled key** colours the whole key with the label showing through, **Two-tone fill** fills it with two colours running corner to corner, and **Glitter** scatters twinkling specks over it. **Rainbow spread** turns the colour across the keyboard (360° shows the whole rainbow), and **Fade time** sets how long a press stays lit. Lighting is off under reduce motion and power saving; **Theme effects with Reduce motion** brings it back under reduce motion.
+
+**Colour choice** sets where the colour comes from. **Light colour** uses the one colour above. **Bright, each press** and **Pastel, each press** give every press a different colour, bright or soft; on a pattern that runs on its own, each key gets its own colour instead. **Pressed key** with **Filled key** and **Bright, each press** colours each key you press in a new colour that fades as you move on. When **Light on** or **Colour choice** opens as a list, each option has a small key beside it that lights up the way your keys will.
+
+### Touch bloom
+
+The keyboard answers your finger itself. Turn on **Touch bloom** and a soft light spreads out from where you touch, across the background behind the keys, while the keys near your finger sink a little and spring back when you lift, with a small wobble. Keys further away stay still. When you glide, the light and the dip travel with your finger, and the bubble over a pressed key lights up in the same colour.
+
+**Key motion** sets how the keys move. **Sink** is the dip described above, and moves every key near your finger. The others move only the key under your finger: **Grow** makes it larger, **Shrink** makes it smaller, **Rise** lifts it up off the keyboard, **Tilt** tips it toward the side your finger landed on, **Jelly** squashes it flat and wide, **Pop** grows it and hops it up, **Squish** squashes it much wider and flatter and drops it a little, and **Fade** fades it back and shrinks it slightly. When the options open as a list, each one has a small key beside it that plays the motion.
+
+**Light colour** is the theme's accent unless you pick one. **Light strength** sets how bright the bloom is (0% leaves only the key motion), **Reach** how far from your finger the light spreads and, with **Sink**, the keys move, **Key dip** how far the keys move (0% leaves only the light), and **Wobble** how much they bounce on the way back. A grown or risen key that bounces goes a little past its resting size or place before it settles. Touch bloom is off under reduce motion and power saving; **Theme effects with Reduce motion** brings it back under reduce motion.
+
+### Key art
+
+Hand-drawn keys from a file. **Load key art from a file** reads a skin: each kind of key (letters, special keys, enter, space, delete, shift, the mode key, punctuation, emoji, the globe) drawn as layers of vector shapes, plus an optional picture for the board. The colours in it are names of the theme's own colours, such as the key's face or the accent, made lighter, darker or more see-through, so the art takes whatever palette the theme has. Layers can move, fade, grow or turn while a key is held. A key with no drawing of its own uses its group's, then the letter key's. Key art replaces the key colours, material and border on the keys it draws. A file can also draw the popups: the bubble over a pressed key, the alternates and the language list then wear that drawing.
+
+The file layout is the one the Kyng keyboard uses for its skins, so a skin document in that layout loads as it is. High contrast drops key art, materials, the moving background, lighting and touch bloom with the rest of the decoration.
+
 ### Font and sound
 
-The theme can bring its own key font and key sound. You pick both from what's on the device: the styles the app ships, plus anything installed from the font and sound libraries. The sound list holds your installed sounds *and* your installed sound packs, each as its own row, so picking one is picking the sound itself rather than a category. They're referenced by name and never copied into the theme file. If someone imports your theme without that font or sound installed, their keyboard quietly uses their own global choice instead. Someone who has picked a key font of their own under [Keyboard fonts](/themes/fonts/) keeps it too: the theme's font only applies while that setting is left on System default. Publish the font and sound as their own add-ons and list them under the theme's `requires` in a [repository manifest](/development/addon-repos/repo-format/), so the install screen offers to fetch them together.
+The theme can bring its own key font and key sound. You pick both from what's on the device: the styles the app ships, plus anything installed from the font and sound libraries. The sound list holds your installed sounds *and* your installed sound packs, each as its own row, so picking one is picking the sound itself rather than a category. They're referenced by name and never copied into the theme file. If someone imports your theme without that font or sound installed, their keyboard quietly uses their own global choice instead. Someone who has picked a key font of their own under [Keyboard fonts](/themes/fonts/) keeps it too: the theme's font only applies while that setting is left on System default. Picking a font in the editor overrides that setting: the editor sets it back to System default so the font you just chose shows, and the **Key font** row says so. A font picked for one script here does the same to your own font for that script. When an imported theme carries a font your own setting hides, the row tells you, and picking the font again brings it back. Publish the font and sound as their own add-ons and list them under the theme's `requires` in a [repository manifest](/development/addon-repos/repo-format/), so the install screen offers to fetch them together.
 
 **Key font** covers Latin, Cyrillic and Greek. Every other script keeps its own face, because a Latin-only display font draws a Bengali board as empty boxes.
 
@@ -241,9 +292,15 @@ For a theme you plan to share, use the forms that travel. Google Font ids (`goog
 
 A theme's sound is only ever a sound it can actually make. A theme whose sound is missing on this device (never installed, or since deleted) falls back to the global **Key press → Sound style** pick, and so does a theme file whose `soundStyle` is `CUSTOM` or `PACK` with no `soundCustomId` beside it. Those two styles name something installed rather than a waveform of their own, so without a name there is nothing to play, and overriding your own pick with silence-turned-system-click would leave the whole keyboard clicking with nothing on screen to say why.
 
+### Key icons
+
+A theme can draw its own icon on the keyboard's own keys: delete, shift in its three states, enter in each wording, the globe, the emoji key and the rest of the Keys group on the [Icons](/themes/icon-packs/#what-you-can-replace) screen. Tap a key's row and pick a picture from [Your icons](/themes/icon-packs/#your-icons), or add one there. The theme keeps its own copy of the picture, so the icon goes with the theme when you export it, and deleting the picture from Your icons later leaves the theme alone. **Remove from the theme** takes it off again.
+
+A theme's icon comes last: an icon pack, or an icon you picked for that key on the Icons screen, wins over it. A row whose key is taken that way says so under its name. Themes imported from Gboard fill these rows with the glyphs they brought.
+
 ### Accent
 
-- **Accent** paints the shift-on tint, the active-tool color, and the buttons across the panels.
+- **Accent** paints the shift-on tint, the patch behind a locked Shift, the active-tool color, the buttons across the panels, and the [smart chips](/smart/chips/) on the suggestion strip, the contact chip among them. Those chips stay in Accent rather than the suggestion text color, so they read as answers rather than words.
 - **Gesture trail** is the color of the swipe-typing trail. Auto falls back to Accent, and the field supports alpha.
 
 ### Popups
@@ -255,6 +312,7 @@ The popups have a section of their own: open it from the **Popups** row under [T
 - **Popup placement** decides whether the character bubble grows out of the pressed key (the stock style) or floats detached above it. **Default** leaves the choice to <SettingsPath path="Key press" />. The other two make it part of the theme, so a bubble-popup theme looks right on every phone it lands on.
 - **Popup outline** and its width row draw a border around the bubble, off until you pick a color, exactly like the key border. It draws on every popup surface the keyboard opens: the character bubble, the long-press alternates, the spacebar language picker, the clipboard and emoji menus, and the small pickers inside the tool panels.
 - The popup can also wear an image: the **Key preview popup** row under [Key textures](#key-textures) paints one inside the bubble, clipped to the popup shape, using the same Crop/Stretch/Tile mode and opacity as the key textures.
+- A theme with a [key material](#key-material) draws its popups in the same material: the bubble, the alternates and the language list of a wooden board are wood too. [Key art](#key-art) with a drawing for popups uses that drawing instead.
 - **Menu shape** exists because the list menus (the spacebar language picker, the clipboard and emoji menus) don't blindly follow the popup shape. On **Automatic** they take a safe derivative: the plain outlines (Rounded, Square, Cut, Squircle) pass through, and the decorative ones fall back to Rounded. A slanted character bubble is fine. A slanted menu clips its own rows. Pick a shape here only to overrule that judgement.
 
 ### Toolbar, strip and popups
@@ -275,8 +333,10 @@ The **Suggestion strip** section:
 
 - **Suggestion strip** fills the bar the word candidates sit on, and every other bar around the keys with it: the toolbar row, the emoji row, the symbol row, the dictionary bar, the fancy text bar and the selection macros. Those rows stack straight against each other, so one color across all of them is the only thing that reads as deliberate. It sits on Auto until you pick a color, and Auto means the bars carry the board straight through, gradient, image, animation and all. Alpha works here, so a half-transparent fill tints the board rather than covering it. One thing to watch: the words on the strip take their color from the board, not from this fill, so if you paint the bars a long way from the board color, set **Suggestion text** just below to match.
 - **Suggestion text** colors the suggestion strip and the panels' body text. Auto falls back to Key text, contrast-guarded against the board, so a theme whose keys invert against its board (dark ink on cream keys over a near-black board) still gets a legible strip. An explicit choice here is honoured as written.
-- **Other suggestions** colors the strip's suggestions other than the primary one: the runner-up on its left and the rest on its right, when the primary sits in the middle, or everything after the first word when it doesn't. Auto draws them in Suggestion text, which is what they always were. The primary keeps Suggestion text (and its bold), and the word autocorrect has settled on keeps the colour **Autocorrect word color** under <SettingsPath path="Appearance / Toolbar" /> gives it, so a strip that colours its runner-ups quieter never hides the one word a space is about to type.
+- **Other suggestions** colors the strip's suggestions other than the primary one: the runner-up on its left and the rest on its right, when the primary sits in the middle, or everything after the first word when it doesn't. Auto draws them in Suggestion text, which is what they always were. The primary keeps Suggestion text (and its bold), and the word autocorrect has settled on keeps the colour **Autocorrect word color** under <SettingsPath path="Appearance / Toolbar" /> gives it, so a strip that colours its runner-ups quieter never hides the one word a space is about to type. A word no list knows yet keeps **New word color** from the same screen in the same way.
 - **Other suggestions size** draws those words at a share of the primary's size, 50% to 120% in 5% steps, 100% being the same size. It's a ratio, not a size, so it rides on the suggestion-size slider under Typing the way the primary does, and a word squeezed to fit its slot shrinks from this size rather than from the primary's. The conversion candidates of the CJK layouts and Avro's candidate list are one row of equals and ignore it.
+- **Suggestion pills** colors the rounded box behind each word, which the strip draws only while **Coloured suggestions** is on under <SettingsPath path="Typing / Suggestions" />. Auto is the theme's accent made faint (16% on a dark theme, 10% on a light one), so the pills follow the accent the way they always did; pick a color here to set them apart from it. Alpha counts, so a half-clear pill lets the strip show through.
+- **Main suggestion pill** colors the pill behind the primary word, the one a space puts in. Auto lays the Suggestion pills color over itself, so the main word still reads a step deeper without a second pick; with both on Auto it's the accent at 34% on a dark theme and 24% on a light one.
 
 ### Panels & suggestions
 
@@ -297,7 +357,7 @@ Chips are the small tappable surfaces inside the tool panels: style pickers, tab
 - **Chip shape** and **Chip corner radius** use the same twelve-shape picker as everywhere else. The default is the 12dp soft rectangle chips have always drawn.
 - **Card shape** governs the bigger surfaces: clipboard and snippet cards, plugin rows, search bars, the converters' displays. They follow the chip shape through the same safety rule as the menu shape, so plain outlines pass through, decorative ones fall back to Rounded, and an explicit pick here overrules both.
 
-Any row left on Auto shows an "Automatic" label under its name instead of a fixed value. Once you've overridden it, that row's color picker gains an **Automatic** button (next to Apply) that clears the override and puts the row back on Auto.
+Any row left on Auto shows an "Automatic" label under its name instead of a fixed value. Once you've overridden it, that row's color picker gains an **Automatic** button (next to Apply) that clears the override and puts the row back on Auto. On a row that is still on Auto, the picker opens on the colour Auto stands for, and pressing Apply without changing it leaves the row on Auto. A strip or toolbar on Auto paints nothing over the board, so writing the board's own colour over it would draw a lighter band.
 
 ### Gradients
 
@@ -341,11 +401,13 @@ Only three built-in themes ship with animation turned on: Sunset drift and Cyber
 
 ## Live preview while you edit
 
-The keyboard itself is pinned at the top of the editor, drawn small enough to leave room for the controls but at the proportions it has on screen. It is the real keyboard, not a picture of one: press a key and it flashes, the popup rises, the key effect fires, the strip shows the word, and a Flow or Hue cycle animation moves. Every change you make below redraws it at once, and switching looks or themes crossfades the way the keyboard does. The preview always draws the theme you are editing, panels included: a layout or panel that names a theme of its own keeps that pairing on the keyboard, but here the Numpad, the emoji panel and the rest show your draft. When one does, a notice above the editor says which and what theme it uses, and **Clear** lets it follow the theme you picked again.
+The keyboard itself is pinned at the top of the editor, drawn small enough to leave room for the controls but at the proportions it has on screen. It is the real keyboard, not a picture of one: press a key and it flashes, plays your key sound (or the theme's own) and buzzes the way the keyboard does, the popup rises, the key effect fires, the strip shows the word, and a Flow or Hue cycle animation moves. Every change you make below redraws it at once, and switching looks or themes crossfades the way the keyboard does. The preview always draws the theme you are editing, panels included: a layout or panel that names a theme of its own keeps that pairing on the keyboard, but here the Numpad, the emoji panel and the rest show your draft. When one does, a notice above the editor says which and what theme it uses, and **Clear** lets it follow the theme you picked again.
 
 Typing goes into the preview alone. Nothing you type there reaches an app, is learned, or is saved. The keys work the way they do when you type: shift and caps lock, the `?123` and `ABC` keys, the globe key cycling your enabled languages, and the emoji key and the toolbar tools opening their panels in the theme. Tools that need something the editor does not have, a microphone or your clipboard history for example, open their panel and stop there.
 
 The keyboard runs edge to edge across the screen. **Tap a part to style it**, the button under the preview, or **Pick on the keyboard** under [Toolbar, strip and popups](#toolbar-strip-and-popups), turns the preview from something you type on into something you pick from. Press a key and its [single-key style](#single-key-styles) opens; press a tool and the toolbar's section opens; press a suggestion and the strip's does. The chips above the preview switch it between the typing pages and the panels, since the keys that would normally get you there are being picked too, and swipe typing is off for as long as you are picking so a finger sliding to a key isn't read as a word. **Done** or Back puts the preview back to typing, and opening the docked keyboard does too.
+
+To give several keys the same style, such as a whole number row in one color, turn on the **Several keys** chip at the start of the chip row. A press then adds a key to the group, or takes it back out, and the line above the chips lists the keys you have so far. **Style** opens one [single-key style](#single-key-styles) section for all of them. Whatever you change there reaches every key in the group, and only that: a key that already had a border of its own keeps it when you change the fill for all of them. Turning the chip off or leaving picking forgets the group.
 
 When the preview takes too much of a small screen, drag either of the two corner marks under it inward or up. The whole keyboard shrinks at its own proportions, text and icons included, down to 35% of its full size, and stays centred. Drag outward or down to grow it again, or double-tap a mark to go back to full size. The editor remembers the size on this phone, and the docked keyboard opened by the button below is always full size.
 
@@ -362,6 +424,12 @@ There's no Save or Apply button anywhere in this screen: every field write goes 
 <PhoneFrame caption="Deleting a custom theme asks for confirmation before removing it.">
   <Shot id="themes/editor-delete-confirm" alt="Deleting a custom theme asks for confirmation before removing it." />
 </PhoneFrame>
+
+After a delete, an **Undo** bar shows at the bottom of the screen for a few seconds. It puts the theme back as it was, with all its looks and pictures, and switches back to it if it was the theme in use.
+
+To delete several at once, long-press a card in Your themes. The cards there turn into checkboxes: tap more of them to tick them, or use **Select all** in the bar at the bottom, then the trash icon in that bar. It asks once for all of them, and the same Undo bar brings back every theme it deleted. While picking, a tap ticks a card instead of switching the keyboard to it; the close button or Back stops picking. The upload icon in the same bar saves every ticked card in one `.zip` of `.wmtheme.json` files, one per theme, the way each card's own export writes it: a family card as the whole family, a card in the flat gallery as its one look. **Import** reads that zip straight back. See [Several files at once](/themes/sharing/#several-files-at-once).
+
+The same bar regroups themes. With two or more cards ticked, **Group into one theme** makes them looks of a single theme, named after the first card, with the look dots on its card to switch between them; rename it with the **Group name** field in the editor. **Ungroup** shows up when a ticked theme has more than one look, and turns every look into a theme of its own. A look that only had a short name of its own, such as "Dark", takes the theme's name with it and becomes "Nord (Dark)". In the flat gallery a card is one look, so Group and Ungroup move just the looks you ticked and leave the rest of their theme together. Neither changes the theme in use, and both offer Undo.
 
 Delete isn't offered for built-in themes or for the Default theme, only for themes in Your themes. Export is offered on built-in cards as well, so you can hand someone a copy of one as a file; only the Default card has no export button, since it's generated live rather than stored.
 

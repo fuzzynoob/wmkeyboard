@@ -106,7 +106,7 @@ Phase 2 port. Status: done.
 - `neon::name` (and `dotprod::name`, `fp16::name` for the optional armv8.2
   extensions): `#[target_feature(enable = ...)]` over stable
   `core::arch::aarch64` intrinsics. `dotprod` and `fp16` are stable in the
-  pinned 1.98.1.
+  pinned 1.99.1.
 - `name`, the dispatcher: asks `kernels::active()` and falls back to the
   reference.
 - Tests comparing every SIMD version with the reference on seeded inputs
@@ -1110,6 +1110,157 @@ Found on the way, outside this plan: rotating a 12 MP OCR still upright
 rotating the 640 px detector input instead would skip most of it.
 
 Status: round 2 done, host and phone.
+
+## Round 3: what is still Kotlin with a Rust port beside it (measured, nothing ported)
+
+`wm-engine` holds ports of the CJK composers and the phonetic indexes for WMK
+Desktop, and `wm-engine-jni` exposes neither, so the phone runs the Kotlin
+copies. This round times both sides on the same files and buffers.
+
+**Harness:** `run.sh <host|device> only=cjk,phonetic` (packs from
+`DATA_REPO`) for Kotlin; `wm-engine/examples/cjk_phonetic_bench.rs` for Rust,
+which reads the `bn_inputs.txt` the Kotlin group writes. Buffers: every prefix
+of 200 held-out Pinyin clauses (4,243), of 16 everyday Japanese romaji
+sentences (369), and of 311 common Bangla words romanized (2,048). The packs
+are the real ones: `pinyin_v2`, `pinyin_ngrams`, `ja_kana`, `bn_phonetic_v1r2`.
+
+**Phone, 2026-10-30:** CPH2481 pinned to the A76s, median / p95 in ms. Kotlin is
+ART's JIT with no AOT profile, warmed for a second. Rust has no JNI crossing,
+which a port would add once per call.
+
+| Case | Kotlin | Rust |
+|---|---|---|
+| Pinyin, per keystroke | 6.89 / 29.8 | 4.26 / 67.2 as written; 3.34 / 10.1 with the Viterbi fix below |
+| Pinyin, 17+ letters | 8.37 / 32.0 | 7.07 / 39.2; 4.61 / 15.8 with the fix |
+| Japanese, per keystroke | 2.56 / 7.9 | 0.43 / 1.16 |
+| Japanese, 17+ letters | 5.16 / 9.0 | 0.94 / 1.9 |
+| Load `pinyin_v2.tsv`, first / warm | 1,020 / 247 | 46 / 36 |
+| Load `pinyin_ngrams.tsv`, first / warm | 5,119 / 2,131 | 613 / 534 |
+| Load `ja_kana.tsv`, first / warm | 4,142 / 2,307 | 512 / 415 |
+| Keeps `ja_kana` | 44.8 MB Java heap | 54.4 MB native RSS |
+| Bangla `lookup` | 0.010 / 0.025 | 0.002 / 0.006 |
+| Bangla `lookupLoose` | 0.026 / 0.068 | 0.003 / 0.010 |
+| Bangla `phoneticCandidates`, `phoneticCommit` | 0.038 / 0.116, 0.034 / 0.054 | not ported |
+| Bangla `completions(10)`, a Khipro keystroke | 0.150 / 39.5 | not timed |
+| Open the Bangla table | 8.5, 0 MB (mapped) | 1,257, 33.5 MB (builds from the list) |
+
+**Verdicts:**
+
+- **Phonetic indexes: skip.** The whole Banglish strip is about 40 µs, under
+  the 0.3 ms bar by nearly ten times, and a JNI crossing would eat the 20 µs a
+  port saves. The Rust index also builds from the list where Kotlin maps
+  WMPI. This bench leaves out the user's spelling map and learned words, and
+  times only the phonetic calls, not the rest of a Bangla suggestion pass.
+- **`completions`: a Kotlin fix.** The p95 is a one-letter prefix walking tens
+  of thousands of words through a boxed heap. It needs a cheaper walk or a
+  stored top list for short prefixes, in either language.
+- **CJK load: the largest gain here, and mostly about format.** Rust parses the
+  three packs 4 to 7 times faster warm, and up to 22 times faster on a first
+  load, which is what a user gets. It saves no memory, because `ja_kana` is
+  mostly kana and UTF-8 spends three bytes where a `CharStore` spends two. A
+  prebuilt mapped table, as the phonetic indexes have, would cost about what
+  opening the Bangla table does, in either language, and would take the packs
+  off the heap.
+- **CJK keystrokes: worth porting for Japanese (6x), modest for Pinyin (2x
+  median, 3x p95)**, and only after the two items below.
+
+**Before wiring the port:**
+
+- `lattice::viterbi` removed duplicate last words with a linear scan of its
+  own best list, quadratic in the paths at a node. A buffer ending in a bare
+  initial (`zh`, `sh`, `y`) builds thousands, so `yizh` took 425 ms on the host.
+  A hash map, which is what the Kotlin decoder already uses, took mean Pinyin
+  from 11.39 to 1.09 ms on the host with byte-identical output on all 4,243
+  buffers. Not landed yet. WMK Desktop runs this code today.
+- Output parity. Against Kotlin: Pinyin 4,240 of 4,243 strips identical (the
+  rest differ in the twelfth candidate, an astral character's sort order),
+  Bangla 2,048 of 2,048, and Japanese only 219 of 369. Japanese's first
+  candidate agrees on 368, but the Rust strip drops a stitched reading Kotlin
+  keeps (`watashihaga` loses 私はが). T9 pinyin, Zhuyin, Cangjie/Quick and the
+  stroke method have no port and stay in Kotlin whatever happens.
+
+Status: round 3 measured, host and phone.
+
+### The port (done)
+
+The seam is below the composers: `Lattice`, `ConversionDictionary` and
+`CjkNgrams` are Rust behind Kotlin facades (JNI `cjk.rs`, Kotlin `CjkNative`), so
+Pinyin, T9, Zhuyin, Jyutping, Japanese and imported methods all run on it, and the
+composers, their graphs and learning stay in Kotlin. The Kotlin decoder and tables
+moved to `app/src/test/.../input/composer/reference/` as the oracles.
+
+- **Tables** are one flat byte layout, parsed or mapped. `ConversionDictionary.open`
+  and `CjkNgrams.open` parse a pack once, write `<pack>.wmcd` beside it, marked with
+  the pack's length and modification time, and map that file from then on. A failed
+  write only means the next open parses again. No new download: the data repo's
+  TSVs are what the phone still fetches.
+- **User history** no longer answers per word. `CjkUserHistory.userData` snapshots a
+  namespace into Rust once per change, and `Lattice.UserScope` keeps what each
+  composer read before (Pinyin everything, imported methods picks, the rest only
+  the candidate menu's answers).
+- **Rust changes for parity:** the hashed dedupes in `viterbi` and `stitched_paths`,
+  `text != reading` in the stitch gate, word length in UTF-16 units, fdlibm logs.
+
+**Verified:** every strip for 4,243 Pinyin, 369 Japanese and 2,048 Bangla buffers is
+byte-identical to the Kotlin decoder's on the real packs. `NativeCjkParityTest`
+compares 2,000 generated decodes (astral words, history, every option) and the real
+Pinyin pack, candidates in order with scores within 1e-9. The 204 tests of the CJK
+suite pass, and `PinyinBenchmarkTest` reads what it always has: 54.2% / 83.7% full,
+5.4% / 27.0% initials. All through kotlinc over Gradle's jars, not a Gradle run.
+
+**Phone, A76s pinned**, through the real composers and JNI. Same day, same state,
+pre-port Kotlin (`91ab0dd72^`) alternated with this commit's library over every
+buffer: 4,243 Pinyin, 369 Japanese three times. Five Kotlin runs and three settled
+Rust runs; the first Rust run after a `.wmcd` is written is slower (up to 6.9 mean
+Pinyin) and is left out. Kotlin is ART's JIT with no AOT profile, warmed for 5 s.
+
+| Case, ms | Kotlin | Rust |
+|---|---|---|
+| Pinyin keystroke, mean | 3.34-3.61 | 3.96-4.00 |
+| Pinyin keystroke, median | 2.45-2.59 | 2.92-2.97 |
+| Pinyin keystroke, p95 | 9.8-12.1 | 10.8-11.0 |
+| Pinyin keystroke, p99 | 16.8-17.7 | 18.4-18.6 |
+| Japanese keystroke, mean | 1.62-1.68 | 1.14-1.16 |
+| Japanese keystroke, median | 1.36-1.47 | 1.00-1.02 |
+| Japanese keystroke, p95 | 4.4-4.5 | 3.0-3.1 |
+| Japanese keystroke, p99 | 5.5-6.6 | 3.6 |
+| `pinyin_v2`, process's first load | 225 | 43 once, then 0.7 |
+| `pinyin_ngrams`, process's first load | 1,277 | 576 once, then 0.6 |
+| `ja_kana`, process's first load | 1,490 | 489 once, then 0.6 |
+| Java heap held by the three | 64.9 MB | 0 (mapped, evictable) |
+
+**Pinyin got about 0.6 ms slower per keystroke and Japanese about 0.5 ms faster.**
+The load and heap wins stand. An earlier version of this table had Pinyin at
+6.89 / 29.8 against 6.82 / 33.9 and loads of 1,020 / 5,119 / 4,142. Those runs were
+hours apart in a phone state about twice as slow, and `bench`'s 400-call window
+samples a different stretch of the buffers on each run, so they could not compare
+anything. The same goes for the Kotlin column of the round 3 table above. Compare
+keystrokes only with alternating runs over the whole buffer list.
+
+**Where one keystroke goes**, the same buffers with timers in a scratch copy of
+`Lattice.kt`, `PinyinComposer.kt`, `lattice.rs` and `cjk.rs`, two runs, mean ms:
+
+| Stage | Pinyin | Share | Pinyin, slowest 5% | Japanese | Share |
+|---|---:|---:|---:|---:|---:|
+| Rust `viterbi` | 2.67-2.77 | 66% | 12.5-13.2 | 0.21-0.22 | 18% |
+| Rust edges (`build_edges`) | 0.61-0.63 | 15% | 2.6 | 0.17-0.20 | 15% |
+| JNI and its strings, beyond the Rust below | 0.44-0.46 | 11% | 1.7-1.8 | 0.15-0.21 | 13-16% |
+| `PinyinGraph.build` | 0.11 | 3% | 0.24 | none | |
+| Rust ordering (`by_coverage`, `by_first_word`) | 0.09 | 2% | 0.13 | 0.52 | 45% |
+| Rest of the composer | 0.05 | 1% | 0.05 | 0.06 | 5% |
+| Lattice marshal and split, variants, learning | 0.07 | 2% | 0.08 | 0.02 | 2% |
+| Rust argument and result copies | 0.04 | 1% | 0.06 | 0.02 | 2% |
+
+So the composers are not the cost, and porting `PinyinGraph` would save at most
+0.11 ms. Rust's `viterbi` alone costs about what the whole Kotlin decoder did, so any
+Pinyin gain has to come from inside it; why it is no faster than the JIT has not
+been measured. The crossing is a tenth of the keystroke, and for Japanese the
+target would be `by_first_word`, not the Viterbi.
+
+**Costs:** libwm_engine_jni arm64-v8a 2,223,032 -> 2,511,328 B (+288,296),
+armeabi-v7a 1,697,808 -> 1,915,576 (+217,768), x86_64 2,418,696 -> 2,756,592
+(+337,896). Each `.wmcd` is about 16% bigger than its pack and sits beside it:
+`ja_kana` is 41.5 MB plus 48.0, 89.5 MB in all.
 
 ## Rules for every step
 

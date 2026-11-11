@@ -144,6 +144,13 @@ object T9PinyinComposer : Composer {
     override fun consumedForIndex(buffer: String, index: Int): Int =
         ranked(buffer).getOrNull(index)?.consumed ?: buffer.length
 
+    /** One letter of the reading to a key, so the buffer's length says how far it has got. */
+    override fun nextReadingLetter(buffer: String, index: Int): Char? {
+        val cand = ranked(buffer).getOrNull(index)?.takeIf { it.consumed == buffer.length } ?: return null
+        val letter = cand.reading.getOrNull(buffer.count { it != '\'' }) ?: return null
+        return T9Pinyin.encode(letter.toString()).firstOrNull()
+    }
+
     override fun learnChoice(buffer: String, index: Int) {
         val cand = ranked(buffer).getOrNull(index) ?: return
         CjkLearning.learn(NAMESPACE, cand.reading, cand.text)
@@ -190,11 +197,7 @@ object T9PinyinComposer : Composer {
 
     /** How common [syllable]'s commonest single character is, to order equally long readings. */
     private fun syllableWeight(dict: ConversionDictionary, syllable: String): Int {
-        var best = 0
-        for (row in dict.rowsFor(syllable)) {
-            if (dict.wordLength(row) == 1 && dict.frequency(row) > best) best = dict.frequency(row)
-        }
-        return best
+        return dict.bestFrequency(syllable, 1)
     }
 
     /**
@@ -269,8 +272,8 @@ object T9PinyinComposer : Composer {
             // Every digit is ambiguous, so the ambiguity cap has to come off or
             // later syllables get pinned to whichever one sorted first — the
             // alphabetical bias this whole change removes.
-            Lattice.Opts(limit = LOOKUP_LIMIT, maxAmbiguousSpan = Int.MAX_VALUE, wordPenalty = HanLevels::penalty),
-            adjust = CjkLearning.adjustFor(NAMESPACE),
+            Lattice.Opts(limit = LOOKUP_LIMIT, maxAmbiguousSpan = Int.MAX_VALUE, hanLevels = true),
+            user = CjkLearning.userData(NAMESPACE),
         )
             .flatMap { c -> HanVariant.traditionalForms(c.text).map { Cand(it, c.consumed, c.reading) } }
             .distinctBy { it.text }

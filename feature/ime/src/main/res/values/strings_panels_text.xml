@@ -49,6 +49,8 @@
     <string name="ime_dict_lookup_progress">Looking up “<xliff:g id="word" example="keyboard">%1$s</xliff:g>”…</string>
     <string name="ime_dict_lookup_desc">Look up the word</string>
     <string name="ime_dict_play_desc">Play the pronunciation</string>
+    <string name="ime_dict_voices_desc">Recorded voices</string>
+    <string name="ime_dict_voice_forvo">Forvo: <xliff:g id="speaker" example="jsmith (United States)">%1$s</xliff:g></string>
     <!-- Inserts the headword at the cursor. -->
     <string name="ime_dict_insert_action">Insert</string>
     <string name="ime_dict_error">The app cannot reach the dictionary. Check your network and try again.</string>
@@ -56,7 +58,7 @@
     <string name="ime_dict_frequency">Frequency <xliff:g id="value" example="1234">%1$s</xliff:g></string>
     <string name="ime_dict_from">From <xliff:g id="source" example="Wiktionary">%1$s</xliff:g></string>
     <!-- %1$s is the word the user asked for. -->
-    <string name="ime_dict_not_found_empty">No entry for “<xliff:g id="word" example="keyboard">%1$s</xliff:g>”. Check the spelling, or try the base form of the word.</string>
+    <string name="ime_dict_not_found_empty">No entry for “<xliff:g id="word" example="keyboard">%1$s</xliff:g>”. Check the spelling, or try the base form of the word. Definitions are in English unless you import a dictionary under Tools › Dictionary.</string>
     <string name="ime_dict_not_on_device">“<xliff:g id="word" example="keyboard">%1$s</xliff:g>” is not in the dictionaries on this device, and no online dictionary could be reached. The vocabulary packs hold only the words of their own lists; an offline dictionary from the Dictionary tool\'s settings defines common words with no connection.</string>
 
     <!-- Text editing tool panel: cursor keys, selection and clipboard. -->
@@ -81,6 +83,8 @@
     <!-- Deletes the word before / after the cursor, the way Ctrl+Backspace and Ctrl+Delete do (#980). -->
     <string name="ime_textedit_delete_word_desc">Delete word</string>
     <string name="ime_textedit_delete_word_forward_desc">Delete word forward</string>
+    <string name="ime_textedit_delete_line_desc">Delete line</string>
+    <string name="ime_textedit_delete_line_forward_desc">Delete line forward</string>
     <string name="ime_textedit_doc_end_desc">Move to the end of the text</string>
     <string name="ime_textedit_select_word_desc">Select the word</string>
     <string name="ime_textedit_select_line_desc">Select the line</string>
@@ -463,6 +467,24 @@
     <string name="ime_calendar_guest_no">Not going</string>
     <string name="ime_calendar_guest_maybe">Maybe</string>
     <string name="ime_calendar_remove_desc">Remove</string>
+    <!-- The header's view toggle: the month as a grid, or as a list down a day rail. -->
+    <string name="ime_calendar_view_month">Month</string>
+    <string name="ime_calendar_view_agenda">Agenda</string>
+    <string name="ime_calendar_pick_month_desc">Pick a month</string>
+    <string name="ime_calendar_previous_year_desc">Previous year</string>
+    <string name="ime_calendar_next_year_desc">Next year</string>
+    <string name="ime_calendar_agenda_allow_title">Your events, as a list</string>
+    <string name="ime_calendar_agenda_empty_title">Nothing this month</string>
+    <string name="ime_calendar_agenda_empty_body">Add an event, or swipe to another month.</string>
+    <!-- On a busy day the agenda has not loaded yet. -->
+    <string name="ime_calendar_agenda_peek">Tap to see this day</string>
+    <!-- The composer's main button: a new event, and one being changed. -->
+    <string name="ime_calendar_add_to_calendar">Add to calendar</string>
+    <string name="ime_calendar_save_changes">Save changes</string>
+    <plurals name="ime_calendar_guests_count">
+        <item quantity="one"><xliff:g id="count" example="1">%d</xliff:g> guest</item>
+        <item quantity="other"><xliff:g id="count" example="3">%d</xliff:g> guests</item>
+    </plurals>
 
     <!-- Themes tool panel. -->
     <!-- %1$s is the name of the keyboard mode that is active. -->

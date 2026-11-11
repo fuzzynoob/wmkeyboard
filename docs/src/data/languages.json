@@ -6683,5 +6683,4205 @@
   "english": "No linguistic content (Symbols)",
   "script": "Latin",
   "keyman": true
+ },
+ {
+  "id": "abr",
+  "name": "Abron",
+  "english": "Abron",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "abs",
+  "name": "Ambonese Malay",
+  "english": "Ambonese Malay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "acf",
+  "name": "Saint Lucian Creole French",
+  "english": "Saint Lucian Creole French",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ach",
+  "name": "Acholi",
+  "english": "Acholi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ada",
+  "name": "Dangme",
+  "english": "Dangme",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "adx",
+  "name": "Amdo (Tibetan)",
+  "english": "Amdo (Tibetan)",
+  "script": "Tibetan",
+  "keyman": false
+ },
+ {
+  "id": "ahr",
+  "name": "Ahirani",
+  "english": "Ahirani",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "ajg",
+  "name": "Ajagbe",
+  "english": "Ajagbe",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "als",
+  "name": "Tosk Albanian",
+  "english": "Tosk Albanian",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "alz",
+  "name": "Alur",
+  "english": "Alur",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "anw",
+  "name": "Anaang",
+  "english": "Anaang",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "as-Latn",
+  "name": "Assamese (Latin)",
+  "english": "Assamese (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "az-Arab",
+  "name": "Azerbaijani Iran (Arabic)",
+  "english": "Azerbaijani Iran (Arabic)",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "bah",
+  "name": "Bahamian Creole",
+  "english": "Bahamian Creole",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bas",
+  "name": "Basaa",
+  "english": "Basaa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bbj",
+  "name": "Ghomala",
+  "english": "Ghomala",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bcc",
+  "name": "Southern Balochi",
+  "english": "Southern Balochi",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "bci",
+  "name": "Baoule",
+  "english": "Baoule",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bcq",
+  "name": "Bench Ethiopia",
+  "english": "Bench Ethiopia",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ber-Tfng",
+  "name": "Tamazight Tifinagh (Tifinagh)",
+  "english": "Tamazight Tifinagh (Tifinagh)",
+  "script": "Tifinagh",
+  "keyman": false
+ },
+ {
+  "id": "bfy",
+  "name": "Bagheli",
+  "english": "Bagheli",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "bgc",
+  "name": "Haryanvi",
+  "english": "Haryanvi",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "bgn",
+  "name": "Western Balochi",
+  "english": "Western Balochi",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "bgp",
+  "name": "Eastern Balochi",
+  "english": "Eastern Balochi",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "bgq",
+  "name": "Bagri",
+  "english": "Bagri",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "bgx",
+  "name": "Balkan Gagauz Turkish",
+  "english": "Balkan Gagauz Turkish",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bgz",
+  "name": "Banggai",
+  "english": "Banggai",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bhb",
+  "name": "Bhili (Devanagari)",
+  "english": "Bhili (Devanagari)",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "bjj",
+  "name": "Kannauji",
+  "english": "Kannauji",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "bku",
+  "name": "Buhid",
+  "english": "Buhid",
+  "script": "Buhid",
+  "keyman": false
+ },
+ {
+  "id": "bmm",
+  "name": "Northern Betsimisaraka Malagasy",
+  "english": "Northern Betsimisaraka Malagasy",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bns",
+  "name": "Bundeli",
+  "english": "Bundeli",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "bpr",
+  "name": "Koronadal Blaan",
+  "english": "Koronadal Blaan",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bqi",
+  "name": "Bakhtiari",
+  "english": "Bakhtiari",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "brx-Beng",
+  "name": "Bodo (Bengali)",
+  "english": "Bodo (Bengali)",
+  "script": "Bengali",
+  "keyman": false
+ },
+ {
+  "id": "brx-Latn",
+  "name": "Bodo (Latin)",
+  "english": "Bodo (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bss",
+  "name": "Akoose",
+  "english": "Akoose",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "btm-Batk",
+  "name": "Batak Mandailing (Batak)",
+  "english": "Batak Mandailing (Batak)",
+  "script": "Batak",
+  "keyman": false
+ },
+ {
+  "id": "bto",
+  "name": "Rinconada Bikol",
+  "english": "Rinconada Bikol",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bts",
+  "name": "Batak Simalungun",
+  "english": "Batak Simalungun",
+  "script": "Batak",
+  "keyman": false
+ },
+ {
+  "id": "btx",
+  "name": "Karo",
+  "english": "Karo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "btz",
+  "name": "Alas",
+  "english": "Alas",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bud",
+  "name": "Ntcham",
+  "english": "Ntcham",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bum",
+  "name": "Bulu Bene",
+  "english": "Bulu Bene",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bxg",
+  "name": "Bangala",
+  "english": "Bangala",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bxk",
+  "name": "Bukusu",
+  "english": "Bukusu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bxm",
+  "name": "Buryat",
+  "english": "Buryat",
+  "script": "Cyrillic",
+  "keyman": false
+ },
+ {
+  "id": "bzc",
+  "name": "Southern Betsimisaraka Malagasy",
+  "english": "Southern Betsimisaraka Malagasy",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cce",
+  "name": "Chopi",
+  "english": "Chopi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cgg",
+  "name": "Chiga",
+  "english": "Chiga",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "chw",
+  "name": "Chuwabu",
+  "english": "Chuwabu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cja",
+  "name": "Western Cham",
+  "english": "Western Cham",
+  "script": "Cham",
+  "keyman": false
+ },
+ {
+  "id": "cjk",
+  "name": "Chokwe",
+  "english": "Chokwe",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cjm-Latn",
+  "name": "Eastern Cham (Latin)",
+  "english": "Eastern Cham (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cnh",
+  "name": "Hakha Chin",
+  "english": "Hakha Chin",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cps",
+  "name": "Capiznon",
+  "english": "Capiznon",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cr-Cans",
+  "name": "Cree (Canadian Aboriginal Syllabics)",
+  "english": "Cree (Canadian Aboriginal Syllabics)",
+  "script": "Canadian Aboriginal Syllabics",
+  "keyman": false
+ },
+ {
+  "id": "crh-Cyrl",
+  "name": "Crimean Tatar (Cyrillic)",
+  "english": "Crimean Tatar (Cyrillic)",
+  "script": "Cyrillic",
+  "keyman": false
+ },
+ {
+  "id": "ctg",
+  "name": "Chittagonian",
+  "english": "Chittagonian",
+  "script": "Bengali",
+  "keyman": false
+ },
+ {
+  "id": "dcc",
+  "name": "Dakhini",
+  "english": "Dakhini",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "dhd",
+  "name": "Dhundhari",
+  "english": "Dhundhari",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "dje",
+  "name": "Zarma",
+  "english": "Zarma",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "dnj",
+  "name": "Dan",
+  "english": "Dan",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "doi-Arab",
+  "name": "Dogri (Arabic)",
+  "english": "Dogri (Arabic)",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "doi-Latn",
+  "name": "Dogri (Latin)",
+  "english": "Dogri (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "drs",
+  "name": "Gedeo",
+  "english": "Gedeo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "dyu",
+  "name": "Jula (Latin)",
+  "english": "Jula (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "efi",
+  "name": "Efik",
+  "english": "Efik",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "egl",
+  "name": "Emilian",
+  "english": "Emilian",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ewo",
+  "name": "Ewondo",
+  "english": "Ewondo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "fan",
+  "name": "Fang",
+  "english": "Fang",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "fay",
+  "name": "Kuhmareyi",
+  "english": "Kuhmareyi",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "fuh",
+  "name": "Fulfulde",
+  "english": "Fulfulde",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gag-Cyrl",
+  "name": "Gagauz (Cyrillic)",
+  "english": "Gagauz (Cyrillic)",
+  "script": "Cyrillic",
+  "keyman": false
+ },
+ {
+  "id": "gax",
+  "name": "Southern Oromo",
+  "english": "Southern Oromo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gay",
+  "name": "Gayo",
+  "english": "Gayo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gbo",
+  "name": "Northern Grebo",
+  "english": "Northern Grebo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gdq",
+  "name": "Mehri",
+  "english": "Mehri",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "gdx",
+  "name": "Godwari",
+  "english": "Godwari",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "gez",
+  "name": "Geez",
+  "english": "Geez",
+  "script": "Ethiopic",
+  "keyman": false
+ },
+ {
+  "id": "gjk",
+  "name": "Kachi Koli",
+  "english": "Kachi Koli",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "gju",
+  "name": "Gujari (Arabic)",
+  "english": "Gujari (Arabic)",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "gmv",
+  "name": "Gamo",
+  "english": "Gamo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gno",
+  "name": "Gondi (Devanagari)",
+  "english": "Gondi (Devanagari)",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "gog",
+  "name": "Gogo",
+  "english": "Gogo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gqr",
+  "name": "Gor",
+  "english": "Gor",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "grt",
+  "name": "Garo",
+  "english": "Garo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gux",
+  "name": "Gourmanche",
+  "english": "Gourmanche",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "guz",
+  "name": "Gusii",
+  "english": "Gusii",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gvl",
+  "name": "Gulay",
+  "english": "Gulay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gyn",
+  "name": "Guyanese Creole",
+  "english": "Guyanese Creole",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hae",
+  "name": "Eastern Oromo",
+  "english": "Eastern Oromo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "haq",
+  "name": "Ha",
+  "english": "Ha",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hay",
+  "name": "Haya",
+  "english": "Haya",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hdy",
+  "name": "Hadiyya (Ethiopic)",
+  "english": "Hadiyya (Ethiopic)",
+  "script": "Ethiopic",
+  "keyman": false
+ },
+ {
+  "id": "hea",
+  "name": "Hmu",
+  "english": "Hmu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "heh",
+  "name": "Hehe",
+  "english": "Hehe",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hif-Deva",
+  "name": "Fiji Hindi (Devanagari)",
+  "english": "Fiji Hindi (Devanagari)",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "hlb",
+  "name": "Halbi",
+  "english": "Halbi",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "hmn",
+  "name": "Hmong",
+  "english": "Hmong",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hne",
+  "name": "Chhattisgarhi",
+  "english": "Chhattisgarhi",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "hni",
+  "name": "Hani",
+  "english": "Hani",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hno",
+  "name": "Northern Hindko",
+  "english": "Northern Hindko",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "ho",
+  "name": "Hiri Motu",
+  "english": "Hiri Motu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hoj",
+  "name": "Harauti",
+  "english": "Harauti",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "hvn",
+  "name": "Hawu",
+  "english": "Hawu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hwc",
+  "name": "Hawaiian Pidgin",
+  "english": "Hawaiian Pidgin",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ibb",
+  "name": "Ibibio",
+  "english": "Ibibio",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "igb",
+  "name": "Ebira",
+  "english": "Ebira",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ii-Latn",
+  "name": "Nuosu (Latin)",
+  "english": "Nuosu (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ijc",
+  "name": "Izon",
+  "english": "Izon",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "iso",
+  "name": "Isoko",
+  "english": "Isoko",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "itv",
+  "name": "Itawit",
+  "english": "Itawit",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ium",
+  "name": "Iu Mien",
+  "english": "Iu Mien",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "jax",
+  "name": "Jambi Malay",
+  "english": "Jambi Malay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kao",
+  "name": "Xaasongaxango",
+  "english": "Xaasongaxango",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kbr",
+  "name": "Kafa",
+  "english": "Kafa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kde",
+  "name": "Makonde",
+  "english": "Makonde",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kea",
+  "name": "Cape Verdean Creole",
+  "english": "Cape Verdean Creole",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kfq",
+  "name": "Korku",
+  "english": "Korku",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "kfr",
+  "name": "Kutchi",
+  "english": "Kutchi",
+  "script": "Gujarati",
+  "keyman": false
+ },
+ {
+  "id": "kfy",
+  "name": "Kumaoni",
+  "english": "Kumaoni",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "kgp",
+  "name": "Kaingang",
+  "english": "Kaingang",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "khg",
+  "name": "Khams (Tibetan)",
+  "english": "Khams (Tibetan)",
+  "script": "Tibetan",
+  "keyman": false
+ },
+ {
+  "id": "kj",
+  "name": "Kwanyama",
+  "english": "Kwanyama",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kmb",
+  "name": "Kimbundu",
+  "english": "Kimbundu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kmz",
+  "name": "Khorasani Turkic (Arabic)",
+  "english": "Khorasani Turkic (Arabic)",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "kne",
+  "name": "Kankanaey",
+  "english": "Kankanaey",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kng",
+  "name": "Koongo",
+  "english": "Koongo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "knn",
+  "name": "Maharashtrian Konkani",
+  "english": "Maharashtrian Konkani",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "kok-Knda",
+  "name": "Konkani (Kannada)",
+  "english": "Konkani (Kannada)",
+  "script": "Kannada",
+  "keyman": false
+ },
+ {
+  "id": "koo",
+  "name": "Konzo",
+  "english": "Konzo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kr",
+  "name": "Kanuri",
+  "english": "Kanuri",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kri",
+  "name": "Krio",
+  "english": "Krio",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "krj",
+  "name": "Karay-A",
+  "english": "Karay-A",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kru",
+  "name": "Kurukh",
+  "english": "Kurukh",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "ks-Deva",
+  "name": "Kashmiri (Devanagari)",
+  "english": "Kashmiri (Devanagari)",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "ktb",
+  "name": "Kambaata (Ethiopic)",
+  "english": "Kambaata (Ethiopic)",
+  "script": "Ethiopic",
+  "keyman": false
+ },
+ {
+  "id": "ktu",
+  "name": "Kituba",
+  "english": "Kituba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kxm",
+  "name": "Khmer Surin",
+  "english": "Khmer Surin",
+  "script": "Thai",
+  "keyman": false
+ },
+ {
+  "id": "kxu",
+  "name": "Kui",
+  "english": "Kui",
+  "script": "Oriya",
+  "keyman": false
+ },
+ {
+  "id": "kxv",
+  "name": "Kuvi",
+  "english": "Kuvi",
+  "script": "Oriya",
+  "keyman": false
+ },
+ {
+  "id": "laj",
+  "name": "Lango",
+  "english": "Lango",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "las",
+  "name": "Lama",
+  "english": "Lama",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "led",
+  "name": "Lendu",
+  "english": "Lendu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lep-Tibt",
+  "name": "Lepcha (Tibetan)",
+  "english": "Lepcha (Tibetan)",
+  "script": "Tibetan",
+  "keyman": false
+ },
+ {
+  "id": "lew",
+  "name": "Ledo Kaili",
+  "english": "Ledo Kaili",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lgg",
+  "name": "Lugbara",
+  "english": "Lugbara",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lif",
+  "name": "Limbu (Devanagari)",
+  "english": "Limbu (Devanagari)",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "ljp",
+  "name": "Lampung Api",
+  "english": "Lampung Api",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lki",
+  "name": "Laki",
+  "english": "Laki",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "lmn",
+  "name": "Lambadi (Devanagari)",
+  "english": "Lambadi (Devanagari)",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "lon",
+  "name": "Elhomwe",
+  "english": "Elhomwe",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lrl",
+  "name": "Achomi",
+  "english": "Achomi",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "lu",
+  "name": "Luba Katanga",
+  "english": "Luba Katanga",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lua",
+  "name": "Luba Kasai",
+  "english": "Luba Kasai",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "luo",
+  "name": "Luo",
+  "english": "Luo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lus",
+  "name": "Mizo",
+  "english": "Mizo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "luz",
+  "name": "Southern Luri",
+  "english": "Southern Luri",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "mag",
+  "name": "Magahi",
+  "english": "Magahi",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "mai-Latn",
+  "name": "Maithili (Latin)",
+  "english": "Maithili (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mak",
+  "name": "Makassarese",
+  "english": "Makassarese",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mas",
+  "name": "Maasai",
+  "english": "Maasai",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mcn",
+  "name": "Massa",
+  "english": "Massa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mde",
+  "name": "Maba",
+  "english": "Maba",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "mdh",
+  "name": "Maguindanao",
+  "english": "Maguindanao",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mel",
+  "name": "Melanau",
+  "english": "Melanau",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "men",
+  "name": "Mende",
+  "english": "Mende",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "meo",
+  "name": "Kedah Malay",
+  "english": "Kedah Malay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mer",
+  "name": "Meru",
+  "english": "Meru",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mfa-Arab",
+  "name": "Kelantan Pattani Malay (Arabic)",
+  "english": "Kelantan Pattani Malay (Arabic)",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "mfb",
+  "name": "Bangka Malay",
+  "english": "Bangka Malay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mfp",
+  "name": "Makassar Malay",
+  "english": "Makassar Malay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mfq",
+  "name": "Moba",
+  "english": "Moba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mgh",
+  "name": "Makhuwa Meetto",
+  "english": "Makhuwa Meetto",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mhr",
+  "name": "Meadow Mari",
+  "english": "Meadow Mari",
+  "script": "Cyrillic",
+  "keyman": false
+ },
+ {
+  "id": "mhy",
+  "name": "Maanyan",
+  "english": "Maanyan",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mjl",
+  "name": "Mandeali",
+  "english": "Mandeali",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "mmr",
+  "name": "Xong",
+  "english": "Xong",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mnb",
+  "name": "Muna",
+  "english": "Muna",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mni-Beng",
+  "name": "Manipuri (Bengali)",
+  "english": "Manipuri (Bengali)",
+  "script": "Bengali",
+  "keyman": false
+ },
+ {
+  "id": "mni-Latn",
+  "name": "Manipuri (Latin)",
+  "english": "Manipuri (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mnk",
+  "name": "Mandinka (Latin)",
+  "english": "Mandinka (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mnp",
+  "name": "Northern Min",
+  "english": "Northern Min",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mog",
+  "name": "Mongondow",
+  "english": "Mongondow",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mpg",
+  "name": "Marba",
+  "english": "Marba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mqj",
+  "name": "Mamasa",
+  "english": "Mamasa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mqy",
+  "name": "Manggarai",
+  "english": "Manggarai",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mrw",
+  "name": "Maranao",
+  "english": "Maranao",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "msi",
+  "name": "Sabah Malay",
+  "english": "Sabah Malay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mtq",
+  "name": "Muong",
+  "english": "Muong",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mtr",
+  "name": "Mewari",
+  "english": "Mewari",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "mua",
+  "name": "Mundang",
+  "english": "Mundang",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mui",
+  "name": "Musi",
+  "english": "Musi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mup",
+  "name": "Malvi",
+  "english": "Malvi",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "mvp",
+  "name": "Duri",
+  "english": "Duri",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mwm",
+  "name": "Sar",
+  "english": "Sar",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "myx",
+  "name": "Masaba",
+  "english": "Masaba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ndc",
+  "name": "Ndau",
+  "english": "Ndau",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ng",
+  "name": "Ndonga",
+  "english": "Ndonga",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nga",
+  "name": "Ngbaka Gbaya",
+  "english": "Ngbaka Gbaya",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ngl",
+  "name": "Lomwe",
+  "english": "Lomwe",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nij",
+  "name": "Ngaju",
+  "english": "Ngaju",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "niq",
+  "name": "Nandi",
+  "english": "Nandi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nod",
+  "name": "Northern Thai",
+  "english": "Northern Thai",
+  "script": "Thai",
+  "keyman": false
+ },
+ {
+  "id": "noe",
+  "name": "Nimadi",
+  "english": "Nimadi",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "nut",
+  "name": "Nung",
+  "english": "Nung",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nyf",
+  "name": "Giryama",
+  "english": "Giryama",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nym",
+  "name": "Nyamwezi",
+  "english": "Nyamwezi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nyn",
+  "name": "Nkore",
+  "english": "Nkore",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nyo",
+  "name": "Nyoro",
+  "english": "Nyoro",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nyy",
+  "name": "Nyakyusa",
+  "english": "Nyakyusa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "oj-Latn",
+  "name": "Ojibwe (Latin)",
+  "english": "Ojibwe (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "or-Latn",
+  "name": "Odia (Latin)",
+  "english": "Odia (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "osa-Latn",
+  "name": "Osage (Latin)",
+  "english": "Osage (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "pa-Arab",
+  "name": "Punjabi (Arabic)",
+  "english": "Punjabi (Arabic)",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "pcc",
+  "name": "Bouyei",
+  "english": "Bouyei",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "pko",
+  "name": "Pokot",
+  "english": "Pokot",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "plk",
+  "name": "Kohistani Shina",
+  "english": "Kohistani Shina",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "plt",
+  "name": "Plateau Malagasy",
+  "english": "Plateau Malagasy",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "pmf",
+  "name": "Pamona",
+  "english": "Pamona",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "pmy",
+  "name": "Papuan Malay",
+  "english": "Papuan Malay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "pov",
+  "name": "Guinea Bissau Creole",
+  "english": "Guinea Bissau Creole",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "prk",
+  "name": "Parauk Wa",
+  "english": "Parauk Wa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "pse",
+  "name": "Central Malay",
+  "english": "Central Malay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "psh",
+  "name": "Southwestern Pashayi",
+  "english": "Southwestern Pashayi",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "pua",
+  "name": "Purepecha",
+  "english": "Purepecha",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "qug",
+  "name": "Chimborazo Highland Kichwa",
+  "english": "Chimborazo Highland Kichwa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "quh",
+  "name": "South Bolivian Quechua",
+  "english": "South Bolivian Quechua",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "quy",
+  "name": "Ayacucho Quechua",
+  "english": "Ayacucho Quechua",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "quz",
+  "name": "Cusco Quechua",
+  "english": "Cusco Quechua",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "rcf",
+  "name": "Reunion Creole",
+  "english": "Reunion Creole",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "rhg-Latn",
+  "name": "Rohingya (Latin)",
+  "english": "Rohingya (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "rim",
+  "name": "Nyaturu",
+  "english": "Nyaturu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "rkt",
+  "name": "Rangpuri Bangladesh (Bengali)",
+  "english": "Rangpuri Bangladesh (Bengali)",
+  "script": "Bengali",
+  "keyman": false
+ },
+ {
+  "id": "rmn",
+  "name": "Balkan Romani",
+  "english": "Balkan Romani",
+  "script": "Cyrillic",
+  "keyman": false
+ },
+ {
+  "id": "rwr",
+  "name": "Marwari",
+  "english": "Marwari",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "sas",
+  "name": "Sasak Bali",
+  "english": "Sasak Bali",
+  "script": "Balinese",
+  "keyman": false
+ },
+ {
+  "id": "sat-Beng",
+  "name": "Santali (Bengali)",
+  "english": "Santali (Bengali)",
+  "script": "Bengali",
+  "keyman": false
+ },
+ {
+  "id": "sat-Deva",
+  "name": "Santali (Devanagari)",
+  "english": "Santali (Devanagari)",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "sat-Latn",
+  "name": "Santali (Latin)",
+  "english": "Santali (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sba",
+  "name": "Ngambay",
+  "english": "Ngambay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sck",
+  "name": "Sadri",
+  "english": "Sadri",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "sd-Deva",
+  "name": "Sindhi (Devanagari)",
+  "english": "Sindhi (Devanagari)",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "sd-Latn",
+  "name": "Sindhi (Latin)",
+  "english": "Sindhi (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sda",
+  "name": "Toraja Sadan",
+  "english": "Toraja Sadan",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sdc",
+  "name": "Sassarese",
+  "english": "Sassarese",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sef",
+  "name": "Cebaara Senoufo",
+  "english": "Cebaara Senoufo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "seh",
+  "name": "Sena",
+  "english": "Sena",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sgc",
+  "name": "Kipsigis",
+  "english": "Kipsigis",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sgj",
+  "name": "Surgujia",
+  "english": "Surgujia",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "sid",
+  "name": "Sidamo",
+  "english": "Sidamo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sjp",
+  "name": "Surjapuri",
+  "english": "Surjapuri",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "skg",
+  "name": "Sakalava Malagasy",
+  "english": "Sakalava Malagasy",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "snk",
+  "name": "Soninke",
+  "english": "Soninke",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sop",
+  "name": "Songe",
+  "english": "Songe",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sou",
+  "name": "Southern Thai",
+  "english": "Southern Thai",
+  "script": "Thai",
+  "keyman": false
+ },
+ {
+  "id": "spp",
+  "name": "Supyire",
+  "english": "Supyire",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "stv",
+  "name": "Silte (Ethiopic)",
+  "english": "Silte (Ethiopic)",
+  "script": "Ethiopic",
+  "keyman": false
+ },
+ {
+  "id": "sty",
+  "name": "Siberian Tatar",
+  "english": "Siberian Tatar",
+  "script": "Cyrillic",
+  "keyman": false
+ },
+ {
+  "id": "su-Arab",
+  "name": "Sundanese (Arabic)",
+  "english": "Sundanese (Arabic)",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "suk",
+  "name": "Sukuma",
+  "english": "Sukuma",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "swv",
+  "name": "Shekhawati",
+  "english": "Shekhawati",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "sxu",
+  "name": "Upper Saxon",
+  "english": "Upper Saxon",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "syl-Latn",
+  "name": "Sylheti (Latin)",
+  "english": "Sylheti (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "taj",
+  "name": "Eastern Tamang",
+  "english": "Eastern Tamang",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "tbw",
+  "name": "Aborlan",
+  "english": "Aborlan",
+  "script": "Tagbanwa",
+  "keyman": false
+ },
+ {
+  "id": "tdx",
+  "name": "Tandroy Mahafaly Malagasy",
+  "english": "Tandroy Mahafaly Malagasy",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tem",
+  "name": "Temne",
+  "english": "Temne",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "teo",
+  "name": "Teso",
+  "english": "Teso",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tiv",
+  "name": "Tiv",
+  "english": "Tiv",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tks",
+  "name": "Tati",
+  "english": "Tati",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "tll",
+  "name": "Tetela",
+  "english": "Tetela",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tly-Arab",
+  "name": "Talysh (Arabic)",
+  "english": "Talysh (Arabic)",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "trf",
+  "name": "Trinidadian Creole English",
+  "english": "Trinidadian Creole English",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "trp",
+  "name": "Kok Borok (Bengali)",
+  "english": "Kok Borok (Bengali)",
+  "script": "Bengali",
+  "keyman": false
+ },
+ {
+  "id": "tsc",
+  "name": "Tswa",
+  "english": "Tswa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tsg",
+  "name": "Tausug",
+  "english": "Tausug",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ttj",
+  "name": "Tooro",
+  "english": "Tooro",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tuv",
+  "name": "Turkana",
+  "english": "Turkana",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "unr",
+  "name": "Mundari (Bengali)",
+  "english": "Mundari (Bengali)",
+  "script": "Bengali",
+  "keyman": false
+ },
+ {
+  "id": "uum",
+  "name": "Urum (Cyrillic)",
+  "english": "Urum (Cyrillic)",
+  "script": "Cyrillic",
+  "keyman": false
+ },
+ {
+  "id": "uz-Cyrl",
+  "name": "Uzbek (Cyrillic)",
+  "english": "Uzbek (Cyrillic)",
+  "script": "Cyrillic",
+  "keyman": false
+ },
+ {
+  "id": "vah",
+  "name": "Varhadi",
+  "english": "Varhadi",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "vas",
+  "name": "Vasavi",
+  "english": "Vasavi",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "vel",
+  "name": "Veluws",
+  "english": "Veluws",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "vkt",
+  "name": "Kutai Malay",
+  "english": "Kutai Malay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "vmf",
+  "name": "East Franconian German",
+  "english": "East Franconian German",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "vmw",
+  "name": "Central Makhuwa",
+  "english": "Central Makhuwa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "wal",
+  "name": "Wolaytta",
+  "english": "Wolaytta",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "wbr",
+  "name": "Wagdi",
+  "english": "Wagdi",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "wes",
+  "name": "Cameroon Pidgin",
+  "english": "Cameroon Pidgin",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "wne",
+  "name": "Wanetsi",
+  "english": "Wanetsi",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "wry",
+  "name": "Merwari",
+  "english": "Merwari",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "xmm",
+  "name": "Manado Malay",
+  "english": "Manado Malay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "xnr",
+  "name": "Kangri",
+  "english": "Kangri",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "xog",
+  "name": "Soga",
+  "english": "Soga",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "xon",
+  "name": "Konkomba",
+  "english": "Konkomba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "xsr",
+  "name": "Sherpa",
+  "english": "Sherpa",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "yaf",
+  "name": "Yaka",
+  "english": "Yaka",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "yao",
+  "name": "Yao",
+  "english": "Yao",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ymm",
+  "name": "Maay Maay",
+  "english": "Maay Maay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "yrl",
+  "name": "Nheengatu",
+  "english": "Nheengatu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "zne",
+  "name": "Zande",
+  "english": "Zande",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "zyb",
+  "name": "Yongbei Zhuang",
+  "english": "Yongbei Zhuang",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "zyj",
+  "name": "Youjiang Zhuang",
+  "english": "Youjiang Zhuang",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "abn",
+  "name": "Abuan · Abua",
+  "english": "Abua",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "acd",
+  "name": "Gikyode · Kyode",
+  "english": "Kyode",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ade",
+  "name": "Gidire · Adele",
+  "english": "Adele",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "adh",
+  "name": "Dhopadhola · Adhola",
+  "english": "Adhola",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "adj",
+  "name": "Adioukrou · Adjukru",
+  "english": "Adjukru",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "adl",
+  "name": "Galo Adi · Galo",
+  "english": "Galo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "agq",
+  "name": "Wum · Aghem",
+  "english": "Aghem",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "aha",
+  "name": "Fanti · Ahanta",
+  "english": "Ahanta",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "aja",
+  "name": "Adjagbe · Aja",
+  "english": "Aja",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "anv",
+  "name": "Anyah · Denya",
+  "english": "Denya",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "aot",
+  "name": "Atong",
+  "english": "Atong",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "aro",
+  "name": "Araona",
+  "english": "Araona",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "arw",
+  "name": "Lokono · Arawak",
+  "english": "Arawak",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "atg",
+  "name": "Ivbie North-Okpela-Arhe · Okpela",
+  "english": "Okpela",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "awc",
+  "name": "Acipanci · Cicipu",
+  "english": "Cicipu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ayb",
+  "name": "Ayizɔ · Ayizo",
+  "english": "Ayizo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "azo",
+  "name": "\\\"Mbwe'wi\\\" · Awing",
+  "english": "Awing",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bav",
+  "name": "Babungo · Vengo",
+  "english": "Vengo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bax-Latn",
+  "name": "Shüpamom · Bamum (Latin)",
+  "english": "Bamum (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bcw",
+  "name": "Bana",
+  "english": "Bana",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bex",
+  "name": "Jur Modo",
+  "english": "Jur Modo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bez",
+  "name": "Ekibena · Bena",
+  "english": "Bena",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bfd",
+  "name": "Fut · Bafut",
+  "english": "Bafut",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bgj",
+  "name": "Bangolan",
+  "english": "Bangolan",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bhs",
+  "name": "Gadala · Buwal",
+  "english": "Buwal",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bib",
+  "name": "Bɩsa · Bissa",
+  "english": "Bissa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bim",
+  "name": "Bimoba",
+  "english": "Bimoba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "biv",
+  "name": "Birfoɔr · Southern Birifor",
+  "english": "Southern Birifor",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bjv",
+  "name": "Bedjond",
+  "english": "Bedjond",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bjw",
+  "name": "Bakwé",
+  "english": "Bakwé",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bkc",
+  "name": "Baka",
+  "english": "Baka",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bkh",
+  "name": "Bakoko · Kogo",
+  "english": "Kogo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bkm",
+  "name": "Itaŋikom · Kom",
+  "english": "Kom",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "blh",
+  "name": "Kuwaa",
+  "english": "Kuwaa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bmo",
+  "name": "Chrambo · Bambalang",
+  "english": "Bambalang",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bng",
+  "name": "bɛŋga · Benga",
+  "english": "Benga",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bov",
+  "name": "Tuwuli · Bowili",
+  "english": "Bowili",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "box",
+  "name": "Buamu · Bwa",
+  "english": "Bwa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "boz",
+  "name": "Tiéyaxo",
+  "english": "Tiéyaxo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bqc",
+  "name": "Bokonya · Boko",
+  "english": "Boko",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bqp",
+  "name": "Busa",
+  "english": "Busa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bqt",
+  "name": "Mankong · Bamukumbit",
+  "english": "Bamukumbit",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bqz",
+  "name": "Bakaka",
+  "english": "Bakaka",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "btb",
+  "name": "Yaunde · Beti",
+  "english": "Beti",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "btg",
+  "name": "Gagnoa Bété",
+  "english": "Gagnoa Bété",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "btt",
+  "name": "Bendi · Bete-Bendi",
+  "english": "Bete-Bendi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bus",
+  "name": "Busa-Bokobaru",
+  "english": "Busa-Bokobaru",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bwq",
+  "name": "Bobo",
+  "english": "Bobo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bwu",
+  "name": "Kanjaga · Buli",
+  "english": "Buli",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "byn",
+  "name": "ብሊና · Bilen",
+  "english": "Bilen",
+  "script": "Ethiopic",
+  "keyman": false
+ },
+ {
+  "id": "byv",
+  "name": "Mə̀dʉ̂mbɑ̀ · Medumba",
+  "english": "Medumba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cab",
+  "name": "Garífuna · Garifuna",
+  "english": "Garifuna",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cao",
+  "name": "Chokobo-Pakawara · Chácobo",
+  "english": "Chácobo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cap",
+  "name": "Chipay taqu · Chipaya",
+  "english": "Chipaya",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cas",
+  "name": "Tsimané · Chimane",
+  "english": "Chimane",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cav",
+  "name": "Cavineña",
+  "english": "Cavineña",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cax",
+  "name": "Besïro · Chiquitano",
+  "english": "Chiquitano",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ceg",
+  "name": "Ishír · Chamacoco",
+  "english": "Chamacoco",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cko",
+  "name": "Anufo · Chakosi",
+  "english": "Chakosi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cme",
+  "name": "Kirma · Cerma",
+  "english": "Cerma",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cng",
+  "name": "Rrmearr · Northern Qiang",
+  "english": "Northern Qiang",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "crp",
+  "name": "Kurpśosky · Kurpian",
+  "english": "Kurpian",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "crq",
+  "name": "Iyo’wujwa Chorote · Manjuy",
+  "english": "Manjuy",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ctp",
+  "name": "ChaqF tnyaJ · Chatino",
+  "english": "Chatino",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cwe",
+  "name": "Kwere",
+  "english": "Kwere",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cwt",
+  "name": "Kuwaataay · Kwatay",
+  "english": "Kwatay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "cyp",
+  "name": "Κυπριακά · Cypriot Greek",
+  "english": "Cypriot Greek",
+  "script": "Greek",
+  "keyman": false
+ },
+ {
+  "id": "daa",
+  "name": "Dangla · Dangaléat",
+  "english": "Dangaléat",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "dba",
+  "name": "Baŋgɛri-mɛ · Bangime",
+  "english": "Bangime",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ddn",
+  "name": "Dandawa · Dendi",
+  "english": "Dendi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "dgl",
+  "name": "Ⲁⲛⲇⲁ̄ⲛⲇⲓ-Ⲙⲁⲧⲧⲟⲕⲕⲓ · Nubian (Dongolawi)",
+  "english": "Nubian (Dongolawi)",
+  "script": "Coptic",
+  "keyman": false
+ },
+ {
+  "id": "dig",
+  "name": "Chidigo · Digo",
+  "english": "Digo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "dik",
+  "name": "Rek &amp; Twic · Southwestern Dinka",
+  "english": "Southwestern Dinka",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "dip",
+  "name": "Padang · Northeastern Dinka",
+  "english": "Northeastern Dinka",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "diu",
+  "name": "Gciriku · Dciriku",
+  "english": "Dciriku",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "djk",
+  "name": "Aukan · Ndyuka",
+  "english": "Ndyuka",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "dop",
+  "name": "Lukpa",
+  "english": "Lukpa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "dts",
+  "name": "Tɔrɔ sɔɔ · Tommo So",
+  "english": "Tommo So",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "dua",
+  "name": "Duālā · Duala",
+  "english": "Duala",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "dug",
+  "name": "Chiduruma · Duruma",
+  "english": "Duruma",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "dur",
+  "name": "Duru · Dii",
+  "english": "Dii",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "dv-Latn",
+  "name": "Dhivehi(English) · Dhivehi(Latin)",
+  "english": "Dhivehi(Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ekm",
+  "name": "Elip",
+  "english": "Elip",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "eko",
+  "name": "Ekoti · Koti",
+  "english": "Koti",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "enb",
+  "name": "Markweeta · Markwet",
+  "english": "Markwet",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ese",
+  "name": "Tiatinagua · Ese Ejja",
+  "english": "Ese Ejja",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "etu",
+  "name": "Ejagham · Ekoi",
+  "english": "Ekoi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "fa-Latn",
+  "name": "Farsi · Persian(Latin)",
+  "english": "Persian(Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "fal",
+  "name": "South Fali · Fali",
+  "english": "Fali",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gba",
+  "name": "Gbaya",
+  "english": "Gbaya",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gde",
+  "name": "Cheke · Gude",
+  "english": "Gude",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gej",
+  "name": "Mina · Gen",
+  "english": "Gen",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gjn",
+  "name": "Ngbanya · Gonja",
+  "english": "Gonja",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gkn",
+  "name": "Gokana",
+  "english": "Gokana",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gll",
+  "name": "Galo · Gallo",
+  "english": "Gallo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gmm",
+  "name": "Mbódɔ̀mɔ̀ · Mbodomo",
+  "english": "Mbodomo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gnd",
+  "name": "Zulgo-Gemzek",
+  "english": "Zulgo-Gemzek",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gng",
+  "name": "Gangam · Ngangam",
+  "english": "Ngangam",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "god",
+  "name": "Godié",
+  "english": "Godié",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "grb",
+  "name": "Kréébo · Grebo",
+  "english": "Grebo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "grk",
+  "name": "Griko",
+  "english": "Griko",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gui",
+  "name": "Chawuncu · Eastern Bolivian Guaraní",
+  "english": "Eastern Bolivian Guaraní",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gxx",
+  "name": "Wè · Guéré",
+  "english": "Guéré",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "gyr",
+  "name": "Gwarayú · Guarayu",
+  "english": "Guarayu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hag",
+  "name": "Hanga",
+  "english": "Hanga",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hig",
+  "name": "Kamwe",
+  "english": "Kamwe",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hmr",
+  "name": "Hmar",
+  "english": "Hmar",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hna",
+  "name": "Hina · Mina",
+  "english": "Mina",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hru",
+  "name": "Ĝusso · Hrusoo",
+  "english": "Hrusoo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hts",
+  "name": "Hazane · Hadza",
+  "english": "Hadza",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "hz",
+  "name": "Otjiherero · Herero",
+  "english": "Herero",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ign",
+  "name": "Ignaciano",
+  "english": "Ignaciano",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ikk",
+  "name": "Ika",
+  "english": "Ika",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ikw",
+  "name": "Ikwere · Ikwerre",
+  "english": "Ikwerre",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ikx",
+  "name": "Icé-tód · Ik",
+  "english": "Ik",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "irk",
+  "name": "Kángw Iraqw · Iraqw",
+  "english": "Iraqw",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "its",
+  "name": "Itsekiri",
+  "english": "Itsekiri",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "izr",
+  "name": "Izere",
+  "english": "Izere",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "jbu",
+  "name": "Jukun Takum · Jukun",
+  "english": "Jukun",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "jmc",
+  "name": "Machame",
+  "english": "Machame",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kar",
+  "name": "ကညီကျိာ် · Karen",
+  "english": "Karen",
+  "script": "Myanmar",
+  "keyman": false
+ },
+ {
+  "id": "kaw-Latn",
+  "name": "Bhasa Kawi · Kawi (Latin)",
+  "english": "Kawi (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kcc",
+  "name": "Kabila · Lubila",
+  "english": "Lubila",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kck",
+  "name": "Ikalanga · Kalanga",
+  "english": "Kalanga",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kdl",
+  "name": "Tsikimba · Kimba",
+  "english": "Kimba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ken",
+  "name": "Nyang · Kenyang",
+  "english": "Kenyang",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kez",
+  "name": "Kukele · Kele",
+  "english": "Kele",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "khn",
+  "name": "खान्देशी · Khandeshi",
+  "english": "Khandeshi",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "kiz",
+  "name": "Kikisi · Kisi",
+  "english": "Kisi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kki",
+  "name": "Kaguru",
+  "english": "Kaguru",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kkj",
+  "name": "Kako",
+  "english": "Kako",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kln",
+  "name": "Kalenjin",
+  "english": "Kalenjin",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kma",
+  "name": "Koma · Konni",
+  "english": "Konni",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kmz-Latn",
+  "name": "Turki Khorasani · Khorasani Turkic (Latin)",
+  "english": "Khorasani Turkic (Latin)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "knk",
+  "name": "Kuranko",
+  "english": "Kuranko",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kno",
+  "name": "Kɔnɔ · Kono",
+  "english": "Kono",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "knp",
+  "name": "Konja · Kwanja",
+  "english": "Kwanja",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kqn",
+  "name": "Kiikaonde · Kaonde",
+  "english": "Kaonde",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kqp",
+  "name": "Gabri · Kimré",
+  "english": "Kimré",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ksf",
+  "name": "Kpa · Bafia",
+  "english": "Bafia",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ktj",
+  "name": "Plapo Krumen · Krumen",
+  "english": "Krumen",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ktz",
+  "name": "Zhuǀʼhõa · Ju|'hoan",
+  "english": "Ju|'hoan",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kub",
+  "name": "Kutep · Kuteb",
+  "english": "Kuteb",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kwn",
+  "name": "Rukwangali · Kwangali",
+  "english": "Kwangali",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kxx",
+  "name": "Likuba",
+  "english": "Likuba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kyf",
+  "name": "Kouya · Kuya",
+  "english": "Kuya",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "kyq",
+  "name": "Kenga",
+  "english": "Kenga",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lag",
+  "name": "Kilaangi · Rangi",
+  "english": "Rangi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lam",
+  "name": "Ichilamba · Lamba",
+  "english": "Lamba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lch",
+  "name": "Chiluchazi · Luchazi",
+  "english": "Luchazi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ldi",
+  "name": "Laari · Lari (Kongo)",
+  "english": "Lari (Kongo)",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lee",
+  "name": "Lele · Lyélé",
+  "english": "Lyélé",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lef",
+  "name": "Lefana · Lelemi",
+  "english": "Lelemi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "leh",
+  "name": "Chilenje · Lenje",
+  "english": "Lenje",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lem",
+  "name": "Nomaande · Mandi",
+  "english": "Mandi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lia",
+  "name": "Yimba · Limba",
+  "english": "Limba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lns",
+  "name": "Lamnso’ · Nso",
+  "english": "Nso",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lnu",
+  "name": "Nyà Núngúrá · Longuda",
+  "english": "Longuda",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lot",
+  "name": "Lotuko · Otuho",
+  "english": "Otuho",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "loz",
+  "name": "siLozi · Lozi",
+  "english": "Lozi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lue",
+  "name": "Chiluvale · Luvale",
+  "english": "Luvale",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lun",
+  "name": "Chilunda · Lunda",
+  "english": "Lunda",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lup",
+  "name": "Ilumbu · Lumbu",
+  "english": "Lumbu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "luy",
+  "name": "Oluluhya · Luhya",
+  "english": "Luhya",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "lwo",
+  "name": "Jur · Luwo",
+  "english": "Luwo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "maf",
+  "name": "Mafahay · Mafa",
+  "english": "Mafa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mam",
+  "name": "Qyool Mam · Mam",
+  "english": "Mam",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "man",
+  "name": "Manden · Manding",
+  "english": "Manding",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "maw",
+  "name": "Mampruli",
+  "english": "Mampruli",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mca",
+  "name": "Maká",
+  "english": "Maká",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mck",
+  "name": "Chimbúùnda · Mbunda",
+  "english": "Mbunda",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mcu",
+  "name": "Mambila",
+  "english": "Mambila",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mda",
+  "name": "Mada",
+  "english": "Mada",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mdo",
+  "name": "Southwest Gbaya · Biyanda-Buli",
+  "english": "Biyanda-Buli",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "meq",
+  "name": "Merey",
+  "english": "Merey",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mfh",
+  "name": "Muktele · Matal",
+  "english": "Matal",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mfi",
+  "name": "Mandara · Wandala",
+  "english": "Wandala",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mfz",
+  "name": "Mabaan · Maban",
+  "english": "Maban",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mgd",
+  "name": "Kala Moru · Moru",
+  "english": "Moru",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mgq",
+  "name": "Ishimalilia · Malila",
+  "english": "Malila",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mgr",
+  "name": "Mambwe-Lungu",
+  "english": "Mambwe-Lungu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mho",
+  "name": "Mashi",
+  "english": "Mashi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mhw",
+  "name": "Thimbukushu · Mbukushu",
+  "english": "Mbukushu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mif",
+  "name": "Mofu-Gudur",
+  "english": "Mofu-Gudur",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "miq",
+  "name": "Mískitu · Miskito",
+  "english": "Miskito",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mkl",
+  "name": "Èdè Mɔ̄kɔ́lé · Mokole",
+  "english": "Mokole",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mnf",
+  "name": "Mundani",
+  "english": "Mundani",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "moa",
+  "name": "Mwan",
+  "english": "Mwan",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "moc",
+  "name": "Mocoví",
+  "english": "Mocoví",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mqb",
+  "name": "Mbuko",
+  "english": "Mbuko",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "muh",
+  "name": "Mündü",
+  "english": "Mündü",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mur",
+  "name": "Murlɛ · Murle",
+  "english": "Murle",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mwn",
+  "name": "Ichinamwanga · Nyamwanga",
+  "english": "Nyamwanga",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "myb",
+  "name": "Sara Mbay · Mbay",
+  "english": "Mbay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "myk",
+  "name": "Minyaka · Minyanka",
+  "english": "Minyanka",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mzg",
+  "name": "Mazurská gádkä · Masurian",
+  "english": "Masurian",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mzk",
+  "name": "Nigeria Mambila · Nigerian Mambila",
+  "english": "Nigerian Mambila",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mzm",
+  "name": "Yoro · Mumuye",
+  "english": "Mumuye",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "mzw",
+  "name": "Mo · Deg",
+  "english": "Deg",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "na",
+  "name": "Dorerin Naoero · Nauru",
+  "english": "Nauru",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "naq",
+  "name": "Khoekhoegowab · Khoekhoe",
+  "english": "Khoekhoe",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nba",
+  "name": "Nyemba",
+  "english": "Nyemba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ncu",
+  "name": "Chumburung",
+  "english": "Chumburung",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ndh",
+  "name": "Chindali · Ndali",
+  "english": "Ndali",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ndz",
+  "name": "Ndogo",
+  "english": "Ndogo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "neb",
+  "name": "Toura · Tura",
+  "english": "Tura",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nge",
+  "name": "Ngemba · Mankon",
+  "english": "Mankon",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nhr",
+  "name": "Naro",
+  "english": "Naro",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nhu",
+  "name": "Noone · Noni",
+  "english": "Noni",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nim",
+  "name": "Nilamba · Iramba",
+  "english": "Iramba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nin",
+  "name": "Ninzam · Ninzo",
+  "english": "Ninzo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nnh",
+  "name": "Ngyɛmbɔɔŋ · Ngiemboon",
+  "english": "Ngiemboon",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nnw",
+  "name": "Nunuma · Nuni",
+  "english": "Nuni",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ntr",
+  "name": "Ntrubo · Delo",
+  "english": "Delo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nyd",
+  "name": "Olunyole · Nyole",
+  "english": "Nyole",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nyk",
+  "name": "Lunyaneka · Nyaneka",
+  "english": "Nyaneka",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "nyu",
+  "name": "Chinyungwe · Nyungwe",
+  "english": "Nyungwe",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ogb",
+  "name": "Ogbinya · Ogbia",
+  "english": "Ogbia",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ogo",
+  "name": "Ogoni · Khana",
+  "english": "Khana",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "old",
+  "name": "Mochi",
+  "english": "Mochi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "oso",
+  "name": "Ọ̀sọ́sọ̀ · Ososo",
+  "english": "Ososo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ozm",
+  "name": "Koonzime · Nzime",
+  "english": "Nzime",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "pbi",
+  "name": "Podoko · Parkwa",
+  "english": "Parkwa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "pck",
+  "name": "Paite",
+  "english": "Paite",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "pkb",
+  "name": "Kipfokomo · Pokomo",
+  "english": "Pokomo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "plg",
+  "name": "Pilagá",
+  "english": "Pilagá",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "pln",
+  "name": "Palenquero",
+  "english": "Palenquero",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "poy",
+  "name": "Chipogolo · Pogolo",
+  "english": "Pogolo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "puu",
+  "name": "Yipunu · Punu",
+  "english": "Punu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "qus",
+  "name": "Santiagueño Quechua",
+  "english": "Santiagueño Quechua",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "rml",
+  "name": "Romani (Lotfi) · Baltic Romani",
+  "english": "Baltic Romani",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ruf",
+  "name": "Ikiruguru · Luguru",
+  "english": "Luguru",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sad",
+  "name": "Sàndàwé kì’ìng · Sandawe",
+  "english": "Sandawe",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sbd",
+  "name": "San · Maka Samo",
+  "english": "Maka Samo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sby",
+  "name": "Chisoli · Soli",
+  "english": "Soli",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "scz",
+  "name": "Shætlan · Shetland dialect",
+  "english": "Shetland dialect",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sgh",
+  "name": "شغنانی · Shughni",
+  "english": "Shughni",
+  "script": "Arabic",
+  "keyman": false
+ },
+ {
+  "id": "shk",
+  "name": "Dhøg Cøllø · Shilluk",
+  "english": "Shilluk",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sig",
+  "name": "Pasaale Sisaala · Paasaal",
+  "english": "Paasaal",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sil",
+  "name": "Tumulung Sisaala",
+  "english": "Tumulung Sisaala",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sip",
+  "name": "འབྲས་ལྗོངས་སྐད་ · Sikkimese",
+  "english": "Sikkimese",
+  "script": "Tibetan",
+  "keyman": false
+ },
+ {
+  "id": "sld",
+  "name": "Sissala · Sisaala",
+  "english": "Sisaala",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "son",
+  "name": "Songhay",
+  "english": "Songhay",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "soy",
+  "name": "Miyobe",
+  "english": "Miyobe",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "spy",
+  "name": "Sebei · Sabaot",
+  "english": "Sabaot",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "srm",
+  "name": "Saamáka · Saramaccan",
+  "english": "Saramaccan",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "srq",
+  "name": "Mbia cheë · Sirionó",
+  "english": "Sirionó",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sur",
+  "name": "Mwaghavul",
+  "english": "Mwaghavul",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "sxb",
+  "name": "Suba",
+  "english": "Suba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "taq",
+  "name": "Tamasheq",
+  "english": "Tamasheq",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tbz",
+  "name": "Ditammari · Tammari",
+  "english": "Tammari",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tcc",
+  "name": "Tatoga · Datooga",
+  "english": "Datooga",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tcz",
+  "name": "Thado Chin · Thadou-Kuki",
+  "english": "Thadou-Kuki",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "thk",
+  "name": "Kitharaka",
+  "english": "Kitharaka",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tik",
+  "name": "Tikar",
+  "english": "Tikar",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tji",
+  "name": "Tujia",
+  "english": "Tujia",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tke",
+  "name": "Takwane",
+  "english": "Takwane",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tna",
+  "name": "Tacana",
+  "english": "Tacana",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tpm",
+  "name": "Tampusi · Tampulma",
+  "english": "Tampulma",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "trn",
+  "name": "Mojeño Trinitario · Trinitario",
+  "english": "Trinitario",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "tru",
+  "name": "ܛܘܪܝܐ · Turoyo",
+  "english": "Turoyo",
+  "script": "Syriac",
+  "keyman": false
+ },
+ {
+  "id": "tsw",
+  "name": "Tsishingini",
+  "english": "Tsishingini",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "udl",
+  "name": "Wuzlam",
+  "english": "Wuzlam",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ugh",
+  "name": "Гӏуугъбуган · Kubachi",
+  "english": "Kubachi",
+  "script": "Cyrillic",
+  "keyman": false
+ },
+ {
+  "id": "ukk",
+  "name": "Muak Sa-aak",
+  "english": "Muak Sa-aak",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "vag",
+  "name": "Vagla",
+  "english": "Vagla",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "vif",
+  "name": "Civili · Vili",
+  "english": "Vili",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "vun",
+  "name": "Wunjo",
+  "english": "Wunjo",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "vut",
+  "name": "Vute",
+  "english": "Vute",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "wbm",
+  "name": "Parauk · Wa",
+  "english": "Wa",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "wbp",
+  "name": "Warlpiri",
+  "english": "Warlpiri",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "wmw",
+  "name": "Kimwani · Mwani",
+  "english": "Mwani",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "wob",
+  "name": "Wobé",
+  "english": "Wobé",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "wwa",
+  "name": "Waama",
+  "english": "Waama",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "wym",
+  "name": "Wymysiöeryś · Wymysorys",
+  "english": "Wymysorys",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "xed",
+  "name": "Xədi · Hdi",
+  "english": "Hdi",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "xnz",
+  "name": "Mattokki · Kenzi",
+  "english": "Kenzi",
+  "script": "Coptic",
+  "keyman": false
+ },
+ {
+  "id": "xrb",
+  "name": "Eastern Karaboro · Kar",
+  "english": "Kar",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "xsm",
+  "name": "Kasem · Kasena",
+  "english": "Kasena",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "xuu",
+  "name": "Kxoe · Khwe",
+  "english": "Khwe",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "yam",
+  "name": "Yamba",
+  "english": "Yamba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "yas",
+  "name": "Nugunu · Gunu",
+  "english": "Gunu",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "ybb",
+  "name": "Yɛmba · Yemba",
+  "english": "Yemba",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "yre",
+  "name": "Yoauré · Yaure",
+  "english": "Yaure",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "yuz",
+  "name": "Yuracaré",
+  "english": "Yuracaré",
+  "script": "Latin",
+  "keyman": false
+ },
+ {
+  "id": "bgq-Deva",
+  "name": "Bagri (Devanagari)",
+  "english": "Bagri (Devanagari)",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "gju-Deva",
+  "name": "Gujari (Devanagari)",
+  "english": "Gujari (Devanagari)",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "rkt-Deva",
+  "name": "Rangpuri (Devanagari)",
+  "english": "Rangpuri (Devanagari)",
+  "script": "Devanagari",
+  "keyman": false
+ },
+ {
+  "id": "grt-Beng",
+  "name": "Garo (Bengali)",
+  "english": "Garo (Bengali)",
+  "script": "Bengali",
+  "keyman": false
+ },
+ {
+  "id": "bhb-Gujr",
+  "name": "Bhili (Gujarati)",
+  "english": "Bhili (Gujarati)",
+  "script": "Gujarati",
+  "keyman": false
+ },
+ {
+  "id": "hlb-Orya",
+  "name": "Halbi (Odia)",
+  "english": "Halbi (Odia)",
+  "script": "Oriya",
+  "keyman": false
+ },
+ {
+  "id": "lmn-Knda",
+  "name": "Lambadi (Kannada)",
+  "english": "Lambadi (Kannada)",
+  "script": "Kannada",
+  "keyman": false
+ },
+ {
+  "id": "lmn-Telu",
+  "name": "Lambadi (Telugu)",
+  "english": "Lambadi (Telugu)",
+  "script": "Telugu",
+  "keyman": false
+ },
+ {
+  "id": "gno-Telu",
+  "name": "Gondi (Telugu)",
+  "english": "Gondi (Telugu)",
+  "script": "Telugu",
+  "keyman": false
  }
 ]

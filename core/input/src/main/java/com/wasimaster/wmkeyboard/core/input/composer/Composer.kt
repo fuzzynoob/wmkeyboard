@@ -162,6 +162,9 @@ interface Composer {
      */
     val spaceEndsMultitap: Boolean get() = false
 
+    /** What the space bar types while this composer is on, where it isn't a space: Wylie's tsheg. Null for a space. */
+    val spaceText: String? get() = null
+
     /**
      * Whether [c] is a non-letter this composer still takes into its buffer. The
      * buffer otherwise admits only letters, the apostrophe and (with
@@ -204,6 +207,20 @@ interface Composer {
     val isConversion: Boolean get() = false
 
     /**
+     * Whether what the user types here says how the word sounds, so a model can
+     * read it (#1048). Not for the shape codes: Wubi, Cangjie and strokes.
+     */
+    val readsBySound: Boolean get() = true
+
+    /**
+     * Whether the word this composer is spelling can be written in Hanja as well
+     * ([HanjaConversion]). True for the Korean boards, where the word is Hangul
+     * and Hanja is an optional second writing of it, not the input method: the
+     * strip keeps its Korean words and the choice sits among them.
+     */
+    val offersHanja: Boolean get() = false
+
+    /**
      * Whether a reading left without a conversion — ended by a punctuation
      * mark, an arrow key, a caret move or a layout switch rather than by space
      * or a picked candidate — commits as [typedReading] instead of as its best
@@ -212,6 +229,18 @@ interface Composer {
      * Chinese composers, whose reading is letters or keys nobody means to send.
      */
     val keepsUnconvertedReading: Boolean get() = false
+
+    /**
+     * Whether a caret tapped inside the composing reading edits it there instead
+     * of ending it (#960, #1106): keys go in at the caret, backspace takes the
+     * key in front of it, and the candidates follow the edited reading. Needs
+     * [previewOffset] and [bufferIndex] to map between the keys and what the
+     * field shows, which the defaults do for a reading shown one letter per key.
+     * True for Japanese and for the readings typed on Latin letters in Chinese;
+     * false on a keypad, whose shown reading is the decoder's best guess and
+     * shifts under the caret, and for everything that does not convert.
+     */
+    val editsReadingInPlace: Boolean get() = keepsUnconvertedReading
 
     /**
      * Whether this conversion composer reads its readings straight off the
@@ -298,6 +327,17 @@ interface Composer {
     }
 
     /**
+     * Records [word] as what the whole of [buffer] meant, when it came from
+     * outside the strip: an AI conversion (#1062). A composer whose engine learns
+     * only from its own list learns it if the word is on that list, and not
+     * otherwise. The caller checks that learning is allowed.
+     */
+    fun learnConversion(buffer: String, word: String) {
+        val index = candidates(buffer, 100).indexOf(word)
+        if (index >= 0 && consumedForIndex(buffer, index) >= buffer.length) learnChoice(buffer, index)
+    }
+
+    /**
      * Whether a held conversion candidate offers [adjustChoice] (#580): show it
      * earlier, show it later, never show it. False for everything that does not
      * keep a learned history to put the answer in.
@@ -317,6 +357,28 @@ interface Composer {
      */
     fun adjustChoice(buffer: String, index: Int, adjustment: CandidateAdjustment) {
         // Nothing to adjust: no candidate list of its own.
+    }
+
+    /**
+     * The letter that continues the reading of candidate [index] of [buffer],
+     * which is the key that candidate floats over (#1028): `nih` and 你好 give
+     * `a`. On Jianpin it is the next initial, on Double Pinyin the next key of the
+     * scheme, on a keypad the digit. Null when the reading is spelled out already,
+     * when the buffer does not spell it (a fuzzy match, where a key would promise
+     * a letter the user did not type the way it reads), and for every composer
+     * that has no reading to ask.
+     */
+    fun nextReadingLetter(buffer: String, index: Int): Char? = null
+
+    /**
+     * The key a word from [predictions] floats over: the one that starts its
+     * reading, `s` for 世界. Null for a word [primePredictionKeys] has not seen.
+     */
+    fun predictionKey(word: String): Char? = null
+
+    /** Builds what [predictionKey] reads. Slow the first time: never on the main thread. */
+    fun primePredictionKeys() {
+        // Nothing to build: no predictions of its own.
     }
 
     /**
@@ -504,6 +566,8 @@ fun composerFor(script: ScriptDef, type: ComposerType, langId: String? = null): 
     ComposerType.HANGUL -> HangulComposer
     ComposerType.CHEONJIIN -> CheonjiinComposer
     ComposerType.NARATGEUL -> NaratgeulComposer
+    ComposerType.VEGA -> VegaComposer
+    ComposerType.MOAKEY -> MoakeyComposer
     ComposerType.TELEX -> VietnameseTelexComposer
     ComposerType.VNI -> VietnameseVniComposer
     ComposerType.ROMAJI -> JapaneseComposer
@@ -511,10 +575,15 @@ fun composerFor(script: ScriptDef, type: ComposerType, langId: String? = null): 
     ComposerType.STROKE -> StrokeComposer
     ComposerType.T9_PINYIN -> T9PinyinComposer
     ComposerType.ZHUYIN -> ZhuyinComposer
+    ComposerType.T9_ZHUYIN -> T9ZhuyinComposer
     ComposerType.CANGJIE -> CangjieComposer
     ComposerType.CANGJIE_QUICK -> CangjieQuickComposer
+    ComposerType.WUBI -> WubiComposer
     ComposerType.JYUTPING -> JyutpingComposer
+    ComposerType.YALE -> RomanizedCantoneseComposer.YALE
+    ComposerType.CANTONESE_PINYIN -> RomanizedCantoneseComposer.CANTONESE_PINYIN
     ComposerType.KHIPRO -> if (script.id == ScriptId.BENGALI) KhiproComposer.CLASSIC else NoComposer
+    ComposerType.BORNO_PHONETIC -> if (script.id == ScriptId.BENGALI) BornoPhoneticComposer else NoComposer
     ComposerType.KHIPRO_DARK -> if (script.id == ScriptId.BENGALI) KhiproComposer.DARK else NoComposer
 }
 

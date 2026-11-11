@@ -89,6 +89,7 @@
     <!-- The app cannot tell these two apart: a file that fails its check is
          either the wrong passphrase or a damaged file, so the message says both. -->
     <string name="import_encrypted_failed">The app could not open the backup. The passphrase is wrong, or the file is damaged. Nothing on your device changed.</string>
+    <string name="import_encrypted_newer">This backup was made by a newer version of WM Keyboard, which seals it in a way this version cannot open. Update the app, then import it again. Nothing on your device changed.</string>
 
     <!-- ==== The older settings-only backup file. ==== -->
 
@@ -257,6 +258,27 @@
     <string name="import_multiling_theme_body">Multiling O Keyboard shares a theme as a block of text that starts with OK_Settings_Begin. Copy it from Misc, then Import | Export, in that keyboard, or pick the file that you saved it in. A link to a shared theme also works.</string>
     <string name="import_multiling_theme_unreadable_body">The app cannot find the colours of a Multiling O theme in that text. Copy the whole block, from OK_Settings_Begin to OK_Settings_End.</string>
 
+    <!-- ==== Clink themes. Clink is an iOS keyboard; keep its name as it is.
+         Its themes are files that end in .clinktheme. ==== -->
+
+    <string name="import_clink_protected_body">This is a packaged Clink export. Clink encrypts these so only Clink opens them, and WM Keyboard does not break that. Themes from Clink\'s theme repositories on GitHub are plain files and import as they are: add one as an add-on repository, or download its .clinktheme file.</string>
+    <string name="import_clink_unreadable_body">The app cannot read that as a Clink theme. In Clink, open the theme menu and choose Export, then pick the .clinktheme file it saves.</string>
+    <string name="import_clink_file_body">This is a theme from Clink. The app saves it as a theme of yours, and does not switch to it.</string>
+    <!-- %1$s is the name of the theme, for example "Brick". -->
+    <string name="import_clink_done">The app saved <xliff:g id="theme_name" example="Brick">%1$s</xliff:g>. Open Themes to look at it.</string>
+
+    <!-- ==== Kinetica themes. Kinetica (a keyboard) has no theme file: its
+         theme is a few settings inside its backup file, so the app reads the
+         theme out of the backup. "Backup" is the name of the button in
+         Kinetica's settings. ==== -->
+
+    <string name="import_kinetica_unreadable_body">The app cannot read that as a Kinetica backup. In Kinetica, open Backup in its settings, tap Export a backup, and pick the file it saves.</string>
+    <!-- %1$s is the name of the theme, for example "Kinetica" or "Kinetica #475DFF". -->
+    <string name="import_kinetica_done">The app saved <xliff:g id="theme_name" example="Kinetica">%1$s</xliff:g>. Open Themes to look at it.</string>
+    <!-- Lines in the "what the app changed" list of a Kinetica import. -->
+    <string name="import_kinetica_dropped_rainbow">The swipe trail changes colour from key to key in Kinetica. Here it has the colour of the theme. You can choose another colour in the theme editor.</string>
+    <string name="import_kinetica_dropped_lit_keys">Kinetica lights up the keys that a swipe goes over. This keyboard draws only the trail.</string>
+
     <!-- Lines in the "what the app changed" list of a Multiling O import. -->
     <string name="import_multiling_dropped_text_shadows">The theme puts shadows behind the letters on the keys. This keyboard does not draw those.</string>
     <string name="import_multiling_dropped_wallpaper">The theme uses a picture behind the keys, but the text does not contain the picture. Add one in the theme editor.</string>
@@ -337,7 +359,7 @@
     <string name="import_emoji_font_body">This is an emoji font. The app adds it and draws emoji with it.</string>
     <string name="import_key_sound_body">The app adds this sound and plays it on every key press.</string>
     <string name="import_flex_language_title">Language pack from FlorisBoard</string>
-    <string name="import_flex_language_body">This FlorisBoard language pack holds these tables: <xliff:g id="tables" example="cangjie5, quick5">%1$s</xliff:g>. The app installs the first one it can type with (Cangjie, Quick or stroke).</string>
+    <string name="import_flex_language_body">This FlorisBoard language pack holds these tables: <xliff:g id="tables" example="cangjie5, quick5">%1$s</xliff:g>. The app installs the first one it can type with (Cangjie, Quick, stroke or Wubi 86).</string>
     <string name="import_heli_file_body">This is a HeliBoard or LeanType theme. The app saves its colours as a theme of yours, and does not switch to it.</string>
     <string name="import_foreign_layout_body">This is a layout from another keyboard (FlorisBoard or Keyman). The app adds its keys as a layout of yours. The layout stays off. To type with it, turn it on in Languages.</string>
     <string name="import_double_pinyin_title">Use this double pinyin scheme?</string>
@@ -361,6 +383,7 @@
         <item quantity="other">and %1$d more</item>
     </plurals>
     <string name="import_unreadable_title">The app cannot open that file</string>
+    <string name="import_choose_another">Choose another file</string>
     <string name="import_unreadable_body">The file is not available. Something moved or deleted it, or the app that shared it stopped access to it.</string>
 
     <!-- ==== Plugin files. The dialog says what the plugin is and what it can
@@ -485,6 +508,36 @@
     <!-- ==== The dialogs that name a pack and edit one sticker. ==== -->
 
     <string name="import_sticker_edit_title">Edit sticker</string>
+    <string name="import_sticker_ai_row_title">Suggest keywords with AI</string>
+    <string name="import_sticker_ai_row_pack">For every sticker in this pack. You choose which to keep.</string>
+    <string name="import_sticker_ai_row_all_packs">For every sticker in every pack. You choose which to keep.</string>
+    <plurals name="import_sticker_ai_row_selected">
+        <item quantity="one">For the %1$d sticker you picked</item>
+        <item quantity="other">For the %1$d stickers you picked</item>
+    </plurals>
+    <plurals name="import_sticker_ai_row_packs_picked">
+        <item quantity="one">For the stickers in the %1$d pack you picked</item>
+        <item quantity="other">For the stickers in the %1$d packs you picked</item>
+    </plurals>
+    <string name="import_sticker_ai_title">Suggest keywords</string>
+    <string name="import_sticker_ai_not_set_up">Set up an AI provider under Tools › AI writing tools first.</string>
+    <string name="import_sticker_ai_cost_pictures">Each sticker is one request to %1$s, with its picture: %2$d in all. Nothing is saved until you choose.</string>
+    <string name="import_sticker_ai_cost_words">%1$s can\'t see pictures here, so it suggests from each sticker\'s title and pack name: %2$d requests in all. Nothing is saved until you choose.</string>
+    <string name="import_sticker_ai_instruction_label">Anything to add (optional)</string>
+    <string name="import_sticker_ai_instruction_hint">For example: these are for chatting with my family, or add Bengali slang</string>
+    <string name="import_sticker_ai_start">Start</string>
+    <string name="import_sticker_ai_stop">Stop</string>
+    <plurals name="import_sticker_ai_save">
+        <item quantity="one">Save for %1$d sticker</item>
+        <item quantity="other">Save for %1$d stickers</item>
+    </plurals>
+    <plurals name="import_sticker_ai_saved">
+        <item quantity="one">Keywords added to %1$d sticker.</item>
+        <item quantity="other">Keywords added to %1$d stickers.</item>
+    </plurals>
+    <string name="import_sticker_ai_nothing">No new keywords came back.</string>
+    <string name="import_sticker_ai_no_picture">From the words only: the model did not see the picture.</string>
+    <string name="import_sticker_ai_own_label">Your own keywords</string>
     <string name="import_name_label">Name</string>
     <string name="import_sticker_title_label">Title</string>
     <string name="import_sticker_title_hint">When you type the full title in a chat, the keyboard offers this sticker.</string>
@@ -556,6 +609,18 @@
         <item quantity="other">%1$d selected</item>
     </plurals>
     <string name="import_stickers_delete_selected">Delete the selected stickers</string>
+    <string name="import_stickers_move_selected">Move the selected stickers to another pack</string>
+    <string name="import_stickers_copy_selected">Copy the selected stickers to another pack</string>
+    <!-- %1$d is how many stickers are selected. -->
+    <plurals name="import_stickers_move_title">
+        <item quantity="one">Move %1$d sticker to</item>
+        <item quantity="other">Move %1$d stickers to</item>
+    </plurals>
+    <!-- %1$d is how many stickers are selected. -->
+    <plurals name="import_stickers_copy_title">
+        <item quantity="one">Copy %1$d sticker to</item>
+        <item quantity="other">Copy %1$d stickers to</item>
+    </plurals>
     <!-- %1$d is how many stickers are selected. -->
     <plurals name="import_stickers_delete_selected_title">
         <item quantity="one">Delete %1$d sticker?</item>

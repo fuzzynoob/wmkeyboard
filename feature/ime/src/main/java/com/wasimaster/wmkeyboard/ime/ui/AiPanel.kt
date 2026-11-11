@@ -17,6 +17,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
+import androidx.compose.runtime.mutableStateOf
+import com.wasimaster.wmkeyboard.core.tools.AiClient
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -65,7 +68,6 @@ import com.wasimaster.wmkeyboard.core.settings.aiRows
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.tools.AiActionSpec
-import com.wasimaster.wmkeyboard.core.tools.AiClient
 import com.wasimaster.wmkeyboard.core.tools.AiMarkdown
 import com.wasimaster.wmkeyboard.core.tools.AiPhase
 import com.wasimaster.wmkeyboard.core.tools.AiThinking
@@ -82,6 +84,7 @@ import com.wasimaster.wmkeyboard.ime.KeyboardUiState
 import com.wasimaster.wmkeyboard.ime.PanelMode
 import com.wasimaster.wmkeyboard.ime.R
 import kotlinx.coroutines.delay
+import com.wasimaster.wmkeyboard.app.MainActivityContract
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.core.ui.DisabledReason
 
@@ -154,6 +157,9 @@ internal fun AiPanel(
     ) {
         if (modelPicks.isNotEmpty()) {
             ModelPickerRow(modelPicks, state.focusedIndex(FocusRegion.CHIPS))
+        }
+        if (settings.ai.panelModelPicker && settings.ai.provider != AiProvider.ON_DEVICE && ai0 is AiUi.Idle) {
+            ModelNameRow(state)
         }
         when (val ai = state.ai) {
             AiUi.NeedSetup -> Column(
@@ -405,12 +411,32 @@ internal fun AiPanel(
                 // only way the user learns is if the panel says so. Hidden while
                 // streaming: a stream in flight is not yet cut off.
                 if (ai.truncated && !ai.generating) {
+                    // The length it names is an Everything-depth row, so a tap
+                    // opens the settings on it, where it shows whatever the
+                    // depth. Not for the on-device model, whose page has no
+                    // such row to land on.
+                    val context = LocalContext.current
+                    val opens = state.settings.ai.provider != AiProvider.ON_DEVICE
                     Text(
                         stringResource(R.string.ime_ai_truncated_notice),
                         color = kb.accent,
                         fontSize = 11.sp,
                         lineHeight = 14.sp,
-                        modifier = Modifier.padding(top = 4.dp),
+                        modifier = Modifier
+                            .padding(top = 4.dp)
+                            .then(
+                                if (!opens) {
+                                    Modifier
+                                } else {
+                                    Modifier.clickable {
+                                        runCatching {
+                                            context.startActivity(
+                                                MainActivityContract.intent(context, null, "toolai_ai_max_tokens_title"),
+                                            )
+                                        }
+                                    }
+                                },
+                            ),
                     )
                 }
                 Row(
@@ -854,6 +880,39 @@ internal fun rememberModelPicks(
     // Stable sort: the selected entry moves to the front, everything else
     // keeps catalog order.
     return picks.sortedByDescending { it.selected }
+}
+
+/**
+ * The name of the model in use, and, once pressed, the ones the provider lists
+ * (#1038). A row of its own because the picker above is about providers.
+ */
+@Composable
+private fun ModelNameRow(state: KeyboardUiState) {
+    val actions = LocalAiSuggest.current
+    val current = remember(state.settings.ai) { AiClient.config(state.settings.ai).model }
+    var open by remember { mutableStateOf(false) }
+    LazyRow(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 5.dp),
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        item(key = "current") {
+            ToolPanelChip(current, selected = open) {
+                open = !open
+                if (open) actions.onLoadModels()
+            }
+        }
+        if (open) {
+            items(state.aiModelList.filter { it != current }, key = { it }) { model ->
+                ToolPanelChip(model, selected = false) {
+                    open = false
+                    actions.onPickModelName(model)
+                }
+            }
+        }
+    }
 }
 
 @Composable

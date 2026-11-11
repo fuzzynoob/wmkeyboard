@@ -24,7 +24,7 @@ The Typing screen is a hub. Seven of its groups are pages of their own (Automati
 | Setting | Type | Default | Shown when |
 | --- | --- | --- | --- |
 | Autocorrect | Toggle | On | always |
-| Autocorrect confidence | Slider, ×1.5–×10 | ×4.0 | Autocorrect on |
+| Autocorrect confidence | Slider, ×1–×10 | ×4.0 | Autocorrect on |
 | Adaptive confidence | Toggle | On | Autocorrect on |
 | Typing rhythm | Slider, 0%–100% | 0% (off) | Autocorrect on |
 | Undo autocorrect with backspace | Toggle | On | Autocorrect on |
@@ -32,38 +32,43 @@ The Typing screen is a hub. Seven of its groups are pages of their own (Automati
 | How often to offer the undo | Slider, 0%–100% | 50% | Autocorrect on and Undo a correction from the strip on |
 | Remember my undos | Choice: Off / Light / Normal / Strict | Normal | Autocorrect on |
 | Stop after I refuse a fix | Slider, Never / 1–5 | 2 | Autocorrect on |
-| Learn from my fixes | Toggle | On | Autocorrect on |
-| Learned corrections | Screen | | Autocorrect on |
 | Learned correction gate | Toggle | On | Autocorrect on |
 | Skip words in capital letters | Toggle | On | Autocorrect on |
 | Correct the word before Enter | Toggle | On | Autocorrect on |
 | Correct the word before punctuation | Toggle | Off | Autocorrect on |
-| Capitals from the word list | Toggle | On | Autocorrect on |
-| Block offensive words | Toggle | On | Autocorrect on |
-| Context-aware suggestions | Toggle | On | Autocorrect on |
-| Context model | Toggle | On | Autocorrect on |
-| Re-check the previous word | Toggle | On | Autocorrect on |
-| Phrase suggestions | Toggle | Off | Autocorrect on |
 | Add missing spaces | Toggle | On | Autocorrect on |
-| Detect the language you type | Toggle | On | Autocorrect on |
-| Detection strength | Choice: Gentle / Balanced / Aggressive | Balanced | Autocorrect on and Detect the language you type on |
-| Remember each app's language | Toggle | On | Autocorrect on and Detect the language you type on |
-| Fix number row slips | Toggle | On | Autocorrect on and the number row is shown |
+| Undo backspace from the strip | Toggle | Off | always |
+| Learn from my fixes | Toggle | On | always |
+| Learned corrections | Screen | | always |
+| Capitals from the word list | Toggle | On | always |
+| Block offensive words | Toggle | On | always |
+| Context-aware suggestions | Toggle | On | always |
+| Context model | Toggle | On | always |
+| Re-check the previous word | Toggle | On | always |
+| Shortcuts while converting | Toggle | On | always |
+| Chips on the far side | Toggle | Off | always |
+| Phrase suggestions | Toggle | Off | always |
+| Detect the language you type | Toggle | On | always |
+| Detection strength | Choice: Gentle / Balanced / Aggressive | Balanced | Detect the language you type on |
+| Remember each app's language | Toggle | On | Detect the language you type on |
+| Fix number row slips | Toggle | On | the number row is shown |
 | Learn where my taps land | Toggle, with a Forget button | On | always |
 | Mistype tolerance | Slider, 50&ndash;200% | 100% | always |
 | Fix several missed keys | Choice: Off / Careful / Eager | Careful | always |
 | Adapt to app tone | Toggle | On | always |
 | Fix missing apostrophes | Toggle | On | always |
 
-**Autocorrect** is this group's master switch, and fifteen rows hang off it: the confidence slider, the two rows that tune how hard it tries (Adaptive confidence, Typing rhythm), and everything down to Fix number row slips. Three of those fourteen carry a second condition. How often to offer the undo needs Undo a correction from the strip on. Detection strength needs Detect the language you type on. Fix number row slips shows up only while the [number row](/reference/settings/layout/) is on screen, since it corrects a digit to the letter below it. From **Adapt to app tone** downwards the rows stay put whether autocorrect is on or off.
+**Autocorrect** is this group's master switch, and thirteen rows hang off it: the ones that tune when and how hard it corrects, from Autocorrect confidence down to Add missing spaces. How often to offer the undo also needs Undo a correction from the strip on. From **Undo backspace from the strip** downwards the rows stay whether autocorrect is on or off, because none of them needs it: the keyboard still learns from the typos you fix by hand, spells, filters and ranks the strip, and detects the language you type. Detection strength and Remember each app's language need Detect the language you type on. Fix number row slips shows up only while the [number row](/reference/settings/layout/) is on screen, since it corrects a digit to the letter below it.
 
 **Undo a correction from the strip** puts the word you typed on a chip so you can take a correction back after backspace can no longer reach it, and **How often to offer the undo** is the bar a correction has to fall under to earn that chip. See [Autocorrect](/smart/autocorrect/#taking-a-correction-back-later).
+
+**Undo backspace from the strip** puts whatever backspace took on a chip on the suggestion strip. Press the chip and the text comes back where it was; the chip then reads Redo and deletes it again, so you can flip between the two. A run of presses, a held backspace or a backspace swipe is one delete, and comes back with one press, and the chip takes the whole strip when you have just emptied the field. Deletes that go forward, past the cursor, get the chip as well: a swipe down on backspace that takes the rest of the line, and the <KeyCap>⌦</KeyCap> key. What they took comes back after the cursor, which stays where it was. It goes as soon as you type, move the cursor or select something, and never shows in a password field. Off by default, because it is a chip after every backspace.
 
 **Remember my undos** is one choice of four, and it governs how long the keyboard holds on to a correction you undid, not whether undoing works. See [Autocorrect](/smart/autocorrect/#how-long-an-undo-lasts).
 
 **Stop after I refuse a fix** ends the loop where a correction is deleted, the word retyped, and the correction made again. Once you have undone or deleted a correction at the same place that many times (2 by default), the word you type there is left alone. See [Autocorrect](/smart/autocorrect/#when-you-keep-deleting-the-same-fix).
 
-**Learn from my fixes** remembers the typos you repair by hand, and the slips behind them, and **Learn where my taps land** learns where your finger lands on each key from the words you keep. **Learned corrections** opens the list of both. See [Learning from your own fixes](/smart/autocorrect/#learning-from-your-own-fixes).
+**Learn from my fixes** remembers the typos you repair by hand, and the slips behind them, and **Learn where my taps land** learns where your finger lands on each key from the words you keep. **Learned corrections** opens the list of both, along with the corrections you undid, and lets you add, change or remove each entry on its own. See [Learning from your own fixes](/smart/autocorrect/#learning-from-your-own-fixes).
 
 **Learned correction gate** replaces the fixed-ratio rule with one fitted judgement over everything the keyboard knows about a candidate, and holds back from rewriting correctly typed new words. See [The learned gate](/smart/autocorrect/#the-learned-gate). **Context model** reads the whole sentence with a small downloaded language model, **Re-check the previous word** offers a fix for a word behind the caret once the words after it show what you meant, and re-reads the last few after a pause, and **Phrase suggestions** offers the next few words as one chip. See [The context model](/smart/suggestions/#the-context-model).
 
@@ -82,23 +87,34 @@ Reached from the Typing hub and from the bottom of Automatic corrections. Three 
 | Setting | Type | Default | Shown when |
 | --- | --- | --- | --- |
 | Automatic capital letters | Toggle | On | always |
+| Capitalize every word | Toggle | Off | Automatic capital letters on |
 | Shift changes the case of the selection | Toggle | On | always |
 | Shift changes the case of the word before the cursor | Toggle | Off | Shift changes the case of the selection on |
 | Shift changes the case of the word around the cursor | Toggle | Off | Shift changes the case of the selection on |
 | Double space | Choice: Two spaces / Full stop / Tab | Full stop | always |
 | Double space speed | Slider, 200–800 ms | 400 ms | Double space is Full stop or Tab |
 | Automatic space after punctuation | Toggle | Off | always |
+| Marks followed by a space | Text | `.!?।,;:` | Automatic space after punctuation on |
 | Remove a space before punctuation | Toggle | On | always |
 | Marks that pull the space out | Text | `.,?!;:।،؛؟۔` | Remove a space before punctuation on |
 | Space before French punctuation | Toggle | On | always |
 | Space after a suggestion | Toggle | On | always |
 | Wrap the selection with brackets | Toggle | On | always |
 | Close brackets for me | Toggle | Off | always |
+| Close quotes for me | Toggle | Off | always |
 | Continue lists | Toggle | On | always |
+| Smart punctuation key | Toggle | Off | always |
+| Model size | Choice: Standard / Large | Standard | Smart punctuation key on |
+| Also offer the comma | Toggle | Off | Smart punctuation key on |
+| Hide the underline under the word being typed | Toggle | Off | always |
 
 **Space before French punctuation** types the space French keeps in front of `!`, `?`, `;`, `:` and `»`, and behind `«`, and stops the two rules above from taking it back. It only does anything in the languages that are written that way (French, Breton, Occitan, Walloon, Picard, Norman and Franco-Provençal), and every other language types exactly as it did before. See [Autocorrect](/smart/autocorrect/#the-space-in-front-of-a-mark).
 
-**Double space** is one choice: Two spaces, Full stop or Tab. The **Double space speed** slider only appears while it is Full stop or Tab. **Space after a suggestion** lives in this group even though it governs the suggestion strip, not autocorrect. That's where the app's own settings screen files it, so that's where it is here.
+**Smart punctuation key** downloads a small model once and has the key beside the spacebar show the mark the sentence so far is heading for, `?` after `how are you`, with the full stop first in its hold; the row's description says when the model has landed. **Model size** picks between the Standard model (5.3 MB) the switch fetches by itself and a Large one (9.5 MB) that reads a few more sentences right; picking the other size downloads it in place of the one on the phone. **Also offer the comma** lets that key show a comma too, when the sentence reads as unfinished. Each language also has its own Smart punctuation key switch on its page under Languages & layouts, shown while this one is on. See [The smart punctuation key](/smart/autocorrect/#the-smart-punctuation-key).
+
+**Hide the underline under the word being typed** sits in its own Word being typed group. The app you type in normally underlines the word the keyboard can still change, such as an Avro word before it turns into Bengali; with this on that word shows as plain text, the way Gboard shows it. Nothing else about typing changes. Chrome, web views and some code editors draw their own underline anyway, and a Japanese conversion keeps its segment underline.
+
+**Double space** is one choice: Two spaces, Full stop or Tab. The **Double space speed** slider only appears while it is Full stop or Tab. **Space after a suggestion** lives in this group even though it governs the suggestion strip, not autocorrect. That's where the app's own settings screen files it, so that's where it is here. Each language also has its own switch on its page in Languages & layouts, and Bangla's is off out of the box, so its endings can follow a pick straight away. While any language's switch is off, this row's description names those languages, so a Bangla pick without a space no longer looks like the row being ignored.
 
 Full writeup: [Suggestions & prediction](/smart/suggestions/) covers Space after a suggestion, and [Gestures](/typing/gestures/) and [Text editing](/tools/text-editing/) cover selection-wrap and shift-recase.
 
@@ -113,6 +129,8 @@ Full writeup: [Suggestions & prediction](/smart/suggestions/) covers Space after
 | Punctuation marks | Text field | `.,?!'` | Punctuation suggestions on |
 | Number of suggestions | Slider, 2–6 | 3 | always |
 | More slots for short words | Toggle | Off | always |
+| Right-to-left words start on the right | Toggle | On | always |
+| Words before you type | Text field | Empty | always |
 | Swipe down for more suggestions | Toggle | Off | always |
 | Emoji in the grid | Toggle | On | Swipe down for more suggestions or a scrolling strip on |
 | Fancy text in the grid | Toggle | Off | same |
@@ -138,17 +156,20 @@ Full writeup: [Suggestions & prediction](/smart/suggestions/) covers Space after
 | Suggest app names | Toggle | Off | always |
 | Inline emoji search | Toggle | On | always |
 | Password manager suggestions | Toggle | On | Android 11+ only |
+| Password manager button | Toggle | On | Android 9+ only. Opens the system autofill service's app from a password field with no saved login on the strip. Stays off when that service is WM Pass |
+| WM Pass tool in password fields | Toggle | Off | Android 9+ only, Advanced. With WM Pass as the autofill service, the button comes back and opens the keyboard's WM Pass tool |
 | Smart replies | Toggle | On | Android 11+ only |
 | Only offer new words | Toggle | Off | always |
 | Word as typed first | Toggle | Off | always |
 | Recent words | Toggle | Off | always |
+| Retype button | Choice: Off / Suggestion bar / Previous-words bar | Off | always; Previous-words bar also needs Recent words on, in a row of their own |
 | Numbers from the letter keys | Toggle | Off | Number row off |
 | Autopilot | Nav row | n/a | always (opens the Autopilot screen below) |
 | Words on the keys | Nav row | n/a | always (opens the Words on the keys screen below) |
 | Personal dictionary | Nav row | n/a | always (opens the [Personal dictionary](/smart/personal-dictionary/) screen) |
 | Custom dictionaries | Nav row | n/a | always (opens the Custom dictionaries screen) |
 | Suggestion blacklist | Nav row | n/a | always (opens the [Suggestion blacklist](/smart/blacklist/) screen) |
-| Word menu | Chips | Never suggest, Add, Delete, Synonyms, Suggest higher or lower | always |
+| Word menu | Chips | Never suggest, Add, Delete, Synonyms, Suggest higher or lower, Correct to | always |
 | Synonym sources | [Provider list](/tools/providers/) | Vocabulary packs, Datamuse thesaurus, Wiktionary, Free Dictionary API, Similar words, all on | always |
 | Adjust rank changes | Choice | Both | always |
 | Delete edits imported lists | Toggle | On | always |
@@ -157,7 +178,7 @@ Full writeup: [Suggestions & prediction](/smart/suggestions/) covers Space after
   <Shot id="reference/settings/typing-suggestions-group" alt="The Suggestions group, including the three dictionary and blacklist navigation rows." />
 </PhoneFrame>
 
-**Suggestions** is the master switch for the whole strip: word completions, typo corrections offered as candidates, and next-word prediction. **Punctuation marks** sets which marks the punctuation chips offer, one per character, in the order you want them. Leave it blank and it falls back to the shipped `.,?!'`. **Number of suggestions** splits the strip evenly, so raising it on a narrow screen buys candidates at the cost of reading each one. **More slots for short words** adds up to three slots past that number while the words are short enough to fit them at full size. **Swipe down for more suggestions** opens a grid of up to 24 words over the keys; **Swipe up for more suggestions** opens up to 12 just above the strip, where you keep your finger down, slide onto a word and lift to use it. **More suggestions in a grid** lines either set up in one column per suggestion slot. See [Suggestions](/smart/suggestions/). **Scroll the suggestions** lifts that trade: each word keeps its natural size and the strip scrolls sideways when they overrun it, so five or six candidates read fine on a narrow phone. Short words still fill the strip exactly as before. Turn on **More suggestions arrow** as well and an arrow at the end of the strip opens the rest of the ranked words in a grid over the keys; a swipe down opens the same grid either way. **Shorten long words** picks where a word that still overruns its slot is cut: in the middle, so both its start and its ending stay readable (`Punct…tion`), or at the end (`Punctuat…`). The color the strip paints a correction in lives with the rest of its looks, under [Look & feel / Toolbar](/reference/settings/appearance/).
+**Suggestions** is the master switch for the whole strip: word completions, typo corrections offered as candidates, and next-word prediction. **Punctuation marks** sets which marks the punctuation chips offer, one per character, in the order you want them. Leave it blank and it falls back to the shipped `.,?!'`. **Number of suggestions** splits the strip evenly, so raising it on a narrow screen buys candidates at the cost of reading each one. **More slots for short words** adds up to three slots past that number while the words are short enough to fit them at full size. **Swipe down for more suggestions** opens a grid of up to 24 words over the keys; **Swipe up for more suggestions** opens up to 12 just above the strip, where you keep your finger down, slide onto a word and lift to use it. **More suggestions in a grid** lines either set up in one column per suggestion slot. See [Suggestions](/smart/suggestions/). **Scroll the suggestions** lifts that trade: each word keeps its natural size and the strip scrolls sideways when they overrun it, so five or six candidates read fine on a narrow phone. Short words still fill the strip exactly as before. Turn on **More suggestions arrow** as well and an arrow at the end of the strip opens the rest of the ranked words in a grid over the keys; a swipe down opens the same grid either way. **Shorten long words** picks where a word that still overruns its slot is cut: in the middle, so both its start and its ending stay readable (`Punct…tion`), or at the end (`Punctuat…`). The colors the strip paints a correction in, and a word it has not learned yet, live with the rest of its looks, under [Look & feel / Toolbar](/reference/settings/appearance/).
 
 **Remember a new word after** is how many times you have to type a word nothing recognises before it's saved to your personal dictionary at all. It only counts a use once you've moved on and left the word alone, so a typo you go back and fix never counts. Set it to 1 to save every new word straight away, which is what versions before this did. Words already in a dictionary skip this entirely and are counted the moment you type them.
 
@@ -238,6 +259,7 @@ Two gestures take a floating word. **Flick up to pick** reads a straight, mostly
 | Convert units | Toggle | On | Smart chips on |
 | Tool keywords | Toggle | On | Smart chips on |
 | Resolve dates | Toggle | On | Smart chips on |
+| Date chip formats | Text: date patterns separated by `\|` | Empty (the chip's own "Tue 11 Aug") | Resolve dates on (advanced) |
 | Answer weather questions | Toggle | On | Smart chips on |
 | Offer lookups | Toggle | On | Smart chips on |
 | Translate hints | Toggle | On | Smart chips on |
@@ -302,6 +324,9 @@ Gestures is a hub of three pages. Its own list is three rows: **Glide typing**, 
 | Pause after a one-letter word | Slider, 100–1500 ms | The shorter of the swiped-word and tapped-word pauses | Two-thumb typing on and All thumbs up |
 | Take the space back | Slider, 0–3000 ms ("Off" at 0) | Twice the swiped-word pause (700 ms) | Two-thumb typing on and All thumbs up |
 | Show the pause on the strip | Toggle | On | Two-thumb typing on and All thumbs up |
+| Two-thumb Backspace | Choice: Current behavior / Undo input step / Retype word / Delete character | Current behavior | Two-thumb typing on |
+| Delete auto-space first | Toggle | Off | Two-thumb typing on; used when Two-thumb Backspace is not Current behavior |
+| Undo Take the space back first | Toggle | Off | Two-thumb typing on; used when Two-thumb Backspace is not Current behavior, with All thumbs up and Take the space back above Off |
 | Swipe finishes typed letters | Toggle | Off | Glide typing on, swipe mode is Type words, and Two-thumb typing off |
 | Glide over Shift to capitalize | Toggle | On | Glide typing on and swipe mode is Type words |
 | What a pass over Shift capitalizes | Choice: Whole word / One letter | Whole word | Glide over Shift to capitalize on |
@@ -361,6 +386,7 @@ A fold further down the Glide typing page, closed until you open it. Every row i
 | Start error radius | Slider, 0.5×–4× | 1.6× | always |
 | End error radius | Slider, 0.5×–4× | 2.0× | always |
 | Path error radius | Slider, 0.5×–4× | 1.9× | always |
+| Error radius by language | Link, one row per language | None | always |
 | Pause to mark a letter | Slider, 1×–8× | 2.0× | always |
 | Loop to double a letter | Toggle | On | always |
 | Loop sensitivity | Slider, 0.5×–2× | 1.0× | Loop to double a letter on |
@@ -371,7 +397,7 @@ A fold further down the Glide typing page, closed until you open it. Every row i
 | Biggest wiggle that counts | Slider, 0.2×–0.9× | 0.50× | Wiggle to mark a letter on |
 | Shapes kept per word | Slider, 1–20 | 3 | Learn my swipe style on |
 
-The first three decide which words a stroke may be read as at all. The rest decide how a stroke marks a letter, which shape alone cannot: a pause on the key or a rub back and forth over it says the letter is in the word, and a small circle on it says the letter is written twice. Every value is in key widths except the pause, which is a multiple of your own speed in that same stroke, and the wiggle's strength, which is a percentage of a full stop. The last row is a count: how many of your own shapes [Learn my swipe style](/typing/glide-typing/#what-a-swipe-teaches) keeps for one word.
+The first three decide which words a stroke may be read as at all, and **Error radius by language** lists the languages that set their own on their page in Languages. The rest decide how a stroke marks a letter, which shape alone cannot: a pause on the key or a rub back and forth over it says the letter is in the word, and a small circle on it says the letter is written twice. Every value is in key widths except the pause, which is a multiple of your own speed in that same stroke, and the wiggle's strength, which is a percentage of a full stop. The last row is a count: how many of your own shapes [Learn my swipe style](/typing/glide-typing/#what-a-swipe-teaches) keeps for one word.
 
 Full writeup: [Marking a letter as you glide](/typing/glide-typing/#marking-a-letter-as-you-glide).
 
@@ -403,6 +429,7 @@ Three groups: Swipes, Press and hold, and What the spacebar shows.
 | --- | --- | --- | --- |
 | Quick swipe on the spacebar | Choice: Nothing / Language / Cursor / Numpad / Keyboards | Language | always |
 | Press and hold, then swipe | Choice: Nothing / Language / Cursor / Numpad / Keyboards | Cursor | always |
+| Space swipe distance | Slider, 6–60 dp | 12 dp | always (advanced) |
 | 2-D cursor touchpad | Toggle | Off | either swipe slot above is Cursor |
 | Cursor speed | Slider, 4–32 dp | 16 dp | either swipe slot above is Cursor |
 | Cursor magnifier | Toggle | On | either swipe slot above is Cursor |
@@ -554,7 +581,7 @@ A **Reset to defaults** button at the bottom restores every letter and the short
 - **"Swipe to add 's" is a gesture of its own, not part of glide typing.** It takes its own key (comma, full stop, or a real apostrophe key if the layout has one), works with glide typing on or off, and extends whatever word sits behind the cursor: one you glided, one you tapped out, or one you're still typing. Swiping to `t`, `d`, `m`, `l`, `r` or `v` adds `'t`, `'d`, `'m`, `'ll`, `'re` or `'ve` instead (`'t` only after a word ending in n), and a line from the key to your finger shows the swipe while you draw it. Only the shape is strict: a short stroke from that key to the letter with a path no more than 1.6× the straight line between the two keys, which is what keeps a real word glided between the same two keys from being read as a possessive. A space after the word moves behind the `'s`, so the field reads "developer's " and never "developer 's". Straight after a glide, one backspace still takes the whole word back. The possessive joins your personal dictionary, so next time you can glide "developer's" in one stroke. It adds English endings to English words only: on an English layout, or on another language's layout with English among its secondary languages (Banglish on Avro, say), where it takes a word in plain Latin letters and leaves a Bengali word alone.
 - **Every screen on this page has a deep link.** `wmkeyboard://settings/typing`, `wmkeyboard://settings/typing/corrections`, `wmkeyboard://settings/typing/gestures/glide`, `wmkeyboard://settings/hwshortcuts` and the rest. A link or a favourite that still names a row on the screen it used to sit on, such as a glide row on `typing/gestures`, opens the page the row is on now. A single row has one too: `wmkeyboard://setting/typing_autocorrect_title` opens Automatic corrections and flashes the Autocorrect switch. See [Deep links](/reference/deep-links/) for the full table.
 - **Autopilot needs Suggestions on**, not Autocorrect. It biases boundary taps toward whichever letter the suggestion engine's own prediction favours, so with Suggestions off there's nothing for it to bias toward.
-- **Three rows sit in Automatic corrections without being corrections.** Context-aware suggestions, Adapt to app tone and Typing rhythm all reorder or reweight candidates. Two of them still hang off the Autocorrect switch, Context-aware suggestions and Typing rhythm, so turn autocorrect off and the reranking goes with it. Adapt to app tone stays.
+- **Several rows sit in Automatic corrections without being corrections.** Context-aware suggestions, the three Context model rows and Adapt to app tone reorder or add to the strip, and they work with autocorrect off, so they stay on the page then. Typing rhythm is the one ranking row that hangs off the Autocorrect switch: it only changes how eagerly autocorrect fires.
 - **Every row with a control carries the [per-setting reset](/reference/settings/#putting-one-setting-back)**, sliders, pickers and the two text fields included. A restore button next to a control means that row no longer matches the shipped default listed above. The navigation rows (Personal dictionary, Custom dictionaries, Suggestion blacklist, Tool shortcuts list) have nothing to reset, since they only open another screen.
 
 For dictionary and blacklist screens opened from this page, see [Dictionaries & words](/reference/settings/dictionaries/). For the toolbar and key-appearance settings that sit next to this screen, see [Appearance](/reference/settings/appearance/). For the printable shortcut and gesture tables, see [Hardware shortcuts](/reference/shortcuts/) and [Gesture cheat sheet](/reference/gestures/).

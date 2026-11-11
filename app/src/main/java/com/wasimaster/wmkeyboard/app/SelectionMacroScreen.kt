@@ -5,10 +5,16 @@ import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Dashboard
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ViewStream
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.plugins.PluginStore
+import com.wasimaster.wmkeyboard.ime.ui.pluginActionIcon
+import com.wasimaster.wmkeyboard.core.settings.SelectionMenuItem
 import com.wasimaster.wmkeyboard.core.selection.SelectionMacros
 import com.wasimaster.wmkeyboard.core.settings.effectiveTimeZones
 import com.wasimaster.wmkeyboard.core.settings.SelectionMacroPlacement
@@ -156,6 +162,8 @@ internal fun SelectionMacroSettingsScreen(
         }
     }
 
+    PluginActionsGroup(repository, settings, visible = macrosOn, onNavigate = onNavigate)
+
     // The keyboard's actions in other apps' selection menus (#916). Not
     // behind the bar's switch: the menu is a different way to the same
     // actions, and works with the bar off. Ask AI and Look up are their own
@@ -184,6 +192,23 @@ internal fun SelectionMacroSettingsScreen(
                 default = SettingsDefaults.selectionMacros.systemMenuTranslate,
             ) { scope.launch { repository.setSelectionMenuTranslate(it) } }
         }
+        for ((id, title) in listOf(
+            SelectionMenuItem.TRANSLATE to R.string.text_actions_settings_show_translate,
+            SelectionMenuItem.ASK_AI to R.string.text_actions_settings_show_ask_ai,
+            SelectionMenuItem.LOOK_UP to R.string.text_actions_settings_show_look_up,
+            SelectionMenuItem.SAVE_NOTE to R.string.text_actions_settings_show_note,
+        )) {
+            item(key = "menu-item:$id", level = SettingLevel.ADVANCED) {
+                ToggleSetting(
+                    title,
+                    stringResource(R.string.text_actions_settings_show_subtitle),
+                    settings.watch { id !in it.selectionMacros.systemMenuOff },
+                    default = true,
+                ) { on ->
+                    scope.launch { repository.setSelectionMenuItem(id, on) }
+                }
+            }
+        }
         item(visible = aiOn, level = SettingLevel.STANDARD) {
             ToggleSetting(
                 R.string.toolai_ai_selection_menu_title,
@@ -201,6 +226,63 @@ internal fun SelectionMacroSettingsScreen(
             ) { on ->
                 LookupSelectionMenu.apply(context, on)
                 scope.launch { repository.updateLookup { it.copy(selectionMenu = on) } }
+            }
+        }
+    }
+}
+
+/**
+ * Actions that installed plugins add to the bar, one switch each, after the
+ * built-in ones. With none installed, one row says where they come from.
+ * Hidden with the bar's own switch, like the actions group above it.
+ */
+@Composable
+private fun PluginActionsGroup(
+    repository: SettingsRepository,
+    settings: LiveSettings,
+    visible: Boolean,
+    onNavigate: (String) -> Unit,
+) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val store = remember { PluginStore.get(context) }
+    val revision by store.revision.collectAsStateWithLifecycle()
+    val actions = remember(revision) { store.selectionActions() }
+    val pluginsOn = remember(revision) { store.subsystemEnabled() }
+    SettingsGroup(
+        stringResource(R.string.selection_macros_plugins_group),
+        info = stringResource(R.string.selection_macros_plugins_info),
+    ) {
+        if (!visible) return@SettingsGroup
+        if (actions.isEmpty()) {
+            item(level = SettingLevel.STANDARD) {
+                NavRow(
+                    R.string.selection_macros_plugins_none_title,
+                    subtitle = stringResource(
+                        if (pluginsOn) {
+                            R.string.selection_macros_plugins_none_subtitle
+                        } else {
+                            R.string.selection_macros_plugins_off_subtitle
+                        },
+                    ),
+                    route = "plugins",
+                ) { onNavigate("plugins") }
+            }
+            return@SettingsGroup
+        }
+        for (ref in actions) {
+            item(key = ref.key, level = SettingLevel.STANDARD) {
+                ToggleSetting(
+                    title = ref.action.name,
+                    subtitle = if (ref.action.summary.isBlank()) {
+                        ref.plugin.name
+                    } else {
+                        "${ref.action.summary} · ${ref.plugin.name}"
+                    },
+                    checked = settings.watch { ref.key !in it.selectionMacros.pluginOff },
+                    icon = pluginActionIcon(ref.action.icon),
+                    default = true,
+                ) { on -> scope.launch { repository.setSelectionPluginAction(ref.key, on) } }
             }
         }
     }

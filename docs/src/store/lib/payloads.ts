@@ -591,8 +591,29 @@ export interface IconPackRead {
 	description: string;
 	version: string;
 	slots: string[];
-	icons: { slot: string; svg: string; bytes: number; known: boolean }[];
+	/**
+	 * One per icon the archive holds. `svg` is the source of a vector icon and
+	 * empty for a picture; `url` is a blob: URL for a picture and null for a
+	 * vector. `known` is whether the app has the slot (a variant key,
+	 * `tool.gif@text`, counts by its slot).
+	 */
+	icons: { slot: string; svg: string; url: string | null; bytes: number; known: boolean }[];
 	problems: string[];
+}
+
+/** `RasterIcons.FILE_EXTENSIONS`: what an icon file may be, vectors first. */
+export const ICON_FILE_EXTENSIONS = ['svg', 'png', 'webp', 'jpg', 'gif'] as const;
+
+/**
+ * `IconPackFile.slotForEntry`: an entry's slot key from its base name, so an
+ * icon at the archive root counts as well as one under icons/. Lowercased, as
+ * the importer does.
+ */
+function iconSlotForEntry(name: string): { slot: string; ext: string } | null {
+	const base = name.split('/').pop()?.split('\\').pop() ?? '';
+	const ext = ICON_FILE_EXTENSIONS.find((e) => base.toLowerCase().endsWith(`.${e}`));
+	if (!ext) return null;
+	return { slot: base.slice(0, -(ext.length + 1)).toLowerCase(), ext };
 }
 
 export function readIconPack(bytes: Uint8Array, knownSlots: ReadonlySet<string>): IconPackRead {
@@ -604,17 +625,31 @@ export function readIconPack(bytes: Uint8Array, knownSlots: ReadonlySet<string>)
 	if (raw.format !== 'wmkeyboard-icons') problems.push(`"format" is ${JSON.stringify(raw.format)}, expected "wmkeyboard-icons".`);
 	const pack = raw.pack && typeof raw.pack === 'object' ? raw.pack : {};
 	const slots: string[] = Array.isArray(pack.slots) ? pack.slots.map(String) : [];
-	const svgEntries = entries.filter((e) => /^icons\/[^/]+\.svg$/.test(e.name));
-	const bySlot = new Map(svgEntries.map((e) => [e.name.slice(6, -4), e] as [string, ZipEntry]));
+	// One file per slot; where a hand-built pack has two, the vector wins, as on the phone.
+	const bySlot = new Map<string, { entry: ZipEntry; ext: string }>();
+	for (const entry of entries) {
+		const hit = entry.name === 'pack.json' ? null : iconSlotForEntry(entry.name);
+		if (!hit) continue;
+		const had = bySlot.get(hit.slot);
+		if (!had || ICON_FILE_EXTENSIONS.indexOf(hit.ext as never) < ICON_FILE_EXTENSIONS.indexOf(had.ext as never)) bySlot.set(hit.slot, { entry, ext: hit.ext });
+	}
 	const order = [...slots, ...[...bySlot.keys()].filter((s) => !slots.includes(s))];
 	const icons = order
 		.map((slot) => {
-			const e = bySlot.get(slot);
-			if (!e) {
-				problems.push(`Slot "${slot}" is listed but icons/${slot}.svg is missing.`);
+			const found = bySlot.get(slot);
+			if (!found) {
+				problems.push(`Slot "${slot}" is listed but the archive has no icon for it.`);
 				return null;
 			}
-			return { slot, svg: textOf(e), bytes: e.data.byteLength, known: knownSlots.has(slot) };
+			const { entry, ext } = found;
+			const vector = ext === 'svg';
+			return {
+				slot,
+				svg: vector ? textOf(entry) : '',
+				url: vector ? null : blobUrl(entry.data, mimeFor(`x.${ext}`)),
+				bytes: entry.data.byteLength,
+				known: knownSlots.has(slot.split('@')[0]!),
+			};
 		})
 		.filter((x): x is NonNullable<typeof x> => !!x);
 	const unknown = icons.filter((i) => !i.known).length;
@@ -635,13 +670,18 @@ export interface PluginRead {
 		apiVersion: number;
 		entry: string;
 		permissions: string[];
+		language: string;
+		actions: { id: string; name: string }[];
 	};
 	files: { name: string; bytes: number; text: string | null }[];
 	problems: string[];
 }
 
-export const PLUGIN_API_VERSION = 2;
-export const PLUGIN_PERMISSIONS = ['storage', 'reminders'] as const;
+export const PLUGIN_API_VERSION = 4;
+/** Why the app refuses a Lua plugin (PluginManifestCodec, API 4). */
+export const PLUGIN_LUA_REFUSAL = 'This plugin is written in Lua, which WM Keyboard no longer runs; look for its Python version.';
+export const PLUGIN_PERMISSIONS = ['storage', 'reminders', 'selection'] as const;
+const PLUGIN_ACTION_ID = /^[a-z0-9_-]{1,32}$/;
 export const PLUGIN_ID_PATTERN = /^[a-z0-9][a-z0-9._-]{2,63}$/;
 
 export function readPlugin(bytes: Uint8Array): PluginRead {
@@ -659,18 +699,39 @@ export function readPlugin(bytes: Uint8Array): PluginRead {
 	if (apiVersion > PLUGIN_API_VERSION) problems.push(`"apiVersion": ${apiVersion} is newer than the app's ${PLUGIN_API_VERSION}; the app refuses it.`);
 	const permissions: string[] = Array.isArray(raw.permissions) ? raw.permissions.map(String) : [];
 	for (const p of permissions) if (!(PLUGIN_PERMISSIONS as readonly string[]).includes(p)) problems.push(`Permission "${p}" is unknown; the app refuses the plugin.`);
-	const entry = String(raw.entry || 'main.lua');
+	// PluginManifestCodec (API 4): "language" may be left out, and the only one
+	// the app runs is Python. A manifest that says Lua, or leaves the language
+	// out at API 3 or lower, is a Lua plugin.
+	const named = raw.language === undefined || raw.language === null ? null : String(raw.language).trim();
+	const language = named ?? 'python';
+	if (named === 'lua' || (named === null && apiVersion <= 3)) problems.push(PLUGIN_LUA_REFUSAL);
+	else if (language !== 'python') problems.push(`"language": ${JSON.stringify(raw.language)} is not "python"; the app refuses it.`);
+	// Actions need "selection", and "selection" needs actions.
+	const actions: { id: string; name: string; input?: unknown }[] = Array.isArray(raw.actions) ? raw.actions : [];
+	const selection = permissions.includes('selection');
+	if (actions.length && !selection) problems.push('"actions" without the "selection" permission; the app refuses it.');
+	if (!actions.length && selection) problems.push('"selection" permission without any "actions"; the app refuses it.');
+	if (!actions.length && raw.panel === false) problems.push('No panel and no actions; the app refuses it.');
+	if (actions.length > 16) problems.push(`${actions.length} actions; the app caps at 16.`);
+	const actionIds = actions.map((a) => String(a?.id ?? '').trim());
+	if (actionIds.some((a) => !PLUGIN_ACTION_ID.test(a)) || new Set(actionIds).size !== actionIds.length) problems.push(`Action ids must be unique and match ${PLUGIN_ACTION_ID}.`);
+	if (actions.some((a) => !String(a?.name ?? '').trim())) problems.push('An action has no "name".');
+	if (actions.some((a) => a?.input !== undefined && a.input !== 'selection' && a.input !== 'none')) problems.push('An action\'s "input" is not "selection" or "none".');
+	const entry = String(raw.entry || 'main.py');
 	if (!entries.some((e) => e.name === entry)) problems.push(`Entry "${entry}" is not in the archive.`);
 	if (entries.length > 16) problems.push(`${entries.length} entries; the app caps at 16.`);
-	const luaBytes = entries.filter((e) => e.name.endsWith('.lua')).reduce((n, e) => n + e.data.byteLength, 0);
-	if (luaBytes > 256 * 1024) problems.push(`Lua totals ${Math.round(luaBytes / 1024)} KB; the app caps at 256 KB.`);
+	const scriptBytes = entries.filter((e) => e.name.endsWith('.py')).reduce((n, e) => n + e.data.byteLength, 0);
+	if (scriptBytes > 256 * 1024) problems.push(`Python totals ${Math.round(scriptBytes / 1024)} KB; the app caps at 256 KB.`);
 	const files = entries.map((e) => ({
 		name: e.name,
 		bytes: e.data.byteLength,
-		text: /\.(lua|json|txt|md)$/i.test(e.name) && e.data.byteLength <= 256 * 1024 ? textOf(e) : null,
+		text: /\.(py|json|txt|md)$/i.test(e.name) && e.data.byteLength <= 256 * 1024 ? textOf(e) : null,
 	}));
 	return {
-		manifest: { id, name: String(raw.name ?? ''), pluginVersion: String(raw.pluginVersion ?? ''), author: String(raw.author ?? ''), description: String(raw.description ?? ''), apiVersion, entry, permissions },
+		manifest: {
+			id, name: String(raw.name ?? ''), pluginVersion: String(raw.pluginVersion ?? ''), author: String(raw.author ?? ''), description: String(raw.description ?? ''), apiVersion, entry, permissions,
+			language, actions: actions.map((a) => ({ id: String(a?.id ?? ''), name: String(a?.name ?? '') })),
+		},
 		files,
 		problems,
 	};

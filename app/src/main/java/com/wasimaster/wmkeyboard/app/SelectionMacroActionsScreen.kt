@@ -40,13 +40,16 @@ import com.wasimaster.wmkeyboard.core.selection.MacroCategory
 import com.wasimaster.wmkeyboard.core.selection.SelectionMacro
 import com.wasimaster.wmkeyboard.core.selection.SelectionMacros
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
+import com.wasimaster.wmkeyboard.core.settings.SelectionIconSizeRange
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.effectiveTimeZones
 import com.wasimaster.wmkeyboard.core.tools.orderedAiActions
 import com.wasimaster.wmkeyboard.ime.ui.selectionMacroIcon
 import kotlinx.coroutines.launch
 import java.util.Locale
+import com.wasimaster.wmkeyboard.core.clock.extraCityNames
 import java.util.TimeZone
+import kotlin.math.roundToInt
 
 /** The Actions list, the AI buttons page and the Time zones page, under Selection actions. */
 internal const val SelectionMacroActionsRoute = "selection_macros/actions"
@@ -318,6 +321,7 @@ internal fun macroDescription(macro: SelectionMacro): Int = when (macro) {
     SelectionMacro.FIND -> R.string.selection_macros_desc_find
     SelectionMacro.REPLACE -> R.string.selection_macros_desc_replace
     SelectionMacro.REPEAT -> R.string.selection_macros_desc_repeat
+    SelectionMacro.SNIPPET -> R.string.selection_macros_desc_snippet
     SelectionMacro.LINES_SORT -> R.string.selection_macros_desc_lines_sort
     SelectionMacro.LINES_DEDUPE -> R.string.selection_macros_desc_lines_dedupe
     SelectionMacro.LINES_NUMBER -> R.string.selection_macros_desc_lines_number
@@ -336,6 +340,13 @@ internal fun macroDescription(macro: SelectionMacro): Int = when (macro) {
     SelectionMacro.TO_HINGLISH -> R.string.selection_macros_desc_to_hinglish
     SelectionMacro.DIGITS_LATIN -> R.string.selection_macros_desc_digits_latin
     SelectionMacro.ZAWGYI -> R.string.selection_macros_desc_zawgyi
+    SelectionMacro.KOREAN_SPACING -> R.string.selection_macros_desc_korean_spacing
+    SelectionMacro.ADD_NIKUD -> R.string.selection_macros_desc_add_nikud
+    SelectionMacro.ADD_TASHKEEL -> R.string.selection_macros_desc_add_tashkeel
+    SelectionMacro.ADD_FURIGANA -> R.string.selection_macros_desc_add_furigana
+    SelectionMacro.SWITCH_SCRIPT -> R.string.selection_macros_desc_switch_script
+    SelectionMacro.RESTORE_YO -> R.string.selection_macros_desc_restore_yo
+    SelectionMacro.PERSIAN_SPACING -> R.string.selection_macros_desc_persian_spacing
     SelectionMacro.COLOUR -> R.string.selection_macros_desc_colour
     SelectionMacro.JSON_FORMAT -> R.string.selection_macros_desc_json
     SelectionMacro.BASE64_DECODE -> R.string.selection_macros_desc_base64
@@ -438,6 +449,17 @@ internal fun SelectionMacroIconsScreen(
         if (shown.isEmpty()) {
             item { CaptionText(stringResource(R.string.selection_macros_icons_empty)) }
         }
+        item {
+            val sizeFormat = stringResource(R.string.selection_macros_icon_size_value)
+            SliderSetting(
+                R.string.selection_macros_icon_size_title,
+                subtitle = stringResource(R.string.selection_macros_icon_size_subtitle),
+                value = settings.watch { it.selectionMacros.iconOnlySizeDp },
+                range = SelectionIconSizeRange,
+                display = { sizeFormat.format(it.roundToInt()) },
+                default = SettingsDefaults.selectionMacros.iconOnlySizeDp,
+            ) { size -> scope.launch { repository.setSelectionMacroIconSize(size.roundToInt().toFloat()) } }
+        }
         for (macro in shown) {
             item {
                 val on = settings.watch { macro in it.selectionMacros.iconOnly }
@@ -506,7 +528,10 @@ internal fun SelectionMacroZonesScreen(
         TimeZone.getAvailableIDs()
             .filter { it.contains('/') && !it.startsWith("Etc/") && !it.startsWith("SystemV/") }
             .sorted()
-            .associateWith { id -> normalizeForSearch(id.replace('_', ' ').replace('/', ' ') + ' ' + zoneLabel(id, locale)) }
+            .associateWith { id ->
+                // Beijing has no tz id of its own: it is found under Shanghai (#970).
+                normalizeForSearch(id.replace('_', ' ').replace('/', ' ') + ' ' + zoneLabel(id, locale) + ' ' + extraCityNames(id))
+            }
     }
     val matches = remember(query, all, zones) {
         val tokens = normalizeForSearch(query).split(' ').filter { it.isNotEmpty() }

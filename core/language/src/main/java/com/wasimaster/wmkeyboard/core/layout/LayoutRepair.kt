@@ -116,8 +116,14 @@ const val MaxKeyWidth = 12f
 /** Widest a row may total before every key in it is scaled down to fit. */
 const val MaxRowWidth = 40f
 
-/** Below roughly 2 mm per key on a phone, a row stops being tappable. */
-const val MaxKeysPerRow = 24
+/**
+ * A whole alphabet in one row, and no more: Turkish's 32 letters on One-row Q.
+ * Below roughly 2 mm per key a row stops being tappable *as keys*; the one-row
+ * boards are read by the touch model and the dictionary instead, the way
+ * Minuum read its strip, so this is the width of those boards rather than the
+ * width of a finger.
+ */
+const val MaxKeysPerRow = 32
 
 /** Taller than any phone shows without eating the whole screen. */
 const val MaxRowsPerLayer = 8
@@ -219,7 +225,7 @@ fun validateLayout(spec: LayoutSpec): List<LayoutFinding> {
             )
         }
         if (layer != LayoutLayer.LETTERS && layer.isCycled && rows.isNotEmpty() &&
-            rows.flatten().none { it.action == KeyAction.Letters || it.action == KeyAction.Symbols }
+            rows.flatten().none { it.leavesCycledLayer(layer) }
         ) {
             findings += LayoutFinding(
                 LayoutSeverity.BLOCKING,
@@ -552,8 +558,7 @@ fun LayoutSpec.repair(): RepairedLayout {
     for (layer in LayoutLayer.entries) {
         if (layer == LayoutLayer.LETTERS || !layer.isCycled) continue
         val spec = layers[layer.key] ?: continue
-        val hasWayBack = spec.rows.flatten()
-            .any { it.action == KeyAction.Letters || it.action == KeyAction.Symbols }
+        val hasWayBack = spec.rows.flatten().any { it.leavesCycledLayer(layer) }
         if (!hasWayBack) {
             repairs += LayoutMessage(
                 R.string.core_lang_repair_letters_key_added,
@@ -569,6 +574,15 @@ fun LayoutSpec.repair(): RepairedLayout {
 
     return RepairedLayout(copy(layers = layers), repairs)
 }
+
+/**
+ * Whether pressing this key takes the user off [layer], one of the cycled
+ * layers: the ABC or symbols key on any of them, and on the Fn layer its own
+ * Fn key too, which toggles back to the layer Fn was pressed on.
+ */
+private fun Key.leavesCycledLayer(layer: LayoutLayer): Boolean =
+    action == KeyAction.Letters || action == KeyAction.Symbols ||
+        (layer == LayoutLayer.FN && action == KeyAction.Fn)
 
 /**
  * Whether pressing this key can take the user off a secondary layout: back to

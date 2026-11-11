@@ -11,7 +11,7 @@ class GlideLanguageProfilesTest {
     @Test
     fun `german lowers the frequency weight, raises the gap weight and reads compounds`() {
         val tuned = GlideLanguageProfiles.tune(GlideBeam.Tuning.DEFAULT, "de")
-        assertEquals(0.5, tuned.freqWeight, 0.0)
+        assertEquals(0.75, tuned.freqWeight, 0.0)
         assertEquals(2.0f, tuned.gapWeight, 0f)
         assertEquals(8.0, tuned.joinCost, 0.0)
         assertEquals(4, tuned.joinMinPart)
@@ -46,6 +46,12 @@ class GlideLanguageProfilesTest {
     }
 
     @Test
+    fun `german mixed with another list decodes with the shipped weights`() {
+        // #1051: the German weights were measured on German's list alone.
+        assertSame(GlideBeam.Tuning.DEFAULT, GlideLanguageProfiles.tune(GlideBeam.Tuning.DEFAULT, "de", mixed = true))
+    }
+
+    @Test
     fun `regional and script variants of german take the german profile`() {
         for (id in listOf("de-DE", "de-Runr", "de_AT", "DE")) {
             assertSame(id, GlideLanguageProfiles.GERMAN, GlideLanguageProfiles.forLanguage(id))
@@ -61,7 +67,7 @@ class GlideLanguageProfilesTest {
         assertEquals(2.6f, tuned.endRadius, 0f)
         assertEquals(1.4f, tuned.nearRadius, 0f)
         assertEquals(30000, tuned.vocabularyRank)
-        assertEquals(0.5, tuned.freqWeight, 0.0)
+        assertEquals(0.75, tuned.freqWeight, 0.0)
         assertEquals(8.0, tuned.joinCost, 0.0)
         // Applying it again changes nothing, so a language re-set is free.
         assertSame(tuned, GlideLanguageProfiles.tune(tuned, "de"))

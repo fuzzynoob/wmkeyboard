@@ -98,6 +98,38 @@ pub extern "system" fn Java_com_wasimaster_wmkeyboard_core_transliteration_Engin
     })
 }
 
+/// `EngineNative.minorPhonetic(languageId, input)`: a table-driven language
+/// that is not one of the Indic engine's; an unknown id passes the input through.
+#[no_mangle]
+pub extern "system" fn Java_com_wasimaster_wmkeyboard_core_transliteration_EngineNative_minorPhonetic(
+    mut env: JNIEnv,
+    _class: JClass,
+    language_id: JString,
+    input: JString,
+) -> jstring {
+    guarded(&mut env, null_mut(), |env| {
+        let language_id = read(env, &language_id)?;
+        let input = read(env, &input)?;
+        give(env, wm_engine::minor_phonetic::transliterate(&language_id, &input))
+    })
+}
+
+/// `EngineNative.minorPhoneticVariants(languageId, input)`: every reading the
+/// table finds plausible, the literal one first.
+#[no_mangle]
+pub extern "system" fn Java_com_wasimaster_wmkeyboard_core_transliteration_EngineNative_minorPhoneticVariants(
+    mut env: JNIEnv,
+    _class: JClass,
+    language_id: JString,
+    input: JString,
+) -> jobjectArray {
+    guarded(&mut env, null_mut(), |env| {
+        let language_id = read(env, &language_id)?;
+        let input = read(env, &input)?;
+        give_all(env, wm_engine::minor_phonetic::variants(&language_id, &input))
+    })
+}
+
 #[no_mangle]
 pub extern "system" fn Java_com_wasimaster_wmkeyboard_core_transliteration_EngineNative_indicRomanPrep(
     mut env: JNIEnv,
@@ -256,7 +288,12 @@ pub extern "system" fn Java_com_wasimaster_wmkeyboard_core_transliteration_Engin
     guarded(&mut env, null_mut(), |env| give(env, wm_engine::khipro::bundled_revision().to_string()))
 }
 
-strings_fn!(Java_com_wasimaster_wmkeyboard_core_transliteration_EngineNative_khiproSpellings, wm_engine::khipro_romanizer::spellings);
+strings_fn!(Java_com_wasimaster_wmkeyboard_core_transliteration_EngineNative_khiproSpellings, |word| {
+    wm_engine::khipro_romanizer::spellings(word, wm_engine::khipro::Variant::Touchscreen)
+});
+strings_fn!(Java_com_wasimaster_wmkeyboard_core_transliteration_EngineNative_khiproDarkSpellings, |word| {
+    wm_engine::khipro_romanizer::spellings(word, wm_engine::khipro::Variant::DarkTouchscreen)
+});
 
 #[no_mangle]
 pub extern "system" fn Java_com_wasimaster_wmkeyboard_core_transliteration_EngineNative_khiproRomanizerWarm(
@@ -264,7 +301,18 @@ pub extern "system" fn Java_com_wasimaster_wmkeyboard_core_transliteration_Engin
     _class: JClass,
 ) {
     guarded(&mut env, (), |_| {
-        wm_engine::khipro_romanizer::warm();
+        wm_engine::khipro_romanizer::warm(wm_engine::khipro::Variant::Touchscreen);
+        Some(())
+    })
+}
+
+#[no_mangle]
+pub extern "system" fn Java_com_wasimaster_wmkeyboard_core_transliteration_EngineNative_khiproDarkRomanizerWarm(
+    mut env: JNIEnv,
+    _class: JClass,
+) {
+    guarded(&mut env, (), |_| {
+        wm_engine::khipro_romanizer::warm(wm_engine::khipro::Variant::DarkTouchscreen);
         Some(())
     })
 }

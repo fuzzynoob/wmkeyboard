@@ -53,22 +53,7 @@ internal fun FeatureLibrariesRows() {
         ) { want ->
             if (want) confirmOn = true else NativeConsent.set(NativeConsent.DOWNLOADS, false)
         }
-        if (confirmOn) {
-            AlertDialog(
-                onDismissRequest = { confirmOn = false },
-                title = { Text(stringResource(R.string.privacy_native_downloads_confirm_title)) },
-                text = { Text(stringResource(R.string.privacy_native_downloads_info)) },
-                confirmButton = {
-                    TextButton(onClick = {
-                        confirmOn = false
-                        NativeConsent.set(NativeConsent.DOWNLOADS, true)
-                    }) { Text(stringResource(R.string.privacy_native_downloads_confirm_action)) }
-                },
-                dismissButton = {
-                    TextButton(onClick = { confirmOn = false }) { Text(stringResource(CommonR.string.common_cancel)) }
-                },
-            )
-        }
+        if (confirmOn) NativeDownloadsConfirmDialog(onDone = { confirmOn = false })
     }
     if (NativeDelivery.pins().any { it.licence == NativeConsent.QUALCOMM }) {
         var asking by remember { mutableStateOf(false) }
@@ -84,6 +69,32 @@ internal fun FeatureLibrariesRows() {
         }
         if (asking) QualcommLicenceDialog(onDone = { asking = false })
     }
+}
+
+/**
+ * F-Droid's opt-in to library downloads, which its inclusion policy wants
+ * confirmed with the warning that F-Droid did not check the files. Used by
+ * the Privacy row and by a feature's own banner, so turning it on never
+ * means leaving the screen that needs it. Agreeing re-reads every gate, so
+ * the screen behind shows its Download button straight away.
+ */
+@Composable
+internal fun NativeDownloadsConfirmDialog(onDone: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDone,
+        title = { Text(stringResource(R.string.privacy_native_downloads_confirm_title)) },
+        text = { Text(stringResource(R.string.privacy_native_downloads_info)) },
+        confirmButton = {
+            TextButton(onClick = {
+                NativeConsent.set(NativeConsent.DOWNLOADS, true)
+                NativeDelivery.refreshAll()
+                onDone()
+            }) { Text(stringResource(R.string.privacy_native_downloads_confirm_action)) }
+        },
+        dismissButton = {
+            TextButton(onClick = onDone) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
 }
 
 /**
@@ -131,6 +142,9 @@ internal fun QualcommLicenceDialog(onDone: (Boolean) -> Unit) {
     )
 }
 
+/** ML Kit's and NLLB-200's libraries: the offline build cannot get their models, so they would do nothing. */
+internal val OFFLINE_USELESS_GATES = setOf("translate", "ct2")
+
 /**
  * The offline build's one row for its feature libraries: how many are here,
  * every missing one's published file under **Get the files**, and **Import**.
@@ -140,7 +154,7 @@ internal fun QualcommLicenceDialog(onDone: (Boolean) -> Unit) {
 private fun OfflineLibrariesRow() {
     val context = LocalContext.current
     var revision by remember { mutableStateOf(0) }
-    val all = NativeDelivery.pins()
+    val all = NativeDelivery.pins().filterNot { it.gate in OFFLINE_USELESS_GATES }
     val missing = remember(revision) { NativeDelivery.missing(all.mapTo(HashSet()) { it.gate }) }
     OfflineImportRow(
         title = stringResource(R.string.privacy_native_import_title),
@@ -151,16 +165,36 @@ private fun OfflineLibrariesRow() {
 }
 
 /**
- * What a feature says on the offline build when its library is missing, or on
- * F-Droid before the download opt-in: [consent] is the gate's
+ * What a feature says on the offline build when its library is missing, on
+ * F-Droid before the download opt-in (with the opt-in's own button), or
+ * before a vendor's licence: [consent] is the gate's
  * [ModuleState.Missing.consent][com.wasimaster.wmkeyboard.core.modules.ModuleState.Missing.consent].
  * The offline build's banner opens the files of [gates] still missing, each
  * with where it is published, and the import.
  */
 @Composable
 internal fun NativeConsentBanner(consent: String, vararg gates: String) {
+    // F-Droid's opt-in: turned on from here, not by a trip to a row that the
+    // Privacy screen may hide behind its depth.
+    if (consent == NativeConsent.DOWNLOADS) {
+        var confirmOn by remember { mutableStateOf(false) }
+        StateBanner(
+            stringResource(R.string.models_native_consent_banner_info),
+            action = stringResource(R.string.privacy_native_downloads_confirm_action),
+            tone = BannerTone.WARNING,
+            onAction = { confirmOn = true },
+        )
+        if (confirmOn) NativeDownloadsConfirmDialog(onDone = { confirmOn = false })
+        return
+    }
     if (consent != NativeConsent.IMPORT) {
-        StateBanner(stringResource(R.string.models_native_consent_needed_info), tone = BannerTone.WARNING)
+        val navigate = LocalSettingsNavigate.current
+        StateBanner(
+            stringResource(R.string.models_native_consent_needed_info),
+            action = stringResource(R.string.feature_libraries_title),
+            tone = BannerTone.WARNING,
+            onAction = { navigate(FeatureLibraryList.ROUTE) },
+        )
         return
     }
     val context = LocalContext.current

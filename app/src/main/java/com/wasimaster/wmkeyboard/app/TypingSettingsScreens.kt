@@ -27,6 +27,7 @@ import com.wasimaster.wmkeyboard.core.prediction.OctopusKind
 import com.wasimaster.wmkeyboard.core.prediction.SlipFixes
 import com.wasimaster.wmkeyboard.core.prediction.UndoMemory
 import com.wasimaster.wmkeyboard.core.settings.FlickDistanceRange
+import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeDistanceRange
 import com.wasimaster.wmkeyboard.core.settings.FlickReachRange
 import com.wasimaster.wmkeyboard.core.settings.MAX_STOP_AFTER_DECLINES
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
@@ -56,6 +57,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.annotation.StringRes
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -68,7 +70,11 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.otp.NotificationOtpCapture
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.dictionaries.PunctuationModelCatalog
+import com.wasimaster.wmkeyboard.core.dictionaries.PunctuationModelDownloadManager
+import com.wasimaster.wmkeyboard.core.dictionaries.PunctuationModelVariant
 import com.wasimaster.wmkeyboard.core.settings.usableTools
 import com.wasimaster.wmkeyboard.core.tools.SmartSuggest
 import com.wasimaster.wmkeyboard.core.tools.leaderLabel
@@ -84,6 +90,7 @@ import com.wasimaster.wmkeyboard.core.settings.GlideApostropheKey
 import com.wasimaster.wmkeyboard.core.settings.ShiftGlideMode
 import com.wasimaster.wmkeyboard.core.settings.TWO_THUMB_PAUSE_RANGE
 import com.wasimaster.wmkeyboard.core.settings.TWO_THUMB_RETRACT_RANGE
+import com.wasimaster.wmkeyboard.core.settings.TwoThumbBackspace
 import com.wasimaster.wmkeyboard.core.settings.TwoThumbWordEnd
 import com.wasimaster.wmkeyboard.core.settings.GlidePickerChoicesRange
 import com.wasimaster.wmkeyboard.core.settings.GlideRadiusRange
@@ -114,9 +121,14 @@ import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.ActionOnlyTools
 import com.wasimaster.wmkeyboard.core.settings.isUsableTool
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.glideTolerancesFor
+import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.NumberGrouping
 import com.wasimaster.wmkeyboard.core.settings.RankControl
+import com.wasimaster.wmkeyboard.core.settings.RecentWordPlacement
+import com.wasimaster.wmkeyboard.core.settings.RetypeButtonPlace
+import com.wasimaster.wmkeyboard.core.settings.stripHidden
 import com.wasimaster.wmkeyboard.core.settings.SuggestionOverflow
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
 import com.wasimaster.wmkeyboard.core.settings.WordMenuItem
@@ -317,7 +329,7 @@ internal fun TypingCorrectionsSettings(
                     R.string.typing_autocorrect_confidence_title,
                     subtitle = stringResource(R.string.typing_autocorrect_confidence_subtitle),
                     value = settings.watch { it.correction.confidence },
-                    range = 1.5f..10f,
+                    range = 1f..10f,
                     display = { valueFormat.format("%.1f".format(it)) },
                     info = stringResource(R.string.typing_autocorrect_confidence_info),
                     default = SettingsDefaults.correction.confidence,
@@ -411,23 +423,6 @@ internal fun TypingCorrectionsSettings(
                     default = SettingsDefaults.correction.learnedGate,
                 ) { scope.launch { repository.setAutocorrectLearnedGate(it) } }
             }
-            item(level = SettingLevel.STANDARD) {
-                ToggleSetting(
-                    R.string.typing_learn_corrections_title,
-                    stringResource(R.string.typing_learn_corrections_subtitle),
-                    settings.watch { it.suggestionStrip.learnFromCorrections },
-                    info = stringResource(R.string.typing_learn_corrections_info),
-                    default = SettingsDefaults.suggestionStrip.learnFromCorrections,
-                ) { scope.launch { repository.setLearnFromCorrections(it) } }
-            }
-            item(level = SettingLevel.STANDARD) {
-                NavRow(
-                    R.string.typing_learned_corrections_title,
-                    stringResource(R.string.typing_learned_corrections_subtitle),
-                    route = "learnedcorrections",
-                    onClick = onOpenLearnedCorrections,
-                )
-            }
             item(level = SettingLevel.ADVANCED) {
                 ToggleSetting(
                     R.string.typing_skip_all_caps_title,
@@ -457,60 +452,6 @@ internal fun TypingCorrectionsSettings(
             }
             item(level = SettingLevel.ADVANCED) {
                 ToggleSetting(
-                    R.string.typing_dictionary_capitals_title,
-                    stringResource(R.string.typing_dictionary_capitals_subtitle),
-                    settings.watch { it.correction.dictionaryCapitals },
-                    info = stringResource(R.string.typing_dictionary_capitals_info),
-                    default = SettingsDefaults.correction.dictionaryCapitals,
-                ) { scope.launch { repository.setDictionaryCapitals(it) } }
-            }
-            item {
-                ToggleSetting(
-                    R.string.typing_block_offensive_title,
-                    stringResource(R.string.typing_block_offensive_subtitle),
-                    settings.watch { it.suggestionStrip.blockOffensiveWords },
-                    info = stringResource(R.string.typing_block_offensive_info),
-                    default = SettingsDefaults.suggestionStrip.blockOffensiveWords,
-                ) { scope.launch { repository.setBlockOffensiveWords(it) } }
-            }
-            item(level = SettingLevel.ADVANCED) {
-                ToggleSetting(
-                    R.string.typing_context_rerank_title,
-                    stringResource(R.string.typing_context_rerank_subtitle),
-                    settings.watch { it.suggestionStrip.contextRerank },
-                    info = stringResource(R.string.typing_context_rerank_info),
-                    default = SettingsDefaults.suggestionStrip.contextRerank,
-                ) { scope.launch { repository.setContextRerank(it) } }
-            }
-            item(level = SettingLevel.STANDARD) {
-                ToggleSetting(
-                    R.string.typing_neural_context_title,
-                    stringResource(R.string.typing_neural_context_subtitle),
-                    settings.watch { it.suggestionStrip.neuralContext },
-                    info = stringResource(R.string.typing_neural_context_info),
-                    default = SettingsDefaults.suggestionStrip.neuralContext,
-                ) { scope.launch { repository.setNeuralContext(it) } }
-            }
-            item(level = SettingLevel.ADVANCED) {
-                ToggleSetting(
-                    R.string.typing_context_revision_title,
-                    stringResource(R.string.typing_context_revision_subtitle),
-                    settings.watch { it.suggestionStrip.contextRevision },
-                    info = stringResource(R.string.typing_context_revision_info),
-                    default = SettingsDefaults.suggestionStrip.contextRevision,
-                ) { scope.launch { repository.setContextRevision(it) } }
-            }
-            item(level = SettingLevel.ADVANCED) {
-                ToggleSetting(
-                    R.string.typing_phrase_completion_title,
-                    stringResource(R.string.typing_phrase_completion_subtitle),
-                    settings.watch { it.suggestionStrip.phraseCompletion },
-                    info = stringResource(R.string.typing_phrase_completion_info),
-                    default = SettingsDefaults.suggestionStrip.phraseCompletion,
-                ) { scope.launch { repository.setPhraseCompletion(it) } }
-            }
-            item(level = SettingLevel.ADVANCED) {
-                ToggleSetting(
                     R.string.typing_autocorrect_splits_title,
                     stringResource(R.string.typing_autocorrect_splits_subtitle),
                     settings.watch { it.suggestionStrip.autocorrectSplits },
@@ -518,52 +459,151 @@ internal fun TypingCorrectionsSettings(
                     default = SettingsDefaults.suggestionStrip.autocorrectSplits,
                 ) { scope.launch { repository.setAutocorrectSplits(it) } }
             }
-            item(level = SettingLevel.STANDARD) {
-                ToggleSetting(
-                    R.string.typing_language_detection_title,
-                    stringResource(R.string.typing_language_detection_subtitle),
-                    detectionOn,
-                    info = stringResource(R.string.typing_language_detection_info),
-                    default = SettingsDefaults.suggestionStrip.languageDetection,
-                ) { scope.launch { repository.setLanguageDetection(it) } }
-            }
-            item(visible = detectionOn, level = SettingLevel.ADVANCED) {
-                ChoiceSetting(
-                    R.string.typing_language_detection_strength_title,
-                    info = stringResource(R.string.typing_language_detection_strength_info),
-                    options = listOf(
-                        LanguageDetectionStrength.GENTLE to
-                            stringResource(R.string.typing_language_detection_gentle),
-                        LanguageDetectionStrength.BALANCED to
-                            stringResource(R.string.typing_language_detection_balanced),
-                        LanguageDetectionStrength.AGGRESSIVE to
-                            stringResource(R.string.typing_language_detection_aggressive),
-                    ),
-                    selected = settings.watch { it.suggestionStrip.languageDetectionStrength },
-                    default = SettingsDefaults.suggestionStrip.languageDetectionStrength,
-                    detail = { strength ->
-                        ChoiceDetail(stringResource(detectionStrengthDescRes(strength)))
-                    },
-                ) { scope.launch { repository.setLanguageDetectionStrength(it) } }
-            }
-            item(visible = detectionOn, level = SettingLevel.ADVANCED) {
-                ToggleSetting(
-                    R.string.typing_language_detection_by_app_title,
-                    stringResource(R.string.typing_language_detection_by_app_subtitle),
-                    settings.watch { it.suggestionStrip.languageDetectionByApp },
-                    info = stringResource(R.string.typing_language_detection_by_app_info),
-                    default = SettingsDefaults.suggestionStrip.languageDetectionByApp,
-                ) { scope.launch { repository.setLanguageDetectionByApp(it) } }
-            }
-            item(visible = numberRowOn, level = SettingLevel.ADVANCED) {
-                ToggleSetting(
-                    R.string.typing_number_row_corrections_title,
-                    stringResource(R.string.typing_number_row_corrections_subtitle),
-                    settings.watch { it.suggestionStrip.numberRowCorrections },
-                    info = stringResource(R.string.typing_number_row_corrections_info),
-                    default = SettingsDefaults.suggestionStrip.numberRowCorrections,
-                ) { scope.launch { repository.setNumberRowCorrections(it) } }
-            }
+        }
+        // Not autocorrect's own: learning from fixes made by hand, the strip's
+        // spelling, filtering and ranking, and language detection all work
+        // with autocorrect off, so they stay on the page with it off (#1112).
+        item(level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.typing_undo_delete_chip_title,
+                stringResource(R.string.typing_undo_delete_chip_subtitle),
+                settings.watch { it.suggestionStrip.undoDeleteChip },
+                info = stringResource(R.string.typing_undo_delete_chip_info),
+                default = SettingsDefaults.suggestionStrip.undoDeleteChip,
+            ) { scope.launch { repository.setUndoDeleteChip(it) } }
+        }
+        item(level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.typing_learn_corrections_title,
+                stringResource(R.string.typing_learn_corrections_subtitle),
+                settings.watch { it.suggestionStrip.learnFromCorrections },
+                info = stringResource(R.string.typing_learn_corrections_info),
+                default = SettingsDefaults.suggestionStrip.learnFromCorrections,
+            ) { scope.launch { repository.setLearnFromCorrections(it) } }
+        }
+        item(level = SettingLevel.STANDARD) {
+            NavRow(
+                R.string.typing_learned_corrections_title,
+                stringResource(R.string.typing_learned_corrections_subtitle),
+                route = "learnedcorrections",
+                onClick = onOpenLearnedCorrections,
+            )
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_dictionary_capitals_title,
+                stringResource(R.string.typing_dictionary_capitals_subtitle),
+                settings.watch { it.correction.dictionaryCapitals },
+                info = stringResource(R.string.typing_dictionary_capitals_info),
+                default = SettingsDefaults.correction.dictionaryCapitals,
+            ) { scope.launch { repository.setDictionaryCapitals(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.typing_block_offensive_title,
+                stringResource(R.string.typing_block_offensive_subtitle),
+                settings.watch { it.suggestionStrip.blockOffensiveWords },
+                info = stringResource(R.string.typing_block_offensive_info),
+                default = SettingsDefaults.suggestionStrip.blockOffensiveWords,
+            ) { scope.launch { repository.setBlockOffensiveWords(it) } }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_context_rerank_title,
+                stringResource(R.string.typing_context_rerank_subtitle),
+                settings.watch { it.suggestionStrip.contextRerank },
+                info = stringResource(R.string.typing_context_rerank_info),
+                default = SettingsDefaults.suggestionStrip.contextRerank,
+            ) { scope.launch { repository.setContextRerank(it) } }
+        }
+        item(level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.typing_neural_context_title,
+                stringResource(R.string.typing_neural_context_subtitle),
+                settings.watch { it.suggestionStrip.neuralContext },
+                info = stringResource(R.string.typing_neural_context_info),
+                default = SettingsDefaults.suggestionStrip.neuralContext,
+            ) { scope.launch { repository.setNeuralContext(it) } }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_context_revision_title,
+                stringResource(R.string.typing_context_revision_subtitle),
+                settings.watch { it.suggestionStrip.contextRevision },
+                info = stringResource(R.string.typing_context_revision_info),
+                default = SettingsDefaults.suggestionStrip.contextRevision,
+            ) { scope.launch { repository.setContextRevision(it) } }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_shortcuts_converting_title,
+                stringResource(R.string.typing_shortcuts_converting_subtitle),
+                settings.watch { it.suggestionStrip.shortcutsWhileConverting },
+                default = SettingsDefaults.suggestionStrip.shortcutsWhileConverting,
+            ) { scope.launch { repository.setShortcutsWhileConverting(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.typing_chips_at_end_title,
+                stringResource(R.string.typing_chips_at_end_subtitle),
+                settings.watch { it.suggestionStrip.chipsAtEnd },
+                default = SettingsDefaults.suggestionStrip.chipsAtEnd,
+            ) { scope.launch { repository.setStripChipsAtEnd(it) } }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_phrase_completion_title,
+                stringResource(R.string.typing_phrase_completion_subtitle),
+                settings.watch { it.suggestionStrip.phraseCompletion },
+                info = stringResource(R.string.typing_phrase_completion_info),
+                default = SettingsDefaults.suggestionStrip.phraseCompletion,
+            ) { scope.launch { repository.setPhraseCompletion(it) } }
+        }
+        item(level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.typing_language_detection_title,
+                stringResource(R.string.typing_language_detection_subtitle),
+                detectionOn,
+                info = stringResource(R.string.typing_language_detection_info),
+                default = SettingsDefaults.suggestionStrip.languageDetection,
+            ) { scope.launch { repository.setLanguageDetection(it) } }
+        }
+        item(visible = detectionOn, level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                R.string.typing_language_detection_strength_title,
+                info = stringResource(R.string.typing_language_detection_strength_info),
+                options = listOf(
+                    LanguageDetectionStrength.GENTLE to
+                        stringResource(R.string.typing_language_detection_gentle),
+                    LanguageDetectionStrength.BALANCED to
+                        stringResource(R.string.typing_language_detection_balanced),
+                    LanguageDetectionStrength.AGGRESSIVE to
+                        stringResource(R.string.typing_language_detection_aggressive),
+                ),
+                selected = settings.watch { it.suggestionStrip.languageDetectionStrength },
+                default = SettingsDefaults.suggestionStrip.languageDetectionStrength,
+                detail = { strength ->
+                    ChoiceDetail(stringResource(detectionStrengthDescRes(strength)))
+                },
+            ) { scope.launch { repository.setLanguageDetectionStrength(it) } }
+        }
+        item(visible = detectionOn, level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_language_detection_by_app_title,
+                stringResource(R.string.typing_language_detection_by_app_subtitle),
+                settings.watch { it.suggestionStrip.languageDetectionByApp },
+                info = stringResource(R.string.typing_language_detection_by_app_info),
+                default = SettingsDefaults.suggestionStrip.languageDetectionByApp,
+            ) { scope.launch { repository.setLanguageDetectionByApp(it) } }
+        }
+        item(visible = numberRowOn, level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_number_row_corrections_title,
+                stringResource(R.string.typing_number_row_corrections_subtitle),
+                settings.watch { it.suggestionStrip.numberRowCorrections },
+                info = stringResource(R.string.typing_number_row_corrections_info),
+                default = SettingsDefaults.suggestionStrip.numberRowCorrections,
+            ) { scope.launch { repository.setNumberRowCorrections(it) } }
         }
         item(level = SettingLevel.ADVANCED) {
             ToggleSetting(
@@ -655,17 +695,29 @@ internal fun TypingWritingSettings(
     val context = LocalContext.current
     // What decides which rows the groups hold; each row reads its own value.
     val doubleSpaceOn = settings.watch { it.autoText.doubleSpacePeriod || it.autoText.doubleSpaceTab }
+    val autoSpaceOn = settings.watch { it.autoText.spaceAfterPunctuation }
     val hugOn = settings.watch { it.autoText.hugPunctuation }
+    val smartPunctuationOn = settings.watch { it.autoText.smartPunctuation }
     val recaseOn = settings.watch { it.textEditing.recapitalizeSelectionWithShift }
+    val capitalizeOn = settings.watch { it.autoText.capitalize }
     SettingsGroup(stringResource(R.string.typing_group_capitals_title)) {
         item {
             ToggleSetting(
                 R.string.typing_auto_capitalize_title,
                 stringResource(R.string.typing_auto_capitalize_subtitle),
-                settings.watch { it.autoText.capitalize },
+                capitalizeOn,
                 info = stringResource(R.string.typing_auto_capitalize_info),
                 default = SettingsDefaults.autoText.capitalize,
             ) { scope.launch { repository.setAutoCapitalize(it) } }
+        }
+        item(visible = capitalizeOn, level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.typing_auto_capitalize_words_title,
+                stringResource(R.string.typing_auto_capitalize_words_subtitle),
+                settings.watch { it.autoText.capitalizeWords },
+                info = stringResource(R.string.typing_auto_capitalize_words_info),
+                default = SettingsDefaults.autoText.capitalizeWords,
+            ) { scope.launch { repository.setAutoCapitalizeWords(it) } }
         }
         item(level = SettingLevel.STANDARD) {
             ToggleSetting(
@@ -734,10 +786,18 @@ internal fun TypingWritingSettings(
             ToggleSetting(
                 R.string.typing_auto_space_punctuation_title,
                 stringResource(R.string.typing_auto_space_punctuation_subtitle),
-                settings.watch { it.autoText.spaceAfterPunctuation },
+                autoSpaceOn,
                 info = stringResource(R.string.typing_auto_space_punctuation_info),
                 default = SettingsDefaults.autoText.spaceAfterPunctuation,
             ) { scope.launch { repository.setAutoSpaceAfterPunctuation(it) } }
+        }
+        item(visible = autoSpaceOn, level = SettingLevel.ADVANCED) {
+            TextFieldSetting(
+                label = stringResource(R.string.typing_auto_space_punctuation_marks_title),
+                value = settings.watch { it.autoText.spaceAfterPunctuationMarks },
+                hint = stringResource(R.string.typing_auto_space_punctuation_marks_hint),
+                default = SettingsDefaults.autoText.spaceAfterPunctuationMarks,
+            ) { repository.setAutoSpacePunctuationMarks(it) }
         }
         item(level = SettingLevel.ADVANCED) {
             ToggleSetting(
@@ -766,10 +826,82 @@ internal fun TypingWritingSettings(
             ) { scope.launch { repository.setLanguagePunctuationSpacing(it) } }
         }
         item(level = SettingLevel.STANDARD) {
+            // The model's download state in the subtitle, so a key that still
+            // reads "." right after the switch says why.
+            val filesDir = context.filesDir
+            val modelState by PunctuationModelDownloadManager.state.collectAsState()
+            LaunchedEffect(smartPunctuationOn) { PunctuationModelDownloadManager.refresh(filesDir) }
+            val subtitle = when {
+                !smartPunctuationOn -> stringResource(R.string.typing_smart_punctuation_subtitle)
+                modelState is PunctuationModelDownloadManager.DownloadStatus.Downloading ->
+                    stringResource(CommonR.string.common_downloading)
+                modelState == PunctuationModelDownloadManager.DownloadStatus.Failed ->
+                    stringResource(R.string.typing_smart_punctuation_failed)
+                modelState is PunctuationModelDownloadManager.DownloadStatus.Downloaded ->
+                    stringResource(R.string.typing_smart_punctuation_ready)
+                else -> stringResource(R.string.typing_smart_punctuation_subtitle)
+            }
+            ToggleSetting(
+                R.string.typing_smart_punctuation_title,
+                subtitle,
+                smartPunctuationOn,
+                info = stringResource(R.string.typing_smart_punctuation_info),
+                default = SettingsDefaults.autoText.smartPunctuation,
+            ) {
+                scope.launch { repository.setSmartPunctuation(it) }
+                if (it) PunctuationModelDownloadManager.start(filesDir)
+            }
+        }
+        item(visible = smartPunctuationOn && PunctuationModelCatalog.variants.size > 1, level = SettingLevel.STANDARD) {
+            // Which size to fetch; the choice is the marker the download
+            // manager keeps, not a setting, the way the context model's is.
+            val filesDir = context.filesDir
+            val modelState by PunctuationModelDownloadManager.state.collectAsState()
+            val chosen = remember(modelState) { PunctuationModelDownloadManager.variantOf(filesDir) }
+            ChoiceSetting(
+                R.string.typing_smart_punctuation_size_title,
+                subtitle = stringResource(R.string.typing_smart_punctuation_size_subtitle),
+                info = stringResource(R.string.typing_smart_punctuation_size_info),
+                options = PunctuationModelCatalog.entries.map { entry ->
+                    val size = android.text.format.Formatter.formatShortFileSize(context, entry.bytes)
+                    entry.variant to when (entry.variant) {
+                        PunctuationModelVariant.STANDARD -> stringResource(R.string.typing_smart_punctuation_size_standard, size)
+                        PunctuationModelVariant.LARGE -> stringResource(R.string.typing_smart_punctuation_size_large, size)
+                    }
+                },
+                selected = chosen,
+                default = PunctuationModelVariant.STANDARD,
+            ) { PunctuationModelDownloadManager.start(filesDir, it) }
+        }
+        item(visible = smartPunctuationOn, level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_smart_punctuation_comma_title,
+                stringResource(R.string.typing_smart_punctuation_comma_subtitle),
+                settings.watch { it.autoText.smartPunctuationComma },
+                info = stringResource(R.string.typing_smart_punctuation_comma_info),
+                default = SettingsDefaults.autoText.smartPunctuationComma,
+            ) { scope.launch { repository.setSmartPunctuationComma(it) } }
+        }
+        item(level = SettingLevel.STANDARD) {
+            // Bangla's own switch is off out of the box (#813), so with this
+            // row on a Bangla pick still got no space and the row did not say
+            // why (Telegram 5268). It names the languages it skips.
+            val spaceOn = settings.watch { it.suggestionStrip.autoSpaceAfterSuggestion }
+            val spaceOffLangs = settings.watch { it.suggestionStrip.spaceAfterSuggestionOffLangs }
             ToggleSetting(
                 R.string.typing_space_after_suggestion_title,
-                stringResource(R.string.typing_space_after_suggestion_subtitle),
-                settings.watch { it.suggestionStrip.autoSpaceAfterSuggestion },
+                if (spaceOn && spaceOffLangs.isNotEmpty()) {
+                    val names = remember(spaceOffLangs) {
+                        spaceOffLangs.map { id ->
+                            java.util.Locale.forLanguageTag(id).getDisplayLanguage(java.util.Locale.getDefault())
+                                .ifEmpty { id }
+                        }.distinct().sorted().joinToString(", ")
+                    }
+                    stringResource(R.string.typing_space_after_suggestion_except_subtitle, names)
+                } else {
+                    stringResource(R.string.typing_space_after_suggestion_subtitle)
+                },
+                spaceOn,
                 info = stringResource(R.string.typing_space_after_suggestion_info),
                 default = SettingsDefaults.suggestionStrip.autoSpaceAfterSuggestion,
             ) { scope.launch { repository.setAutoSpaceAfterSuggestion(it) } }
@@ -794,6 +926,14 @@ internal fun TypingWritingSettings(
                 default = SettingsDefaults.textEditing.autoCloseBrackets,
             ) { scope.launch { repository.setAutoCloseBrackets(it) } }
         }
+        item(level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_auto_close_quotes_title,
+                stringResource(R.string.typing_auto_close_quotes_subtitle),
+                settings.watch { it.textEditing.autoCloseQuotes },
+                default = SettingsDefaults.textEditing.autoCloseQuotes,
+            ) { scope.launch { repository.setAutoCloseQuotes(it) } }
+        }
         item(level = SettingLevel.STANDARD) {
             ToggleSetting(
                 R.string.typing_continue_lists_title,
@@ -802,6 +942,17 @@ internal fun TypingWritingSettings(
                 info = stringResource(R.string.typing_continue_lists_info),
                 default = SettingsDefaults.autoText.continueLists,
             ) { scope.launch { repository.setContinueLists(it) } }
+        }
+    }
+    SettingsGroup(stringResource(R.string.typing_group_composing_title), level = SettingLevel.STANDARD) {
+        item {
+            ToggleSetting(
+                R.string.typing_hide_composing_underline_title,
+                stringResource(R.string.typing_hide_composing_underline_subtitle),
+                settings.watch { it.textEditing.hideComposingUnderline },
+                info = stringResource(R.string.typing_hide_composing_underline_info),
+                default = SettingsDefaults.textEditing.hideComposingUnderline,
+            ) { scope.launch { repository.setHideComposingUnderline(it) } }
         }
     }
 }
@@ -864,6 +1015,7 @@ internal fun TypingSuggestionsSettings(
                 subtitle = stringResource(R.string.typing_suggestion_slots_subtitle),
                 value = settings.watch { it.suggestionStrip.slotCount }.toFloat(),
                 range = 2f..6f,
+                steps = wholeSteps(2f..6f),
                 display = { it.toInt().toString() },
                 info = stringResource(R.string.typing_suggestion_slots_info),
                 default = SettingsDefaults.suggestionStrip.slotCount.toFloat(),
@@ -877,6 +1029,22 @@ internal fun TypingSuggestionsSettings(
                 info = stringResource(R.string.typing_fit_more_words_info),
                 default = SettingsDefaults.suggestionStrip.fitMoreWords,
             ) { scope.launch { repository.setFitMoreWords(it) } }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_rtl_words_from_right_title,
+                stringResource(R.string.typing_rtl_words_from_right_subtitle),
+                settings.watch { it.suggestionStrip.rtlWordsFromRight },
+                default = SettingsDefaults.suggestionStrip.rtlWordsFromRight,
+            ) { scope.launch { repository.setRtlWordsFromRight(it) } }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            TextFieldSetting(
+                stringResource(R.string.typing_rest_words_title),
+                value = settings.watch { it.suggestionStrip.restWords }.joinToString(", "),
+                hint = stringResource(R.string.typing_rest_words_hint),
+                onSave = { repository.setRestWords(it) },
+            )
         }
         item(level = SettingLevel.ADVANCED) {
             // Issue #385: the words the strip has no room for.
@@ -939,6 +1107,7 @@ internal fun TypingSuggestionsSettings(
                 subtitle = stringResource(R.string.typing_suggestion_emoji_count_subtitle),
                 value = settings.watch { it.suggestionStrip.emojiCount }.toFloat(),
                 range = 1f..4f,
+                steps = wholeSteps(1f..4f),
                 display = { it.toInt().toString() },
                 info = stringResource(R.string.typing_suggestion_emoji_count_info),
                 default = SettingsDefaults.suggestionStrip.emojiCount.toFloat(),
@@ -990,6 +1159,7 @@ internal fun TypingSuggestionsSettings(
                 subtitle = stringResource(R.string.typing_learn_threshold_subtitle),
                 value = settings.watch { it.suggestionStrip.learnedWordMinCount }.toFloat(),
                 range = 1f..5f,
+                steps = wholeSteps(1f..5f),
                 display = { if (it.toInt() <= 1) once else it.toInt().toString() },
                 info = stringResource(R.string.typing_learn_threshold_info),
                 default = SettingsDefaults.suggestionStrip.learnedWordMinCount.toFloat(),
@@ -1022,6 +1192,7 @@ internal fun TypingSuggestionsSettings(
                 subtitle = stringResource(R.string.typing_new_word_sightings_subtitle),
                 value = settings.watch { it.suggestionStrip.newWordSightings }.toFloat(),
                 range = 1f..10f,
+                steps = wholeSteps(1f..10f),
                 display = { if (it.toInt() <= 1) immediately else it.toInt().toString() },
                 info = stringResource(R.string.typing_new_word_sightings_info),
                 default = SettingsDefaults.suggestionStrip.newWordSightings.toFloat(),
@@ -1169,6 +1340,24 @@ internal fun TypingSuggestionsSettings(
                 default = SettingsDefaults.suggestionSources.inlineAutofill,
             ) { scope.launch { repository.setInlineAutofill(it) } }
         }
+        item(visible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P, level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.typing_password_manager_chip_title,
+                stringResource(R.string.typing_password_manager_chip_subtitle),
+                settings.watch { it.suggestionSources.passwordManagerChip },
+                info = stringResource(R.string.typing_password_manager_chip_info),
+                default = SettingsDefaults.suggestionSources.passwordManagerChip,
+            ) { scope.launch { repository.setPasswordManagerChip(it) } }
+        }
+        item(visible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.P, level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_password_manager_chip_wm_pass_title,
+                stringResource(R.string.typing_password_manager_chip_wm_pass_subtitle),
+                settings.watch { it.suggestionSources.passwordManagerChipWmPassTool },
+                info = stringResource(R.string.typing_password_manager_chip_wm_pass_info),
+                default = SettingsDefaults.suggestionSources.passwordManagerChipWmPassTool,
+            ) { scope.launch { repository.setPasswordManagerChipWmPassTool(it) } }
+        }
         item(visible = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R, level = SettingLevel.STANDARD) {
             ToggleSetting(
                 R.string.typing_smart_replies_title,
@@ -1203,6 +1392,43 @@ internal fun TypingSuggestionsSettings(
                 info = stringResource(R.string.typing_recent_word_bar_info),
                 default = SettingsDefaults.suggestionStrip.recentWordBar,
             ) { scope.launch { repository.setRecentWordBar(it) } }
+        }
+        // The Retype button (#1189): one place for it, and the subtitle says
+        // what keeps it off that bar, every reason at once, without turning
+        // anything on by itself.
+        item(level = SettingLevel.STANDARD) {
+            val place = settings.watch { it.suggestionStrip.retypeButton }
+            val recentOn = settings.watch { it.suggestionStrip.recentWordBar }
+            val recentInline = settings.watch { it.rows.recentWordPlacement == RecentWordPlacement.INLINE }
+            val stripHidden = settings.watch { it.toolbarBehavior.stripHidden }
+            val blockers = buildList {
+                if (place != RetypeButtonPlace.OFF && stripHidden) {
+                    add(stringResource(R.string.typing_retype_button_needs_strip))
+                }
+                if (place == RetypeButtonPlace.RECENT_WORDS_BAR && !recentOn) {
+                    add(stringResource(R.string.typing_retype_button_needs_recent))
+                }
+                if (place == RetypeButtonPlace.RECENT_WORDS_BAR && recentInline) {
+                    add(stringResource(R.string.typing_retype_button_needs_own_row))
+                }
+            }
+            ChoiceSetting(
+                title = R.string.typing_retype_button_title,
+                subtitle = if (blockers.isEmpty()) {
+                    stringResource(R.string.typing_retype_button_subtitle)
+                } else {
+                    blockers.joinToString(" ")
+                },
+                info = stringResource(R.string.typing_retype_button_info),
+                options = listOf(
+                    RetypeButtonPlace.OFF to stringResource(R.string.typing_retype_button_off),
+                    RetypeButtonPlace.SUGGESTION_BAR to stringResource(R.string.typing_retype_button_strip),
+                    RetypeButtonPlace.RECENT_WORDS_BAR to stringResource(R.string.typing_retype_button_recent),
+                ),
+                selected = place,
+                onChange = { scope.launch { repository.setRetypeButton(it) } },
+                default = SettingsDefaults.suggestionStrip.retypeButton,
+            )
         }
         item(visible = !numberRowOn, level = SettingLevel.ADVANCED) {
             // Issue #181: a word typed on digit-hinted keys also offers the number.
@@ -1265,6 +1491,7 @@ internal fun TypingSuggestionsSettings(
             val delete = stringResource(R.string.typing_word_menu_item_delete)
             val synonyms = stringResource(R.string.typing_word_menu_item_synonyms)
             val rank = stringResource(R.string.typing_word_menu_item_rank)
+            val correct = stringResource(R.string.typing_word_menu_item_correct)
             MultiChoiceSetting(
                 R.string.typing_word_menu_title,
                 subtitle = stringResource(R.string.typing_word_menu_subtitle),
@@ -1276,6 +1503,7 @@ internal fun TypingSuggestionsSettings(
                         WordMenuItem.DELETE -> delete
                         WordMenuItem.SYNONYMS -> synonyms
                         WordMenuItem.RANK -> rank
+                        WordMenuItem.CORRECT -> correct
                     }
                 },
                 selected = settings.watch { it.suggestionStrip.wordMenuItems },
@@ -1648,6 +1876,15 @@ internal fun TypingSmartChipsSettings(
                     default = SettingsDefaults.smartChips.dates,
                 ) { scope.launch { repository.setSmartChipDates(it) } }
             }
+            // Issue #1089: the date written the user's own way, or ways.
+            item(visible = datesOn, level = SettingLevel.ADVANCED) {
+                TextFieldSetting(
+                    label = stringResource(R.string.typing_smart_date_formats_title),
+                    value = settings.watch { it.smartChips.dateFormats.joinToString(" | ") },
+                    hint = stringResource(R.string.typing_smart_date_formats_hint),
+                    default = "",
+                ) { repository.setSmartChipDateFormats(it) }
+            }
             chipToolsOffItem(SmartSuggest.Family.DATES, datesOn, usable, repository)
             item(level = SettingLevel.STANDARD) {
                 ToggleSetting(
@@ -1818,6 +2055,60 @@ private fun SettingsGroupScope.chipToolsOffItem(
     }
 }
 
+/**
+ * Android 15+ hid a code from the listener. No Settings screen lifts that:
+ * RECEIVE_SENSITIVE_NOTIFICATIONS is signature|role, so only the shell can
+ * allow its app op. With Shizuku or root (not in the Play build, same gate as
+ * [ShellFeaturesGroup]) a tap does it here; otherwise it copies the adb command.
+ */
+@Composable
+private fun RedactedCodesRow(settings: LiveSettings, onUnblocked: () -> Unit) {
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val useRoot = settings.watch { it.launcher.useRoot }
+    LaunchedEffect(Unit) { com.wasimaster.wmkeyboard.core.shell.ShellAccess.init() }
+    androidx.compose.runtime.SideEffect { com.wasimaster.wmkeyboard.core.shell.ShellAccess.rootAllowed = useRoot }
+    val granted = com.wasimaster.wmkeyboard.core.shell.ShellAccess.shizukuGranted
+    val shizuku by produceState(granted.value) { granted.collect { value = it } }
+    val offered = com.wasimaster.wmkeyboard.core.shell.ShellFeatures.offered
+    val shell = offered && (shizuku || (useRoot && com.wasimaster.wmkeyboard.core.shell.ShellAccess.suPresent))
+    val copied = stringResource(R.string.typing_otp_redacted_copied)
+    WmRow(
+        title = stringResource(R.string.typing_otp_redacted_title),
+        subtitle = stringResource(
+            when {
+                shell -> R.string.typing_otp_redacted_subtitle_shell
+                offered -> R.string.typing_otp_redacted_subtitle_shizuku
+                else -> R.string.typing_otp_redacted_subtitle
+            },
+        ),
+    ) {
+        if (shell) {
+            scope.launch {
+                val ok = com.wasimaster.wmkeyboard.core.shell.ShellGrants.allowSensitiveNotifications(
+                    context,
+                    "com.wasimaster.wmkeyboard.core.media.MediaNotificationListener",
+                ) == true
+                if (ok) {
+                    NotificationOtpCapture.clearRedacted(context)
+                    onUnblocked()
+                }
+                android.widget.Toast.makeText(
+                    context,
+                    if (ok) R.string.typing_otp_redacted_unblocked else R.string.shell_access_result_failed,
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+            }
+        } else {
+            val command = "adb shell cmd appops set --user 0 " +
+                "${context.packageName} RECEIVE_SENSITIVE_NOTIFICATIONS allow"
+            context.getSystemService(android.content.ClipboardManager::class.java)
+                ?.setPrimaryClip(android.content.ClipData.newPlainText("adb", command))
+            android.widget.Toast.makeText(context, copied, android.widget.Toast.LENGTH_LONG).show()
+        }
+    }
+}
+
 @Composable
 internal fun TypingCodesSettings(
     repository: SettingsRepository,
@@ -1828,6 +2119,14 @@ internal fun TypingCodesSettings(
     val minutesFormat = stringResource(R.string.values_minutes)
     // Decides which rows the group holds; the rows read everything else.
     val otpOn = settings.watch { it.otp.enabled }
+    val otpContext = LocalContext.current
+    var codesUnblocked by remember {
+        mutableStateOf(com.wasimaster.wmkeyboard.core.shell.ShellGrants.readsSensitiveNotifications(otpContext))
+    }
+    val codesRedacted = remember(otpOn) {
+        val at = NotificationOtpCapture.lastRedactedAt(otpContext)
+        at > 0L && System.currentTimeMillis() - at < 7L * 24 * 60 * 60 * 1000
+    }
     SettingsGroup(stringResource(R.string.typing_group_otp_title)) {
         item {
             val accessContext = LocalContext.current
@@ -1855,6 +2154,10 @@ internal fun TypingCodesSettings(
                     stringResource(R.string.typing_otp_access_subtitle),
                 ) { codesAccessRow() }
             }
+            // Android's own redaction: said here because the chip simply never comes.
+            item(visible = codesRedacted && !codesUnblocked) {
+                RedactedCodesRow(settings) { codesUnblocked = true }
+            }
             item(level = SettingLevel.ADVANCED) {
                 ToggleSetting(
                     R.string.typing_otp_code_fields_title,
@@ -1870,6 +2173,7 @@ internal fun TypingCodesSettings(
                     subtitle = stringResource(R.string.typing_otp_expiry_subtitle),
                     value = settings.watch { it.otp.expiryMinutes }.toFloat(),
                     range = 1f..10f,
+                    steps = wholeSteps(1f..10f),
                     display = { minutesFormat.format(it.toInt()) },
                     default = SettingsDefaults.otp.expiryMinutes.toFloat(),
                 ) { scope.launch { repository.setOtpExpiryMinutes(it.toInt()) } }
@@ -1882,6 +2186,16 @@ internal fun TypingCodesSettings(
                     info = stringResource(R.string.typing_otp_dismiss_info),
                     default = SettingsDefaults.otp.dismissNotification,
                 ) { scope.launch { repository.setOtpDismissNotification(it) } }
+            }
+            // #992: for wordings the built-in English, Chinese, Japanese and
+            // Korean code words miss.
+            item(level = SettingLevel.STANDARD) {
+                TextFieldSetting(
+                    label = stringResource(R.string.typing_otp_keywords_title),
+                    value = settings.watch { it.otp.extraKeywords },
+                    hint = stringResource(R.string.typing_otp_keywords_hint),
+                    default = SettingsDefaults.otp.extraKeywords,
+                ) { repository.setOtpExtraKeywords(it) }
             }
         }
         // Outside the enabled block on purpose: this governs how *every* code
@@ -2034,6 +2348,7 @@ internal fun TypingGlideSettings(
         settings.watch { it.gesture.pickerSensitivity == GlidePickerSensitivity.EVERY_PAUSE }
     val learnSwipeStyle = settings.watch { it.gesture.learnSwipeStyle }
     val loopDouble = settings.watch { it.gesture.loopDouble }
+    val languageRadii = settings.watch { it.gesture.tolerancesByLanguage.keys.sorted() }
     val wiggleDouble = settings.watch { it.gesture.wiggleDouble }
     val wordPreview = settings.watch { it.gesture.wordPreview }
     // Untitled: the page is named Glide typing already.
@@ -2205,6 +2520,9 @@ internal fun TypingGlideSettings(
                         default = SettingsDefaults.gesture.twoThumbPauseBand,
                     ) { scope.launch { repository.setGestureTwoThumbPauseBand(it) } }
                 }
+                // What Backspace does to a two-thumb word (#1188), apart from
+                // the ordinary glide switch further down.
+                twoThumbBackspaceRows(settings, repository, scope, twoThumb, twoThumbWordEnd)
                 item(visible = !twoThumb, level = SettingLevel.ADVANCED) {
                     ToggleSetting(
                         R.string.typing_swipe_continues_typed_title,
@@ -2359,9 +2677,18 @@ internal fun TypingGlideSettings(
                     ) { scope.launch { repository.setGestureAutoSpace(it) } }
                 }
                 item(level = SettingLevel.STANDARD) {
+                    // Two-thumb typing has its own Backspace choice (#1188);
+                    // under "Current behavior" this switch still decides there.
+                    val twoThumbOwn = settings.watch { it.gesture.twoThumbBackspace } != TwoThumbBackspace.CURRENT
                     ToggleSetting(
                         R.string.typing_glide_backspace_undo_title,
-                        stringResource(R.string.typing_glide_backspace_undo_subtitle),
+                        stringResource(
+                            when {
+                                !twoThumb -> R.string.typing_glide_backspace_undo_subtitle
+                                twoThumbOwn -> R.string.typing_glide_backspace_undo_two_thumb_own_subtitle
+                                else -> R.string.typing_glide_backspace_undo_two_thumb_current_subtitle
+                            },
+                        ),
                         settings.watch { it.gesture.backspaceUndoesGlide },
                         info = stringResource(R.string.typing_glide_backspace_undo_info),
                         default = SettingsDefaults.gesture.backspaceUndoesGlide,
@@ -2454,6 +2781,7 @@ internal fun TypingGlideSettings(
     ) {
         if (glideOn && swipeAction == LetterSwipeAction.TYPE_WORDS) {
             glideRadiusRows(settings, repository, scope)
+            glideLanguageRadiusRows(settings, languageRadii, onNavigate)
             glideIntentRows(settings, loopDouble, wiggleDouble, repository, scope)
             // How many ways of drawing one word the swipe style keeps apart
             // (#326). Here rather than beside the switch because it is a number
@@ -2666,6 +2994,7 @@ internal fun TypingSpacebarSettings(
         it.spaceShortSwipe == SpaceSwipeAction.LANGUAGE || it.spaceLongSwipe == SpaceSwipeAction.LANGUAGE
     }
     val spaceAccelerate = settings.watch { it.textEditing.spaceCursorAccelerate }
+    val spaceMagnifier = settings.watch { it.textEditing.spaceCursorMagnifier }
     SettingsGroup(stringResource(R.string.typing_group_spacebar_swipes_title)) {
         item {
             SpaceSwipeSetting(
@@ -2684,6 +3013,18 @@ internal fun TypingSpacebarSettings(
                 value = settings.watch { it.spaceLongSwipe },
                 default = SettingsDefaults.spaceLongSwipe,
             ) { scope.launch { repository.setSpaceLongSwipe(it) } }
+        }
+        // Issue #1088: a thumb that slides a little on its way to a space.
+        item(level = SettingLevel.ADVANCED) {
+            SliderSetting(
+                R.string.typing_space_swipe_distance_title,
+                subtitle = stringResource(R.string.typing_space_swipe_distance_subtitle),
+                value = settings.watch { it.textEditing.spaceSwipeDistanceDp }.toFloat(),
+                range = SpaceSwipeDistanceRange.first.toFloat()..SpaceSwipeDistanceRange.last.toFloat(),
+                display = { context.getString(R.string.typing_value_dp, it.roundToInt()) },
+                info = stringResource(R.string.typing_space_swipe_distance_info),
+                default = SettingsDefaults.textEditing.spaceSwipeDistanceDp.toFloat(),
+            ) { scope.launch { repository.setSpaceSwipeDistanceDp(it.roundToInt()) } }
         }
         // Issue #444: a swipe up is the touchpad, beside the sideways slots.
         item(level = SettingLevel.ADVANCED) {
@@ -2788,6 +3129,14 @@ internal fun TypingSpacebarSettings(
                     default = SettingsDefaults.textEditing.spaceCursorMagnifier,
                 ) { scope.launch { repository.setSpaceCursorMagnifier(it) } }
             }
+            item(visible = spaceMagnifier, level = SettingLevel.ADVANCED) {
+                ToggleSetting(
+                    R.string.typing_magnifier_follows_title,
+                    stringResource(R.string.typing_magnifier_follows_subtitle),
+                    settings.watch { it.textEditing.magnifierFollowsText },
+                    default = SettingsDefaults.textEditing.magnifierFollowsText,
+                ) { scope.launch { repository.setMagnifierFollowsText(it) } }
+            }
         }
         item(level = SettingLevel.STANDARD) {
             ToggleSetting(
@@ -2829,6 +3178,23 @@ internal fun TypingSpacebarSettings(
         }
     }
     SettingsGroup(stringResource(R.string.typing_group_spacebar_hold_title)) {
+        item {
+            // Issue #1060: a slow quick swipe should not count as press and hold.
+            val sameLabel = stringResource(R.string.typing_space_hold_delay_same)
+            val msFormat = stringResource(R.string.typing_value_milliseconds)
+            SliderSetting(
+                R.string.typing_space_hold_delay_title,
+                subtitle = stringResource(R.string.typing_space_hold_delay_subtitle),
+                value = settings.watch { it.textEditing.spaceHoldDelayMs }.toFloat(),
+                range = 0f..1500f,
+                display = {
+                    val ms = (it / 50f).roundToInt() * 50
+                    if (ms == 0) sameLabel else msFormat.format(ms)
+                },
+                info = stringResource(R.string.typing_space_hold_delay_info),
+                default = SettingsDefaults.textEditing.spaceHoldDelayMs.toFloat(),
+            ) { scope.launch { repository.setSpaceHoldDelayMs((it / 50f).roundToInt() * 50) } }
+        }
         item {
             // Issue #57: the characters the spacebar's long press offers, space
             // separated. Blank gives the hold back to the language picker.
@@ -3219,6 +3585,15 @@ internal fun TypingHardwareSettings(
                 info = stringResource(R.string.typing_hw_lang_chord_info),
                 default = SettingsDefaults.hardwareKeyboard.languageSwitchChord,
             ) { scope.launch { repository.setHwLanguageSwitchChord(it) } }
+        }
+        item(level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.typing_hw_lang_ctrl_shift_title,
+                stringResource(R.string.typing_hw_lang_ctrl_shift_subtitle),
+                settings.watch { it.hardwareKeyboard.languageSwitchCtrlShift },
+                info = stringResource(R.string.typing_hw_lang_ctrl_shift_info),
+                default = SettingsDefaults.hardwareKeyboard.languageSwitchCtrlShift,
+            ) { scope.launch { repository.setHwLanguageSwitchCtrlShift(it) } }
         }
         item(level = SettingLevel.ADVANCED) {
             ToggleSetting(
@@ -3786,6 +4161,124 @@ private fun suggestionHotkeyDescRes(mode: SuggestionHotkeyMode): Int = when (mod
  * beside one another, so they are written and read together.
  */
 @Suppress("LongMethod")
+/**
+ * Two-thumb Backspace (#1188): what one press does to a word typed with
+ * both thumbs, and the two first-tap stages ahead of it. "Current behavior"
+ * keeps the rules from before the choice, so it hides the stages, which it
+ * does not use. The subtitle spells the tap order out as text.
+ */
+private fun SettingsGroupScope.twoThumbBackspaceRows(
+    settings: LiveSettings,
+    repository: SettingsRepository,
+    scope: CoroutineScope,
+    twoThumb: Boolean,
+    wordEnd: TwoThumbWordEnd,
+) {
+    item(visible = twoThumb, level = SettingLevel.STANDARD) {
+        val action = settings.watch { it.gesture.twoThumbBackspace }
+        val spaceFirst = settings.watch { it.gesture.twoThumbBackspaceSpaceFirst }
+        val joinFirst = settings.watch { it.gesture.twoThumbBackspaceJoinFirst }
+        val correctionUndo = settings.watch { it.correction.revertOnBackspace }
+        val joinPossible = wordEnd == TwoThumbWordEnd.ALL_UP &&
+            settings.watch { it.gesture.twoThumbRetractWindowMs } > 0
+        val subtitle = if (action == TwoThumbBackspace.CURRENT) {
+            stringResource(R.string.typing_two_thumb_backspace_current_subtitle)
+        } else {
+            val steps = buildList {
+                if (joinFirst && joinPossible) add(stringResource(R.string.typing_two_thumb_backspace_step_join))
+                if (spaceFirst) add(stringResource(R.string.typing_two_thumb_backspace_step_space))
+                if (correctionUndo) add(stringResource(R.string.typing_two_thumb_backspace_step_correction))
+                add(
+                    stringResource(
+                        when (action) {
+                            TwoThumbBackspace.RETYPE_WORD -> R.string.typing_two_thumb_backspace_step_retype
+                            TwoThumbBackspace.DELETE_CHARACTER -> R.string.typing_two_thumb_backspace_step_character
+                            else -> R.string.typing_two_thumb_backspace_step_undo
+                        },
+                    ),
+                )
+            }
+            stringResource(R.string.typing_two_thumb_backspace_order, steps.joinToString(", "))
+        }
+        ChoiceSetting(
+            title = R.string.typing_two_thumb_backspace_title,
+            subtitle = subtitle,
+            info = stringResource(R.string.typing_two_thumb_backspace_info),
+            options = listOf(
+                TwoThumbBackspace.CURRENT to stringResource(R.string.typing_two_thumb_backspace_current_label),
+                TwoThumbBackspace.UNDO_STEP to stringResource(R.string.typing_two_thumb_backspace_undo_label),
+                TwoThumbBackspace.RETYPE_WORD to stringResource(R.string.typing_two_thumb_backspace_retype_label),
+                TwoThumbBackspace.DELETE_CHARACTER to
+                    stringResource(R.string.typing_two_thumb_backspace_character_label),
+            ),
+            selected = action,
+            onChange = { scope.launch { repository.setGestureTwoThumbBackspace(it) } },
+            default = SettingsDefaults.gesture.twoThumbBackspace,
+            detail = { option ->
+                ChoiceDetail(
+                    stringResource(
+                        when (option) {
+                            TwoThumbBackspace.CURRENT -> R.string.typing_two_thumb_backspace_current_desc
+                            TwoThumbBackspace.UNDO_STEP -> R.string.typing_two_thumb_backspace_undo_desc
+                            TwoThumbBackspace.RETYPE_WORD -> R.string.typing_two_thumb_backspace_retype_desc
+                            TwoThumbBackspace.DELETE_CHARACTER -> R.string.typing_two_thumb_backspace_character_desc
+                        },
+                    ),
+                )
+            },
+        )
+    }
+    item(visible = twoThumb, level = SettingLevel.STANDARD) {
+        val custom = settings.watch { it.gesture.twoThumbBackspace } != TwoThumbBackspace.CURRENT
+        ToggleSetting(
+            R.string.typing_two_thumb_backspace_space_first_title,
+            stringResource(
+                if (custom) {
+                    R.string.typing_two_thumb_backspace_space_first_subtitle
+                } else {
+                    R.string.typing_two_thumb_backspace_needs_action
+                },
+            ),
+            settings.watch { it.gesture.twoThumbBackspaceSpaceFirst },
+            info = stringResource(R.string.typing_two_thumb_backspace_space_first_info),
+            enabled = custom,
+            disabledReason = rememberDisabledReason(
+                stringResource(R.string.typing_two_thumb_backspace_needs_action),
+                R.string.typing_two_thumb_backspace_title,
+            ),
+            default = SettingsDefaults.gesture.twoThumbBackspaceSpaceFirst,
+        ) { scope.launch { repository.setGestureTwoThumbBackspaceSpaceFirst(it) } }
+    }
+    item(visible = twoThumb, level = SettingLevel.STANDARD) {
+        val custom = settings.watch { it.gesture.twoThumbBackspace } != TwoThumbBackspace.CURRENT
+        val joinPossible = wordEnd == TwoThumbWordEnd.ALL_UP &&
+            settings.watch { it.gesture.twoThumbRetractWindowMs } > 0
+        val reason = stringResource(
+            if (custom) {
+                R.string.typing_two_thumb_backspace_join_first_needs_retract
+            } else {
+                R.string.typing_two_thumb_backspace_needs_action
+            },
+        )
+        ToggleSetting(
+            R.string.typing_two_thumb_backspace_join_first_title,
+            if (custom && joinPossible) {
+                stringResource(R.string.typing_two_thumb_backspace_join_first_subtitle)
+            } else {
+                reason
+            },
+            settings.watch { it.gesture.twoThumbBackspaceJoinFirst },
+            info = stringResource(R.string.typing_two_thumb_backspace_join_first_info),
+            enabled = custom && joinPossible,
+            disabledReason = rememberDisabledReason(
+                reason,
+                if (custom) R.string.typing_two_thumb_retract_title else R.string.typing_two_thumb_backspace_title,
+            ),
+            default = SettingsDefaults.gesture.twoThumbBackspaceJoinFirst,
+        ) { scope.launch { repository.setGestureTwoThumbBackspaceJoinFirst(it) } }
+    }
+}
+
 private fun SettingsGroupScope.glideVocabularyRows(
     settings: LiveSettings,
     repository: SettingsRepository,
@@ -3945,6 +4438,47 @@ private fun SettingsGroupScope.glideRadiusRows(
             info = stringResource(R.string.typing_glide_near_radius_info),
             default = SettingsDefaults.gesture.nearRadius,
         ) { scope.launch { repository.setGestureNearRadius(it) } }
+    }
+}
+
+/**
+ * Which languages glide with radii of their own (#1136), under the three
+ * global ones they replace. The values are set on each language's page, so
+ * this only says where: one row naming them, which opens Languages, and one
+ * row per language with the radii it decodes with, which opens its page.
+ */
+private fun SettingsGroupScope.glideLanguageRadiusRows(
+    settings: LiveSettings,
+    languageIds: List<String>,
+    onNavigate: (String) -> Unit,
+) {
+    item {
+        val none = stringResource(R.string.typing_glide_language_radii_none)
+        NavRow(
+            R.string.typing_glide_language_radii_title,
+            subtitle = stringResource(R.string.typing_glide_language_radii_subtitle),
+            // The languages themselves are the rows below.
+            value = if (languageIds.isEmpty()) none else null,
+            route = "languages",
+        ) { onNavigate("languages") }
+    }
+    for (id in languageIds) {
+        item(key = "glide_radii_$id") {
+            val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)
+            val radii = settings.watch { it.gesture.glideTolerancesFor(id) }
+            fun shown(radius: Float?) = valueFormat.format("%.1f".format(radius ?: 0f))
+            NavRow(
+                title = LanguageRegistry.byId(id).displayName,
+                subtitle = stringResource(
+                    R.string.typing_glide_language_radii_values,
+                    shown(radii.startRadius),
+                    shown(radii.endRadius),
+                    shown(radii.nearRadius),
+                ),
+                route = "language/$id",
+                onClick = { onNavigate("language/$id") },
+            )
+        }
     }
 }
 

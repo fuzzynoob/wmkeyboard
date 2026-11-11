@@ -7,6 +7,12 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CenterFocusStrong
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CheckCircle
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Flag
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Lan
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CloudDone
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Devices
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Hub
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Inventory2
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CloudSync
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CloudQueue
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Layers
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Mail
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.OpenInNew
@@ -74,6 +80,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FontDownload
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Gesture
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.GridOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.GridView
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwipeVertical
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.History
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Image
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Keyboard
@@ -348,6 +355,7 @@ internal object ChoiceOptionIcons {
         put(ToolbarPlacement.STRIP) { Icons.Outlined.ViewCompact }
         put(ToolbarPlacement.ON_DEMAND_ROW) { Icons.Outlined.SmartButton }
         put(ToolbarPlacement.ALWAYS_ROW) { Icons.Outlined.TableRows }
+        put(ToolbarPlacement.ON_SWIPE) { Icons.Outlined.SwipeVertical }
 
         put(ToolboxLayout.ICONS) { Icons.Outlined.Apps }
         put(ToolboxLayout.PILLS) { Icons.Outlined.ViewAgenda }
@@ -465,6 +473,7 @@ internal object ChoiceOptionIcons {
         // ---- Modes ----
         put(ManualModeDuration.UNTIL_APP_CHANGES) { Icons.Outlined.Apps }
         put(ManualModeDuration.UNTIL_CHANGED) { Icons.Outlined.PushPin }
+        put(ManualModeDuration.FOR_EACH_APP) { Icons.Outlined.Apps }
 
         // ---- Privacy and clipboard ----
         put(CopiedCodeChip.OFF) { Icons.Outlined.Block }
@@ -508,6 +517,15 @@ internal object ChoiceOptionIcons {
         put(BackupDestination.GIT) { Icons.Outlined.AccountTree }
         put(BackupDestination.IMAP) { Icons.Outlined.Mail }
         put(BackupDestination.NEARBY) { Icons.Outlined.Phonelink }
+        put(BackupDestination.PROFILE) { Icons.Outlined.Shield }
+        put(BackupDestination.BOX) { Icons.Outlined.CloudQueue }
+        put(BackupDestination.PCLOUD) { Icons.Outlined.CloudSync }
+        put(BackupDestination.SYNOLOGY) { Icons.Outlined.Inventory2 }
+        put(BackupDestination.QNAP) { Icons.Outlined.Hub }
+        put(BackupDestination.NFS) { Icons.Outlined.Devices }
+        put(BackupDestination.MEGA) { Icons.Outlined.Security }
+        put(BackupDestination.ICLOUD) { Icons.Outlined.CloudDone }
+        put(BackupDestination.PROTON) { Icons.Outlined.Lock }
 
         put(MeteredPolicy.ALLOW) { Icons.Outlined.AllInclusive }
         put(MeteredPolicy.ASK) { Icons.Outlined.HelpOutline }
@@ -530,6 +548,8 @@ internal object ChoiceOptionIcons {
         put(AiProvider.XAI) { Icons.Outlined.Cloud }
         put(AiProvider.DEEPSEEK) { Icons.Outlined.Cloud }
         put(AiProvider.BRAVE) { Icons.Outlined.Cloud }
+        // The one cloud service that cannot read the request.
+        put(AiProvider.PRIVATEMODE) { Icons.Outlined.Lock }
         put(AiProvider.OPENAI_COMPATIBLE) { Icons.Outlined.Dns }
         put(AiProvider.OLLAMA) { Icons.Outlined.Computer }
         put(AiProvider.LM_STUDIO) { Icons.Outlined.Computer }
@@ -586,6 +606,8 @@ internal object ChoiceOptionIcons {
         put(ComposerType.STROKE) { Icons.Outlined.Draw }
         put(ComposerType.VNI) { Icons.Outlined.Dialpad }
         put(ComposerType.T9_PINYIN) { Icons.Outlined.Dialpad }
+        put(ComposerType.T9_ZHUYIN) { Icons.Outlined.Dialpad }
+        put(ComposerType.VEGA) { Icons.Outlined.Dialpad }
         for (type in ComposerType.entries) putIfAbsent(type) { Icons.Outlined.Keyboard }
 
         put(HanVariant.HanRegion.GENERIC) { Icons.Outlined.Public }

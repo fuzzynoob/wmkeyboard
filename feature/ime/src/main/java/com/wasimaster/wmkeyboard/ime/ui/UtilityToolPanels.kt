@@ -2,9 +2,13 @@ package com.wasimaster.wmkeyboard.ime.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.waitForUpOrCancellation
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -14,13 +18,17 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.annotation.StringRes
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.itemsIndexed
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
@@ -28,7 +36,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Backspace
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapHoriz
 import androidx.compose.material3.Icon
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -36,9 +46,21 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
+import kotlin.math.roundToInt
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.produceState
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.Stable
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -46,6 +68,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.input.pointer.PointerInputChange
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onPlaced
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -57,6 +88,7 @@ import com.wasimaster.wmkeyboard.core.tools.CompoundUnits
 import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
 import com.wasimaster.wmkeyboard.core.tools.CurrencyClient
 import com.wasimaster.wmkeyboard.core.tools.SymbolCatalog
+import com.wasimaster.wmkeyboard.core.tools.UnicodeSearch
 import androidx.compose.ui.graphics.Color
 import com.wasimaster.wmkeyboard.core.tools.ToolPrefill
 import com.wasimaster.wmkeyboard.core.tools.UnitConvert
@@ -181,12 +213,24 @@ internal const val SYMBOL_RECENTS_ID = "Recents"
 private fun symbolCategoryIds(hasRecents: Boolean): List<String> = buildList {
     if (hasRecents) add(SYMBOL_RECENTS_ID)
     SymbolCatalog.categories.forEach { add(it.id) }
+    add(SYMBOL_UNICODE_ID)
+}
+
+/** The category that is every character there is (#1038), browsed by block. */
+internal const val SYMBOL_UNICODE_ID = "Unicode"
+
+/** [id]'s symbols: the user's own where they gave some, else the built-in ones. */
+private fun symbolsOf(state: KeyboardUiState, id: String): List<String> {
+    if (id == SYMBOL_RECENTS_ID) return state.settings.symbolRecents
+    state.settings.symbolOverrides[id]?.let { own -> return own.split(' ').filter(String::isNotEmpty) }
+    return SymbolCatalog.categories.firstOrNull { it.id == id }?.symbols.orEmpty()
 }
 
 /** The chip label for a category id. */
 @Composable
 private fun symbolCategoryName(id: String): String {
     if (id == SYMBOL_RECENTS_ID) return stringResource(R.string.ime_symbols_recents_label)
+    if (id == SYMBOL_UNICODE_ID) return stringResource(R.string.ime_symbols_unicode_label)
     val category = SymbolCatalog.categories.firstOrNull { it.id == id } ?: return id
     return stringResource(category.nameRes)
 }
@@ -232,11 +276,10 @@ internal fun SymbolsPanel(
     onSymbol: (String) -> Unit,
     selectedCategory: String,
     onSelectCategory: (String) -> Unit = {},
+    onUnicodeSearch: () -> Unit = {},
 ) {
-    val kb = LocalKbTheme.current
     val recents = state.settings.symbolRecents
-    val symbols = if (selectedCategory == SYMBOL_RECENTS_ID) recents
-    else SymbolCatalog.categories.firstOrNull { it.id == selectedCategory }?.symbols.orEmpty()
+    val symbols = symbolsOf(state, selectedCategory)
 
     val gridState = rememberLazyGridState()
     // The grid is Adaptive, so its width in cells is only knowable after layout.
@@ -249,7 +292,7 @@ internal fun SymbolsPanel(
         panel = PanelMode.SYMBOLS,
         count = symbols.size,
         columns = columns,
-        onActivate = { index -> symbols.getOrNull(index)?.let(onSymbol) },
+        onActivate = { index -> symbols.getOrNull(index)?.let { onSymbol(SymbolCatalog.face(it)) } },
     )
     // Tab reaches the category chips, which are drawn in the panel header by
     // [SymbolCategoryChips] — the ids are recomputed here rather than hoisted,
@@ -265,28 +308,331 @@ internal fun SymbolsPanel(
     val focused = state.focusedIndex()
     ScrollFocusIntoView(focused) { gridState.animateScrollToItem(it) }
 
+    // A swipe sideways is the next category, and the chips follow it (#1038).
+    val pager = rememberPagerState(
+        initialPage = categoryIds.indexOf(selectedCategory).coerceAtLeast(0),
+        pageCount = { categoryIds.size },
+    )
+    LaunchedEffect(selectedCategory) {
+        val page = categoryIds.indexOf(selectedCategory)
+        if (page >= 0 && page != pager.currentPage) pager.animateScrollToPage(page)
+    }
+    LaunchedEffect(pager, categoryIds) {
+        snapshotFlow { pager.settledPage }.collect { page ->
+            categoryIds.getOrNull(page)?.let { if (it != selectedCategory) onSelectCategory(it) }
+        }
+    }
+    val hold = remember { SymbolHold() }
+    Box(Modifier.fillMaxSize().onPlaced { hold.panel = it }) {
+        HorizontalPager(state = pager, modifier = Modifier.fillMaxSize()) { page ->
+            val id = categoryIds[page]
+            if (id == SYMBOL_UNICODE_ID) {
+                UnicodeBrowser(state.unicodeQuery, hold, onSymbol, onUnicodeSearch)
+                return@HorizontalPager
+            }
+            val shown = id == selectedCategory
+            val pageSymbols = symbolsOf(state, id)
+            LazyVerticalGrid(
+                state = if (shown) gridState else rememberLazyGridState(),
+                columns = GridCells.Adaptive(minSize = 44.dp),
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+            ) {
+                itemsIndexed(pageSymbols, key = { _, symbol -> symbol }) { index, symbol ->
+                    SymbolCell(symbol, shown && index == focused, hold, onSymbol)
+                }
+            }
+        }
+        SymbolHoldRow(hold)
+    }
+}
+
+/** The width and height of one choice in [SymbolHoldRow]. */
+private val SymbolHoldCell: Dp = 44.dp
+
+/**
+ * The symbol being held, and what it offers. [options] start with the symbol
+ * itself and read away from where it sits: rightward, or leftward near the
+ * panel's right edge, so the finger starts on the symbol wherever the row is.
+ * Empty between holds.
+ */
+@Stable
+private class SymbolHold {
+    var options by mutableStateOf(emptyList<String>())
+    var highlighted by mutableIntStateOf(0)
+    var leftward by mutableStateOf(false)
+    var offset by mutableStateOf(IntOffset.Zero)
+
+    /** The held character's code and name, on the Unicode tab. */
+    var caption by mutableStateOf<String?>(null)
+
+    /** The panel, which [offset] is measured from. Written at layout, read at a hold. */
+    var panel: LayoutCoordinates? = null
+
+    /** Opens over [cell], or under it where the panel has no room above. */
+    fun open(token: String, cell: LayoutCoordinates, cellPx: Int) {
+        val panel = panel ?: return
+        val shown = listOf(SymbolCatalog.face(token)) + SymbolCatalog.alternates(token)
+        val at = panel.localPositionOf(cell, Offset.Zero)
+        val rowWidth = shown.size * cellPx
+        val left = at.x.toInt() - (cellPx - cell.size.width) / 2
+        leftward = left + rowWidth > panel.size.width
+        offset = IntOffset(
+            (if (leftward) left + cellPx - rowWidth else left).coerceAtLeast(0),
+            (at.y.toInt() - cellPx).takeIf { it >= 0 } ?: (at.y.toInt() + cell.size.height),
+        )
+        highlighted = 0
+        options = shown
+    }
+
+    /** The choice under a finger [movedPx] sideways of where the hold began. */
+    fun moveTo(movedPx: Float, cellPx: Int) {
+        val steps = ((if (leftward) -movedPx else movedPx) / cellPx).roundToInt()
+        highlighted = steps.coerceIn(0, options.lastIndex.coerceAtLeast(0))
+    }
+
+    fun close() {
+        options = emptyList()
+        caption = null
+    }
+}
+
+/**
+ * One symbol: a tap types it, and holding it opens [SymbolHoldRow] to slide
+ * along (#1038). A plain flick would fight the grid, which scrolls that way and
+ * pages sideways, so the row waits for the finger to stop.
+ */
+@Composable
+private fun SymbolCell(
+    token: String,
+    focused: Boolean,
+    hold: SymbolHold,
+    onSymbol: (String) -> Unit,
+    /** Whether holding it also says which character it is. */
+    named: Boolean = false,
+) {
+    val kb = LocalKbTheme.current
+    val face = SymbolCatalog.face(token)
+    val type by rememberUpdatedState(onSymbol)
+    val placed = remember { arrayOfNulls<LayoutCoordinates>(1) }
+    Box(
+        modifier = Modifier
+            .height(42.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .focusRing(focused)
+            .onPlaced { placed[0] = it }
+            .semantics {
+                onClick {
+                    type(face)
+                    true
+                }
+            }
+            .pointerInput(token) {
+                val cellPx = SymbolHoldCell.roundToPx()
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    var finished = false
+                    var up: PointerInputChange? = null
+                    withTimeoutOrNull(viewConfiguration.longPressTimeoutMillis) {
+                        up = waitForUpOrCancellation()
+                        finished = true
+                    }
+                    if (finished) {
+                        // Null when the grid or the pager took the finger.
+                        up?.let {
+                            it.consume()
+                            type(face)
+                        }
+                        return@awaitEachGesture
+                    }
+                    val cell = placed[0] ?: return@awaitEachGesture
+                    hold.open(token, cell, cellPx)
+                    if (named) hold.caption = UnicodeSearch.caption(face.codePointAt(0))
+                    while (true) {
+                        val change = awaitPointerEvent().changes.firstOrNull { it.id == down.id } ?: break
+                        change.consume()
+                        if (!change.pressed) {
+                            hold.options.getOrNull(hold.highlighted)?.let(type)
+                            break
+                        }
+                        hold.moveTo(change.position.x - down.position.x, cellPx)
+                    }
+                    hold.close()
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        val label = SymbolCatalog.label(face)
+        Text(
+            label,
+            color = kb.keyText,
+            fontSize = if (label.length > 2) 11.sp else 20.sp,
+        )
+    }
+}
+
+/** What the held symbol offers, the one the finger is on picked out. */
+@Composable
+private fun BoxScope.SymbolHoldRow(hold: SymbolHold) {
+    val options = hold.options
+    if (options.isEmpty()) return
+    val kb = LocalKbTheme.current
+    hold.caption?.let { caption ->
+        Text(
+            caption,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .fillMaxWidth()
+                .background(kb.popup)
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            color = kb.popupText,
+            fontSize = 12.sp,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+    Row(
+        modifier = Modifier
+            .offset { hold.offset }
+            .clip(RoundedCornerShape(10.dp))
+            .background(kb.popup),
+    ) {
+        for (i in options.indices) {
+            val index = if (hold.leftward) options.lastIndex - i else i
+            val picked = index == hold.highlighted
+            Box(
+                modifier = Modifier
+                    .size(SymbolHoldCell)
+                    .background(if (picked) kb.popupSelected else Color.Transparent),
+                contentAlignment = Alignment.Center,
+            ) {
+                val label = SymbolCatalog.label(options[index])
+                Text(
+                    label,
+                    color = if (picked) kb.popupSelectedText else kb.popupText,
+                    fontSize = if (label.length > 2) 11.sp else 20.sp,
+                )
+            }
+        }
+    }
+}
+
+/** One Unicode block in [UnicodeBrowser]: its name, and where it starts in the list of characters. */
+private class UnicodeBlockStart(val name: String, val index: Int)
+
+private class UnicodeTable(val codePoints: IntArray, val blocks: List<UnicodeBlockStart>)
+
+/** Every character this phone's Java knows, in order, with no controls, surrogates or private use. */
+private fun unicodeTable(): UnicodeTable {
+    val points = ArrayList<Int>(160_000)
+    val blocks = ArrayList<UnicodeBlockStart>(340)
+    var block: Character.UnicodeBlock? = null
+    for (cp in 0x20..0x3FFFF) {
+        if (!Character.isDefined(cp)) continue
+        when (Character.getType(cp).toByte()) {
+            Character.CONTROL, Character.SURROGATE, Character.PRIVATE_USE -> continue
+        }
+        val here = Character.UnicodeBlock.of(cp)
+        if (here != null && here != block) {
+            block = here
+            val name = here.toString().split('_').joinToString(" ") { it.lowercase().replaceFirstChar(Char::uppercase) }
+            blocks.add(UnicodeBlockStart(name, points.size))
+        }
+        points.add(cp)
+    }
+    return UnicodeTable(points.toIntArray(), blocks)
+}
+
+/**
+ * The Unicode tab: a chip per block over a grid of everything, loaded off the
+ * main thread, or what [query] finds while the search is open.
+ */
+@Composable
+private fun UnicodeBrowser(query: String?, hold: SymbolHold, onSymbol: (String) -> Unit, onSearch: () -> Unit) {
+    val table by produceState<UnicodeTable?>(null) { value = withContext(Dispatchers.Default) { unicodeTable() } }
+    val loaded = table ?: return
+    if (query != null) {
+        UnicodeResults(query, loaded, hold, onSymbol)
+        return
+    }
+    val grid = rememberLazyGridState()
+    val scope = rememberCoroutineScope()
+    Column(Modifier.fillMaxSize()) {
+        LazyRow(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            item { ToolPanelChip(stringResource(R.string.ime_symbols_unicode_search), selected = false, onClick = onSearch) }
+            items(loaded.blocks.size) { i ->
+                val block = loaded.blocks[i]
+                ToolPanelChip(block.name, selected = false) { scope.launch { grid.scrollToItem(block.index) } }
+            }
+        }
+        LazyVerticalGrid(
+            state = grid,
+            columns = GridCells.Adaptive(minSize = 44.dp),
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
+        ) {
+            items(loaded.codePoints.size) { i ->
+                SymbolCell(String(Character.toChars(loaded.codePoints[i])), false, hold, onSymbol, named = true)
+            }
+        }
+    }
+}
+
+/** What the search found. Reads the names off the main thread, a moment after the last key. */
+@Composable
+private fun UnicodeResults(query: String, table: UnicodeTable, hold: SymbolHold, onSymbol: (String) -> Unit) {
+    val found by produceState(emptyList<Int>(), query) {
+        delay(UNICODE_SEARCH_DELAY_MS)
+        value = withContext(Dispatchers.Default) { UnicodeSearch.search(query, table.codePoints) { ensureActive() } }
+    }
     LazyVerticalGrid(
-        state = gridState,
         columns = GridCells.Adaptive(minSize = 44.dp),
         modifier = Modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp),
     ) {
-        itemsIndexed(symbols, key = { _, symbol -> symbol }) { index, symbol ->
-            Box(
-                modifier = Modifier
-                    .height(42.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .focusRing(index == focused)
-                    .clickable { onSymbol(symbol) },
-                contentAlignment = Alignment.Center,
-            ) {
-                val label = SymbolCatalog.label(symbol)
-                Text(
-                    label,
-                    color = kb.keyText,
-                    fontSize = if (label.length > 2) 11.sp else 20.sp,
-                )
-            }
+        items(found.size) { i ->
+            SymbolCell(String(Character.toChars(found[i])), false, hold, onSymbol, named = true)
+        }
+    }
+}
+
+private const val UNICODE_SEARCH_DELAY_MS = 150L
+
+/** The Unicode search's box, in the panel's header where the category chips were. */
+@Composable
+internal fun RowScope.UnicodeSearchBar(state: KeyboardUiState, onClose: () -> Unit) {
+    val kb = LocalKbTheme.current
+    Row(
+        modifier = Modifier
+            .weight(1f)
+            .padding(horizontal = 6.dp)
+            .height(32.dp)
+            .clip(RoundedCornerShape(16.dp))
+            .background(kb.modifierKey)
+            .padding(start = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Icon(Icons.Outlined.Search, contentDescription = null, modifier = Modifier.size(16.dp), tint = kb.toolbarIcon)
+        Spacer(Modifier.width(8.dp))
+        SearchQueryText(
+            query = state.unicodeQuery.orEmpty(),
+            placeholder = stringResource(R.string.ime_symbols_unicode_search_hint),
+            active = true,
+            textColor = kb.modifierKeyText,
+            placeholderColor = kb.toolbarIcon,
+            fontSize = 13.sp,
+            modifier = Modifier.weight(1f),
+        )
+        IconButton(onClick = onClose, modifier = Modifier.size(30.dp)) {
+            Icon(
+                Icons.Outlined.Close,
+                contentDescription = stringResource(R.string.ime_symbols_unicode_search_close),
+                modifier = Modifier.size(16.dp),
+                tint = kb.toolbarIcon,
+            )
         }
     }
 }

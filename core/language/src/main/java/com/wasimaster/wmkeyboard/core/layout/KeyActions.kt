@@ -485,6 +485,13 @@ sealed interface KeyAction {
     @Serializable @SerialName("edit") data class Edit(val op: TextEditAction) : KeyAction
 
     /**
+     * Several text-editing operations run in turn by one press, flick or hold
+     * (#985): start of the line then page up, or up then right for a move no
+     * single arrow makes. Each runs as its own [Edit] would.
+     */
+    @Serializable @SerialName("edit_sequence") data class EditSequence(val ops: List<TextEditAction>) : KeyAction
+
+    /**
      * An action written by a build newer than this one. Decoding keeps the tag
      * so the failure is reportable ("2 keys use an action this version does
      * not know"), and [LayoutSpec.repair] drops the key so the row re-flows
@@ -605,6 +612,7 @@ fun KeyAction.fallbackLabel(): String = when (this) {
     // (see the ime layer's text-edit key faces); the glyph here is what a
     // hand-written alternate or an unlabelled JSON key falls back to.
     is KeyAction.Edit -> op.fallbackGlyph()
+    is KeyAction.EditSequence -> ops.firstOrNull()?.fallbackGlyph() ?: "?"
     // Reached only by a layout that repair has not been through yet.
     is KeyAction.Unknown -> "?"
     // Text keys have nothing to fall back to: a blank one is a blank key, which
@@ -689,6 +697,24 @@ fun KeyAction.deletesBackward(): Boolean =
 /** The mirror of [deletesBackward]: ⌦, on the typing grid or on a pad. */
 fun KeyAction.deletesForward(): Boolean =
     this == KeyAction.ForwardDelete || (this as? KeyAction.Edit)?.op == TextEditAction.FORWARD_DELETE
+
+/**
+ * Whether this action moves the caret a step that a second run moves again:
+ * a text editing move that repeats, a cursor tool the toolbar repeats on a
+ * hold ([com.wasimaster.wmkeyboard.core.settings.HoldRepeatCursorTools]), or a
+ * raw arrow or page key, with or without Ctrl (#865). A flick arm can be any
+ * of the three, and the toolbar's word left kept going under a held finger
+ * while the same move on an arm ran once, on the lift.
+ */
+fun KeyAction.repeatsAsCaretMove(): Boolean = when (this) {
+    is KeyAction.Edit -> op.repeats && !deletesBackward() && !deletesForward()
+    is KeyAction.Tool -> tool in com.wasimaster.wmkeyboard.core.settings.HoldRepeatCursorTools
+    is KeyAction.SendKey -> keyCode in RepeatingCaretKeyCodes
+    else -> false
+}
+
+/** DPAD up, down, left and right, page up and page down: `android.view.KeyEvent`'s codes. */
+private val RepeatingCaretKeyCodes = setOf(19, 20, 21, 22, 92, 93)
 
 /**
  * Whether a press and hold on this key is already spoken for by something other
@@ -829,6 +855,8 @@ private fun TextEditAction.fallbackGlyph(): String = when (this) {
     TextEditAction.NO_SPACE_NEXT -> "⁀›"
     TextEditAction.DELETE_WORD -> "^⌫"
     TextEditAction.DELETE_WORD_FORWARD -> "^⌦"
+    TextEditAction.DELETE_LINE -> "↑⌫"
+    TextEditAction.DELETE_LINE_FORWARD -> "↓⌦"
 }
 
 /**

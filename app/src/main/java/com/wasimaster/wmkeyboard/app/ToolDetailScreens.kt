@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
@@ -29,12 +30,20 @@ import com.wasimaster.wmkeyboard.core.settings.SearchResultTap
 import com.wasimaster.wmkeyboard.core.settings.LauncherOpenMode
 import com.wasimaster.wmkeyboard.core.settings.MAX_SEARCH_RESULTS
 import com.wasimaster.wmkeyboard.ime.AppLaunchModes
+import com.wasimaster.wmkeyboard.core.accessibility.SystemButtonsService
+import com.wasimaster.wmkeyboard.core.accessibility.SplitScreenHelperService
 import com.wasimaster.wmkeyboard.core.endpoints.ServiceEndpoint
 import com.wasimaster.wmkeyboard.core.media.hasNotificationAccess
 import com.wasimaster.wmkeyboard.core.notify.DownloadKeys
+import com.wasimaster.wmkeyboard.core.notify.DownloadNotifications
 import com.wasimaster.wmkeyboard.core.prediction.PhoneticSchemes
 import com.wasimaster.wmkeyboard.core.settings.AppSortOrder
+import com.wasimaster.wmkeyboard.core.settings.LauncherFloatFallback
 import com.wasimaster.wmkeyboard.core.settings.LauncherIconShape
+import com.wasimaster.wmkeyboard.core.shell.ShellAccess
+import com.wasimaster.wmkeyboard.app.launcher.LauncherFreeformRow
+import com.wasimaster.wmkeyboard.app.launcher.LauncherRouteCheckRow
+import com.wasimaster.wmkeyboard.app.launcher.LauncherShizukuRow
 import com.wasimaster.wmkeyboard.core.settings.PhotoSearchEngine
 import com.wasimaster.wmkeyboard.core.settings.PhotoSearchTarget
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
@@ -48,6 +57,7 @@ import com.wasimaster.wmkeyboard.core.tools.CryptoCatalog
 import com.wasimaster.wmkeyboard.core.tools.TextRepeat
 import com.wasimaster.wmkeyboard.core.tools.CurrencyLabel
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CheckCircle
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Download
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Lock
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Settings
@@ -93,12 +103,15 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import android.os.Build
+import com.wasimaster.wmkeyboard.core.handwriting.HandwritingDownloadPart
+import com.wasimaster.wmkeyboard.core.modules.ModuleState
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingDownloadProgress
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModelSizes
 import com.wasimaster.wmkeyboard.core.handwriting.HandwritingModels
 import com.wasimaster.wmkeyboard.core.handwriting.InkPackImports
 import com.wasimaster.wmkeyboard.core.icons.IconSlots
 import com.wasimaster.wmkeyboard.core.util.runCancellable
+import com.wasimaster.wmkeyboard.ime.KeyboardAutomation
 import com.wasimaster.wmkeyboard.ime.WMKeyboardService
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
 import com.wasimaster.wmkeyboard.core.settings.GifContentFilter
@@ -107,6 +120,8 @@ import com.wasimaster.wmkeyboard.core.grammar.LanguageToolChecker
 import com.wasimaster.wmkeyboard.core.settings.GrammarDialect
 import com.wasimaster.wmkeyboard.core.settings.GrammarLintKind
 import com.wasimaster.wmkeyboard.core.settings.MediaGridSpacingRange
+import com.wasimaster.wmkeyboard.core.settings.HandwritingPenWidthRange
+import com.wasimaster.wmkeyboard.core.settings.InkFade
 import com.wasimaster.wmkeyboard.core.settings.MediaPanelExtraHeightRange
 import com.wasimaster.wmkeyboard.core.settings.MediaPerRowRange
 import com.wasimaster.wmkeyboard.core.settings.MediaSendMode
@@ -151,6 +166,7 @@ import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.settings.LauncherToolSettings
+import com.wasimaster.wmkeyboard.core.settings.floats
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.ToolBlocker
 import com.wasimaster.wmkeyboard.core.settings.toolBlocker
@@ -226,6 +242,7 @@ private fun ToolHoldRow(
         value = when (resolved) {
             ToolHoldAction.OpenSettings -> stringResource(R.string.tooldetail_hold_settings_value)
             ToolHoldAction.None -> stringResource(R.string.tooldetail_hold_nothing_value)
+            ToolHoldAction.Floating -> stringResource(R.string.tooldetail_hold_floating_title)
             is ToolHoldAction.Run -> stringResource(toolTitle(resolved.tool))
         },
     ) { editing = true }
@@ -251,6 +268,13 @@ private fun ToolHoldRow(
             onPickSettings = {
                 editing = false
                 scope.launch { repository.setToolHoldAction(tool, ToolHoldAction.OpenSettings) }
+            },
+            // The tool itself in a box over the app (#1155), for the tools that have one.
+            floatingSubtitle = if (tool.floats) stringResource(R.string.tooldetail_hold_floating_subtitle) else null,
+            floatingSelected = bound == ToolHoldAction.Floating,
+            onPickFloating = {
+                editing = false
+                scope.launch { repository.setToolHoldAction(tool, ToolHoldAction.Floating) }
             },
             onDismiss = { editing = false },
             onPick = { picked ->
@@ -296,6 +320,10 @@ internal fun ToolPickerDialog(
     settingsSubtitle: String? = null,
     settingsSelected: Boolean = false,
     onPickSettings: () -> Unit = {},
+    /** A "In a floating box" row (#1155), for the hold picker of a tool that has one; null for none. */
+    floatingSubtitle: String? = null,
+    floatingSelected: Boolean = false,
+    onPickFloating: () -> Unit = {},
     /** Which remembered folds and scroll the page opens with; see [ActionPickerPage]. */
     memoryKey: String = "tools",
 ) {
@@ -308,7 +336,7 @@ internal fun ToolPickerDialog(
                     key = "none",
                     title = noneTitle ?: stringResource(CommonR.string.common_none),
                     subtitle = noneSubtitle,
-                    selected = current == null && !nothingSelected && !settingsSelected,
+                    selected = current == null && !nothingSelected && !settingsSelected && !floatingSelected,
                     onPick = { onPick(null) },
                 ),
             )
@@ -332,6 +360,17 @@ internal fun ToolPickerDialog(
                     subtitle = settingsSubtitle,
                     selected = settingsSelected,
                     onPick = onPickSettings,
+                ),
+            )
+        }
+        if (floatingSubtitle != null) {
+            add(
+                PickerRow(
+                    key = "floating",
+                    title = stringResource(R.string.tooldetail_hold_floating_title),
+                    subtitle = floatingSubtitle,
+                    selected = floatingSelected,
+                    onPick = onPickFloating,
                 ),
             )
         }
@@ -428,6 +467,9 @@ private fun WordStepsGroup(repository: SettingsRepository, settings: LiveSetting
     }
 }
 
+/** The tools whose Add to home screen opens their screen in this app, not the keyboard. */
+private val ScreenShortcutTools = setOf(ToolbarTool.CLOCK, ToolbarTool.NOTES, ToolbarTool.TODO)
+
 @Composable
 internal fun ToolDetailSettings(
     repository: SettingsRepository,
@@ -485,6 +527,12 @@ internal fun ToolDetailSettings(
                 default = usable && tool in SettingsDefaults.enabledTools,
             ) { scope.launch { repository.setToolEnabled(tool, it) } }
         }
+        // Any tool with a panel can go on the home screen (#970). The clock,
+        // notes and to-do list pin their own screens instead, further down.
+        item(
+            visible = KeyboardAutomation.panelTool(tool.name) != null && tool !in ScreenShortcutTools,
+            level = SettingLevel.STANDARD,
+        ) { ToolHomeScreenShortcutRow(tool) }
     }
     when (tool) {
         ToolbarTool.KDE_CONNECT ->
@@ -581,7 +629,11 @@ internal fun ToolDetailSettings(
         }
         ToolbarTool.APP_LAUNCHER -> {
             val launcherContext = LocalContext.current
-            val splitSupported = remember { AppLaunchModes.splitSupported(launcherContext) }
+            // Re-read on resume: turning the helper on in Settings ›
+            // Accessibility is what brings split screen in below Android 12L.
+            val splitHelperOn = rememberGrantState { SplitScreenHelperService.isEnabled(it) }
+            val askSplitHelper = rememberDisclosedSpecialAccess(SpecialAccess.SPLIT_SCREEN)
+            val splitSupported = remember(splitHelperOn) { AppLaunchModes.splitSupported(launcherContext) }
             // What decides which rows the group holds; each row reads its own value.
             val recentsOn = settings.watch { it.launcher.recentsEnabled }
             val drilldown = settings.watch { it.launcher.activityDrilldown }
@@ -618,6 +670,72 @@ internal fun ToolDetailSettings(
                         selected = if (openModes.any { it.first == openMode }) openMode else LauncherOpenMode.NORMAL,
                         default = SettingsDefaults.launcher.openMode,
                     ) { scope.launch { repository.setLauncherOpenMode(it) } }
+                }
+                item(
+                    visible = ChannelFeatures.SPLIT_SCREEN_HELPER && AppLaunchModes.splitHelperApplies,
+                    level = SettingLevel.ADVANCED,
+                ) {
+                    NavRow(
+                        R.string.tooldetail_launcher_split_helper_title,
+                        subtitle = stringResource(
+                            if (splitHelperOn) {
+                                R.string.tooldetail_launcher_split_helper_on_subtitle
+                            } else {
+                                R.string.tooldetail_launcher_split_helper_off_subtitle
+                            },
+                        ),
+                    ) { askSplitHelper() }
+                }
+                item(level = SettingLevel.STANDARD) {
+                    LauncherRouteCheckRow()
+                }
+                item(level = SettingLevel.ADVANCED) {
+                    val fallback = settings.watch { it.launcher.floatFallback }
+                    val askOverlay = rememberDisclosedSpecialAccess(SpecialAccess.OVERLAY)
+                    val overlayOn = rememberGrantState { android.provider.Settings.canDrawOverlays(it) }
+                    val shellOn by ShellAccess.shizukuGranted.collectAsState()
+                    ChoiceSetting(
+                        R.string.tooldetail_launcher_float_fallback_title,
+                        subtitle = stringResource(
+                            when {
+                                fallback != LauncherFloatFallback.EMULATED ->
+                                    R.string.tooldetail_launcher_float_fallback_subtitle
+                                !shellOn -> R.string.tooldetail_launcher_float_fallback_needs_shizuku
+                                !overlayOn -> R.string.tooldetail_launcher_float_fallback_needs_overlay
+                                else -> R.string.tooldetail_launcher_float_fallback_subtitle
+                            },
+                        ),
+                        info = stringResource(R.string.tooldetail_launcher_float_fallback_info),
+                        options = listOf(
+                            LauncherFloatFallback.EXPLAIN to
+                                stringResource(R.string.tooldetail_launcher_float_fallback_explain_label),
+                            LauncherFloatFallback.EMULATED to
+                                stringResource(R.string.tooldetail_launcher_float_fallback_emulated_label),
+                        ),
+                        selected = fallback,
+                        default = SettingsDefaults.launcher.floatFallback,
+                    ) {
+                        scope.launch { repository.setLauncherFloatFallback(it) }
+                        if (it == LauncherFloatFallback.EMULATED && !overlayOn) askOverlay()
+                    }
+                }
+                item(level = SettingLevel.ADVANCED) {
+                    LauncherShizukuRow()
+                }
+                item(visible = ShellAccess.suPresent, level = SettingLevel.ADVANCED) {
+                    ToggleSetting(
+                        R.string.tooldetail_launcher_root_title,
+                        stringResource(R.string.tooldetail_launcher_root_subtitle),
+                        settings.watch { it.launcher.useRoot },
+                        info = stringResource(R.string.tooldetail_launcher_root_info),
+                        default = SettingsDefaults.launcher.useRoot,
+                    ) {
+                        ShellAccess.rootAllowed = it
+                        scope.launch { repository.setLauncherUseRoot(it) }
+                    }
+                }
+                item(level = SettingLevel.ADVANCED) {
+                    LauncherFreeformRow()
                 }
                 item(visible = splitSupported, level = SettingLevel.ADVANCED) {
                     val count = settings.watch { it.launcher.combos.size }
@@ -763,6 +881,24 @@ internal fun ToolDetailSettings(
                         onClick = { scope.launch { repository.clearLauncherHidden() } },
                     )
                 }
+                item {
+                    // Apps on the toolbar (#1159): put there and taken off from
+                    // each app's hold menu in the panel, so this row only says
+                    // how many there are and takes them all off at once.
+                    val onBar = settings.watch { it.launcher.toolbarApps.size }
+                    WmRow(
+                        title = stringResource(R.string.tooldetail_launcher_toolbar_title),
+                        subtitle = if (onBar == 0) {
+                            stringResource(R.string.tooldetail_launcher_toolbar_none_subtitle)
+                        } else {
+                            pluralStringResource(R.plurals.tooldetail_launcher_toolbar_count, onBar, onBar)
+                        },
+                        icon = SettingsRowIcons[R.string.tooldetail_launcher_toolbar_title],
+                        enabled = onBar > 0,
+                        highlightKey = R.string.tooldetail_launcher_toolbar_title,
+                        onClick = { scope.launch { repository.clearLauncherToolbarApps() } },
+                    )
+                }
                 item(level = SettingLevel.STANDARD) {
                     ToggleSetting(
                         R.string.tooldetail_launcher_work_title,
@@ -771,6 +907,14 @@ internal fun ToolDetailSettings(
                         info = stringResource(R.string.tooldetail_launcher_work_info),
                         default = SettingsDefaults.launcher.showWorkApps,
                     ) { scope.launch { repository.setLauncherShowWorkApps(it) } }
+                }
+                item(level = SettingLevel.STANDARD) {
+                    ToggleSetting(
+                        R.string.tooldetail_launcher_sole_title,
+                        stringResource(R.string.tooldetail_launcher_sole_subtitle),
+                        settings.watch { it.launcher.openSoleMatch },
+                        default = SettingsDefaults.launcher.openSoleMatch,
+                    ) { scope.launch { repository.setLauncherOpenSoleMatch(it) } }
                 }
                 item(level = SettingLevel.STANDARD) {
                     // Folders are made, filled and renamed in the panel itself;
@@ -824,7 +968,8 @@ internal fun ToolDetailSettings(
                     R.string.expander_grid_columns_title,
                     subtitle = stringResource(R.string.expander_grid_columns_subtitle),
                     value = settings.watch { it.suggestionStrip.snippetGridColumns }.toFloat(),
-                    range = 1f..4f,
+                    range = 1f..6f,
+                    steps = wholeSteps(1f..6f),
                     display = { it.roundToInt().toString() },
                     info = stringResource(R.string.expander_grid_columns_info),
                     default = SettingsDefaults.suggestionStrip.snippetGridColumns.toFloat(),
@@ -1286,6 +1431,29 @@ internal fun ToolDetailSettings(
                     ) { scope.launch { repository.setCameraShutterSound(it) } }
                 }
             }
+            // Issue #1156: the scanners as modes of one camera.
+            SettingsGroup(
+                stringResource(R.string.tooldetail_camera_modes_group),
+                info = stringResource(R.string.tooldetail_camera_modes_info),
+                level = SettingLevel.STANDARD,
+            ) {
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_camera_mode_rail_title,
+                        stringResource(R.string.tooldetail_camera_mode_rail_subtitle),
+                        settings.watch { it.camera.modeRail },
+                        default = SettingsDefaults.camera.modeRail,
+                    ) { scope.launch { repository.setCameraModeRail(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_camera_spot_codes_title,
+                        stringResource(R.string.tooldetail_camera_spot_codes_subtitle),
+                        settings.watch { it.camera.spotCodes },
+                        default = SettingsDefaults.camera.spotCodes,
+                    ) { scope.launch { repository.setCameraSpotCodes(it) } }
+                }
+            }
         }
         ToolbarTool.DICTIONARY -> {
             SettingsGroup(
@@ -1546,7 +1714,7 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.incognitoPausesLearning,
                     ) { scope.launch { repository.setIncognitoPausesLearning(it) } }
                 }
-                item(level = SettingLevel.ADVANCED) {
+                item {
                     ToggleSetting(
                         R.string.tooldetail_incognito_clipboard_title,
                         stringResource(R.string.tooldetail_incognito_clipboard_subtitle),
@@ -1562,6 +1730,14 @@ internal fun ToolDetailSettings(
                         info = stringResource(R.string.tooldetail_incognito_private_clipboard_info),
                         default = SettingsDefaults.incognitoPrivateClipboard,
                     ) { scope.launch { repository.setIncognitoPrivateClipboard(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_incognito_watermark_title,
+                        stringResource(R.string.tooldetail_incognito_watermark_subtitle),
+                        settings.watch { it.incognitoWatermark },
+                        default = SettingsDefaults.incognitoWatermark,
+                    ) { scope.launch { repository.setIncognitoWatermark(it) } }
                 }
                 item {
                     NavRow(
@@ -1682,6 +1858,15 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.powerSaving.dropGlassBlur,
                     ) { scope.launch { repository.setPowerSavingDropGlassBlur(it) } }
                 }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_power_drop_moving_themes_title,
+                        stringResource(R.string.tooldetail_power_drop_moving_themes_subtitle),
+                        settings.watch { it.powerSaving.dropMovingThemes },
+                        info = stringResource(R.string.tooldetail_power_drop_moving_themes_info),
+                        default = SettingsDefaults.powerSaving.dropMovingThemes,
+                    ) { scope.launch { repository.setPowerSavingDropMovingThemes(it) } }
+                }
             }
             SettingsGroup(stringResource(R.string.tooldetail_power_drop_helpers_group), level = SettingLevel.ADVANCED) {
                 item {
@@ -1744,6 +1929,24 @@ internal fun ToolDetailSettings(
                         settings.watch { it.powerSaving.dropMediaPin },
                         default = SettingsDefaults.powerSaving.dropMediaPin,
                     ) { scope.launch { repository.setPowerSavingDropMediaPin(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_power_drop_floating_button_title,
+                        stringResource(R.string.tooldetail_power_drop_floating_button_subtitle),
+                        settings.watch { it.powerSaving.dropFloatingButton },
+                        info = stringResource(R.string.tooldetail_power_drop_floating_button_info),
+                        default = SettingsDefaults.powerSaving.dropFloatingButton,
+                    ) { scope.launch { repository.setPowerSavingDropFloatingButton(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_power_drop_warm_models_title,
+                        stringResource(R.string.tooldetail_power_drop_warm_models_subtitle),
+                        settings.watch { it.powerSaving.dropWarmModels },
+                        info = stringResource(R.string.tooldetail_power_drop_warm_models_info),
+                        default = SettingsDefaults.powerSaving.dropWarmModels,
+                    ) { scope.launch { repository.setPowerSavingDropWarmModels(it) } }
                 }
             }
         }
@@ -1955,6 +2158,54 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.handwritingCommitDelayMs.toFloat(),
                     ) { scope.launch { repository.setHandwritingCommitDelayMs(it.roundToInt()) } }
                 }
+                item(level = SettingLevel.STANDARD) {
+                    val penFormat = stringResource(R.string.tooldetail_handwriting_pen_width_value)
+                    SliderSetting(
+                        R.string.tooldetail_handwriting_pen_width_title,
+                        value = settings.watch { it.handwritingInk.penWidthDp },
+                        range = HandwritingPenWidthRange.start..HandwritingPenWidthRange.endInclusive,
+                        display = { penFormat.format(it.roundToInt()) },
+                        default = SettingsDefaults.handwritingInk.penWidthDp,
+                    ) { scope.launch { repository.setHandwritingPenWidth(it) } }
+                }
+                item(level = SettingLevel.STANDARD) {
+                    ColorSetting(
+                        R.string.tooldetail_handwriting_pen_color_title,
+                        subtitle = stringResource(R.string.tooldetail_handwriting_pen_color_subtitle),
+                        color = settings.watch { it.handwritingInk.penColor },
+                        fallback = 0xFF6750A4L,
+                    ) { color -> scope.launch { repository.setHandwritingPenColor(color) } }
+                }
+                item(level = SettingLevel.STANDARD) {
+                    ChoiceSetting(
+                        R.string.tooldetail_handwriting_ink_fade_title,
+                        subtitle = stringResource(R.string.tooldetail_handwriting_ink_fade_subtitle),
+                        options = listOf(
+                            InkFade.DISSOLVE to stringResource(R.string.tooldetail_handwriting_ink_fade_dissolve),
+                            InkFade.FADE to stringResource(R.string.tooldetail_handwriting_ink_fade_fade),
+                            InkFade.SHRINK to stringResource(R.string.tooldetail_handwriting_ink_fade_shrink),
+                            InkFade.RISE to stringResource(R.string.tooldetail_handwriting_ink_fade_rise),
+                            InkFade.NONE to stringResource(R.string.tooldetail_handwriting_ink_fade_none),
+                        ),
+                        selected = settings.watch { it.handwritingInk.fade },
+                        default = SettingsDefaults.handwritingInk.fade,
+                    ) { fade -> scope.launch { repository.setHandwritingInkFade(fade) } }
+                }
+                item(level = SettingLevel.STANDARD) {
+                    val none = stringResource(R.string.langemoji_panel_height_none)
+                    val taller = stringResource(R.string.langemoji_panel_height_value)
+                    SliderSetting(
+                        R.string.tooldetail_handwriting_height_title,
+                        subtitle = stringResource(R.string.tooldetail_handwriting_height_subtitle),
+                        value = settings.watch { it.handwritingInk.panelExtraHeightDp }.toFloat(),
+                        range = MediaPanelExtraHeightRange.first.toFloat()..MediaPanelExtraHeightRange.last.toFloat(),
+                        display = {
+                            val dp = it.roundToInt()
+                            if (dp == 0) none else taller.format(dp)
+                        },
+                        default = SettingsDefaults.handwritingInk.panelExtraHeightDp.toFloat(),
+                    ) { scope.launch { repository.setHandwritingPanelExtraHeight(it.roundToInt()) } }
+                }
                 // The canvas and the keys around it are a panel layout (#568),
                 // edited where the trackpad's are.
                 item(level = SettingLevel.ADVANCED) {
@@ -2066,9 +2317,34 @@ internal fun ToolDetailSettings(
             // later in every build that can fetch its models, NLLB on 64-bit
             // phones with the memory for it.
             val onDevice = OfflineTranslation.available
+            if (offlineBuild) {
+                StateBanner(
+                    stringResource(
+                        if (onDevice) R.string.tooldetail_translate_offline_import_info else R.string.tooldetail_translate_offline_build_info,
+                    ),
+                    tone = if (onDevice) BannerTone.INFO else BannerTone.WARNING,
+                )
+            }
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item { TranslateLanguageSetting(repository, settings) }
-                if (onDevice) {
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_translate_clear_on_insert_title,
+                        stringResource(R.string.tooldetail_translate_clear_on_insert_subtitle),
+                        settings.watch { it.translate.clearOnInsert },
+                        default = SettingsDefaults.translate.clearOnInsert,
+                    ) { scope.launch { repository.setTranslateClearOnInsert(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_translate_hint_replaces_title,
+                        stringResource(R.string.tooldetail_translate_hint_replaces_subtitle),
+                        settings.watch { it.translate.hintReplaces },
+                        default = SettingsDefaults.translate.hintReplaces,
+                    ) { scope.launch { repository.setTranslateHintReplaces(it) } }
+                }
+                // The offline build has only the device to choose.
+                if (onDevice && !offlineBuild) {
                     item(level = SettingLevel.STANDARD) {
                         val context = LocalContext.current
                         ChoiceSetting(
@@ -2557,6 +2833,7 @@ internal fun ToolDetailSettings(
                         subtitle = stringResource(R.string.tooldetail_image_columns_subtitle),
                         value = settings.watch { it.emoji.mediaGridColumns }.toFloat(),
                         range = 2f..5f,
+                        steps = wholeSteps(2f..5f),
                         display = { numberFormat.format(it.roundToInt()) },
                         info = stringResource(R.string.tooldetail_image_columns_info),
                         default = SettingsDefaults.emoji.mediaGridColumns.toFloat(),
@@ -2723,6 +3000,8 @@ internal fun ToolDetailSettings(
                 // A server's answers were for its old setup.
                 onChanged = { LanguageToolChecker.reset() },
             )
+            // GiellaLT's own checkers for the Sámi languages and Faroese, on the phone.
+            GiellaGrammarGroup(settings)
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item(level = SettingLevel.STANDARD) {
                     ChoiceSetting(
@@ -2890,6 +3169,7 @@ internal fun ToolDetailSettings(
                     )
                 }
             }
+            SymbolCategoriesGroup(repository, settings)
         }
         ToolbarTool.CALCULATOR -> SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
             item {
@@ -2923,6 +3203,7 @@ internal fun ToolDetailSettings(
                     subtitle = stringResource(R.string.tooldetail_calc_precision_subtitle),
                     value = settings.watch { it.calcPrecision }.toFloat(),
                     range = 0f..12f,
+                    steps = wholeSteps(0f..12f),
                     display = { numberFormat.format(it.roundToInt()) },
                     default = SettingsDefaults.calcPrecision.toFloat(),
                 ) { scope.launch { repository.setCalcPrecision(it.roundToInt()) } }
@@ -2985,6 +3266,7 @@ internal fun ToolDetailSettings(
                         subtitle = stringResource(R.string.tooldetail_currency_decimals_subtitle),
                         value = settings.watch { it.currencyDecimals }.toFloat(),
                         range = 0f..6f,
+                        steps = wholeSteps(0f..6f),
                         display = { numberFormat.format(it.toInt()) },
                         default = SettingsDefaults.currencyDecimals.toFloat(),
                     ) { scope.launch { repository.setCurrencyDecimals(it.toInt()) } }
@@ -3046,6 +3328,7 @@ internal fun ToolDetailSettings(
                             subtitle = stringResource(R.string.tooldetail_crypto_decimals_subtitle),
                             value = settings.watch { it.rateSources.cryptoDecimals }.toFloat(),
                             range = 0f..12f,
+                            steps = wholeSteps(0f..12f),
                             display = {
                                 if (it.toInt() == 0) auto else numberFormat.format(it.toInt())
                             },
@@ -3224,6 +3507,7 @@ internal fun ToolDetailSettings(
                         R.string.tooldetail_passphrase_words_title,
                         value = settings.watch { it.passwordGenerator.ppWordCount }.toFloat(),
                         range = 2f..10f,
+                        steps = wholeSteps(2f..10f),
                         display = { numberFormat.format(it.roundToInt()) },
                         default = SettingsDefaults.passwordGenerator.ppWordCount.toFloat(),
                     ) { scope.launch { repository.setPpWordCount(it.roundToInt()) } }
@@ -3283,7 +3567,42 @@ internal fun ToolDetailSettings(
         ToolbarTool.VOCABULARY -> VocabularyToolSettings(repository, settings, onNavigate)
         ToolbarTool.NOTES -> NotesToolSettings(repository, settings, onNavigate)
         ToolbarTool.TODO -> TodoToolSettings(repository, settings, onNavigate)
+        ToolbarTool.WM_PASS -> {
+            // Nothing to set here; without WM Pass, the way to get it (Telegram 5333).
+            val context = LocalContext.current
+            val installed = remember { com.wasimaster.wmkeyboard.ime.wmpass.WmPassBridge.isInstalled(context) }
+            if (!installed) {
+                SettingsGroup {
+                    item {
+                        NavRow(
+                            R.string.tooldetail_wmpass_get_title,
+                            stringResource(R.string.tooldetail_wmpass_get_subtitle),
+                            icon = Icons.Outlined.Download,
+                        ) { com.wasimaster.wmkeyboard.ime.wmpass.WmPassBridge.openStore(context) }
+                    }
+                }
+            }
+        }
         ToolbarTool.LOCATION -> LocationToolSettings(repository, settings)
+        // Its one setting is Android's: the service that presses the button (#1148).
+        ToolbarTool.SCREENSHOT -> {
+            val on = rememberGrantState { SystemButtonsService.isEnabled(it) }
+            val ask = rememberDisclosedSpecialAccess(SpecialAccess.SYSTEM_BUTTONS)
+            SettingsGroup {
+                item {
+                    NavRow(
+                        R.string.tooldetail_screenshot_service_title,
+                        subtitle = stringResource(
+                            if (on) {
+                                R.string.tooldetail_screenshot_service_on_subtitle
+                            } else {
+                                R.string.tooldetail_screenshot_service_off_subtitle
+                            },
+                        ),
+                    ) { ask() }
+                }
+            }
+        }
         ToolbarTool.CLOCK -> ClockToolSettings(onNavigate)
         ToolbarTool.MUSIC_ID -> MusicToolSettings(repository, settings, onNavigate)
         ToolbarTool.HOME_ASSISTANT -> com.wasimaster.wmkeyboard.app.homeassistant.SmartHomeToolSettings(repository, settings, onNavigate)
@@ -3929,8 +4248,19 @@ private fun ToolKeywordSetting(
             )
         }
     }
+    // The switch the banner names sits at Everything on Smart chips, inside
+    // a group that closes while smart chips are off, so the banner turns both
+    // on itself rather than send the reader looking for it.
     if (settings.watch { !it.smartSuggestions || !it.smartToolKeywords }) {
-        StateBanner(stringResource(R.string.toolai_keyword_off_info))
+        StateBanner(
+            stringResource(R.string.toolai_keyword_off_info),
+            action = stringResource(CommonR.string.common_enable),
+        ) {
+            scope.launch {
+                repository.setSmartSuggestions(true)
+                repository.setSmartToolKeywords(true)
+            }
+        }
     }
 }
 
@@ -4010,7 +4340,8 @@ internal fun TextFieldSetting(
  * One API-key input. Saves as you type (it's a paste, in practice). The
  * user's key always beats any key baked into the build via
  * local.properties — leaving the field blank falls back to the built-in
- * key when the build has one.
+ * key when the build has one. [wmPassTitle], the service the key is for,
+ * adds the WM Pass button that fills the field from WM Pass or saves it there.
  */
 @Composable
 internal fun ApiKeyField(
@@ -4018,19 +4349,22 @@ internal fun ApiKeyField(
     value: String,
     builtInAvailable: Boolean,
     emptyHint: String,
+    wmPassTitle: String? = null,
     onSave: suspend (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
     var text by remember(label) { mutableStateOf(value) }
+    fun type(next: String) {
+        text = next
+        scope.launch { onSave(next) }
+    }
     HighlightableRow(label) {
         OutlinedTextField(
             value = text,
-            onValueChange = {
-                text = it
-                scope.launch { onSave(it) }
-            },
+            onValueChange = ::type,
             label = { Text(label) },
             singleLine = true,
+            trailingIcon = wmPassTitle?.let { title -> { WmPassKeyButton(title, text, onFill = ::type) } },
             supportingText = {
                 Text(
                     when {
@@ -4232,6 +4566,17 @@ internal fun openSubtypeEnabler(context: Context) {
  */
 @Composable
 private fun downloadSubtitle(progress: HandwritingDownloadProgress?): String {
+    val readout = downloadReadout(progress)
+    // Two downloads, the engine library and then the model: say which.
+    return when {
+        progress?.part == HandwritingDownloadPart.LIBRARY -> stringResource(R.string.privacy_handwriting_step_library, readout)
+        (progress?.steps ?: 1) > 1 -> stringResource(R.string.privacy_handwriting_step_model, readout)
+        else -> readout
+    }
+}
+
+@Composable
+private fun downloadReadout(progress: HandwritingDownloadProgress?): String {
     val context = LocalContext.current
     val bytes = progress?.bytes ?: 0L
     if (bytes <= 0L) return stringResource(R.string.privacy_handwriting_status_preparing)
@@ -4249,10 +4594,29 @@ private fun downloadSubtitle(progress: HandwritingDownloadProgress?): String {
     }
 }
 
-/** "Not downloaded", with what downloading it would actually cost. */
+/**
+ * "Not downloaded", with what downloading it would actually cost: the model,
+ * and the recogniser's engine library first when it is not on the phone yet.
+ * Follows the library's gate, so every row drops the library once one
+ * download has brought it.
+ */
 @Composable
-private fun missingSubtitle(installedBytes: Long): String {
+private fun missingSubtitle(tag: String, installedBytes: Long): String {
     val context = LocalContext.current
+    val libraryHere = HandwritingModels.libraryGateFor(tag).state.collectAsState().value == ModuleState.Installed
+    if (!libraryHere && HandwritingModels.needsLibrary(tag)) {
+        val library = HandwritingModels.libraryBytesToFetch(tag)
+        val model = Formatter.formatShortFileSize(context, installedBytes)
+        return when {
+            installedBytes > 0L && library > 0L -> stringResource(
+                R.string.privacy_handwriting_status_missing_with_library_sized,
+                model,
+                Formatter.formatShortFileSize(context, library),
+            )
+            installedBytes > 0L -> stringResource(R.string.privacy_handwriting_status_missing_sized_with_library, model)
+            else -> stringResource(R.string.privacy_handwriting_status_missing_with_library)
+        }
+    }
     if (installedBytes <= 0L) return stringResource(R.string.privacy_handwriting_status_missing)
     return stringResource(
         R.string.privacy_handwriting_status_missing_sized,
@@ -4359,7 +4723,7 @@ private fun HandwritingModelManager(settings: LiveSettings) {
                             "downloaded" -> stringResource(R.string.privacy_handwriting_status_downloaded)
                             "downloading" -> downloadSubtitle(progress[language.tag])
                             "error" -> stringResource(R.string.privacy_handwriting_status_failed)
-                            else -> missingSubtitle(sizes[language.tag] ?: 0L)
+                            else -> missingSubtitle(language.tag, sizes[language.tag] ?: 0L)
                         },
                     trailing = {
                         // Checking, then Download or the bin; after a tap, the
@@ -4403,7 +4767,7 @@ private fun HandwritingModelManager(settings: LiveSettings) {
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
-                                    else -> TextButton(onClick = {
+                                    else -> if (!offlineBuild) TextButton(onClick = {
                                         if (!current()) return@TextButton
                                         statuses[language.tag] = "downloading"
                                         progress[language.tag] = HandwritingDownloadProgress()
@@ -4422,7 +4786,20 @@ private fun HandwritingModelManager(settings: LiveSettings) {
                                             val ok = runCancellable {
                                                 HandwritingModels.download(context, language.tag) {
                                                     progress[language.tag] = it
-                                                    notify.progress(it.bytes, it.totalBytes)
+                                                    if (it.steps > 1) {
+                                                        notify.progress(
+                                                            it.bytes,
+                                                            it.totalBytes,
+                                                            DownloadNotifications.stepText(
+                                                                context,
+                                                                library = it.part == HandwritingDownloadPart.LIBRARY,
+                                                                bytes = it.bytes,
+                                                                total = it.totalBytes,
+                                                            ),
+                                                        )
+                                                    } else {
+                                                        notify.progress(it.bytes, it.totalBytes)
+                                                    }
                                                 }
                                             }.isSuccess
                                             progress.remove(language.tag)
@@ -4445,7 +4822,7 @@ private fun HandwritingModelManager(settings: LiveSettings) {
                 )
             }
         }
-        item(level = SettingLevel.ADVANCED) {
+        item(level = offlineImportLevel) {
             OfflineImportRow(
                 subtitle = stringResource(R.string.offline_import_handwriting_subtitle),
                 links = importLinks,
@@ -4497,6 +4874,10 @@ private fun OcrPackManager(settings: LiveSettings) {
             item {
                 val status = states[pack] ?: OcrPacks.Status.NotDownloaded
                 val names = languages.joinToString(", ") { it.displayName }
+                // Tesseract's library or Paddle's runtime, when it is not
+                // here yet: the first pack fetches it alongside.
+                val libraryLine = libraryFirstLine(OcrPacks.moduleFor(pack))
+                    .takeIf { status != OcrPacks.Status.Downloaded }
                 WmRow(
                     swipeActions = if (status == OcrPacks.Status.Downloaded) {
                         listOf(
@@ -4515,17 +4896,23 @@ private fun OcrPackManager(settings: LiveSettings) {
                     subtitle = when (status) {
                         OcrPacks.Status.Downloaded ->
                             stringResource(R.string.privacy_handwriting_status_downloaded)
-                        is OcrPacks.Status.Downloading -> stringResource(
-                            R.string.privacy_handwriting_status_downloading_of_total,
-                            Formatter.formatShortFileSize(context, status.bytes),
-                            Formatter.formatShortFileSize(context, status.total),
+                        is OcrPacks.Status.Downloading -> withLibraryLine(
+                            stringResource(
+                                R.string.privacy_handwriting_status_downloading_of_total,
+                                Formatter.formatShortFileSize(context, status.bytes),
+                                Formatter.formatShortFileSize(context, status.total),
+                            ),
+                            libraryLine,
                         )
                         is OcrPacks.Status.Failed ->
                             if (status.messageArg.isEmpty()) stringResource(status.messageRes)
                             else stringResource(status.messageRes, status.messageArg)
-                        OcrPacks.Status.NotDownloaded -> stringResource(
-                            R.string.privacy_handwriting_status_missing_sized,
-                            Formatter.formatShortFileSize(context, OcrLanguages.sizeOf(pack)),
+                        OcrPacks.Status.NotDownloaded -> withLibraryLine(
+                            stringResource(
+                                R.string.privacy_handwriting_status_missing_sized,
+                                Formatter.formatShortFileSize(context, OcrLanguages.sizeOf(pack)),
+                            ),
+                            libraryLine,
                         )
                     },
                     trailing = {
@@ -4561,7 +4948,7 @@ private fun OcrPackManager(settings: LiveSettings) {
                                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                         )
                                     }
-                                    else -> TextButton(onClick = {
+                                    else -> if (!offlineBuild) TextButton(onClick = {
                                         when (decide()) {
                                             MeteredDecision.ALLOWED -> OcrPacks.start(filesDir, pack)
                                             MeteredDecision.ASK -> askFor = pack
@@ -4582,7 +4969,7 @@ private fun OcrPackManager(settings: LiveSettings) {
                 )
             }
         }
-        item(level = SettingLevel.ADVANCED) {
+        item(level = offlineImportLevel) {
             val links = packs.flatMap { (pack, languages) ->
                 val names = languages.joinToString(", ") { it.displayName }
                 if (pack == PaddleOcrModel.PACK) {

@@ -173,6 +173,22 @@ data class LayerSpec(
      * a Keyman layout. Null everywhere else.
      */
     val keymanFrames: Map<String, KeymanTarget>? = null,
+    /**
+     * The page of this layout drawn in place of the letters while the text
+     * before the caret ends in a consonant, by its key in [LayoutSpec.layers]:
+     * the page of vowel signs on an Indic layout, the way Samsung's keyboards
+     * turn अ आ इ into क् का कि the moment क is typed. Each vowel-sign key on
+     * that page then shows the syllable a tap would write, and a tap replaces
+     * the vowel sign already on the syllable rather than stacking a second one
+     * (see `IndicSyllable`). Pressing that page's way back to the letters
+     * keeps the letters up until the next key, for an independent vowel after
+     * a consonant (कई).
+     *
+     * Only read on the letters layer. Null, every other layout, keeps the
+     * letters whatever was typed. A key naming a page the layout does not
+     * have is ignored. Additive and defaulted, so no format-version bump.
+     */
+    val afterConsonant: String? = null,
 )
 
 /**
@@ -296,6 +312,13 @@ data class LayoutSpec(
      */
     val tabletExpand: Boolean = true,
     /**
+     * The layout drawn instead while the screen is sideways, by id: a wider grid
+     * for two thumbs, say. Null, or an id no longer around, draws this one. Only
+     * its keys are used, so what they type stays this layout's: the editor offers
+     * only layouts of the same language and composer.
+     */
+    val landscapeLayoutId: String? = null,
+    /**
      * The Keyman keyboard whose rules decide what this layout's keys type, for
      * a grid converted from one. Null for every layout of ours.
      *
@@ -372,6 +395,18 @@ data class LayoutSpec(
      */
     val handwriting: Boolean = false,
     /**
+     * A one-row strip of letters in the manner of Minuum: the letters row
+     * keeps one key's height instead of growing to fill the rows the other
+     * layers reserve, so the keyboard is as short as the strip, and its
+     * letters are drawn bare on the board at one size, staggered by
+     * [Key.labelShiftY]. The other layers keep their own height, so ?123
+     * makes the keyboard taller while it is up.
+     *
+     * Additive and defaulted, so no format-version bump, for the reason
+     * [tabletExpand] gives.
+     */
+    val strip: Boolean = false,
+    /**
      * A theme of this layout's own (a `ThemeSpec.id`), used while any of its
      * layers is on screen, in place of the theme the settings select and of an
      * automatic light/dark pair (issue #61). A layer's [LayerSpec.themeId]
@@ -393,6 +428,32 @@ data class LayoutSpec(
 ) {
     /** The grid for [layer], or null when this layout does not override it. */
     fun layer(layer: LayoutLayer): LayerSpec? = layers[layer.key]
+}
+
+/**
+ * The keys of this layout's further pages: its layers that are neither a
+ * [LayoutLayer] nor a panel, which only a [KeyAction.LayerSwitch] key reaches.
+ * In reading order, so `page2` stays ahead of `page10`.
+ */
+fun LayoutSpec.pageLayerKeys(): List<String> =
+    layers.keys
+        .filter { key -> LayoutLayer.entries.none { it.key == key } && panelKindForLayerKey(key) == null }
+        .sortedWith(compareBy({ it.length }, { it }))
+
+/**
+ * This layout with [page] and the letters trading places, or as it stands for
+ * a null [page]. Its own inverse: the layout editor draws and edits a page
+ * through everything it has for the letters, then swaps the result back.
+ */
+fun LayoutSpec.withLettersSwappedFor(page: String?): LayoutSpec {
+    if (page == null) return this
+    val letters = LayoutLayer.LETTERS.key
+    val swapped = LinkedHashMap(layers)
+    swapped.remove(letters)
+    swapped.remove(page)
+    layers[page]?.let { swapped[letters] = it }
+    layers[letters]?.let { swapped[page] = it }
+    return copy(layers = swapped)
 }
 
 /**

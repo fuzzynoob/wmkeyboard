@@ -56,6 +56,7 @@ import com.wasimaster.wmkeyboard.app.storage.StorageCategoryScreen
 import com.wasimaster.wmkeyboard.app.netlog.NetworkActivityScreen
 import com.wasimaster.wmkeyboard.app.statistics.StatisticsScreen
 import com.wasimaster.wmkeyboard.app.storage.StorageScreen
+import com.wasimaster.wmkeyboard.app.resources.ResourcesScreen
 import com.wasimaster.wmkeyboard.app.storage.storageRoute
 import com.wasimaster.wmkeyboard.app.language.appLanguageSplitCompat
 import com.wasimaster.wmkeyboard.app.launcher.LauncherCombos
@@ -69,6 +70,7 @@ import com.wasimaster.wmkeyboard.app.lock.LockTarget
 import com.wasimaster.wmkeyboard.app.lock.AppLockSettingsScreen
 import com.wasimaster.wmkeyboard.app.media.MusicApps
 import com.wasimaster.wmkeyboard.app.media.MusicAppsScreen
+import com.wasimaster.wmkeyboard.app.review.ReviewPrompt
 import com.wasimaster.wmkeyboard.app.updates.LocalAppUpdater
 import com.wasimaster.wmkeyboard.app.updates.MissingLink
 import com.wasimaster.wmkeyboard.app.updates.NewerLinkDialog
@@ -111,6 +113,10 @@ import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -128,12 +134,15 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Shape
 import com.wasimaster.wmkeyboard.core.ui.DisabledReason
 import com.wasimaster.wmkeyboard.core.ui.WmSlider
 import com.wasimaster.wmkeyboard.core.ui.rememberLiveSlider
 import com.wasimaster.wmkeyboard.core.ui.toolAccentColor
 import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
 import androidx.compose.ui.platform.LocalConfiguration
+import com.wasimaster.wmkeyboard.core.settings.effectiveThemeId
+import com.wasimaster.wmkeyboard.core.theme.findThemeFamily
 import com.wasimaster.wmkeyboard.core.settings.DeviceForm
 import com.wasimaster.wmkeyboard.core.settings.settingsDepthResolved
 import com.wasimaster.wmkeyboard.core.settings.Extension
@@ -385,6 +394,7 @@ class MainActivity : FragmentActivity() {
             // on About are far apart in the tree and must not disagree about
             // the same download.
             val updater = rememberAppUpdater()
+            ReviewPrompt(updater)
             AppTheme(settings) {
                 CompositionLocalProvider(
                     LocalAppUpdater provides updater,
@@ -416,6 +426,8 @@ class MainActivity : FragmentActivity() {
                     // Settings fields rely on the window panning; keep it in
                     // step with a keyboard that changes height under them.
                     RepanOnKeyboardResize()
+                    // Back with the keyboard up closes the keyboard and nothing else.
+                    ImeBackFirst()
                     // The app lock's own PIN, password or pattern sheet. Once,
                     // up here, like the system prompt it stands in for.
                     AppLockSecretPrompt(appLock)
@@ -487,6 +499,9 @@ class MainActivity : FragmentActivity() {
     override fun onResume() {
         super.onResume()
         jankMonitor.start(window)
+        // A module the keyboard asked Play for may be waiting on a yes that
+        // Play can only ask here (Telegram, 4529). Nothing outside Play.
+        com.wasimaster.wmkeyboard.app.modules.PlayModules.confirmPending(this)
     }
 
     override fun onPause() {
@@ -534,8 +549,13 @@ class MainActivity : FragmentActivity() {
             com.wasimaster.wmkeyboard.app.homeassistant.SmartThingsSignIn.finish(applicationContext, lifecycleScope, callback)
             return PendingNav(route = "tool/${ToolbarTool.HOME_ASSISTANT.name}")
         }
+        // "Open in Clink" on Clink's community page: a preview of the item,
+        // and the way its exported file comes in. Clink has no Android app.
+        com.wasimaster.wmkeyboard.core.addons.ClinkCommunity.itemIdFrom(link)?.let {
+            return PendingNav(route = clinkCommunityRoute(it))
+        }
         AddonDeepLink.routeFor(link)?.let { return PendingNav(route = it) }
-        SettingsDeepLink.parse(link)?.let { target -> return pendingFor(target) }
+        SettingsDeepLink.parse(link)?.let { target -> return pendingFor(target)?.copy(fromLink = true) }
         // One of ours, naming a screen this build does not have: most likely
         // from a newer version, which the dialog then looks for.
         SettingsDeepLink.unknown(link)?.let { return PendingNav(missing = MissingLink(it.since, row = false)) }
@@ -576,7 +596,7 @@ class MainActivity : FragmentActivity() {
      */
     private fun openSettingLink(link: String) {
         val nav = SettingsDeepLink.parse(link)?.let(::pendingFor) ?: return
-        if (nav.route != null) pendingNav.value = nav.copy(missing = null)
+        if (nav.route != null) pendingNav.value = nav.copy(missing = null, fromLink = true)
     }
 
     /**
@@ -638,13 +658,16 @@ class MainActivity : FragmentActivity() {
  * route: the string resource of the one row on the arriving screen that should
  * scroll itself into view and pulse, or 0 for the whole screen. [missing] is a
  * settings link this build could not follow in full, alone or beside the
- * [route] it could.
+ * [route] it could. [fromLink] is a settings link as opposed to the keyboard
+ * opening one of its own pages: a link to a whole screen is about all of it, so
+ * the screen opens with the rows the depth would hide ([DepthReveal]).
  */
 internal data class PendingNav(
     val route: String? = null,
     val tool: ToolbarTool? = null,
     @StringRes val highlight: Int = 0,
     val missing: MissingLink? = null,
+    val fromLink: Boolean = false,
 )
 
 @Composable
@@ -756,9 +779,11 @@ private fun SettingsNavHost(
     // repository through for the sake of one chevron.
     val foldScope = rememberCoroutineScope()
     val folds = remember(settings) {
-        AdvancedFolds(settings) { key, open ->
-            foldScope.launch { repository.setAdvancedFoldOpen(key, open) }
-        }
+        AdvancedFolds(
+            settings,
+            toggle = { key, open -> foldScope.launch { repository.setAdvancedFoldOpen(key, open) } },
+            openClosing = { key, close -> foldScope.launch { repository.setAdvancedFoldOpenClosing(key, close) } },
+        )
     }
     // How much of the app is showing (settings depth), resolved once here and
     // read by every group; changed from Home, a page's footer or Accessibility.
@@ -848,11 +873,19 @@ private fun SettingsNavHost(
     // The rows an update brought (#970), worked out once per launch. Off the
     // main thread: it builds the whole search index.
     LaunchedEffect(Unit) { kotlinx.coroutines.withContext(Dispatchers.Default) { NewSettings.load(context) } }
-    // As a search result opens one: flash the row, then go.
-    val openNewSetting: (SettingsSearchEntry) -> Unit = remember(navController) {
+    // As a search result opens one: flash the row, then go. A step is a jump
+    // the way a result is, so it lands over Home alone, with the path the page
+    // really lives at seeded on the trail (#1111). Back after the walk then
+    // returns Home rather than through every page it showed (Telegram 5359),
+    // and the path strip, and a favourite made on the way, name where the
+    // page lives instead of the pages the walk passed through.
+    val walkHomeTitle = stringResource(CommonR.string.common_settings)
+    val openNewSetting: (SettingsSearchEntry) -> Unit = remember(navController, crumbs, walkHomeTitle) {
         { entry ->
-            SettingsHighlight.request(entry.titleRes)
+            SettingsHighlight.request(entry.titleRes, centre = true)
+            crumbs.seed(settingsCrumbSeed(entry, NewSettings.wholeIndex, walkHomeTitle))
             navController.navigate(routeWithExtensions(entry.route, settings.value.extensionsResolved())) {
+                popUpTo(HomeRoute)
                 launchSingleTop = true
             }
         }
@@ -1043,6 +1076,7 @@ private fun SettingsNavGraph(
                 // first composition, and a request made after would be a frame
                 // too late for the row to scroll itself into view.
                 if (pending.highlight != 0) SettingsHighlight.request(pending.highlight)
+                else if (pending.fromLink) SettingsHighlight.requestScreen()
                 // A link to a screen a switched-off bundle owns lands on the
                 // Extensions screen with that bundle flashed, not on the page.
                 navController.navigate(routeWithExtensions(pending.route, settings.value.extensionsResolved()))
@@ -1634,6 +1668,15 @@ private fun SettingsNavGraph(
                 IconsScreen(repository, settings) { route -> navController.navigate(route) }
             }
         }
+        composable("icons/library") {
+            SettingsScreen(
+                stringResource(R.string.plugins_icons_library_title),
+                { navController.popBackStack() },
+                route = ICON_LIBRARY_ROUTE,
+            ) {
+                IconLibraryScreen(settings)
+            }
+        }
         composable("themes") {
             SettingsScreen(
                 stringResource(R.string.home_screen_themes_title),
@@ -1661,7 +1704,16 @@ private fun SettingsNavGraph(
             }
         }
         composable("theme_edit/{themeId}") { backStackEntry ->
-            val themeId = backStackEntry.arguments?.getString("themeId").orEmpty()
+            val requested = backStackEntry.arguments?.getString("themeId").orEmpty()
+            // A copied setting link says "current" (or, written before it did,
+            // a theme id from the sender's phone): open this keyboard's own
+            // applied theme rather than "this theme does not exist".
+            val darkSlot = isSystemInDarkTheme()
+            val themeId = settings.watch { s ->
+                SettingLinks.themeEditTarget(requested, s.effectiveThemeId(darkSlot)) { id ->
+                    s.customThemes.findThemeFamily(id) != null
+                }
+            }
             // The look's own name, not "Edit theme": it is what the gallery
             // card said, and the card's name flies up into it. A theme that is
             // no longer there keeps the generic heading, which is all the
@@ -1678,7 +1730,14 @@ private fun SettingsNavGraph(
             }
         }
         composable("theme_assets/{themeId}") { backStackEntry ->
-            val themeId = backStackEntry.arguments?.getString("themeId").orEmpty()
+            val requested = backStackEntry.arguments?.getString("themeId").orEmpty()
+            // Same reading of a copied link as theme_edit above.
+            val darkSlot = isSystemInDarkTheme()
+            val themeId = settings.watch { s ->
+                SettingLinks.themeEditTarget(requested, s.effectiveThemeId(darkSlot)) { id ->
+                    s.customThemes.findThemeFamily(id) != null
+                }
+            }
             SettingsScreen(
                 stringResource(R.string.theme_assets_title),
                 { navController.popBackStack() },
@@ -1884,6 +1943,16 @@ private fun SettingsNavGraph(
                 TelegramStickersScreen(repository, settings) { route -> navController.navigate(route) }
             }
         }
+        composable("clink_community/{itemId}") { backStackEntry ->
+            val itemId = backStackEntry.arguments?.getString("itemId").orEmpty()
+            SettingsScreen(
+                stringResource(R.string.clink_community_title),
+                { navController.popBackStack() },
+                route = clinkCommunityRoute(itemId),
+            ) {
+                ClinkCommunityScreen(itemId = itemId, repository = repository)
+            }
+        }
         composable("telegram_pack/{setName}") { backStackEntry ->
             val setName = backStackEntry.arguments?.getString("setName").orEmpty()
             SettingsScreen(
@@ -2057,6 +2126,20 @@ private fun SettingsNavGraph(
                 StickerPackScreen(packId, openPicker = true) { route -> navController.navigate(route) }
             }
         }
+        composable("sticker_pack/{packId}/edit/{stickerId}") { backStackEntry ->
+            // The keyboard's hold sheet (#1157): the pack, with one sticker's
+            // title and keywords already open, so a shortcut thought of mid-chat
+            // is two taps away rather than a hunt through the packs.
+            val packId = backStackEntry.arguments?.getString("packId").orEmpty()
+            val stickerId = backStackEntry.arguments?.getString("stickerId")
+            SettingsScreen(
+                stringResource(R.string.home_screen_sticker_pack_edit_title),
+                { navController.popBackStack() },
+                route = stickerPackRoute(packId),
+            ) {
+                StickerPackScreen(packId, editStickerId = stickerId) { route -> navController.navigate(route) }
+            }
+        }
         composable(
             route = "$STICKER_GENERATOR_ROUTE?pack={pack}",
             arguments = listOf(navArgument("pack") { type = NavType.StringType; nullable = true; defaultValue = null }),
@@ -2136,6 +2219,23 @@ private fun SettingsNavGraph(
                 ?: PanelKind.EMOJI
             PanelLayoutJsonScreen(repository, settings, kind) { navController.popBackStack() }
         }
+        // The keyboard-wide number row and arrow row, set once for every
+        // layout. The argument is the GlobalRow's name; an unknown one opens
+        // the number row.
+        composable("global_row/{row}") { backStackEntry ->
+            val row = globalRowOf(backStackEntry.arguments?.getString("row"))
+            SettingsScreen(
+                stringResource(row.titleRes()),
+                { navController.popBackStack() },
+                route = globalRowRoute(row),
+            ) {
+                GlobalRowEditorScreen(repository, settings, row) { route -> navController.navigate(route) }
+            }
+        }
+        composable("global_row_json/{row}") { backStackEntry ->
+            val row = globalRowOf(backStackEntry.arguments?.getString("row"))
+            GlobalRowJsonScreen(repository, settings, row) { navController.popBackStack() }
+        }
         composable("languages") {
             SettingsScreen(
                 stringResource(R.string.home_languages_title),
@@ -2186,6 +2286,18 @@ private fun SettingsNavGraph(
                 repository = repository,
                 settings = settings,
                 onBack = { navController.popBackStack() },
+            )
+        }
+        // The language's layout cards opened out into a grid; the cards fly
+        // between the row and the grid (see LayoutGalleryScreen).
+        composable("language/{langId}/layouts") { backStackEntry ->
+            LayoutGalleryScreen(
+                anim = this,
+                langId = backStackEntry.arguments?.getString("langId").orEmpty(),
+                repository = repository,
+                settings = settings,
+                onBack = { navController.popBackStack() },
+                onNavigate = { route -> navController.navigate(route) },
             )
         }
         composable("emoji") {
@@ -2483,7 +2595,7 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = "permissions",
             ) {
-                PermissionsSettings()
+                PermissionsSettings(repository)
             }
         }
         composable(AppLockTargets.ROUTE) {
@@ -2843,6 +2955,8 @@ private fun SettingsNavGraph(
                     onOpenLicenseText = { navController.navigate("license_text/$it") },
                     onOpenDebugLog = { navController.navigate("debug_log") },
                     onOpenStorage = { navController.navigate("storage") },
+                    onOpenResources = { navController.navigate("resources") },
+                    onOpenImportHub = { navController.navigate("import_hub") },
                     onOpenStatistics = { navController.navigate("statistics") },
                     onOpenEggGame = { navController.navigate("egg_game") },
                     onReplayOnboarding = { navController.navigate("onboarding") },
@@ -2855,6 +2969,15 @@ private fun SettingsNavGraph(
             // secret that can be searched for is a menu entry.
             KeycapCatcherScreen(anim = this) { navController.popBackStack() }
         }
+        composable("import_hub") {
+            SettingsScreen(
+                stringResource(R.string.import_hub_title),
+                { navController.popBackStack() },
+                route = "import_hub",
+            ) {
+                ImportHubScreen { navController.navigate(it) }
+            }
+        }
         composable("storage") {
             SettingsScreen(
                 stringResource(R.string.about_storage_title),
@@ -2862,6 +2985,24 @@ private fun SettingsNavGraph(
                 route = "storage",
             ) {
                 StorageScreen(repository) { navController.navigate(storageRoute(it)) }
+            }
+        }
+        composable("resources") {
+            SettingsScreen(
+                stringResource(R.string.about_resources_title),
+                { navController.popBackStack() },
+                route = "resources",
+            ) {
+                ResourcesScreen(useRoot = settings.watch { it.launcher.useRoot }) { navController.navigate(it) }
+            }
+        }
+        composable("feature_libraries") {
+            SettingsScreen(
+                stringResource(R.string.feature_libraries_title),
+                { navController.popBackStack() },
+                route = "feature_libraries",
+            ) {
+                FeatureLibrariesScreen(settings)
             }
         }
         composable("statistics") {
@@ -3537,6 +3678,8 @@ internal class SettingsGroupScope {
         val key: Any?,
         /** How far down the settings depth the row sits; see [SettingLevel]. */
         val level: SettingLevel = SettingLevel.BASIC,
+        /** What the row costs to compose, in ordinary rows; see [item]. */
+        val weight: Int = 1,
         val content: @Composable () -> Unit,
     )
 
@@ -3556,9 +3699,18 @@ internal class SettingsGroupScope {
      * [level] is how far down the settings depth the row sits. At a depth
      * above it the row is not drawn in its place but behind the group's
      * "more settings" row; see [SettingsDepth.kt]. Untagged rows are basic.
+     *
+     * [weight] is for one item that draws several controls of its own — a
+     * repository's forge and five text fields — so the group lets it in as
+     * that many rows' worth of work rather than one; see [rememberRowStage].
      */
-    fun item(key: Any? = null, level: SettingLevel = SettingLevel.BASIC, content: @Composable () -> Unit) {
-        items += Entry(visible = true, conditional = false, key = key, level = level, content = content)
+    fun item(
+        key: Any? = null,
+        level: SettingLevel = SettingLevel.BASIC,
+        weight: Int = 1,
+        content: @Composable () -> Unit,
+    ) {
+        items += Entry(visible = true, conditional = false, key = key, level = level, weight = weight, content = content)
     }
 
     /**
@@ -3580,9 +3732,10 @@ internal class SettingsGroupScope {
         visible: Boolean,
         key: Any? = null,
         level: SettingLevel = SettingLevel.BASIC,
+        weight: Int = 1,
         content: @Composable () -> Unit,
     ) {
-        items += Entry(visible = visible, conditional = true, key = key, level = level, content = content)
+        items += Entry(visible = visible, conditional = true, key = key, level = level, weight = weight, content = content)
     }
 }
 
@@ -3635,35 +3788,54 @@ internal fun SettingsGroup(
     val depth = depthControl.depth
     val groupAbove = !depth.shows(level)
     val folds = LocalAdvancedFolds.current
-    val highlighted = SettingsHighlight.target != 0 || SettingsHighlight.targetItems.isNotEmpty()
+    // Held by the screen, not the flash: the flash ends after two seconds, and
+    // a row hidden by the depth went with it, out from under the finger of
+    // whoever had just followed a link to it (#1030).
+    val depthReveal = LocalDepthReveal.current
+    val highlighted = depthReveal?.arrived ?: SettingsHighlight.pending
     // A row above the depth is not drawn at all; that is what the depth is
-    // for. Two things bring it back: a pending highlight (a search result or
-    // an addon's Use button has to land on it, so it is drawn in its place as
-    // if the depth allowed it), and About › App › "Show where settings are
-    // hidden", which puts a "N more settings" row at the end of the group
-    // and folds a whole titled group closed under its heading instead.
+    // for. Two things bring it back: arriving from a link, a search result or
+    // an addon's Use button (the row they name has to be there, so the page is
+    // drawn as if the depth allowed it, and says so; see [DepthRevealNotice]),
+    // and About › App › "Show where settings are hidden", which puts a "N more
+    // settings" row at the end of the group and folds a whole titled group
+    // closed under its heading instead.
     val reveal = highlighted || depthControl.hiddenRows
     if (groupAbove && !reveal) return
     val foldsWhole = groupAbove && title != null && depthControl.hiddenRows
     val tucked: (SettingsGroupScope.Entry) -> Boolean =
         { e -> !foldsWhole && (groupAbove || !depth.shows(e.level)) }
     val tuckedCount = scope.items.count { it.visible && tucked(it) }
-    val entries = when {
+    val laidOut = when {
         tuckedCount == 0 -> scope.items
         // Not pointed at: the hidden rows are simply not there.
         !depthControl.hiddenRows && !highlighted -> scope.items.filterNot { tucked(it) }
-        // A highlight pending and nothing to point with: every row in its place.
-        !depthControl.hiddenRows -> scope.items
+        // Arrived here and nothing to point with: every row in its place, each
+        // knowing the depth it would otherwise need.
+        !depthControl.hiddenRows -> {
+            val needed = scope.items.filter { it.visible && tucked(it) }.maxOf { maxOf(it.level, level) }
+            SideEffect { depthReveal?.note(needed) }
+            scope.items.map { entry ->
+                if (!tucked(entry)) return@map entry
+                val revealedAt = maxOf(entry.level, level)
+                SettingsGroupScope.Entry(entry.visible, entry.conditional, entry.key, entry.level, entry.weight) {
+                    CompositionLocalProvider(LocalRevealedLevel provides revealedAt, entry.content)
+                }
+            }
+        }
         else -> {
-            // Remembered per group like a fold, and drawn open while a
-            // highlight is pending so a search result can land inside.
+            // Remembered per group like a fold, and drawn open on arrival so a
+            // search result can land inside.
             val moreId = "$route/${foldKey ?: title ?: "group"}#more"
-            val moreOpen = highlighted || (folds?.isOpen(moreId) ?: false)
+            val moreOpen = (depthReveal?.holdsOpen(moreId) ?: highlighted) || (folds?.isOpen(moreId) ?: false)
             buildList<SettingsGroupScope.Entry> {
                 scope.items.filterNotTo(this) { tucked(it) }
                 add(
                     SettingsGroupScope.Entry(visible = true, conditional = false, key = null) {
-                        MoreSettingsRow(tuckedCount, moreOpen) { folds?.toggle(moreId, !moreOpen) }
+                        MoreSettingsRow(tuckedCount, moreOpen) {
+                            depthReveal?.letGo(moreId)
+                            folds?.toggle(moreId, !moreOpen)
+                        }
                     },
                 )
                 // Conditional on the fold, so they grow in under the row
@@ -3677,6 +3849,7 @@ internal fun SettingsGroup(
                             conditional = true,
                             key = null,
                             level = entry.level,
+                            weight = entry.weight,
                             content = entry.content,
                         ),
                     )
@@ -3684,31 +3857,50 @@ internal fun SettingsGroup(
             }
         }
     }
+    // A new row another setting hides, drawn greyed while the walk points at it.
+    val entries = peekHiddenRows(laidOut)
     // What the group is showing right now, which is what every count below is
     // about: a hidden conditional row is not a row the reader can see, so it
     // is not a slab in the skeleton and not one of the rows a closed fold
     // says it is holding.
     val shown = entries.count { it.visible }
     if (shown == 0) return
+    // What the group costs to compose, in ordinary rows: a row drawing
+    // several controls counts as that many ([SettingsGroupScope.item]).
+    val weight = entries.sumOf { if (it.visible) it.weight else 0 }
     // Below the fold while the screen is still animating in: come back for
     // the rows once the entrance can spare them — see [rememberGroupRevealed].
     // Until then the group holds its place as slabs the size of its rows, so
     // the screen opens at its full height instead of growing under the reader.
-    if (!rememberGroupRevealed(shown)) {
+    if (!rememberGroupRevealed(weight)) {
         GroupSkeleton(shown, hasTitle = title != null)
         return
     }
+    // A large group comes in a few rows a frame, the rest held as slabs
+    // under the rows already drawn — see [rememberRowStage].
+    val stage = rememberRowStage(weight)
+    val staged = if (stage.count >= weight) entries else entries.firstShown(stage.count)
+    val stagedRows = staged.count { it.visible }
     // A group folded by its level is named by its title: two such groups on
     // one screen must not share a remembered state.
     val foldId = (foldKey ?: if (foldsWhole) "level:$title" else null)?.let { "$route/$it" }
-    val open = foldId == null || highlighted || (folds?.isOpen(foldId) ?: false)
+    val open = foldId == null || (depthReveal?.holdsOpen(foldId) ?: highlighted) || (folds?.isOpen(foldId) ?: false)
+    // A limit on open folds closes only the ones the reader can see here.
+    if (foldId != null && folds != null) {
+        DisposableEffect(folds, foldId) {
+            folds.drawn(foldId, true)
+            onDispose { folds.drawn(foldId, false) }
+        }
+    }
+    // The heading of a group above the depth is itself a row the depth hid.
+    val groupRevealedAt = level.takeIf { groupAbove && !depthControl.hiddenRows }
     // A named group is a scroll target in its own right. Some things the user
     // arrives at from search — or from an addon's Use button — are a whole
     // section rather than one row: "Icon pack", "Your packs", "Installed
     // fonts". Unnamed groups have nothing to match on and stay plain. Coarse,
     // because anything inside it that answers to the same request is a better
     // answer than the section around them.
-    HighlightableRow(title, highlightKey, coarse = true) {
+    HighlightableRow(title, highlightKey, coarse = true, revealedAt = groupRevealedAt) {
         if (foldId != null && title != null) {
             FoldHeader(
                 title,
@@ -3717,7 +3909,8 @@ internal fun SettingsGroup(
                 info = info,
                 summary = if (open) null else foldSummary?.invoke(),
             ) {
-                folds?.toggle(foldId, !open)
+                depthReveal?.letGo(foldId)
+                folds?.setOpen(foldId, route, !open)
             }
         } else if (title != null) {
             SectionHeader(title, info = info, action = action, modifier = GroupHeadingPadding, linkable = true)
@@ -3729,11 +3922,24 @@ internal fun SettingsGroup(
             // that has collapsed to nothing, and the group would keep a sliver
             // of air where a row used to be. Carried by the row, the gap goes
             // away with it.
-            Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+            // A press anywhere in an open fold marks it as the one being
+            // worked in, which a limit on open folds keeps open. Watched on
+            // the way down and never consumed, so the rows get every press.
+            val touched = if (foldId != null && folds != null) {
+                Modifier.pointerInput(folds, foldId) {
+                    awaitEachGesture {
+                        awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                        folds.touch(foldId)
+                    }
+                }
+            } else {
+                Modifier
+            }
+            Column(modifier = touched.padding(horizontal = 16.dp)) {
                 // Which rows are drawn, and how keyed ones arrive and leave,
                 // is GroupRows' business (SettingsGroupMotion.kt); the card
                 // each one sits on is this file's.
-                GroupRows(entries) { modifier, gapAbove, first, last, content ->
+                GroupRows(staged, quietArrivals = stage.growing) { modifier, gapAbove, first, last, content ->
                     Column(modifier = modifier) {
                         if (gapAbove) Spacer(Modifier.height(3.dp))
                         GroupCard(
@@ -3762,9 +3968,37 @@ internal fun SettingsGroup(
                 cards()
             }
         }
+        if (open && stagedRows < shown) {
+            GroupSkeleton(shown - stagedRows, hasTitle = false, modifier = Modifier.padding(top = 3.dp))
+        }
         Spacer(Modifier.height(GroupTail))
     }
 }
+
+/**
+ * The entries whose showing rows fit in [budget] rows' worth of [weight][SettingsGroupScope.Entry.weight],
+ * with the hidden conditional rows among them kept in their places. The first
+ * showing row always fits, however heavy.
+ */
+private fun List<SettingsGroupScope.Entry>.firstShown(budget: Int): List<SettingsGroupScope.Entry> {
+    var spent = 0
+    val out = ArrayList<SettingsGroupScope.Entry>()
+    for (entry in this) {
+        if (entry.visible) {
+            if (spent > 0 && spent + entry.weight > budget) break
+            spent += entry.weight
+        }
+        out += entry
+    }
+    return out
+}
+
+/**
+ * The shape of the group card a row sits on, or null outside a group. A row's
+ * own outline (the new-setting border) is drawn in it, so the card's clip
+ * never cuts the outline's corners.
+ */
+internal val LocalGroupCardShape = compositionLocalOf<Shape?> { null }
 
 /** The radius at the two ends of a group's stack of cards. */
 private val GroupEndCorner = 24.dp
@@ -3783,18 +4017,23 @@ private val GroupInnerCorner = 6.dp
 private fun GroupCard(top: Dp, bottom: Dp, content: @Composable () -> Unit) {
     val topCorner by animateDpAsState(top, label = "groupCardTop")
     val bottomCorner by animateDpAsState(bottom, label = "groupCardBottom")
+    val shape = RoundedCornerShape(
+        topStart = topCorner, topEnd = topCorner,
+        bottomStart = bottomCorner, bottomEnd = bottomCorner,
+    )
     Surface(
-        shape = RoundedCornerShape(
-            topStart = topCorner, topEnd = topCorner,
-            bottomStart = bottomCorner, bottomEnd = bottomCorner,
-        ),
+        shape = shape,
         color = MaterialTheme.colorScheme.surfaceContainer,
         modifier = Modifier.fillMaxWidth(),
     ) {
         // No padding of its own: a row brings its own (ListItem's 8 dp, a
         // slider row's 8 dp), and 4 dp on top of that made every row 80 dp
         // where 72 is the height the list is designed around.
-        Column { content() }
+        // The card's shape goes down to the row, so a new setting's gold
+        // border follows the card's corners instead of being cut by them (#1184).
+        CompositionLocalProvider(LocalGroupCardShape provides shape) {
+            Column { content() }
+        }
     }
 }
 
@@ -4691,6 +4930,7 @@ internal fun SliderSetting(
     onReset: (() -> Unit)? = null,
     preview: ((Float) -> Unit)? = null,
     typed: Boolean = true,
+    steps: Int = 0,
     onChange: (Float) -> Unit,
 ) = SliderSetting(
     title = stringResource(title),
@@ -4707,6 +4947,7 @@ internal fun SliderSetting(
     onReset = onReset,
     preview = preview,
     typed = typed,
+    steps = steps,
     onChange = onChange,
 )
 
@@ -4761,6 +5002,11 @@ internal fun SliderSetting(
      * "1 day"), where a bare number cannot say which one it means.
      */
     typed: Boolean = true,
+    /**
+     * Stops between the ends, for a whole-number setting: dots on the track,
+     * and the thumb lands on the nearest one. See [wholeSteps].
+     */
+    steps: Int = 0,
     onChange: (Float) -> Unit,
 ) {
     val slider = rememberLiveSlider(value, onChange, live = live, preview = preview)
@@ -4842,6 +5088,7 @@ internal fun SliderSetting(
                         onValueChangeFinished = slider::onRelease,
                         valueRange = range,
                         enabled = enabled,
+                        steps = steps,
                     )
                     Spacer(Modifier.width(SliderPillGap))
                 }
@@ -4874,6 +5121,7 @@ internal fun SliderSetting(
                     onValueChangeFinished = slider::onRelease,
                     valueRange = range,
                     enabled = enabled,
+                    steps = steps,
                 )
             }
         }
@@ -4895,6 +5143,13 @@ internal fun SliderSetting(
         }
     }
 }
+
+/**
+ * The [SliderSetting] `steps` for a whole-number [range]: one stop per number
+ * between the ends, so 2..6 is three.
+ */
+internal fun wholeSteps(range: ClosedFloatingPointRange<Float>): Int =
+    ((range.endInclusive - range.start).roundToInt() - 1).coerceAtLeast(0)
 
 /** [StepperSetting] for a row named by a string resource. */
 @Composable

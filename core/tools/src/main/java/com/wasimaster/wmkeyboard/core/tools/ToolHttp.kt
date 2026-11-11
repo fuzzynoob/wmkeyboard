@@ -6,6 +6,7 @@ import com.wasimaster.wmkeyboard.core.netlog.NetCall
 import com.wasimaster.wmkeyboard.core.netlog.NetLog
 import com.wasimaster.wmkeyboard.core.netlog.NetSource
 import com.wasimaster.wmkeyboard.core.netlog.NoInternetPermissionException
+import com.wasimaster.wmkeyboard.core.netlog.OfflineBuild
 import com.wasimaster.wmkeyboard.core.netlog.track
 import com.wasimaster.wmkeyboard.tools.R
 import java.io.File
@@ -300,6 +301,9 @@ object ToolHttp {
         onRequestSent: () -> Unit = {},
         source: NetSource? = null,
         route: String? = null,
+        /** Response headers to hand [onHeaders] once the status is in: a service's quota (#1135). */
+        wantHeaders: Set<String> = emptySet(),
+        onHeaders: (Map<String, String>) -> Unit = {},
         onLine: (String) -> Boolean,
     ): Unit = metered(url, "POST", source, route) { connection, call ->
         connection.connectTimeout = 10_000
@@ -320,6 +324,9 @@ object ToolHttp {
         onRequestSent()
         val status = connection.responseCode
         call.status = status
+        if (wantHeaders.isNotEmpty()) {
+            onHeaders(wantHeaders.mapNotNull { name -> connection.getHeaderField(name)?.let { name to it } }.toMap())
+        }
         if (status !in 200..299) throw httpFailure(status, connection.readError(call))
         call.countIn(connection.inputStream).bufferedReader().use { reader ->
             while (true) {
@@ -464,6 +471,60 @@ object ToolHttp {
         }
     }
 
+    /** What [binaryExchange] hands its reader: the response with its body still unread, as bytes. */
+    class BinaryExchange(
+        val status: Int,
+        /** The media type alone, lower case, without its parameters. Empty when the server sent none. */
+        val contentType: String,
+        /** The response headers the caller named, by the name it gave them. */
+        val headers: Map<String, String>,
+        /** The body, or the error body for a failure. Null when there is none. */
+        val body: java.io.InputStream?,
+    )
+
+    /**
+     * [exchange] for a body that is not text: a request of raw [body] bytes,
+     * and a response the caller reads as a byte stream, a frame at a time if
+     * it likes. Built for Privatemode's encrypted bodies (#1145), whose
+     * streamed answer must be opened as it arrives. Never throws on a status;
+     * [onRequestSent] is called once the body is out, as [postJsonStream] does.
+     */
+    @Suppress("LongParameterList")
+    fun <T> binaryExchange(
+        url: String,
+        body: ByteArray,
+        contentType: String,
+        headers: Map<String, String> = emptyMap(),
+        wantHeaders: Set<String> = emptySet(),
+        timeoutMs: Int = 120_000,
+        onRequestSent: () -> Unit = {},
+        source: NetSource? = null,
+        route: String? = null,
+        read: (BinaryExchange) -> T,
+    ): T = metered(url, "POST", source, route) { connection, call ->
+        connection.connectTimeout = 10_000
+        connection.readTimeout = timeoutMs
+        connection.setRequestProperty("User-Agent", USER_AGENT)
+        connection.requestMethod = "POST"
+        connection.doOutput = true
+        connection.setFixedLengthStreamingMode(body.size)
+        connection.setRequestProperty("Content-Type", contentType)
+        for ((name, value) in headers) connection.setRequestProperty(name, value)
+        connection.send(body, call)
+        onRequestSent()
+        val status = connection.responseCode
+        call.status = status
+        val kept = wantHeaders.mapNotNull { name -> connection.getHeaderField(name)?.let { name to it } }.toMap()
+        val type = connection.contentType.orEmpty().substringBefore(';').trim().lowercase()
+        val stream = if (status >= 400) connection.errorStream else runCatching { connection.inputStream }.getOrNull()
+        val input = stream?.let(call::countIn)
+        try {
+            read(BinaryExchange(status, type, kept, input))
+        } finally {
+            runCatching { input?.close() }
+        }
+    }
+
     /**
      * Streams a URL into [target] (creating parent dirs); deletes the partial file on
      * failure. [maxBytes] aborts the transfer once exceeded rather than trusting a
@@ -586,7 +647,7 @@ object ToolHttp {
      */
     fun friendlyMessage(t: Throwable, text: (res: Int, arg: Any?) -> String): String = when (t) {
         is ToolHttpException -> httpText(t, text)
-        is NoInternetPermissionException -> text(CommonR.string.common_error_no_internet_permission, null)
+        is NoInternetPermissionException -> text(OfflineBuild.refused(), null)
         is UnknownHostException -> text(CommonR.string.common_error_network, null)
         is SocketTimeoutException -> text(CommonR.string.common_error_timeout, null)
         is ConnectException -> text(R.string.core_tools_error_server_unreachable, null)

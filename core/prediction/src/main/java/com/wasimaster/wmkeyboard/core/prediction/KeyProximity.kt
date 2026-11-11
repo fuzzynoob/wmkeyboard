@@ -94,6 +94,9 @@ class KeyProximity private constructor(
         }
     }
 
+    /** The keys next to [c] on this layout, empty for one it does not draw. */
+    fun neighborsOf(c: Char): String = neighbors[c].orEmpty()
+
     fun areAdjacent(a: Char, b: Char): Boolean {
         val ac = a.code
         val bc = b.code
@@ -185,7 +188,7 @@ class KeyProximity private constructor(
          * grid cannot express: a staggered or split arrangement whose rows do not
          * share a column origin.
          */
-        fun forLayout(spec: LayoutSpec, numberRow: Boolean = false): KeyProximity {
+        fun forLayout(spec: LayoutSpec, numberRow: Boolean = false, customRow: List<Key>? = null): KeyProximity {
             val rows = spec.proximityRows ?: letterRows(spec)
             // The number row is injected at render time (it is a setting, not
             // part of any LayoutSpec), so it is stitched on here the same way:
@@ -194,7 +197,10 @@ class KeyProximity private constructor(
             // substitution instead of a distant one. The layout's own number
             // row when it authored one (#970): Eastern Arabic digits, or a row
             // that is not digits at all, sit over the letters just the same.
-            val authored = if (numberRow) spec.numberRowFor(LayoutLayer.LETTERS) else null
+            // Else the keyboard-wide custom row from the settings, which every
+            // layout without its own draws there: its keys, not the built-in
+            // digits, are what a typed slip landed beside.
+            val authored = if (numberRow) spec.numberRowFor(LayoutLayer.LETTERS) ?: customRow else null
             val top = authored?.let(::rowString)?.takeIf { it.length > 1 } ?: NUMBER_ROW
             val keys = spec.layer(LayoutLayer.LETTERS)?.rows.orEmpty().flatten() + authored.orEmpty()
             return KeyProximity(if (numberRow) listOf(top) + rows else rows, carriedLetters(keys))
@@ -263,16 +269,23 @@ class KeyProximity private constructor(
          * Accented Latin alternates are left to [Accents], which the walk asks
          * first, so the table stays short on a Latin board, where the walk
          * consults it at every node. Letters only: Arabic puts its harakat on
-         * Shift, and a mark is never what a tap on a letter stood in for.
+         * Shift, and a mark is never what a tap on a letter stood in for. And
+         * letters of the tapped key's own script only: a Latin `q` kept on a
+         * Hebrew key for typing English is not what a tap on ק stood in for,
+         * and counting it walked the English list as QWERTY under Hebrew
+         * typing (#1012).
          */
         private fun carriedLetters(keys: List<Key>): Map<Char, String> {
             val out = LinkedHashMap<Char, StringBuilder>()
             for (key in keys) {
                 if (key.action != KeyAction.Text) continue
                 val typed = (key.output ?: key.label).singleOrNull() ?: continue
+                val script = Character.UnicodeScript.of(typed.code)
                 for (other in listOfNotNull(key.shiftLabel, key.hint) + key.longPress) {
                     val letter = other.singleOrNull() ?: continue
                     if (!Character.isLetter(letter) || letter.lowercaseChar() == typed.lowercaseChar()) continue
+                    // A digit on the number row has no script of its own to keep to.
+                    if (script != Character.UnicodeScript.COMMON && Character.UnicodeScript.of(letter.code) != script) continue
                     val folded = letter.lowercaseChar()
                     for (base in setOf(typed, typed.lowercaseChar())) {
                         if (Accents.isAccentOf(folded, base)) continue

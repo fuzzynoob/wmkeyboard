@@ -38,7 +38,8 @@ data class ClockConfig(
     /**
      * How many times an alarm nobody answers snoozes itself, at the end of
      * [autoSilenceMinutes], before it counts as missed (#970). 0, the default,
-     * stops it the first time.
+     * stops it the first time; [SNOOZE_UNTIL_ANSWERED] never counts it missed,
+     * so an important alarm is still ringing when someone comes back to it.
      */
     val autoSnoozes: Int = 0,
     /**
@@ -62,9 +63,16 @@ data class ClockConfig(
     val historyDays: Int = 90,
     /** Volume keys snooze a ringing alarm (otherwise they dismiss nothing and only silence). */
     val volumeKeysSnooze: Boolean = true,
+    /** The phone's own zone and UTC, held ahead of the cities (#970). */
+    val pinLocalZone: Boolean = false,
+    val pinUtc: Boolean = false,
     /** The panel tab last open, by [ClockTab.id]. */
     val lastTab: String = "clocks",
 ) {
+    companion object {
+        /** [autoSnoozes] for an alarm that snoozes itself until someone answers it (#970). */
+        const val SNOOZE_UNTIL_ANSWERED = Int.MAX_VALUE
+    }
     val pomodoro: PomodoroPlan
         get() = PomodoroPlan(focusMinutes, shortBreakMinutes, longBreakMinutes, longBreakEvery)
 
@@ -75,8 +83,14 @@ data class ClockConfig(
      * or by the time there, earliest first, when [sortZonesByTime] is on.
      * Stable, so two cities on one offset keep the order they were put in.
      */
-    fun shownZones(now: Long = System.currentTimeMillis()): List<WorldZone> =
-        if (sortZonesByTime) zones.sortedBy { TimeZone.getTimeZone(it.zoneId).getOffset(now) } else zones
+    fun shownZones(now: Long = System.currentTimeMillis()): List<WorldZone> {
+        val cities = if (sortZonesByTime) zones.sortedBy { TimeZone.getTimeZone(it.zoneId).getOffset(now) } else zones
+        val pinned = buildList {
+            if (pinLocalZone) add(WorldZone(TimeZone.getDefault().id))
+            if (pinUtc) add(WorldZone("UTC", label = "UTC"))
+        }
+        return (pinned + cities).distinctBy { it.zoneId }
+    }
 }
 
 /** The panel's tabs, in order. */

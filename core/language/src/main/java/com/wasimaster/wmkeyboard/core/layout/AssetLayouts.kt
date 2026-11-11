@@ -267,13 +267,25 @@ object AssetLayouts {
     const val JA_ROMAJI_ID = "asset_ja_romaji"
     const val JA_FLICK_ID = "asset_ja_flick"
     const val JA_KANA_JIS_ID = "asset_ja_kana_jis"
+    const val JA_GODAN_ID = "asset_ja_godan"
+    const val JA_50KEYS_ID = "asset_ja_50keys"
     const val ZH_PINYIN_ID = "asset_zh_pinyin"
+    const val ZH_PINYIN_CLEARFLOW_ID = "asset_zh_pinyin_clearflow"
     const val ZH_PINYIN_T9_ID = "asset_zh_pinyin_t9"
     const val ZH_ZHUYIN_ID = "asset_zh_zhuyin"
+
+    /** Samsung's 12-key Zhuyin pad: ten keys of bopomofo, typed as digits (`T9ZhuyinComposer`). */
+    const val ZH_ZHUYIN_T9_ID = "asset_sam_zh_zhuyin_t9"
     const val ZH_CANGJIE_ID = "asset_zh_cangjie"
     const val ZH_CANGJIE_QUICK_ID = "asset_zh_cangjie_quick"
+    const val ZH_WUBI_ID = "asset_zh_wubi"
     const val YUE_JYUTPING_ID = "asset_yue_jyutping"
+    const val YUE_YALE_ID = "asset_yue_yale"
+    const val YUE_CANTONESE_PINYIN_ID = "asset_yue_cantonese_pinyin"
     const val ZH_STROKE_ID = "asset_zh_stroke"
+
+    /** Samsung's 12-key stroke pad: the same `StrokeComposer`, with 通 as the wildcard stroke. */
+    const val ZH_STROKE_PAD_ID = "asset_sam_zh_stroke_pad"
 
     // --- Handwriting: a writing canvas over one bottom row (issue #557). The
     // flag on the layout does the work; the grid is only ?123, globe, space,
@@ -488,12 +500,33 @@ object AssetLayouts {
      */
     const val KO_CHEONJIIN_ID = "asset_ko_cheonjiin"
 
+    /** The same composer on Gboard's arrangement: a next-letter key, and . and , either side of ㅇㅁ. */
+    const val KO_10KEY_ID = "asset_ko_10key"
+
     /**
      * 나랏글 (Naratgeul), the other Korean 12-key pad (issue #599): six basic
      * consonants and four vowel keys, with 획추가 and 쌍자음 building every
      * other jamo from them, and ㅐ ㅔ typed as ㅏ ㅓ and ㅣ (`NaratgeulComposer`).
      */
     const val KO_NARATGEUL_ID = "asset_ko_naratgeul"
+
+    /** Samsung's Naratgeul with the consonants in the middle columns and punctuation down the left. */
+    const val KO_NARATGEUL_CENTER_ID = "asset_sam_ko_naratgeul_center"
+
+    /** Samsung's 천지인 플러스: Cheonjiin's strokes, with every consonant on a key of its own. */
+    const val KO_CHEONJIIN_PLUS_ID = "asset_sam_ko_cheonjiin_plus"
+
+    /** 베가 (Vega): a cycle of letters on every key, vowels included (`VegaComposer`). */
+    const val KO_VEGA_ID = "asset_sam_ko_vega"
+
+    /** Vega with the letters in the middle columns and punctuation down the left. */
+    const val KO_VEGA_CENTER_ID = "asset_sam_ko_vega_center"
+
+    /** 모아키 (Moakey): a consonant key dragged towards its vowel (`MoakeyComposer`, `MoakeyDrag`). */
+    const val KO_MOAKEY_ID = "asset_sam_ko_moakey"
+
+    /** Moakey with ㅣ ㅡ ㆍ keys, for a second thumb to add the vowel after a tapped consonant. */
+    const val KO_MOAKEY_TWOHAND_ID = "asset_sam_ko_moakey_twohand"
     const val ML_INSCRIPT_ENHANCED_ID = "asset_ml_inscript_enhanced"
     const val MNI_INSCRIPT_ID = "asset_mni_inscript"
     const val MNS_ID = "asset_mns"
@@ -868,9 +901,9 @@ object AssetLayouts {
     const val EE_LETTERS_ID = "asset_ee_letters"
     const val EN_CLEARFLOW_ID = "asset_en_clearflow"
     const val EN_COLEMAK_DH_ANSI_ID = "asset_en_colemak_dh_ansi"
-    const val EN_GBOARD_PLUS_ID = "asset_en_gboard_plus"
-    const val EN_GBOARD_PLUS_SWIPE_SAFE_ID = "asset_en_gboard_plus_swipe_safe"
     const val EN_KASROZ_ID = "asset_en_kasroz"
+    /** QWERTY's columns laid end to end on one row, read like Minuum's strip. */
+    const val EN_ONE_ROW_ID = "asset_en_one_row"
     const val EN_SHAVIAN_ID = "asset_en_shavian"
     const val EN_SHAVIAN_TWO_LAYER_ID = "asset_en_shavian_two_layer"
     const val ENF_CYRILLIC_ID = "asset_enf_cyrillic"
@@ -958,6 +991,44 @@ object AssetLayouts {
     const val ZGH_LATIN_QWERTZ_ID = "asset_zgh_latin_qwertz"
     const val ZGH_TIFINAGH_ALT_ID = "asset_zgh_tifinagh_alt"
     const val ZGH_TIFINAGH_AZERTY_ID = "asset_zgh_tifinagh_azerty"
+
+    // One-row boards (QWERTY folded column by column, Minuum style), generated
+    // from each language's main grid; see EN_ONE_ROW_ID.
+    const val AS_PHONETIC_ONE_ROW_ID = "asset_as_phonetic_one_row"
+    const val BN_AVRO_ONE_ROW_ID = "asset_bn_avro_one_row"
+    const val BN_ROM_ONE_ROW_ID = "asset_bn_rom_one_row"
+    const val CS_ONE_ROW_ID = "asset_cs_one_row"
+    const val DE_ONE_ROW_ID = "asset_de_one_row"
+    const val ES_ONE_ROW_ID = "asset_es_one_row"
+    const val FR_ONE_ROW_ID = "asset_fr_one_row"
+    const val GU_PHONETIC_ONE_ROW_ID = "asset_gu_phonetic_one_row"
+    const val GU_ROM_ONE_ROW_ID = "asset_gu_rom_one_row"
+    const val HI_PHONETIC_ONE_ROW_ID = "asset_hi_phonetic_one_row"
+    const val HI_ROM_ONE_ROW_ID = "asset_hi_rom_one_row"
+    const val IT_ONE_ROW_ID = "asset_it_one_row"
+    const val KN_PHONETIC_ONE_ROW_ID = "asset_kn_phonetic_one_row"
+    const val KN_ROM_ONE_ROW_ID = "asset_kn_rom_one_row"
+    const val ML_PHONETIC_ONE_ROW_ID = "asset_ml_phonetic_one_row"
+    const val ML_ROM_ONE_ROW_ID = "asset_ml_rom_one_row"
+    const val MR_PHONETIC_ONE_ROW_ID = "asset_mr_phonetic_one_row"
+    const val MR_ROM_ONE_ROW_ID = "asset_mr_rom_one_row"
+    const val NE_ROM_ONE_ROW_ID = "asset_ne_rom_one_row"
+    const val NL_ONE_ROW_ID = "asset_nl_one_row"
+    const val OR_PHONETIC_ONE_ROW_ID = "asset_or_phonetic_one_row"
+    const val PA_PHONETIC_ONE_ROW_ID = "asset_pa_phonetic_one_row"
+    const val PA_ROM_ONE_ROW_ID = "asset_pa_rom_one_row"
+    const val PL_ONE_ROW_ID = "asset_pl_one_row"
+    const val PT_ONE_ROW_ID = "asset_pt_one_row"
+    const val RU_ONE_ROW_ID = "asset_ru_one_row"
+    const val SI_ROM_ONE_ROW_ID = "asset_si_rom_one_row"
+    const val SV_ONE_ROW_ID = "asset_sv_one_row"
+    const val TA_PHONETIC_ONE_ROW_ID = "asset_ta_phonetic_one_row"
+    const val TA_ROM_ONE_ROW_ID = "asset_ta_rom_one_row"
+    const val TE_PHONETIC_ONE_ROW_ID = "asset_te_phonetic_one_row"
+    const val TE_ROM_ONE_ROW_ID = "asset_te_rom_one_row"
+    const val TR_ONE_ROW_ID = "asset_tr_one_row"
+    const val UR_PHONETIC_ONE_ROW_ID = "asset_ur_phonetic_one_row"
+    const val UR_ROM_ONE_ROW_ID = "asset_ur_rom_one_row"
 
     /**
      * One shipped layout as the index describes it, without its grid. [name]
@@ -1076,8 +1147,9 @@ object AssetLayouts {
         synchronized(parsed) { parsed[id] }?.let { return it.spec }
         val manager = assets ?: return null
         val loaded = runCatching {
-            val text = manager.open("$DIR/${id.removePrefix(ID_PREFIX)}$SUFFIX")
-                .use { it.readBytes().decodeToString() }
+            val stem = id.removePrefix(ID_PREFIX)
+            val text = KeymanLayoutPack.read(stem, SUFFIX)
+                ?: manager.open("$DIR/$stem$SUFFIX").use { it.readBytes().decodeToString() }
             LayoutFile.decode(text)?.layout?.let {
                 // Most of these files came from keyboards that put no digits on
                 // the letters; give them QWERTY's corner hints (DigitHints).
@@ -1096,6 +1168,20 @@ object AssetLayouts {
         }
     }
 
+    /** Drops the parsed grids that came from a pack, which a new pack has just replaced. */
+    internal fun forgetPacked() {
+        synchronized(parsed) {
+            val stale = parsed.entries.iterator()
+            while (stale.hasNext()) {
+                val entry = stale.next()
+                if (entry.key.startsWith(KeymanLayoutPack.LAYOUT_ID_PREFIX)) {
+                    parsedWeight -= entry.value.weightBytes
+                    stale.remove()
+                }
+            }
+        }
+    }
+
     /** Parses [ids] now, on the calling thread, so a later [byId] is a lookup. */
     fun warm(ids: Iterable<String>) {
         for (id in ids) if (isShipped(id)) byId(id)
@@ -1110,6 +1196,7 @@ object AssetLayouts {
     fun load(assets: AssetManager) {
         if (loaded) return
         this.assets = assets
+        KeymanLayoutPack.load(assets)
         val fromIndex = runCatching {
             assets.open(INDEX).bufferedReader().useLines { lines ->
                 lines.mapNotNull { line ->

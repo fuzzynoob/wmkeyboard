@@ -1,9 +1,16 @@
 package com.wasimaster.wmkeyboard.app
 
 import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipDescription
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.PersistableBundle
 import android.text.format.DateUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.IntentSenderRequest
@@ -23,6 +30,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Restore
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CheckCircle
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ErrorOutline
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Key
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MoreVert
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -76,9 +84,14 @@ import com.wasimaster.wmkeyboard.core.settings.S3Preset
 import com.wasimaster.wmkeyboard.core.settings.WebDavPreset
 import com.wasimaster.wmkeyboard.core.settings.WebDavServerField
 import com.wasimaster.wmkeyboard.core.settings.LocationStatus
+import com.wasimaster.wmkeyboard.core.settings.PlaceWire
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
+import com.wasimaster.wmkeyboard.core.settings.isLink
 import com.wasimaster.wmkeyboard.core.settings.signsIn
+import com.wasimaster.wmkeyboard.core.settings.sink.ProfileCode
+import com.wasimaster.wmkeyboard.core.settings.sink.ProfileLink
+import com.wasimaster.wmkeyboard.core.settings.sync.SyncScheduler
 import com.wasimaster.wmkeyboard.core.settings.sink.BackupClients
 import com.wasimaster.wmkeyboard.core.settings.sink.BackupSinkException
 import com.wasimaster.wmkeyboard.core.settings.sink.DriveSink
@@ -86,8 +99,11 @@ import com.wasimaster.wmkeyboard.core.settings.sink.GitSink
 import com.wasimaster.wmkeyboard.core.settings.sink.NextcloudLogin
 import com.wasimaster.wmkeyboard.core.settings.sink.S3Sink
 import com.wasimaster.wmkeyboard.core.settings.sink.SftpSink
+import com.wasimaster.wmkeyboard.core.settings.sink.QnapSink
+import com.wasimaster.wmkeyboard.core.settings.sink.SynologySink
 import com.wasimaster.wmkeyboard.core.settings.sink.SinkError
 import com.wasimaster.wmkeyboard.core.settings.sink.WebDavSink
+import com.wasimaster.wmkeyboard.ime.wmpass.WmPassBridge
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
@@ -106,7 +122,19 @@ internal val BackupDestination.accent: Color
         BackupDestination.GIT -> Color(0xFFF05032)
         BackupDestination.IMAP -> Color(0xFFC62828)
         BackupDestination.NEARBY -> Color(0xFF7E57C2)
+        BackupDestination.PROFILE -> Color(0xFF5E35B1)
+        BackupDestination.BOX -> Color(0xFF0061D5)
+        BackupDestination.PCLOUD -> Color(0xFF17BED0)
+        BackupDestination.SYNOLOGY -> Color(0xFF3D5A80)
+        BackupDestination.QNAP -> Color(0xFF1565C0)
+        BackupDestination.NFS -> Color(0xFF6D4C41)
+        BackupDestination.MEGA -> Color(0xFFD9272E)
+        BackupDestination.ICLOUD -> Color(0xFF3693F3)
+        BackupDestination.PROTON -> Color(0xFF6D4AFF)
     }
+
+/** WM Pass's shield runs emerald to teal; its tile on the add sheet takes the teal. */
+private val WM_PASS_ACCENT = Color(0xFF00897B)
 
 /** The destination's own name: "Dropbox", "WebDAV", "Folder". */
 internal fun destinationName(context: Context, type: BackupDestination): String = context.getString(
@@ -123,6 +151,15 @@ internal fun destinationName(context: Context, type: BackupDestination): String 
         BackupDestination.GIT -> R.string.backup_auto_dest_git
         BackupDestination.IMAP -> R.string.backup_auto_dest_imap
         BackupDestination.NEARBY -> R.string.backup_auto_dest_nearby
+        BackupDestination.PROFILE -> R.string.backup_auto_dest_profile
+        BackupDestination.BOX -> R.string.backup_auto_dest_box
+        BackupDestination.PCLOUD -> R.string.backup_auto_dest_pcloud
+        BackupDestination.SYNOLOGY -> R.string.backup_auto_dest_synology
+        BackupDestination.QNAP -> R.string.backup_auto_dest_qnap
+        BackupDestination.NFS -> R.string.backup_auto_dest_nfs
+        BackupDestination.MEGA -> R.string.backup_auto_dest_mega
+        BackupDestination.ICLOUD -> R.string.backup_auto_dest_icloud
+        BackupDestination.PROTON -> R.string.backup_auto_dest_proton
     },
 )
 
@@ -152,6 +189,13 @@ internal fun BackupLocation.detail(context: Context): String? = when (type) {
     BackupDestination.GIT -> git.repository.ifEmpty { null }
     BackupDestination.IMAP -> imap.user.takeIf { it.isNotEmpty() }?.let { if (it.contains('@')) it else "$it@${imap.host}" }
     BackupDestination.DRIVE -> driveFolder.takeIf { driveSpace == DriveSpace.FOLDER }
+    BackupDestination.BOX -> box.folder.ifEmpty { null }
+    BackupDestination.PCLOUD -> pcloud.email.ifEmpty { null }
+    BackupDestination.SYNOLOGY, BackupDestination.QNAP -> nas.server.ifEmpty { null }
+    BackupDestination.NFS -> nfs.host.takeIf { it.isNotEmpty() }?.let { "$it:${nfs.export}" }
+    BackupDestination.MEGA -> mega.email.ifEmpty { null }
+    BackupDestination.ICLOUD -> icloud.appleId.ifEmpty { null }
+    BackupDestination.PROTON -> proton.user.ifEmpty { null }
     else -> null
 }?.takeIf { name.isEmpty() || it != name } ?: if (name.isNotEmpty()) destinationName(context, type) else null
 
@@ -165,13 +209,23 @@ internal fun availableDestinations(): List<BackupDestination> = buildList {
     if (driveAuthorizer().available) add(BackupDestination.DRIVE)
     if (BackupClients.dropboxAvailable) add(BackupDestination.DROPBOX)
     if (BackupClients.oneDriveAvailable) add(BackupDestination.ONEDRIVE)
+    if (BackupClients.boxAvailable) add(BackupDestination.BOX)
+    add(BackupDestination.ICLOUD)
+    add(BackupDestination.PROTON)
+    add(BackupDestination.MEGA)
+    add(BackupDestination.PCLOUD)
     add(BackupDestination.WEBDAV)
     add(BackupDestination.S3)
+    add(BackupDestination.SYNOLOGY)
+    add(BackupDestination.QNAP)
     add(BackupDestination.SFTP)
     add(BackupDestination.SMB)
+    add(BackupDestination.NFS)
     add(BackupDestination.FTP)
     add(BackupDestination.GIT)
     add(BackupDestination.IMAP)
+    // Never leaves the phone, but it is a socket all the same: 127.0.0.1.
+    add(BackupDestination.PROFILE)
 }
 
 /** An example name for [type], under the optional Name field. */
@@ -188,6 +242,15 @@ private fun nameHintRes(type: BackupDestination): Int = when (type) {
     BackupDestination.GIT -> R.string.backup_location_name_hint_git
     BackupDestination.IMAP -> R.string.backup_location_name_hint_imap
     BackupDestination.NEARBY -> R.string.backup_location_name_hint_nearby
+    BackupDestination.PROFILE -> R.string.backup_location_name_hint_profile
+    BackupDestination.BOX -> R.string.backup_location_name_hint_box
+    BackupDestination.PCLOUD -> R.string.backup_location_name_hint_pcloud
+    BackupDestination.SYNOLOGY -> R.string.backup_location_name_hint_synology
+    BackupDestination.QNAP -> R.string.backup_location_name_hint_qnap
+    BackupDestination.NFS -> R.string.backup_location_name_hint_nfs
+    BackupDestination.MEGA -> R.string.backup_location_name_hint_mega
+    BackupDestination.ICLOUD -> R.string.backup_location_name_hint_icloud
+    BackupDestination.PROTON -> R.string.backup_location_name_hint_proton
 }
 
 /** What a location that cannot be tried yet is missing, in the words for its kind. */
@@ -214,6 +277,24 @@ internal fun LocationsGroup(
     var editingIsNew by remember { mutableStateOf(false) }
     var restoring by remember { mutableStateOf<BackupLocation?>(null) }
     var removing by remember { mutableStateOf<BackupLocation?>(null) }
+
+    // A place WM Pass handed over opens in the editor as a new one, not yet
+    // saved: an account still needs its sign-in here, a folder its folder.
+    val fromWmPass = rememberLauncherForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        if (result.resultCode != Activity.RESULT_OK) return@rememberLauncherForActivityResult
+        val raw = result.data?.getStringExtra(PlaceWire.EXTRA) ?: return@rememberLauncherForActivityResult
+        val place = PlaceWire.decode(raw)
+        when {
+            place == null -> onMessage(context.getString(R.string.wmpass_place_from_unknown))
+            place.type !in availableDestinations() -> onMessage(
+                context.getString(R.string.wmpass_place_from_unavailable, destinationName(context, place.type)),
+            )
+            else -> {
+                editingIsNew = true
+                editing = place
+            }
+        }
+    }
 
     fun resync() = scope.launch {
         AutoBackupScheduler.sync(context, repository.settings.first().autoBackup)
@@ -267,8 +348,26 @@ internal fun LocationsGroup(
             onPick = { type ->
                 adding = false
                 editingIsNew = true
-                editing = BackupLocation(id = BackupLocation.newId(), type = type)
+                editing = BackupLocation(
+                    id = BackupLocation.newId(),
+                    type = type,
+                    // A link only syncs.
+                    backup = !type.isLink,
+                    profileCode = if (type == BackupDestination.PROFILE) ProfileCode.format(ProfileCode.generate()) else "",
+                )
             },
+            onFromWmPass = {
+                adding = false
+                // Checked again at the tap: the package could have changed
+                // hands since the sheet opened.
+                if (WmPassBridge.isInstalled(context)) {
+                    try {
+                        fromWmPass.launch(WmPassBridge.placePicker())
+                    } catch (_: ActivityNotFoundException) {
+                        onMessage(context.getString(R.string.wmpass_place_from_missing))
+                    }
+                }
+            }.takeIf { WmPassBridge.isInstalled(context) },
             onDismiss = { adding = false },
         )
     }
@@ -301,6 +400,12 @@ internal fun LocationsGroup(
                         repository.removeBackupLocation(location.id)
                         repository.setSyncLocation(location.id, on = false)
                         releaseFolderGrant(context, location, auto.locations)
+                        // The last link to another profile: its mailbox goes too.
+                        if (location.type == BackupDestination.PROFILE &&
+                            auto.locations.none { it.id != location.id && it.type == BackupDestination.PROFILE }
+                        ) {
+                            ProfileLink.forget(context)
+                        }
                         resync()
                     }
                 }) { Text(stringResource(R.string.backup_location_remove)) }
@@ -404,7 +509,8 @@ private fun LocationRow(
             }
         },
         swipeActions = buildList {
-            if (location.configured) {
+            // A link holds sync files only, never a backup to restore.
+            if (location.configured && !location.type.isLink) {
                 add(SwipeAction(Icons.Outlined.Restore, stringResource(R.string.backup_location_restore, title), onClick = onRestore))
             }
             add(deleteSwipeAction(stringResource(R.string.backup_location_remove), onRemove))
@@ -420,7 +526,7 @@ private fun LocationRow(
                 DropdownMenu(expanded = menu, onDismissRequest = { menu = false }) {
                     DropdownMenuItem(
                         text = { Text(stringResource(R.string.backup_location_restore, title)) },
-                        enabled = location.configured,
+                        enabled = location.configured && !location.type.isLink,
                         onClick = {
                             menu = false
                             onRestore()
@@ -451,7 +557,12 @@ internal fun destinationIcon(type: BackupDestination) =
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun LocationTypeSheet(onPick: (BackupDestination) -> Unit, onDismiss: () -> Unit) {
+private fun LocationTypeSheet(
+    onPick: (BackupDestination) -> Unit,
+    /** Null where WM Pass is not installed, or is not the real one. */
+    onFromWmPass: (() -> Unit)?,
+    onDismiss: () -> Unit,
+) {
     val context = LocalContext.current
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -475,6 +586,14 @@ private fun LocationTypeSheet(onPick: (BackupDestination) -> Unit, onDismiss: ()
                 modifier = Modifier.padding(horizontal = 24.dp, vertical = 4.dp),
             )
             Spacer(Modifier.height(8.dp))
+            if (onFromWmPass != null) {
+                WmRow(
+                    title = stringResource(R.string.wmpass_place_from_title),
+                    subtitle = stringResource(R.string.wmpass_place_from_subtitle),
+                    leading = { WmIconTile(icon = Icons.Outlined.Key, accent = WM_PASS_ACCENT) },
+                    onClick = onFromWmPass,
+                )
+            }
             for (type in availableDestinations()) {
                 WmRow(
                     title = destinationName(context, type),
@@ -523,6 +642,8 @@ private fun LocationEditorSheet(
     // Set by Forget the server key, so the key a backup stored meanwhile does
     // not come straight back from [live].
     var keyForgotten by remember { mutableStateOf(false) }
+    // The same for a NAS certificate, with Forget the certificate.
+    var certForgotten by remember { mutableStateOf(false) }
     // The stored token wins over the draft's: it is what the sign-in wrote.
     // An SFTP host key the draft lacks comes from the stored copy the same way,
     // since a backup that ran meanwhile may have recorded it.
@@ -533,10 +654,35 @@ private fun LocationEditorSheet(
         } else {
             draft.sftp
         },
+        nas = if (draft.nas.certPin.isEmpty() && !certForgotten && live?.nas?.server == draft.nas.server) {
+            draft.nas.copy(certPin = live.nas.certPin)
+        } else {
+            draft.nas
+        },
+        // Tokens a backup refreshed while the sheet was open; signing out
+        // here (an empty uid, no trust token) keeps the draft's.
+        proton = if (draft.proton.uid.isNotEmpty() && live?.proton?.uid == draft.proton.uid) {
+draft.proton.copy(accessToken = live.proton.accessToken, refreshToken = live.proton.refreshToken)
+        } else {
+            draft.proton
+        },
+        icloud = if (draft.icloud.trustToken.isNotEmpty() && live?.icloud?.trustedAtMs == draft.icloud.trustedAtMs) {
+draft.icloud.copy(cookies = live.icloud.cookies, trustToken = live.icloud.trustToken)
+        } else {
+            draft.icloud
+        },
     )
 
     fun save(then: () -> Unit = {}) = scope.launch {
         repository.upsertBackupLocation(current)
+        // Only sync goes through it, so a new one is ticked for sync with sync
+        // on, as pairing a computer does: nothing else would make it do
+        // anything. The first pass puts this copy's file in the mailbox.
+        if (isNew && current.type == BackupDestination.PROFILE) {
+            repository.setSyncLocation(current.id, true)
+            repository.setSyncEnabled(true)
+            SyncScheduler.requestSoon(context, repository.settings.first().autoBackup, delayMs = 0L)
+        }
         // A folder replaced by another gives its grant back.
         val before = live?.folderUri.orEmpty()
         if (before != current.folderUri) releaseFolderUri(context, before, others + current)
@@ -616,6 +762,42 @@ private fun LocationEditorSheet(
                 }
                 // Nothing to fill in: the pairing made it.
                 BackupDestination.NEARBY -> Unit
+                BackupDestination.PROFILE -> ProfilePart(draft) {
+                    draft = it
+                    testResult = null
+                }
+                BackupDestination.BOX -> BoxPart(repository, current, draft, onMessage) {
+                    draft = it
+                    testResult = null
+                }
+                BackupDestination.PCLOUD -> PCloudPart(draft) {
+                    draft = it
+                    testResult = null
+                }
+                BackupDestination.SYNOLOGY, BackupDestination.QNAP -> NasPart(current, onForgetCertificate = {
+                    certForgotten = true
+                    draft = draft.copy(nas = draft.nas.copy(certPin = ""))
+                    testResult = null
+                }) {
+                    draft = it
+                    testResult = null
+                }
+                BackupDestination.NFS -> NfsPart(draft) {
+                    draft = it
+                    testResult = null
+                }
+                BackupDestination.MEGA -> MegaPart(draft) {
+                    draft = it
+                    testResult = null
+                }
+                BackupDestination.ICLOUD -> ICloudPart(draft) {
+                    draft = it
+                    testResult = null
+                }
+                BackupDestination.PROTON -> ProtonPart(draft) {
+                    draft = it
+                    testResult = null
+                }
             }
 
             // Test: the readiness call a backup makes first, with what is on
@@ -632,15 +814,32 @@ private fun LocationEditorSheet(
                             testing = true
                             testResult = null
                             scope.launch {
+                                // Not a place to write to: the question is
+                                // whether the other copy answers.
+                                if (current.type == BackupDestination.PROFILE) {
+                                    val answered = ProfileCode.normalize(current.profileCode)
+                                        ?.let { ProfileLink.probe(it) } == true
+                                    testing = false
+                                    testResult = answered to context.getString(
+                                        if (answered) R.string.backup_profile_test_ok else R.string.backup_profile_test_failed,
+                                    )
+                                    return@launch
+                                }
                                 // SFTP records the server key here, into the
                                 // draft, so Save keeps what this test saw.
-                                val sink = if (current.type == BackupDestination.SFTP) {
-                                    SftpSink(current.sftp) { key ->
+                                val pinned = { pin: String ->
+                                    draft = draft.copy(nas = draft.nas.copy(certPin = pin))
+                                    certForgotten = false
+                                }
+                                val sink = when (current.type) {
+                                    BackupDestination.SFTP -> SftpSink(current.sftp) { key ->
                                         draft = draft.copy(sftp = draft.sftp.copy(hostKey = key))
                                         keyForgotten = false
                                     }
-                                } else {
-                                    AutoBackupRunner.sinkFor(context, current)
+                                    // As SFTP: the certificate this test saw goes into the draft.
+                                    BackupDestination.SYNOLOGY -> SynologySink(current.nas, pinned)
+                                    BackupDestination.QNAP -> QnapSink(current.nas, pinned)
+                                    else -> AutoBackupRunner.sinkFor(context, current)
                                 }
                                 val failure = sink?.readiness()?.exceptionOrNull()
                                     ?: if (sink == null) BackupSinkException(SinkError.NOT_CONFIGURED) else null
@@ -697,6 +896,91 @@ private fun LocationEditorSheet(
     }
 }
 
+/**
+ * Other profile (#1017): the code both copies of the keyboard hold, the
+ * buttons that carry it from one profile to the other, whether the two are
+ * linked now, and on Android 17 the adb grant without which they cannot reach
+ * each other at all.
+ */
+@Composable
+private fun ProfilePart(draft: BackupLocation, onChange: (BackupLocation) -> Unit) {
+    val context = LocalContext.current
+    val code = ProfileCode.normalize(draft.profileCode)
+    val linked by ProfileLink.linked.collectAsStateWithLifecycle()
+    var pasteFailed by remember { mutableStateOf(false) }
+    Text(
+        stringResource(R.string.backup_profile_intro),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+    )
+    StoredTextField(
+        label = stringResource(R.string.backup_profile_code_label),
+        value = draft.profileCode,
+        supporting = stringResource(
+            when {
+                pasteFailed -> R.string.backup_profile_paste_failed
+                code == null -> R.string.backup_profile_code_invalid
+                else -> R.string.backup_profile_code_hint
+            },
+        ),
+        // Shown, but typed as a password: the keyboard does not learn the
+        // code into its dictionary, nor offer it back as a suggestion.
+        keyboardType = KeyboardType.Password,
+    ) {
+        pasteFailed = false
+        onChange(draft.copy(profileCode = it))
+    }
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+    ) {
+        FilledTonalButton(
+            enabled = code != null,
+            onClick = { code?.let { copyText(context, ProfileCode.format(it), sensitive = true) } },
+        ) { Text(stringResource(R.string.backup_profile_copy)) }
+        // Android shares the clipboard between profiles unless a work
+        // policy forbids it, so a copy in one pastes in the other.
+        OutlinedButton(onClick = {
+            val pasted = pastedText(context)?.let(ProfileCode::normalize)
+            pasteFailed = pasted == null
+            if (pasted != null) onChange(draft.copy(profileCode = ProfileCode.format(pasted)))
+        }) { Text(stringResource(R.string.backup_profile_paste)) }
+    }
+    if (code != null) {
+        Text(
+            stringResource(if (linked == code) R.string.backup_profile_linked else R.string.backup_profile_not_linked),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 4.dp),
+        )
+    }
+    if (ProfileLink.separated(context)) {
+        val command = ProfileLink.grantCommand(context)
+        StateBanner(
+            stringResource(R.string.backup_profile_separated, command),
+            action = stringResource(R.string.backup_profile_copy_command),
+            tone = BannerTone.WARNING,
+        ) { copyText(context, command, sensitive = false) }
+    }
+}
+
+/** Puts [text] on the clipboard; [sensitive] keeps it out of Android's preview of what was copied. */
+private fun copyText(context: Context, text: String, sensitive: Boolean) {
+    val manager = context.getSystemService(ClipboardManager::class.java) ?: return
+    val clip = ClipData.newPlainText("", text)
+    if (sensitive && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        clip.description.extras = PersistableBundle().apply { putBoolean(ClipDescription.EXTRA_IS_SENSITIVE, true) }
+    }
+    manager.setPrimaryClip(clip)
+}
+
+/** The text on the clipboard, or null. */
+private fun pastedText(context: Context): String? =
+    context.getSystemService(ClipboardManager::class.java)?.primaryClip
+        ?.takeIf { it.itemCount > 0 }
+        ?.getItemAt(0)?.coerceToText(context)?.toString()
+
 /** The folder a Folder location writes to, and the button that picks it. */
 @Composable
 private fun FolderPart(draft: BackupLocation, onPicked: (String) -> Unit) {
@@ -709,16 +993,26 @@ private fun FolderPart(draft: BackupLocation, onPicked: (String) -> Unit) {
                 Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION,
             )
         }.isSuccess
-        if (taken) onPicked(uri.toString())
+        if (taken) {
+            PickerPlaces.remember(context, PickerPlaces.BACKUP_FOLDER, uri)
+            onPicked(uri.toString())
+        }
+    }
+    // Opens on this location's own folder, or else where the last backup
+    // folder pick went, rather than wherever the app's last pick of any kind
+    // did (#1131).
+    val pick = {
+        val here = draft.folderUri.takeIf { it.isNotEmpty() }?.let { PickerPlaces.folderOf(Uri.parse(it)) }
+        launcher.launch(here ?: PickerPlaces.initial(context, PickerPlaces.BACKUP_FOLDER))
     }
     WmRow(
         title = stringResource(R.string.backup_auto_folder_title),
         subtitle = draft.detail(context) ?: stringResource(R.string.backup_auto_folder_none),
         icon = SettingsRowIcons[R.string.backup_auto_folder_title],
-        onClick = { launcher.launch(null) },
+        onClick = pick,
     )
     FilledTonalButton(
-        onClick = { launcher.launch(null) },
+        onClick = pick,
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
     ) {
         Text(
@@ -1303,19 +1597,19 @@ private fun ImapPart(draft: BackupLocation, onChange: (BackupLocation) -> Unit) 
 }
 
 /**
- * Dropbox or OneDrive: who is signed in, a progress bar while the browser's
+ * Dropbox, OneDrive or Box: who is signed in, a progress bar while the browser's
  * code is traded for a token, and the button.
  */
 @Composable
-private fun SignInPart(repository: SettingsRepository, location: BackupLocation, onMessage: (String) -> Unit) {
+internal fun SignInPart(repository: SettingsRepository, location: BackupLocation, onMessage: (String) -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val exchanging by BackupOAuth.exchanging.collectAsStateWithLifecycle()
     val signingIn = exchanging == location.id
-    val clientId = if (location.type == BackupDestination.DROPBOX) {
-        BackupClients.dropboxClientId
-    } else {
-        BackupClients.oneDriveClientId
+    val clientId = when (location.type) {
+        BackupDestination.DROPBOX -> BackupClients.dropboxClientId
+        BackupDestination.BOX -> BackupClients.boxClientId
+        else -> BackupClients.oneDriveClientId
     }
 
     WmRow(
@@ -1355,10 +1649,10 @@ private fun SignInPart(repository: SettingsRepository, location: BackupLocation,
     }
     StateBanner(
         stringResource(
-            if (location.type == BackupDestination.DROPBOX) {
-                R.string.backup_auto_dropbox_info
-            } else {
-                R.string.backup_auto_onedrive_info
+            when (location.type) {
+                BackupDestination.DROPBOX -> R.string.backup_auto_dropbox_info
+                BackupDestination.BOX -> R.string.backup_box_info
+                else -> R.string.backup_auto_onedrive_info
             },
         ),
     )

@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import android.content.Context
 import android.text.format.Formatter
 import androidx.compose.animation.animateColorAsState
@@ -53,6 +54,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.wasimaster.wmkeyboard.R
 import com.wasimaster.wmkeyboard.common.R as CommonR
+import com.wasimaster.wmkeyboard.core.netlog.OfflineBuild
 import com.wasimaster.wmkeyboard.core.script.LanguageDef
 import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
@@ -156,7 +158,9 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: LiveS
     // The routing below answers for every language at once, and the routing
     // card, the model rows and the dialog all read that one answer, so what it
     // is worked out from is read here.
-    val enabledLanguages = settings.watch { it.enabledLanguages }
+    // As dictation hears them, Hinglish as Hindi (voiceLanguages): the
+    // models are routed by the spoken language.
+    val enabledLanguages = settings.watch { voiceLanguages(it.enabledLanguages) }
     val fallbackId = settings.watch { it.whisper.modelId }
     val pinnedByLang = settings.watch { it.whisper.modelByLang }
 
@@ -333,7 +337,7 @@ internal fun WhisperModelManager(repository: SettingsRepository, settings: LiveS
         }
     }
     SettingsGroup {
-        item(level = SettingLevel.ADVANCED) {
+        item(level = offlineImportLevel) {
             OfflineImportRow(
                 subtitle = stringResource(R.string.offline_import_whisper_subtitle),
                 links = offlineLinks,
@@ -418,9 +422,14 @@ private fun WhisperComputeGroup(repository: SettingsRepository, settings: LiveSe
     val subtitle = when (support) {
         WhisperCppGpu.Support.NO_GPU -> stringResource(R.string.models_whisper_compute_no_gpu)
         WhisperCppGpu.Support.FAILED -> stringResource(R.string.models_whisper_compute_failed)
-        WhisperCppGpu.Support.READY -> WhisperCppGpu.deviceName
-            ?.let { stringResource(R.string.models_whisper_compute_subtitle_named, it) }
-            ?: stringResource(R.string.models_whisper_compute_subtitle)
+        WhisperCppGpu.Support.DOWNLOADING -> stringResource(R.string.models_whisper_compute_downloading)
+        WhisperCppGpu.Support.READY -> when {
+            // Auto keeps a Vulkan GPU out of it; only GPU itself uses one.
+            !WhisperCppGpu.adreno -> stringResource(R.string.models_whisper_compute_vulkan)
+            else -> WhisperCppGpu.deviceName
+                ?.let { stringResource(R.string.models_whisper_compute_subtitle_named, it) }
+                ?: stringResource(R.string.models_whisper_compute_subtitle)
+        }
     }
     SettingsGroup(stringResource(R.string.models_whisper_compute_title), level = SettingLevel.ADVANCED) {
         item {
@@ -445,7 +454,12 @@ private fun WhisperComputeGroup(repository: SettingsRepository, settings: LiveSe
                     )
                 },
             ) { choice ->
-                if (choice == WhisperCompute.GPU) WhisperCppGpu.forgetFailures()
+                if (choice == WhisperCompute.GPU) {
+                    WhisperCppGpu.forgetFailures()
+                    // A Mali, Xclipse or PowerVR phone's Vulkan build is a
+                    // download of its own: started now, not at the first clip.
+                    WhisperCppGpu.prepare()
+                }
                 scope.launch { repository.setWhisperCompute(choice) }
             }
         }
@@ -837,7 +851,7 @@ private fun WhisperModelRow(
                         Text(stringResource(R.string.models_resume_action))
                     }
                     is DownloadStatus.NotDownloaded, is DownloadStatus.Failed ->
-                        TextButton(onClick = onDownload, enabled = !downloadBusy) {
+                        if (InternetPermission.granted) TextButton(onClick = onDownload, enabled = !downloadBusy) {
                             Text(
                                 if (status is DownloadStatus.Failed) {
                                     stringResource(CommonR.string.common_retry)
@@ -1071,7 +1085,7 @@ private fun WhisperModuleBanner(module: ModuleState, gateId: String, onDownload:
         is ModuleState.Missing -> StateBanner(
             stringResource(
                 if (module.failed) {
-                    R.string.models_whisper_module_failed_info
+                    OfflineBuild.library(R.string.models_whisper_module_failed_info)
                 } else {
                     R.string.models_whisper_module_missing_info
                 },

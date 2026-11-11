@@ -35,6 +35,8 @@ internal object EngineNative {
     external fun persianVariants(input: String): Array<String>
     external fun indic(languageId: String, input: String): String
     external fun indicVariants(languageId: String, input: String): Array<String>
+    external fun minorPhonetic(languageId: String, input: String): String
+    external fun minorPhoneticVariants(languageId: String, input: String): Array<String>
     external fun indicRomanPrep(languageId: String, input: String): String
     external fun indicDevanagariPrep(languageId: String, dev: String): String
     external fun indicRerankFlatList(languageId: String): Boolean
@@ -45,7 +47,9 @@ internal object EngineNative {
     external fun khipro(roman: String, variant: Int): String
     external fun khiproWarm(variant: Int)
     external fun khiproSpellings(word: String): Array<String>
+    external fun khiproDarkSpellings(word: String): Array<String>
     external fun khiproRomanizerWarm()
+    external fun khiproDarkRomanizerWarm()
     external fun khiproInstall(variant: Int, spec: String): String
     external fun khiproReset(variant: Int)
     external fun khiproCheck(spec: String, cases: String, skip: String): String

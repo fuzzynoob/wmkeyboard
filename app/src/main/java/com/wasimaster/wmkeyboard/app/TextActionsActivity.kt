@@ -54,6 +54,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -72,6 +73,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.wasimaster.wmkeyboard.R
+import com.wasimaster.wmkeyboard.core.netlog.OfflineBuild
+import com.wasimaster.wmkeyboard.core.plugins.PluginActionRef
+import com.wasimaster.wmkeyboard.core.plugins.PluginActionResult
+import com.wasimaster.wmkeyboard.core.plugins.PluginActionRunner
+import com.wasimaster.wmkeyboard.core.plugins.PluginStore
+import com.wasimaster.wmkeyboard.core.plugins.resolve
+import com.wasimaster.wmkeyboard.core.settings.SelectionMenuItem
 import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.config.BuildConfig
 import com.wasimaster.wmkeyboard.content.R as ContentR
@@ -124,14 +132,17 @@ import com.wasimaster.wmkeyboard.core.translate.OfflineTranslation
 import com.wasimaster.wmkeyboard.core.transliteration.Zawgyi
 import com.wasimaster.wmkeyboard.ime.ProviderPicks
 import com.wasimaster.wmkeyboard.ime.R as ImeR
+import com.wasimaster.wmkeyboard.ime.ui.pluginActionIcon
 import com.wasimaster.wmkeyboard.ime.ui.selectionMacroIcon
 import com.wasimaster.wmkeyboard.tools.R as ToolsR
 import java.io.File
 import java.io.IOException
+import kotlin.coroutines.resume
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 
 /**
@@ -402,6 +413,30 @@ private fun TextActionsScreen(
 
     val offer = remember(text, current) { sheetOffer(context, text, current) }
 
+    // Plugins' selection actions, as the keyboard's bar offers them: the
+    // plugin subsystem on, the plugin on, the action not switched off.
+    val pluginActions = remember(current) {
+        PluginStore.get(context).selectionActions().filter { it.key !in current.selectionMacros.pluginOff }
+    }
+    val pluginRunner = remember { PluginActionRunner(PluginStore.get(context), post = { body -> scope.launch { body() } }) }
+    DisposableEffect(pluginRunner) { onDispose { pluginRunner.shutdown() } }
+    fun runPlugin(ref: PluginActionRef) = launchAction(ref.action.name) {
+        val source = text
+        val result = suspendCancellableCoroutine<PluginActionResult> { continuation ->
+            continuation.invokeOnCancellation { pluginRunner.cancel() }
+            pluginRunner.run(ref.plugin.id, ref.action.id, source) { result ->
+                if (continuation.isActive) continuation.resume(result)
+            }
+        }
+        when (result) {
+            is PluginActionResult.Output ->
+                push(if (result.replaces) result.text else source + result.text, ref.action.name)
+            PluginActionResult.Unchanged -> Unit
+            is PluginActionResult.Failed -> throw IOException(result.message.resolve(context))
+            is PluginActionResult.Stopped -> throw IOException(result.message.resolve(context))
+        }
+    }
+
     fun rewrite(macro: SelectionMacro) {
         val masks = current.clipboard.phoneFormats.toList()
         val label = context.getString(macro.labelRes)
@@ -479,7 +514,8 @@ private fun TextActionsScreen(
                     }
                 }
                 Ladder.FANCY -> LadderRow(onBack = { ladder = Ladder.NONE }) {
-                    FancyStyles.all.forEach { style ->
+                    // The user's strip order, less the styles they hid there.
+                    FancyStyles.arranged(current.layoutBehavior.fancyStyleOrder, current.layoutBehavior.fancyHiddenStyles).forEach { style ->
                         ActionChip(style.sample, null, enabled = busy == null) {
                             if (fancyPicked && history.size > 1) history.removeAt(history.lastIndex)
                             val before = history.size
@@ -490,7 +526,8 @@ private fun TextActionsScreen(
                 }
                 Ladder.NONE -> {
                     ActionGroup(stringResource(R.string.text_actions_group_language)) {
-                        if (translateOn) {
+                        val menuOff = current.selectionMacros.systemMenuOff
+                        if (translateOn && SelectionMenuItem.TRANSLATE !in menuOff) {
                             ActionChip(translateLabel, Icons.Outlined.Translate, enabled = busy == null) { translate() }
                         }
                         aiActions.forEach { spec ->
@@ -498,20 +535,38 @@ private fun TextActionsScreen(
                             ActionChip(label, Icons.Outlined.AutoFixHigh, enabled = busy == null) { runAi(spec, label) }
                         }
                         // The chat, with the text as its first message's attachment.
-                        if (aiOn) {
+                        if (aiOn && SelectionMenuItem.ASK_AI !in menuOff) {
                             ActionChip(stringResource(R.string.ask_ai_label), null, enabled = busy == null) {
                                 startQuietly(context, Intent(context, AskAiActivity::class.java).forText(text))
                             }
                         }
-                        ActionChip(stringResource(R.string.lookup_label), null, enabled = busy == null) {
-                            startQuietly(context, Intent(context, LookupActivity::class.java).forText(text))
+                        if (SelectionMenuItem.LOOK_UP !in menuOff) {
+                            ActionChip(stringResource(R.string.lookup_label), null, enabled = busy == null) {
+                                startQuietly(context, Intent(context, LookupActivity::class.java).forText(text))
+                            }
+                        }
+                        if (ToolbarTool.NOTES in current.enabledTools && SelectionMenuItem.SAVE_NOTE !in menuOff) {
+                            ActionChip(stringResource(R.string.text_actions_save_note), null, enabled = busy == null) {
+                                startQuietly(
+                                    context,
+                                    Intent(context, NoteShareActivity::class.java)
+                                        .setAction(Intent.ACTION_SEND)
+                                        .setType("text/plain")
+                                        .putExtra(Intent.EXTRA_TEXT, text),
+                                )
+                            }
                         }
                     }
-                    if (offer.rewrites.isNotEmpty()) {
+                    if (offer.rewrites.isNotEmpty() || pluginActions.isNotEmpty()) {
                         ActionGroup(stringResource(R.string.text_actions_group_rewrite)) {
                             offer.rewrites.forEach { macro ->
                                 ActionChip(stringResource(macro.labelRes), selectionMacroIcon(macro), enabled = busy == null) {
                                     rewrite(macro)
+                                }
+                            }
+                            pluginActions.forEach { ref ->
+                                ActionChip(ref.action.name, pluginActionIcon(ref.action.icon), enabled = busy == null) {
+                                    runPlugin(ref)
                                 }
                             }
                         }
@@ -817,8 +872,8 @@ private suspend fun translateText(context: Context, settings: KeyboardSettings, 
     throw IOException(
         when (val failure = online) {
             null, is OnlineTranslate.NoProviderException -> context.getString(ToolsR.string.core_tools_provider_none_on)
-            else -> if (ToolHttp.isUnreachable(failure)) {
-                context.getString(CommonR.string.common_error_network)
+            else -> if (OfflineBuild.active || ToolHttp.isUnreachable(failure)) {
+                context.getString(OfflineBuild.network(CommonR.string.common_error_network))
             } else {
                 context.getString(ImeR.string.ime_service_translate_error)
             }

@@ -38,6 +38,16 @@ class EngineNativeTest {
         val tamil = IndicPhonetic(IndicProfiles.forLanguage("ta")!!)
         assertEquals("நான்", tamil.transliterate("naan"))
         assertEquals(8, IndicProfiles.all.size)
+        assertEquals("कमल", IndicPhonetic(IndicProfiles.forLanguage("mai")!!).transliterate("kamal"))
+        assertEquals("కమల", IndicPhonetic(IndicProfiles.forLanguage("lmn-Telu")!!).transliterate("kamal"))
+        for (profile in IndicProfiles.minor) {
+            val out = IndicPhonetic(profile).transliterate("kamal")
+            assertTrue("${profile.languageId}: $out", out.all(profile.script::isNative))
+        }
+        for ((id, letters) in MinorPhonetic.languages) {
+            val out = MinorPhonetic.transliterate(id, "salam")
+            assertTrue("$id: $out", out.isNotEmpty() && out.any { it.code in letters })
+        }
         assertEquals("anta", IndicProfiles.romanPrep("ta")("andha"))
         assertEquals("karna", IndicProfiles.romanPrep("mr")("karna"))
         assertEquals("कत", IndicProfiles.devanagariPrep("ml")("गद"))
@@ -62,6 +72,9 @@ class EngineNativeTest {
         assertEquals(listOf("ekhn", "ekhon"), KhiproRomanizer.spellings("এখন"))
         assertEquals("ekhn", KhiproRomanizer.romanize("এখন"))
         assertTrue(KhiproRomanizer.spellings("চাঁদ").all { '/' in it })
+        KhiproRomanizer.warm(dark = true)
+        assertEquals("hbe", KhiproRomanizer.romanize("হবে", dark = true))
+        assertEquals("hccf/e", KhiproRomanizer.romanize("হচ্ছে", dark = true))
         // Run-time specs (#909): the bundled copy's revision, a check that
         // refuses what is not a spec, and an install and a reset.
         assertTrue(Regex("""\d{4}-\d\d-\d\dT\d\d:\d\d:\d\dZ""").matches(EngineNative.khiproBundledRevision()))

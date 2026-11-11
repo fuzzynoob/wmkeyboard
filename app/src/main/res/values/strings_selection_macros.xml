@@ -28,6 +28,12 @@
     <string name="selection_macros_caret_info">Normally the row only appears while text is selected. On, it stays above the keys all the time, so the actions are there before you select anything.\n\nWith nothing selected it holds Select all and Paste, whichever of them you have switched on. Tap Select all and the full row for the whole text takes its place: Copy, Translate and the rest.\n\nOnly for the row of its own. Over the suggestion strip it would take the suggestions away while you type, so this switch is hidden there.\n\nPassword fields never show the row, whichever way this is set.</string>
 
     <string name="selection_macros_actions_group">Actions</string>
+    <!-- Heading over the actions that installed plugins add to the selection bar. -->
+    <string name="selection_macros_plugins_group">From plugins</string>
+    <string name="selection_macros_plugins_info">Plugins can add their own actions to the bar, after the built-in ones. A plugin sees the text you selected only when you tap one of its actions. Clink actions install as plugins too.</string>
+    <string name="selection_macros_plugins_none_title">No plugin actions</string>
+    <string name="selection_macros_plugins_none_subtitle">Install a plugin or a Clink action that adds selection actions</string>
+    <string name="selection_macros_plugins_off_subtitle">Plugins are off. Turn them on to use actions from plugins and Clink.</string>
 
     <string name="selection_macros_detect_title">Read what is selected</string>
     <string name="selection_macros_detect_subtitle">Offer Call for a phone number, Open for a link, Email for an address</string>
@@ -69,6 +75,7 @@
     <string name="selection_macros_desc_format">Tidy a number, link or address; the case options on text</string>
     <string name="selection_macros_desc_find">Jump to the next place the selection appears</string>
     <string name="selection_macros_desc_replace">Find and replace across the field</string>
+    <string name="selection_macros_desc_snippet">Open your snippets over the selection. A pick replaces it, and {selection} in a snippet reads it</string>
     <string name="selection_macros_desc_repeat">Open the Text repeat tool with the selection as its text</string>
     <string name="selection_macros_desc_lines_sort">Sort the selected lines, again for the other direction</string>
     <string name="selection_macros_desc_lines_dedupe">Drop repeated lines</string>
@@ -86,6 +93,13 @@
     <string name="selection_macros_desc_to_banglish">Bangla back to Banglish</string>
     <string name="selection_macros_desc_to_hindi">Hinglish to Hindi, when the Hindi phonetic layout is one of yours</string>
     <string name="selection_macros_desc_to_hinglish">Hindi back to Hinglish, when the Hindi phonetic layout is one of yours</string>
+    <string name="selection_macros_desc_switch_script">Rewrites Serbian or Uzbek text in its other alphabet, Cyrillic or Latin, whichever it is written in now. Shows while you type that language.</string>
+    <string name="selection_macros_desc_restore_yo">Puts back the ё in Russian words that can only be spelt with it, so еще becomes ещё. Shows while you type Russian, once its download is on the phone.</string>
+    <string name="selection_macros_desc_persian_spacing">Corrects half-spaces, Arabic ي and ك, and spaces around punctuation in Persian text.</string>
+    <string name="selection_macros_desc_add_furigana">Writes readings in brackets after the kanji in Japanese text. Shows on Japanese text once its download is on the phone.</string>
+    <string name="selection_macros_desc_add_tashkeel">Adds tashkeel to Arabic text. Shows on Arabic text once its download is on the phone.</string>
+    <string name="selection_macros_desc_add_nikud">Adds niqqud to Hebrew text. Shows on Hebrew text once its download is on the phone.</string>
+    <string name="selection_macros_desc_korean_spacing">Corrects the spaces between Korean words. Shows on Korean text once its download is on the phone.</string>
     <string name="selection_macros_desc_zawgyi">Burmese from Zawgyi to Unicode, or from Unicode to Zawgyi, whichever the text is in</string>
     <string name="selection_macros_desc_digits_latin">Bengali or other digits to 0 to 9</string>
     <string name="selection_macros_desc_colour">A colour code: a swatch, and its other spellings</string>
@@ -120,6 +134,10 @@
     <string name="selection_macros_icons_title">Icon only</string>
     <string name="selection_macros_icons_subtitle">Actions shown as their icon, with no word</string>
     <string name="selection_macros_icons_info">A picked action takes less room on the bar: it shows its icon and no name, and screen readers still say the name. Actions with no icon of their own, like the case options, always show their name.</string>
+    <string name="selection_macros_icon_size_title">Icon size</string>
+    <string name="selection_macros_icon_size_subtitle">How big the icons drawn alone are</string>
+    <!-- A size in density-independent pixels, as the slider's readout. -->
+    <string name="selection_macros_icon_size_value"><xliff:g id="size" example="16">%1$d</xliff:g> dp</string>
     <string name="selection_macros_icons_empty">No action with an icon is on. Switch some on under Actions first.</string>
 
     <string name="selection_macros_zones_title">Time zones</string>

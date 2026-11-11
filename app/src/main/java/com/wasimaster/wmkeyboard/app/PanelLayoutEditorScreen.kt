@@ -170,6 +170,8 @@ internal fun textEditActionTitle(op: TextEditAction): Int = when (op) {
     TextEditAction.NO_SPACE_NEXT -> R.string.textedit_action_no_space_next
     TextEditAction.DELETE_WORD -> R.string.textedit_action_delete_word
     TextEditAction.DELETE_WORD_FORWARD -> R.string.textedit_action_delete_word_forward
+    TextEditAction.DELETE_LINE -> R.string.textedit_action_delete_line
+    TextEditAction.DELETE_LINE_FORWARD -> R.string.textedit_action_delete_line_forward
 }
 
 /** The components a layout of [kind] may place; empty for the keys-only pad. */
@@ -827,11 +829,19 @@ internal fun EditorFieldCell(
     }
 }
 
-/** Picks which operation a text-editing key runs. */
+/**
+ * Picks which operation a text-editing key runs.
+ *
+ * No space after the next key is offered only where nothing can be held
+ * ([offerNoSpaceNext], a gesture): on a key or a flick, holding No space
+ * arms it, and two actions that read alike were the confusion of #863. A key
+ * that already runs it keeps it on the list.
+ */
 @Composable
 internal fun TextEditActionPickerDialog(
     current: TextEditAction?,
     onDismiss: () -> Unit,
+    offerNoSpaceNext: Boolean = false,
     onPick: (TextEditAction) -> Unit,
 ) {
     val rail = rememberScrollRailState()
@@ -844,6 +854,7 @@ internal fun TextEditActionPickerDialog(
             // beside it, since twenty rows are not worth a lazy list.
             ScrollRail(state = rail, modifier = Modifier.heightIn(max = 420.dp)) {
                 for (op in TextEditAction.entries) {
+                    if (op == TextEditAction.NO_SPACE_NEXT && !offerNoSpaceNext && current != op) continue
                     WmRow(
                         title = stringResource(textEditActionTitle(op)),
                         leading = { RadioButton(selected = current == op, onClick = { onPick(op) }) },
@@ -856,6 +867,57 @@ internal fun TextEditActionPickerDialog(
             TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
         },
     )
+}
+
+/**
+ * Builds a run of text-editing operations for one press (#985): what is in it,
+ * each with a way out, and a row that asks for one more. [onPick] takes the run.
+ */
+@Composable
+internal fun TextEditSequenceDialog(
+    current: List<TextEditAction>,
+    onDismiss: () -> Unit,
+    onPick: (List<TextEditAction>) -> Unit,
+) {
+    var ops by remember { mutableStateOf(current) }
+    var adding by remember { mutableStateOf(false) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.layout_editor_sequence_title)) },
+        text = {
+            Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                ops.forEachIndexed { index, op ->
+                    WmRow(
+                        title = "${index + 1}. ${stringResource(textEditActionTitle(op))}",
+                        onClick = { ops = ops.filterIndexed { i, _ -> i != index } },
+                    )
+                }
+                WmRow(
+                    title = stringResource(R.string.layout_editor_sequence_add),
+                    subtitle = stringResource(R.string.layout_editor_sequence_add_subtitle),
+                    onClick = { adding = true },
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(enabled = ops.isNotEmpty(), onClick = { onPick(ops) }) {
+                Text(stringResource(CommonR.string.common_done))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+    if (adding) {
+        TextEditActionPickerDialog(
+            current = null,
+            onDismiss = { adding = false },
+            onPick = { op ->
+                adding = false
+                ops = ops + op
+            },
+        )
+    }
 }
 
 /** Picks which component a cell hosts. */

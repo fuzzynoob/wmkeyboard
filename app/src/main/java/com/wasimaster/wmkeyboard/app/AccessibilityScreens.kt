@@ -149,6 +149,15 @@ internal fun AccessibilitySettings(
         }
         item(level = SettingLevel.STANDARD) {
             ToggleSetting(
+                R.string.accessibility_theme_effects_title,
+                stringResource(R.string.accessibility_theme_effects_subtitle),
+                settings.watch { it.accessibility.themeEffectsWithReduceMotion },
+                info = stringResource(R.string.accessibility_theme_effects_info),
+                default = SettingsDefaults.accessibility.themeEffectsWithReduceMotion,
+            ) { scope.launch { repository.setThemeEffectsWithReduceMotion(it) } }
+        }
+        item(level = SettingLevel.STANDARD) {
+            ToggleSetting(
                 R.string.accessibility_classic_popup_title,
                 stringResource(R.string.accessibility_classic_popup_subtitle),
                 settings.watch { it.popup.alternatesClassic },
@@ -230,6 +239,21 @@ internal fun AccessibilitySettings(
                 info = stringResource(R.string.favourites_button_info),
                 default = SettingsDefaults.appUi.favouritesButton,
             ) { scope.launch { repository.setFavouritesButton(it) } }
+        }
+        item(level = SettingLevel.STANDARD) {
+            ChoiceSetting(
+                R.string.accessibility_open_folds_title,
+                subtitle = stringResource(R.string.accessibility_open_folds_subtitle),
+                info = stringResource(R.string.accessibility_open_folds_info),
+                options = listOf(
+                    0 to stringResource(R.string.accessibility_open_folds_any),
+                    1 to "1",
+                    2 to "2",
+                    3 to "3",
+                ),
+                selected = settings.watch { it.appUi.openFoldsLimit },
+                default = SettingsDefaults.appUi.openFoldsLimit,
+            ) { scope.launch { repository.setOpenFoldsLimit(it) } }
         }
     }
 

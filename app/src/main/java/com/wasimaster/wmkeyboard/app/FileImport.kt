@@ -57,6 +57,7 @@ import com.wasimaster.wmkeyboard.core.input.imported.ConvertedMethod
 import com.wasimaster.wmkeyboard.core.input.imported.InputMethodImport
 import com.wasimaster.wmkeyboard.core.input.imported.SourceFile
 import com.wasimaster.wmkeyboard.core.keyman.KeymanImport
+import com.wasimaster.wmkeyboard.core.layout.ClinkLayouts
 import com.wasimaster.wmkeyboard.core.layout.ForeignLayouts
 import com.wasimaster.wmkeyboard.core.prediction.AospCombined
 import com.wasimaster.wmkeyboard.core.prediction.AospDictionary
@@ -85,6 +86,7 @@ import com.wasimaster.wmkeyboard.core.layout.KeysCafeLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import com.wasimaster.wmkeyboard.core.layout.MultilingLayouts
 import com.wasimaster.wmkeyboard.core.layout.UnexpectedLayouts
+import com.wasimaster.wmkeyboard.core.plugins.ClinkAction
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginImportResult
 import com.wasimaster.wmkeyboard.core.plugins.PluginManifestResult
@@ -121,6 +123,11 @@ import com.wasimaster.wmkeyboard.core.theme.FlexUnsupported
 import com.wasimaster.wmkeyboard.core.theme.GboardResult
 import com.wasimaster.wmkeyboard.core.theme.GboardTheme
 import com.wasimaster.wmkeyboard.core.theme.HeliUnsupported
+import com.wasimaster.wmkeyboard.core.theme.ClinkTheme
+import com.wasimaster.wmkeyboard.core.theme.ClinkThemeResult
+import com.wasimaster.wmkeyboard.core.theme.ClinkUnsupported
+import com.wasimaster.wmkeyboard.core.theme.KineticaTheme
+import com.wasimaster.wmkeyboard.core.theme.KineticaUnsupported
 import com.wasimaster.wmkeyboard.core.theme.MultilingTheme
 import com.wasimaster.wmkeyboard.core.theme.MultilingThemeResult
 import com.wasimaster.wmkeyboard.core.theme.MultilingUnsupported
@@ -132,6 +139,8 @@ import com.wasimaster.wmkeyboard.core.theme.withExtractedImages
 import com.wasimaster.wmkeyboard.core.theme.withFreshIds
 import com.wasimaster.wmkeyboard.core.util.MultilingExport
 import com.wasimaster.wmkeyboard.core.util.firstJsonDocument
+import com.wasimaster.wmkeyboard.core.util.MAX_BACKUP_BYTES
+import com.wasimaster.wmkeyboard.core.util.MAX_IMPORT_BYTES
 import com.wasimaster.wmkeyboard.core.util.readCapped
 import com.wasimaster.wmkeyboard.core.util.requireInputStream
 import com.wasimaster.wmkeyboard.core.util.runCancellable
@@ -139,6 +148,7 @@ import com.wasimaster.wmkeyboard.content.R as ContentR
 import com.wasimaster.wmkeyboard.feedback.R as FeedbackR
 import com.wasimaster.wmkeyboard.icons.R as IconsR
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -219,6 +229,11 @@ object WMFileTypes {
         // extension at all, so they are recognised by their contents alone.
         DesktopLayouts.KLC_EXTENSION,
         DesktopLayouts.KEYLAYOUT_EXTENSION,
+        // Clink's theme and layout files, claimed for the same reason again.
+        // Clink is an iOS keyboard, so nothing on the phone competes for them:
+        // they arrive from its repositories or from someone moving over.
+        ClinkTheme.FILE_EXTENSION,
+        ClinkLayouts.FILE_EXTENSION,
     )
 
     /**
@@ -238,6 +253,13 @@ object WMFileTypes {
         data class Theme(val theme: ThemeSpec) : Opened
         data class Layout(val layout: ImportedLayout) : Opened
         data class Config(val text: String, val parsed: ConfigBackup.Parsed) : Opened
+
+        /**
+         * One of our own bundles, summarised from the file without holding
+         * it (#1080). Restoring reads it again from the uri, a section at a
+         * time; a bundle is the one file the app writes with no ceiling.
+         */
+        data class ConfigFile(val summary: ConfigBackup.Summary) : Opened
         data class Snippets(val snippets: ImportedSnippets) : Opened
         data class Vocabulary(val pack: VocabPack) : Opened
 
@@ -305,7 +327,7 @@ object WMFileTypes {
 
         /**
          * Another keyboard's whole backup: HeliBoard, LeanType, FUTO,
-         * FlorisBoard, CleverKeys or AnySoftKeyboard, already read and
+         * FlorisBoard, CleverKeys, AnySoftKeyboard or Kinetica, already read and
          * converted. Not a [Config]: nothing in it is ours, and the dialog for
          * it is a list of everything inside to tick or leave rather than one
          * question.
@@ -423,6 +445,12 @@ object WMFileTypes {
         /** A HeliBoard or LeanType colour theme, already converted. */
         data class HeliThemeFile(val result: HeliResult.Converted) : Opened
 
+        /** A theme from the iOS keyboard Clink (`.clinktheme`), already converted. */
+        data class ClinkThemeFile(val result: ClinkThemeResult.Converted) : Opened
+
+        /** One of Clink's encrypted export packages, which this app does not open. */
+        data object ClinkProtected : Opened
+
         /** A layout from FlorisBoard's JSON or a Keyman touch layout, already converted. */
         data class ForeignLayout(val converted: ConvertedLayout) : Opened
 
@@ -509,13 +537,21 @@ object WMFileTypes {
             }.getOrNull()
             if (inner != null && FileSniff.isTar(inner)) return kaomojiIn(context, uri)
         }
+        // One of our own bundles is listed from the file as it is read rather
+        // than read whole first: it can run to tens of megabytes (#1080).
+        if (!gzipped && looksLikeOwnBackup(head, name)) {
+            SettingsRepository(context.applicationContext)
+                .summarizeConfig { context.contentResolver.requireInputStream(uri) }
+                ?.let { return Opened.ConfigFile(it) }
+        }
         val bytes = runCatching {
             context.contentResolver.requireInputStream(uri).use { raw ->
                 val input = if (gzipped) java.util.zip.GZIPInputStream(raw, 32 * 1024) else raw
                 // Capped on what comes *out*: a few megabytes of gzip inflate
                 // to far more, and this is the one read where the file's own
-                // size says nothing about what it costs to hold.
-                input.readCapped()
+                // size says nothing about what it costs to hold. One of our own
+                // backups gets their ceiling, since the export has none (#1078).
+                input.readCapped(if (looksLikeOwnBackup(head, name)) MAX_BACKUP_BYTES else MAX_IMPORT_BYTES)
             }
         }.getOrNull() ?: return Opened.Unreadable
         // UTF-16 is read as such: MSKLC saves every `.klc` that way.
@@ -541,6 +577,11 @@ object WMFileTypes {
     }
 
     /** Up to [FileSniff.HEAD_BYTES] of [input]: enough for every header sniff. */
+    /** A backup names its format in its first few bytes, and usually in its file name. */
+    private fun looksLikeOwnBackup(head: ByteArray, name: String): Boolean =
+        name.endsWith(ConfigBackup.FILE_EXTENSION, ignoreCase = true) ||
+            head.decodeToString().contains(ConfigBackup.FORMAT)
+
     private fun readHead(input: java.io.InputStream): ByteArray {
         val buffer = ByteArray(FileSniff.HEAD_BYTES)
         var read = 0
@@ -626,6 +667,12 @@ object WMFileTypes {
         // Not ours, but its first line is as good as a tag: no other format
         // can start with Gboard's own header comment.
         GboardDictionary.read(text)?.let { return Opened.GboardDictionaryFile(it) }
+        // Kinetica's backup names itself on its first line, and its tab-split
+        // records would otherwise read as a table of snippets further down.
+        // It is a whole backup: its theme is one item of it.
+        if (KineticaTheme.looksLikeBackup(text)) {
+            ForeignBackups.readText(text)?.let { return Opened.ForeignBackupFile(it) }
+        }
         // This app's kaomoji export carries its format tag; the plain lists the
         // kaomoji screen also reads are any text, and stay with the editor.
         if (text.contains("\"${KaomojiFiles.FORMAT}\"")) {
@@ -641,6 +688,20 @@ object WMFileTypes {
         // may be added after this line: these checks are what stop the branch
         // claiming every JSON file, and a second untagged one would have
         // nothing left to be told apart by.
+        // Clink's theme and layout files are untagged JSON that this app's
+        // theme decoder would also take (a Clink theme has an `id` and a
+        // `name`), so they are told apart first, by the keys only they use.
+        // A Clink action: Python in a JSON string, which installs as a plugin.
+        // The plugin reader converts it again from the file, so only the
+        // decision is made here.
+        if (ClinkAction.looksLikeClinkAction(text)) return Opened.Plugin
+        if (ClinkTheme.looksLikeProtectedPackage(text)) return Opened.ClinkProtected
+        if (ClinkTheme.looksLikeClinkTheme(text)) {
+            (ClinkTheme.read(text) as? ClinkThemeResult.Converted)?.let { return Opened.ClinkThemeFile(it) }
+        }
+        if (ClinkLayouts.looksLikeClinkLayout(text)) {
+            ClinkLayouts.read(text)?.let { return Opened.ForeignLayout(it) }
+        }
         if (name.endsWith(".${ThemeCodec.FILE_EXTENSION}", ignoreCase = true) || looksLikeThemeExport(text)) {
             ThemeCodec.decode(text)?.let { return Opened.Theme(it) }
         }
@@ -666,6 +727,12 @@ object WMFileTypes {
         // AOSP's `.combined` word list opens with its own header line.
         val firstLine = text.lineSequence().map { it.trim() }.firstOrNull { it.isNotEmpty() && !it.startsWith("#") }
         if (firstLine != null && AospCombined.looksLikeCombined(firstLine)) {
+            val inspection = CustomDictionaries.inspect(listOf(CustomDictionaries.ImportFile(name, text.toByteArray())))
+            (inspection as? CustomDictionaries.Inspection.Found)?.let { return Opened.Dictionaries(it.dictionaries) }
+        }
+        // SwiftKey's learned words have nothing but their file name to go by:
+        // the words inside are any word list, which otherwise opens as text.
+        if (CustomDictionaries.isSwiftKeyVocabulary(name)) {
             val inspection = CustomDictionaries.inspect(listOf(CustomDictionaries.ImportFile(name, text.toByteArray())))
             (inspection as? CustomDictionaries.Inspection.Found)?.let { return Opened.Dictionaries(it.dictionaries) }
         }
@@ -903,7 +970,7 @@ object WMFileTypes {
         manifest.contains("\"${IconPackFile.FORMAT}\"") -> Opened.Icons
         manifest.contains("\"${StickerPackFile.FORMAT}\"") -> Opened.Stickers
         manifest.contains("\"${PluginFile.FORMAT}\"") -> Opened.Plugin
-        manifest.contains("\"${SoundPackFile.FORMAT}\"") -> Opened.SoundPack
+        SoundPackFile.recognises(manifest) -> Opened.SoundPack
         else -> Opened.Unrecognized
     }
 
@@ -941,7 +1008,7 @@ object WMFileTypes {
      * The manifest names the archive formats use. Sticker, icon and sound packs
      * all share `pack.json` and are told apart by their format tag; a plugin
      * names its manifest differently so that a `.wmplugin` is recognisable
-     * without reading any Lua.
+     * without reading its code.
      */
     private val ARCHIVE_MANIFESTS =
         setOf(
@@ -1099,6 +1166,8 @@ internal fun ImportFileDialog(
      * has nothing left to be asked.
      */
     onImported: () -> Unit = {},
+    /** Offered when the file cannot be opened, by a caller that can pick again. */
+    onChooseAnother: (() -> Unit)? = null,
     onClose: () -> Unit,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
@@ -1134,6 +1203,21 @@ internal fun ImportFileDialog(
             title = { Text(stringResource(R.string.import_progress_reading)) },
             text = { CircularProgressIndicator() },
             confirmButton = {},
+        )
+        return
+    }
+
+    if (state == WMFileTypes.Opened.Unreadable && onChooseAnother != null) {
+        AlertDialog(
+            onDismissRequest = onClose,
+            title = { Text(stringResource(R.string.import_unreadable_title)) },
+            text = { Text(stringResource(R.string.import_unreadable_body)) },
+            confirmButton = {
+                TextButton(onClick = onChooseAnother) { Text(stringResource(R.string.import_choose_another)) }
+            },
+            dismissButton = {
+                TextButton(onClick = onClose) { Text(stringResource(CommonR.string.common_cancel)) }
+            },
         )
         return
     }
@@ -1701,6 +1785,8 @@ private fun rememberProposal(
             // main thread, so they are worded here rather than there.
             repairs = state.layout.repairNotes.map { it.format(context.resources) },
             apply = {
+                // The Your icons pictures its keys wear, carried in the file.
+                withContext(Dispatchers.IO) { adoptLayoutIcons(context, state.layout.icons) }
                 repository.upsertCustomLayout(
                     state.layout.layout.copy(id = "custom_${System.currentTimeMillis()}"),
                 )
@@ -1814,6 +1900,23 @@ private fun rememberProposal(
                     val stored = result.theme.copy(id = "custom_${System.currentTimeMillis()}")
                     repository.upsertCustomTheme(stored)
                     context.getString(R.string.import_heli_done, stored.name, result.coloursUsed, result.coloursRead)
+                },
+            )
+        }
+
+        is WMFileTypes.Opened.ClinkThemeFile -> {
+            val result = state.result
+            ImportProposal(
+                titleRes = R.string.import_name_title,
+                titleArg = result.theme.familyName ?: result.theme.name,
+                body = context.getString(R.string.import_clink_file_body),
+                repairs = result.dropped.map { clinkDroppedLine(context, it) },
+                apply = {
+                    // Saved, not switched to, like every converted theme. A
+                    // light-and-dark pair is a family, so its variant needs an id too.
+                    val stored = result.theme.withFreshIds("custom_${System.currentTimeMillis()}")
+                    repository.upsertCustomTheme(stored)
+                    context.getString(R.string.import_clink_done, stored.familyName ?: stored.name)
                 },
             )
         }
@@ -1958,59 +2061,19 @@ private fun rememberProposal(
 
         is WMFileTypes.Opened.GboardDictionaryFile -> gboardDictionaryProposal(state.contents, repository, context)
 
-        is WMFileTypes.Opened.Config -> {
-            val counts = repository.describeConfig(state.parsed)
-            val hasSecrets = repository.configContainsSecrets(state.parsed)
-            ImportProposal(
-                titleRes = R.string.import_backup_title,
-                body = buildString {
-                    append(context.getString(R.string.import_backup_contains))
-                    append("\n")
-                    for ((section, count) in counts) {
-                        append("\n")
-                        append(
-                            context.getString(
-                                R.string.import_backup_section_line,
-                                sectionLabel(context, section),
-                                sectionSummary(context, section, count),
-                            ),
-                        )
-                    }
-                    append("\n\n").append(context.getString(R.string.import_backup_merge_note))
-                    if (hasSecrets) {
-                        append("\n\n").append(context.getString(R.string.import_api_keys_note))
-                    }
-                },
-                apply = {
-                    when (val result = repository.importConfig(state.text)) {
-                        is SettingsRepository.ConfigImportResult.Applied -> buildString {
-                            if (result.restored.isNotEmpty() && !result.settingsFailed) onImported()
-                            if (result.restored.isEmpty()) {
-                                append(context.getString(R.string.import_backup_nothing))
-                            } else {
-                                append(
-                                    context.getString(
-                                        R.string.import_backup_restored,
-                                        // Each name carries its own mid-sentence
-                                        // form. A translated name cannot be put
-                                        // into lower case in code.
-                                        result.restored.joinToString {
-                                            sectionLabelLowercase(context, it)
-                                        },
-                                    ),
-                                )
-                            }
-                            if (result.settingsFailed) {
-                                append("\n\n")
-                                append(context.getString(R.string.import_backup_settings_failed))
-                            }
-                        }
-                        SettingsRepository.ConfigImportResult.NotABackup ->
-                            context.getString(R.string.import_not_a_backup)
-                    }
-                },
-            )
-        }
+        is WMFileTypes.Opened.Config -> configProposal(
+            context = context,
+            counts = repository.describeConfig(state.parsed),
+            hasSecrets = repository.configContainsSecrets(state.parsed),
+            onImported = onImported,
+        ) { repository.importConfig(state.text) }
+
+        is WMFileTypes.Opened.ConfigFile -> configProposal(
+            context = context,
+            counts = state.summary.counts,
+            hasSecrets = state.summary.hasSecrets,
+            onImported = onImported,
+        ) { repository.importConfig { context.contentResolver.requireInputStream(uri) } }
 
         WMFileTypes.Opened.EncryptedConfig -> ImportProposal(
             titleRes = R.string.import_encrypted_title,
@@ -2019,16 +2082,34 @@ private fun rememberProposal(
             // usual "this file contains…" summary is not available here. The
             // ordinary confirmation appears afterwards, on the decrypted text.
             applyWithPassphrase = { entered ->
-                val decrypted = withContext(Dispatchers.IO) {
-                    runCancellable {
-                        context.contentResolver.requireInputStream(uri).use {
-                            BackupCrypto.decrypt(it, entered.toCharArray())
-                        }
-                    }.getOrNull()
-                }
-                when (decrypted) {
-                    is BackupCrypto.DecryptResult.Ok ->
-                        when (val result = repository.importConfig(decrypted.text)) {
+                // Into a file in the cache a piece at a time, every tag
+                // checked, and restored from there a section at a time: the
+                // bundle is never held whole (#1080). Nothing is restored
+                // from a file that failed a tag anywhere.
+                val plain = File(context.cacheDir, "restore-decrypted.wmconfig.json")
+                try {
+                    val decrypted = withContext(Dispatchers.IO) {
+                        runCancellable {
+                            context.contentResolver.requireInputStream(uri).use { input ->
+                                plain.outputStream().buffered().use { out ->
+                                    BackupCrypto.decryptTo(input, entered.toCharArray(), out)
+                                }
+                            }
+                        }.getOrElse { BackupCrypto.DecryptResult.BadPassphraseOrCorrupt }
+                    }
+                    // The tag cannot tell a wrong passphrase from a damaged
+                    // file, and pretending otherwise would be a lie in one of
+                    // the two cases. Say both.
+                    if (decrypted == BackupCrypto.DecryptResult.UnsupportedVersion) {
+                        // Not the passphrase: a later build wrote this file in a
+                        // way this one cannot read yet.
+                        context.getString(R.string.import_encrypted_newer)
+                    } else if (decrypted != null) {
+                        context.getString(R.string.import_encrypted_failed)
+                    } else {
+                        when (
+                            val result = runCancellable { repository.importConfig { plain.inputStream() } }.getOrNull()
+                        ) {
                             is SettingsRepository.ConfigImportResult.Applied ->
                                 if (result.restored.isEmpty()) {
                                     context.getString(R.string.import_backup_nothing)
@@ -2043,11 +2124,12 @@ private fun rememberProposal(
                                 }
                             SettingsRepository.ConfigImportResult.NotABackup ->
                                 context.getString(R.string.import_not_a_backup)
+                            null -> context.getString(R.string.import_encrypted_failed)
                         }
-                    // The tag cannot tell a wrong passphrase from a damaged
-                    // file, and pretending otherwise would be a lie in one of
-                    // the two cases. Say both.
-                    else -> context.getString(R.string.import_encrypted_failed)
+                    }
+                } finally {
+                    // Plaintext of a backup the user protected: never left behind.
+                    withContext(NonCancellable + Dispatchers.IO) { plain.delete() }
                 }
             },
         )
@@ -2206,6 +2288,12 @@ private fun rememberProposal(
             body = context.getString(R.string.import_text_body, WMFileTypes.displayName(context, uri)),
             confirmLabelRes = R.string.import_open_editor_action,
             open = { FileEditorActivity.start(context, uri) },
+        )
+
+        WMFileTypes.Opened.ClinkProtected -> ImportProposal(
+            titleRes = R.string.import_unrecognized_title,
+            body = context.getString(R.string.import_clink_protected_body),
+            apply = null,
         )
 
         WMFileTypes.Opened.Unrecognized -> ImportProposal(
@@ -2474,10 +2562,11 @@ internal suspend fun saveFutoTheme(
     context: android.content.Context,
     repository: SettingsRepository,
     result: FutoThemeResult.Converted,
+    id: String = "custom_${System.currentTimeMillis()}",
 ): String {
     val stored = withContext(Dispatchers.IO) {
         result.converted.stored(
-            "custom_${System.currentTimeMillis()}",
+            id,
             File(context.filesDir, "theme_images").apply { mkdirs() },
             FontStore.get(context),
         )
@@ -2666,6 +2755,19 @@ internal fun heliDroppedLine(context: android.content.Context, dropped: HeliUnsu
         },
     )
 
+/** One line of the "what the app changed" list of a Clink theme import. */
+internal fun clinkDroppedLine(context: android.content.Context, dropped: ClinkUnsupported): String =
+    context.getString(dropped.messageRes)
+
+/** One line of the "what the app changed" list of a Kinetica theme import. */
+internal fun kineticaDroppedLine(context: android.content.Context, dropped: KineticaUnsupported): String =
+    context.getString(
+        when (dropped) {
+            KineticaUnsupported.RAINBOW_TRAIL -> R.string.import_kinetica_dropped_rainbow
+            KineticaUnsupported.LIT_KEYS -> R.string.import_kinetica_dropped_lit_keys
+        },
+    )
+
 /** One line of the "what the app changed" list of a Multiling O theme import. */
 internal fun multilingDroppedLine(context: android.content.Context, dropped: MultilingUnsupported): String =
     context.getString(
@@ -2685,6 +2787,17 @@ private fun florisDroppedRes(dropped: FlexUnsupported): Int = when (dropped) {
     FlexUnsupported.UNKNOWN_ELEMENT -> R.string.import_floris_dropped_unknown
     FlexUnsupported.LOW_CONTRAST_FALLBACK -> R.string.import_floris_dropped_contrast
 }
+
+/** The selection actions a plugin adds, as a paragraph for its install disclosure; empty for none. */
+internal fun pluginActionsLine(context: android.content.Context, names: List<String>): String =
+    if (names.isEmpty()) {
+        ""
+    } else {
+        names.joinToString(
+            prefix = "\n\n" + context.getString(R.string.plugins_install_actions_intro) + "\n",
+            separator = "\n",
+        ) { "• $it" }
+    }
 
 /**
  * The confirmation for installing a plugin from a file.
@@ -2715,14 +2828,14 @@ private fun pluginProposal(context: android.content.Context, uri: Uri): ImportPr
             apply = null,
         )
 
-    val capabilities = if (manifest.permissions.isEmpty()) {
+    val capabilities = (if (manifest.permissions.isEmpty()) {
         context.getString(R.string.import_plugin_no_permissions)
     } else {
         manifest.permissions.joinToString(
             prefix = context.getString(R.string.import_plugin_permissions_intro) + "\n",
             separator = "\n",
         ) { "• " + context.getString(it.labelRes) }
-    }
+    }) + pluginActionsLine(context, manifest.manifest.actions.map { it.name })
 
     return ImportProposal(
         titleRes = R.string.import_plugin_install_title,
@@ -2781,3 +2894,66 @@ private fun pluginProposal(context: android.content.Context, uri: Uri): ImportPr
         },
     )
 }
+
+/**
+ * The confirmation for one of our own bundles: what it holds, then [restore].
+ * The same dialog whether the bundle was read into memory or is restored from
+ * its file a section at a time (#1080). A null from [restore] is a file that
+ * stopped reading between the summary and the restore.
+ */
+private fun configProposal(
+    context: android.content.Context,
+    counts: Map<ConfigBackup.Section, Int>,
+    hasSecrets: Boolean,
+    onImported: () -> Unit,
+    restore: suspend () -> SettingsRepository.ConfigImportResult,
+): ImportProposal = ImportProposal(
+    titleRes = R.string.import_backup_title,
+    body = buildString {
+        append(context.getString(R.string.import_backup_contains))
+        append("\n")
+        for ((section, count) in counts) {
+            append("\n")
+            append(
+                context.getString(
+                    R.string.import_backup_section_line,
+                    sectionLabel(context, section),
+                    sectionSummary(context, section, count),
+                ),
+            )
+        }
+        append("\n\n").append(context.getString(R.string.import_backup_merge_note))
+        if (hasSecrets) {
+            append("\n\n").append(context.getString(R.string.import_api_keys_note))
+        }
+    },
+    apply = {
+        when (val result = runCancellable { restore() }.getOrNull()) {
+            is SettingsRepository.ConfigImportResult.Applied -> buildString {
+                if (result.restored.isNotEmpty() && !result.settingsFailed) onImported()
+                if (result.restored.isEmpty()) {
+                    append(context.getString(R.string.import_backup_nothing))
+                } else {
+                    append(
+                        context.getString(
+                            R.string.import_backup_restored,
+                            // Each name carries its own mid-sentence form. A
+                            // translated name cannot be put into lower case in
+                            // code.
+                            result.restored.joinToString {
+                                sectionLabelLowercase(context, it)
+                            },
+                        ),
+                    )
+                }
+                if (result.settingsFailed) {
+                    append("\n\n")
+                    append(context.getString(R.string.import_backup_settings_failed))
+                }
+            }
+            SettingsRepository.ConfigImportResult.NotABackup ->
+                context.getString(R.string.import_not_a_backup)
+            null -> context.getString(R.string.import_file_unreadable)
+        }
+    },
+)

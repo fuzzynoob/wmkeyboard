@@ -112,6 +112,18 @@ class NetworkCallSitesTest {
             "homeassistant/HaHttp.kt" to "JvmHaHttp is test-only",
             // Coil over MediaStore content URIs; nothing here touches the network.
             "gallery/GalleryThumbs.kt" to "content URIs only",
+            // Opens the socket for NfsSink, which holds the log row and counts
+            // the traffic through the callback it hands in.
+            "sink/nfs/OncRpc.kt" to "logged by NfsSink",
+            // Only listen, for devices on the local network to fetch or send
+            // while the user has the tool open. What LocalSend sends out goes
+            // through the logged client its caller hands it.
+            "send/LanShare.kt" to "listens only",
+            "send/LocalSend.kt" to "listens; sends through the caller's logged client",
+            // Binds and dials 127.0.0.1 only, between this copy of the keyboard
+            // and the one in a private space or work profile on the same phone
+            // (#1017). Nothing it sends leaves the device.
+            "sink/ProfileLink.kt" to "loopback between profiles only",
         ).mapKeys { (key, _) ->
             // Written short above; matched against the full source path.
             key.replace("core/kdeconnect/", "core/kdeconnect/src/main/java/com/wasimaster/wmkeyboard/core/kdeconnect/")

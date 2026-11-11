@@ -7,13 +7,20 @@ project(wmsherpa C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(SHERPA_SRC "" CACHE PATH "sherpa-onnx source tree")
+# The second library, libwmsherpa_qnn (qnn_jni.cpp): the same sherpa-onnx with
+# its QNN recognizers switched on, which needs QNN_SDK_ROOT in the environment
+# (only its include/QNN is read). A tree of its own, since the switch changes
+# how all of sherpa-onnx compiles; build.sh configures it apart.
+option(WMSHERPA_QNN "Build libwmsherpa_qnn instead of libwmsherpa" OFF)
 if (NOT EXISTS "${SHERPA_SRC}/sherpa-onnx/c-api/c-api.h")
     message(FATAL_ERROR "SHERPA_SRC must point at a sherpa-onnx checkout")
 endif()
 
-# Static, recognition only: no TTS, diarization, audio I/O, servers or tools.
-# Speech out (vits_jni.cpp) runs MMS VITS voices on ONNX Runtime directly:
-# sherpa-onnx's TTS would link espeak-ng (GPL-3.0) for phonemes they never use.
+# Static: recognition and offline TTS, no diarization, audio I/O, servers or
+# tools. The TTS is for Kokoro voices (kokoro_jni.cpp): since sherpa-onnx 2.0
+# it phonemises from a model's own lexicons and links no espeak-ng, so no GPL
+# code comes with it. MMS VITS voices (vits_jni.cpp) run on ONNX Runtime
+# directly, their text frontend being one token per character.
 # The Omnilingual model (omnilingual_jni.cpp) runs on it directly as well, so
 # its logits can be held to one script before the CTC pick, and so do the
 # token classifiers (tagger_jni.cpp) that punctuate dictation, and FireRedVAD
@@ -29,11 +36,16 @@ set(SHERPA_ONNX_ENABLE_CHECK               OFF CACHE BOOL "" FORCE)
 set(SHERPA_ONNX_ENABLE_PORTAUDIO           OFF CACHE BOOL "" FORCE)
 set(SHERPA_ONNX_ENABLE_WEBSOCKET           OFF CACHE BOOL "" FORCE)
 set(SHERPA_ONNX_ENABLE_BINARY              OFF CACHE BOOL "" FORCE)
-set(SHERPA_ONNX_ENABLE_TTS                 OFF CACHE BOOL "" FORCE)
+set(SHERPA_ONNX_ENABLE_TTS                 ON  CACHE BOOL "" FORCE)
 set(SHERPA_ONNX_ENABLE_SPEAKER_DIARIZATION OFF CACHE BOOL "" FORCE)
 set(SHERPA_ONNX_BUILD_C_API_EXAMPLES       OFF CACHE BOOL "" FORCE)
 set(SHERPA_ONNX_ENABLE_GPU                 OFF CACHE BOOL "" FORCE)
 set(SHERPA_ONNX_USE_PRE_INSTALLED_ONNXRUNTIME_IF_AVAILABLE ON CACHE BOOL "" FORCE)
+set(SHERPA_ONNX_ENABLE_QNN                 ${WMSHERPA_QNN} CACHE BOOL "" FORCE)
+if (WMSHERPA_QNN)
+    # Recognition only: the QNN library reads no text aloud.
+    set(SHERPA_ONNX_ENABLE_TTS OFF CACHE BOOL "" FORCE)
+endif()
 
 add_subdirectory("${SHERPA_SRC}" sherpa-onnx EXCLUDE_FROM_ALL)
 
@@ -47,8 +59,25 @@ if (NOT EXISTS "${kaldi_native_fbank_SOURCE_DIR}/kaldi-native-fbank/csrc/online-
     message(FATAL_ERROR "sherpa-onnx did not fetch kaldi-native-fbank")
 endif()
 
-add_library(wmsherpa SHARED sherpa_jni.cpp vits_jni.cpp omnilingual_jni.cpp dpdfnet_jni.cpp tagger_jni.cpp
-    vad_jni.cpp smart_turn_jni.cpp)
+if (WMSHERPA_QNN)
+    # sherpa-onnx's C++ API; its QNN code dlopens Qualcomm's libraries at run
+    # time, so nothing of Qualcomm's is linked.
+    add_library(wmsherpa_qnn SHARED qnn_jni.cpp)
+    target_include_directories(wmsherpa_qnn PRIVATE "${SHERPA_SRC}" "$ENV{SHERPA_ONNXRUNTIME_INCLUDE_DIR}")
+    target_link_libraries(wmsherpa_qnn PRIVATE sherpa-onnx-core log dl)
+    target_compile_options(wmsherpa_qnn PRIVATE -fvisibility=hidden -ffunction-sections -fdata-sections)
+    target_link_options(wmsherpa_qnn PRIVATE
+        -Wl,--no-undefined
+        -Wl,--gc-sections
+        -Wl,--exclude-libs,ALL
+        -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/jni_qnn.map
+        -Wl,--build-id=sha1
+        -Wl,-z,max-page-size=16384)
+    return()
+endif()
+
+add_library(wmsherpa SHARED sherpa_jni.cpp vits_jni.cpp kokoro_jni.cpp omnilingual_jni.cpp dpdfnet_jni.cpp
+    tagger_jni.cpp vad_jni.cpp smart_turn_jni.cpp)
 target_include_directories(wmsherpa PRIVATE "${SHERPA_SRC}" "$ENV{SHERPA_ONNXRUNTIME_INCLUDE_DIR}"
     "${kaldi_native_fbank_SOURCE_DIR}")
 target_link_libraries(wmsherpa PRIVATE sherpa-onnx-c-api kaldi-native-fbank-core log)

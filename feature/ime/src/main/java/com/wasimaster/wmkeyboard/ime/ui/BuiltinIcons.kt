@@ -97,6 +97,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FormatShapes
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Forum
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Fullscreen
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Functions
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.GraphicEq
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.GridOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.GridView
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Group
@@ -108,6 +109,8 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.HomeIotDevice
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Image
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ImageSearch
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Info
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Interests
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Key
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Keyboard
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowDown
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowUp
@@ -127,6 +130,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Mic
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MoreHoriz
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MoreVert
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MusicNote
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.NetworkCheck
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Notifications
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Numbers
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.OpenWith
@@ -156,6 +160,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Save
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Schedule
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.School
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Science
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Screenshot
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Security
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SelectAll
@@ -315,6 +320,7 @@ object BuiltinIcons {
         "Fullscreen" to { Icons.Outlined.Fullscreen },
         "Functions" to { Icons.Outlined.Functions },
         "GifBox" to { SymbolIcons.GifBox },
+        "GraphicEq" to { Icons.Outlined.GraphicEq },
         "GridOn" to { Icons.Outlined.GridOn },
         "GridView" to { Icons.Outlined.GridView },
         "Group" to { Icons.Outlined.Group },
@@ -328,6 +334,8 @@ object BuiltinIcons {
         "ImageSearch" to { Icons.Outlined.ImageSearch },
         "Info" to { Icons.Outlined.Info },
         "InsertDriveFile" to { Icons.AutoMirrored.Outlined.InsertDriveFile },
+        "Interests" to { Icons.Outlined.Interests },
+        "Key" to { Icons.Outlined.Key },
         "Keyboard" to { Icons.Outlined.Keyboard },
         "KeyboardArrowDown" to { Icons.Outlined.KeyboardArrowDown },
         "KeyboardArrowLeft" to { Icons.AutoMirrored.Outlined.KeyboardArrowLeft },
@@ -354,6 +362,7 @@ object BuiltinIcons {
         "MoreHoriz" to { Icons.Outlined.MoreHoriz },
         "MoreVert" to { Icons.Outlined.MoreVert },
         "MusicNote" to { Icons.Outlined.MusicNote },
+        "NetworkCheck" to { Icons.Outlined.NetworkCheck },
         "Notifications" to { Icons.Outlined.Notifications },
         "Numbers" to { Icons.Outlined.Numbers },
         "OpenInNew" to { Icons.AutoMirrored.Outlined.OpenInNew },
@@ -386,6 +395,7 @@ object BuiltinIcons {
         "Schedule" to { Icons.Outlined.Schedule },
         "School" to { Icons.Outlined.School },
         "Science" to { Icons.Outlined.Science },
+        "Screenshot" to { Icons.Outlined.Screenshot },
         "Search" to { Icons.Outlined.Search },
         "Security" to { Icons.Outlined.Security },
         "SelectAll" to { Icons.Outlined.SelectAll },

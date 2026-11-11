@@ -521,6 +521,27 @@ class SnippetStore(private val storageFile: File?) {
     }
 
     /**
+     * Writes [edit] into every snippet of folder [folderId] (#1122) and says how
+     * many changed. Ids, order and links stay as they are, so the list before
+     * the call is the undo ([replaceAll]).
+     */
+    @Synchronized
+    fun editFolder(folderId: Long, edit: SnippetBulkEdit): Int {
+        if (edit.isEmpty) return 0
+        var changed = 0
+        for (i in snippets.indices) {
+            val snippet = snippets[i]
+            if (snippet.folderId != folderId) continue
+            val next = edit.applyTo(snippet)
+            if (next == snippet) continue
+            snippets[i] = normalize(next, id = snippet.id, createdAt = snippet.createdAt)
+            changed++
+        }
+        if (changed > 0) lookup = null
+        return changed
+    }
+
+    /**
      * Replaces the whole list with [items], exactly as given.
      *
      * The undo behind a delete. Putting one snippet back is not enough on its
@@ -745,6 +766,15 @@ class SnippetStore(private val storageFile: File?) {
     @Synchronized
     fun candidateCount(snippet: Snippet): Int =
         snippet.expansions().size + childrenOf(snippet).size
+
+    /**
+     * While true no trigger matches, of any kind, since every route asks [index]:
+     * a keyboard mode that wants them off. The snippets themselves are untouched.
+     */
+    @Volatile
+    var triggersPaused: Boolean = false
+
+    private val noTriggers by lazy { SnippetIndex.of(emptyList(), MultiExpandMode.CHIPS_ONLY) }
 
     /**
      * Tells the store what the app is set to do with a snippet that has several
@@ -972,7 +1002,7 @@ class SnippetStore(private val storageFile: File?) {
     /** Ids of the patterns the app stopped for taking too long. */
     fun stoppedPatterns(): Set<Long> = index().stopped()
 
-    private fun index(): SnippetIndex = lookup ?: build()
+    private fun index(): SnippetIndex = if (triggersPaused) noTriggers else lookup ?: build()
 
     @Synchronized
     private fun build(): SnippetIndex =

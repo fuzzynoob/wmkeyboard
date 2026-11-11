@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import android.content.Intent
 import androidx.annotation.StringRes
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.EnterTransition
@@ -161,14 +162,29 @@ private fun RestoreBackupButton(repository: SettingsRepository, onRestored: () -
     var imported by remember { mutableStateOf(false) }
     val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.OpenDocument(),
-    ) { uri -> picked = uri }
+    ) { uri ->
+        // Held until the dialog closes: it reads the file a composition later,
+        // and the grant the picker hands back may not last that long (#1078).
+        if (uri != null) {
+            runCatching {
+                context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+        }
+        picked = uri
+    }
+    fun letGo(uri: android.net.Uri) {
+        picked = null
+        runCatching {
+            context.contentResolver.releasePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+    }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 16.dp),
     ) {
-        OutlinedButton(onClick = { launcher.launch(arrayOf("*/*")) }) {
+        OutlinedButton(onClick = { launcher.launchPicker(context, arrayOf("*/*")) }) {
             Icon(Icons.Outlined.Restore, contentDescription = null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
             Text(stringResource(R.string.onboarding_restore_action))
@@ -186,8 +202,12 @@ private fun RestoreBackupButton(repository: SettingsRepository, onRestored: () -
             repository,
             uri,
             onImported = { imported = true },
+            onChooseAnother = {
+                letGo(uri)
+                launcher.launchPicker(context, arrayOf("*/*"))
+            },
             onClose = {
-                picked = null
+                letGo(uri)
                 if (imported) {
                     imported = false
                     // The downloads start before the wizard moves on, since

@@ -50,13 +50,13 @@ class TabletExpansionCorpusTest {
      * assertion into a number nobody can check.
      */
     private val handAuthored: List<Case>
-        get() = corpus.filterNot { it.id.startsWith("kmn_") }
+        get() = corpus.filterNot { it.id.startsWith("hw_") || it.id.startsWith("kmn_") || it.id.startsWith("gb_") || it.id.startsWith("sam_") || it.id.startsWith("rom_") }
 
     private fun List<Key>.width() = sumOf { it.width.toDouble() }.toFloat()
 
     @Test
     fun `the corpus is the whole shipped set`() {
-        assertEquals("built-ins plus hand-authored assets", 35 + 1_102, handAuthored.size)
+        assertEquals("built-ins plus hand-authored assets", 39 + 1_145, handAuthored.size)
         assertTrue(
             "converted Keyman grids are missing from the corpus",
             corpus.size - handAuthored.size > 800,
@@ -84,6 +84,9 @@ class TabletExpansionCorpusTest {
     fun `exactly the non-alphabetic layouts decline`() {
         // The per-language T9 keypads (#332) decline for the reason builtin_t9 does.
         val keypads = handAuthored.map { it.id }.filter { it.endsWith("_t9") }.toSet()
+        // The one-row boards: the whole alphabet on one row over the control
+        // row, two rows where the rebuild needs four.
+        val oneRows = handAuthored.map { it.id }.filter { it.endsWith("_one_row") }.toSet()
         val declined = handAuthored
             .filter { tabletGridWidth(it.letters, DeviceForm.LARGE_TABLET) == null }
             .map { it.id }
@@ -95,24 +98,29 @@ class TabletExpansionCorpusTest {
                 "builtin_khipro", "builtin_khipro_dark",
                 "builtin_t9",
                 "braille_chord", "ja_flick", "ja_kana_jis", "morse", "zh_stroke",
+                // Godan's letters all flick, and 50 keys has a 小゛゜ key and no shift.
+                "ja_godan", "ja_50keys",
                 // The English 3×3 flick board (#410): every letter key carries
                 // its neighbours on flick arms, and the transform declines any
                 // key with flicks.
                 "en_flick",
+                // Unexpected Keyboard's grid: every letter carries digits and
+                // symbols on its corner flicks, so it declines for the same reason.
+                "en_unexpected_qwerty",
                 // Its Khipro and Avro twins (Telegram group), the same grid.
                 "bn_khipro_flick", "bn_avro_flick",
                 "ipa", "music", "nqo_nko",
-                "zh_cangjie", "zh_cangjie_quick", "zh_pinyin_t9", "zh_zhuyin",
+                "zh_cangjie", "zh_cangjie_quick", "zh_pinyin_t9", "zh_wubi", "zh_zhuyin",
                 // Pinyin's shift slot is the '词 syllable separator (#580,
                 // 1969f7090): letters are typed lower case, so no shift to mirror.
                 "zh_pinyin",
                 // The 천지인 pad (#372): a 12-key keypad with no shift key.
-                "ko_cheonjiin",
+                "ko_cheonjiin", "ko_10key",
                 // The 나랏글 pad (#599), the same shape.
                 "ko_naratgeul",
                 // FUTO's ClearFlow and KASROZ: shift, delete and space are keys
                 // two rows tall, and the transform declines any grid with a span.
-                "en_clearflow", "en_kasroz",
+                "en_clearflow", "en_kasroz", "zh_pinyin_clearflow",
                 // IPA on QWERTY declines for the reason the IPA grid does.
                 "ipa_qwerty", "ipa_qwerty_g",
                 // Toki Pona's fourteen letters fit on two short rows.
@@ -126,15 +134,16 @@ class TabletExpansionCorpusTest {
                 "tlh_piqad",
                 // Handwriting pads are a drawing surface, not a key grid.
                 "ja_handwriting", "ko_handwriting", "zh_handwriting",
-                // Gboard+ English puts flick arms on its bottom row; Gboard+
-                // Hebrew has no shift key (its shifted page is English).
-                "en_gboard_plus", "he_gboard_plus", "he_gboard_plus_swipe_safe",
+                // Gboard+ Hebrew has no shift key (its shifted page is English).
+                "he_gboard_plus", "he_gboard_plus_swipe_safe",
                 // Tatoeba languages in Arabic script, built from the Arabic
                 // template, which has no shift key either.
                 "acm", "afb", "ajp", "apc", "arq", "ayl", "chg", "klj", "ota", "qxq", "sdh",
+                // The reporter's four Sorani layouts, which the transform declines.
+                "ckb_alt", "ckb_four_rows", "ckb_phonetic", "ckb_sorani",
                 // Samsung's alphabet-order Bangla grid has no shift key.
                 "bn_samsung",
-            ) + keypads,
+            ) + keypads + oneRows,
             declined,
         )
     }

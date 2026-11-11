@@ -20,9 +20,11 @@ import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Send
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Add
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentCopy
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Link
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.QrCode2
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Share
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Visibility
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -61,13 +63,17 @@ import com.wasimaster.wmkeyboard.ime.ui.chipShape
 import com.wasimaster.wmkeyboard.ime.ui.ToolPanelChip
 import com.wasimaster.wmkeyboard.ime.ui.clock.EmptyState
 import com.wasimaster.wmkeyboard.ime.ui.clock.PillButton
+import com.wasimaster.wmkeyboard.ime.ui.clock.RoundButton
+import com.wasimaster.wmkeyboard.ime.ui.kit.ActionBar
+import com.wasimaster.wmkeyboard.ime.ui.kit.KitAction
 import com.wasimaster.wmkeyboard.ime.ui.clock.SectionLabel
 
 /**
  * The cards drawn over the panel (#729), one at a time, on the scrim: the
  * ways to upload, the QR code, the instance picker, the history, the direct
- * link's code, and data saving's question. Drawn in-panel rather than in a
- * Popup, which would sit over the app.
+ * link's code, the browser page's code, and data saving's question. Drawn
+ * in-panel rather than in a Popup, which would sit over the app. The
+ * transfers sheet lives with the radar (SendNearbyBody.kt).
  */
 @Composable
 internal fun BoxScope.SendSheets(ui: SendUi, act: (SendAction) -> Unit) {
@@ -93,9 +99,9 @@ private fun BoxScope.BrowserCodeSheet(ui: SendUi, act: (SendAction) -> Unit) {
     val serving = ui.nearby.browser as? BrowserUi.Serving ?: return
     val hotspot = serving.hotspot
     var showWifi by remember(hotspot) { mutableStateOf(hotspot != null) }
-    SheetCard(Modifier.align(Alignment.Center).padding(16.dp)) {
+    SheetCard(Modifier.align(Alignment.Center).fillMaxWidth().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            QrImage(if (showWifi && hotspot != null) hotspot.joinCode else serving.url, Modifier.size(180.dp))
+            QrImage(if (showWifi && hotspot != null) hotspot.joinCode else serving.url, Modifier.size(SheetQrSize))
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 if (hotspot != null) {
@@ -121,10 +127,10 @@ private fun BoxScope.BrowserCodeSheet(ui: SendUi, act: (SendAction) -> Unit) {
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     if (showWifi && hotspot != null) {
-                        ToolPanelChip(stringResource(R.string.ime_send_browser_next), selected = true) { showWifi = false }
+                        PillButton(stringResource(R.string.ime_send_browser_next), primary = true, height = 32.dp) { showWifi = false }
                     } else {
-                        ToolPanelChip(stringResource(R.string.ime_send_copy)) { act(SendAction.CopyBrowserLink) }
-                        ToolPanelChip(stringResource(R.string.ime_send_close), selected = true) { act(SendAction.OpenSheet(null)) }
+                        PillButton(stringResource(R.string.ime_send_copy), icon = Icons.Outlined.ContentCopy, height = 32.dp) { act(SendAction.CopyBrowserLink) }
+                        PillButton(stringResource(R.string.ime_send_close), primary = true, height = 32.dp) { act(SendAction.OpenSheet(null)) }
                     }
                 }
             }
@@ -179,9 +185,9 @@ private fun MenuRow(icon: ImageVector, label: String, onClick: () -> Unit) {
 private fun BoxScope.QrSheet(ui: SendUi, act: (SendAction) -> Unit) {
     val kb = LocalKbTheme.current
     val upload = (ui.link as? com.wasimaster.wmkeyboard.ime.send.LinkStage.Done)?.upload ?: return
-    SheetCard(Modifier.align(Alignment.Center).padding(16.dp)) {
+    SheetCard(Modifier.align(Alignment.Center).fillMaxWidth().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            QrImage(upload.url, Modifier.size(180.dp))
+            QrImage(upload.url, Modifier.size(SheetQrSize))
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(stringResource(R.string.ime_send_qr_title), color = kb.popupText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
@@ -189,11 +195,14 @@ private fun BoxScope.QrSheet(ui: SendUi, act: (SendAction) -> Unit) {
                 Spacer(Modifier.height(6.dp))
                 Text(upload.url.removePrefix("https://"), color = kb.accent, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Spacer(Modifier.height(10.dp))
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ToolPanelChip(stringResource(R.string.ime_send_copy)) { act(SendAction.CopyLink) }
-                    ToolPanelChip(stringResource(R.string.ime_send_share)) { act(SendAction.ShareLink) }
-                    ToolPanelChip(stringResource(R.string.ime_send_close), selected = true) { act(SendAction.OpenSheet(null)) }
-                }
+                ActionBar(
+                    listOf(
+                        KitAction(stringResource(R.string.ime_send_copy), Icons.Outlined.ContentCopy, primary = true) { act(SendAction.CopyLink) },
+                        KitAction(stringResource(R.string.ime_send_share), Icons.Outlined.Share) { act(SendAction.ShareLink) },
+                        KitAction(stringResource(R.string.ime_send_close), Icons.Outlined.Close) { act(SendAction.OpenSheet(null)) },
+                    ),
+                    height = 36.dp,
+                )
             }
         }
     }
@@ -203,9 +212,9 @@ private fun BoxScope.QrSheet(ui: SendUi, act: (SendAction) -> Unit) {
 private fun BoxScope.DirectCodeSheet(ui: SendUi, act: (SendAction) -> Unit) {
     val kb = LocalKbTheme.current
     val hosting = ui.nearby.direct as? DirectUi.Hosting ?: return
-    SheetCard(Modifier.align(Alignment.Center).padding(16.dp)) {
+    SheetCard(Modifier.align(Alignment.Center).fillMaxWidth().padding(16.dp)) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-            QrImage(hosting.code.encodeWeb(SendShareAlias.DOCS_BASE), Modifier.size(180.dp))
+            QrImage(hosting.code.encodeWeb(SendShareAlias.DOCS_BASE), Modifier.size(SheetQrSize))
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -224,8 +233,8 @@ private fun BoxScope.DirectCodeSheet(ui: SendUi, act: (SendAction) -> Unit) {
                 }
                 Spacer(Modifier.height(10.dp))
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ToolPanelChip(stringResource(R.string.ime_send_direct_stop)) { act(SendAction.StopDirect) }
-                    ToolPanelChip(stringResource(R.string.ime_send_close), selected = true) { act(SendAction.OpenSheet(null)) }
+                    PillButton(stringResource(R.string.ime_send_direct_stop), height = 32.dp) { act(SendAction.StopDirect) }
+                    PillButton(stringResource(R.string.ime_send_close), primary = true, height = 32.dp) { act(SendAction.OpenSheet(null)) }
                 }
             }
         }
@@ -240,7 +249,7 @@ private fun BoxScope.InstancesSheet(ui: SendUi, act: (SendAction) -> Unit) {
     SheetCard(Modifier.align(Alignment.Center).fillMaxWidth().padding(horizontal = 10.dp, vertical = 8.dp).heightIn(max = 460.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(stringResource(R.string.ime_send_instances_title), color = kb.popupText, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            ToolPanelChip(stringResource(R.string.ime_send_close)) { act(SendAction.OpenSheet(null)) }
+            RoundButton(Icons.Outlined.Close, stringResource(R.string.ime_send_close), size = 30.dp) { act(SendAction.OpenSheet(null)) }
         }
         Spacer(Modifier.height(4.dp))
         val own = ui.ownInstances
@@ -340,7 +349,7 @@ private fun BoxScope.HistorySheet(ui: SendUi, act: (SendAction) -> Unit) {
             ToolPanelChip(stringResource(R.string.ime_send_history_sent), selected = tab == HistoryTab.SENT) { tab = HistoryTab.SENT }
             ToolPanelChip(stringResource(R.string.ime_send_history_received), selected = tab == HistoryTab.RECEIVED) { tab = HistoryTab.RECEIVED }
             Spacer(Modifier.weight(1f))
-            ToolPanelChip(stringResource(R.string.ime_send_close)) { act(SendAction.OpenSheet(null)) }
+            RoundButton(Icons.Outlined.Close, stringResource(R.string.ime_send_close), size = 30.dp) { act(SendAction.OpenSheet(null)) }
         }
         Spacer(Modifier.height(6.dp))
         when (tab) {
@@ -429,3 +438,6 @@ private fun ReceivedRow(ui: SendUi, item: SendReceived, act: (SendAction) -> Uni
         }
     }
 }
+
+/** The code in a sheet: small enough that the words and buttons beside it keep a column of their own on a 390 dp panel. */
+private val SheetQrSize = 140.dp

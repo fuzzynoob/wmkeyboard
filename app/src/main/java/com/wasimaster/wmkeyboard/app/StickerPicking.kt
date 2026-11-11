@@ -62,8 +62,10 @@ import com.wasimaster.wmkeyboard.common.R as CommonR
 import com.wasimaster.wmkeyboard.content.R as ContentR
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentCopy
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Delete
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SelectAll
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapHoriz
 import com.wasimaster.wmkeyboard.core.stickers.StagedStickerPack
 import com.wasimaster.wmkeyboard.core.stickers.StickerImportResult
 import com.wasimaster.wmkeyboard.core.stickers.StickerPack
@@ -334,6 +336,41 @@ internal fun stageStickerFile(context: Context, store: StickerPackStore, uri: Ur
 }
 
 /**
+ * Imports every pack in [uris] whole, with no pick page: several files picked
+ * at once, or a zip of packs from Export selected. Each file is read the way
+ * [stageStickerFile] reads one, and a zip hands over each pack inside it.
+ * Returns each file's (or zipped pack's) name with how it went. Blocking.
+ */
+internal fun importStickerFilesWhole(
+    context: Context,
+    store: StickerPackStore,
+    uris: List<Uri>,
+): List<Pair<String, StickerImportResult>> = buildList {
+    val fallbackName = context.getString(ContentR.string.core_content_sticker_pack_imported_label)
+    for (uri in uris) {
+        val name = WMFileTypes.displayName(context, uri)
+        if (PackBundle.isBundle(context, uri, StickerPackFile.FILE_EXTENSION)) {
+            runCatching {
+                PackBundle.forEachPack(context, uri, StickerPackFile.FILE_EXTENSION) { entry, input ->
+                    val result = input?.use {
+                        runCatching { StickerPackFile.import(it, store, fallbackName) }.getOrDefault(StickerImportResult.Failed)
+                    } ?: StickerImportResult.Failed
+                    add(entry to result)
+                }
+            }.onFailure { add(name to StickerImportResult.Failed) }
+        } else {
+            val result = when (val staged = stageStickerFile(context, store, uri)) {
+                is StickerStageResult.Done -> staged.result
+                is StickerStageResult.Ready -> runCatching {
+                    staged.pack.adopt(store, staged.pack.everything())
+                }.getOrDefault(StickerImportResult.Failed)
+            }
+            add(name to result)
+        }
+    }
+}
+
+/**
  * A sticker pack file at [uri], from reading it to the report: a reading
  * spinner, then the pick page, then the import of what was ticked.
  * [onFinished] gets the report to show, or null when the user backed out of
@@ -428,7 +465,8 @@ internal fun StickerFileImport(uri: Uri, onFinished: (String?) -> Unit) {
 
 /**
  * The bar docked along the bottom of a pack's page while stickers in it are
- * selected: how many, Select all, and Delete, which asks first.
+ * selected: how many, Move and Copy when there is another pack to send them
+ * to, Select all, and Delete, which asks first.
  */
 @Composable
 internal fun StickerSelectionBar(
@@ -437,6 +475,8 @@ internal fun StickerSelectionBar(
     onClear: () -> Unit,
     onSelectAll: () -> Unit,
     onDelete: () -> Unit,
+    onMove: (() -> Unit)? = null,
+    onCopy: (() -> Unit)? = null,
 ) {
     Surface(tonalElevation = 3.dp) {
         Row(
@@ -451,6 +491,16 @@ internal fun StickerSelectionBar(
                 style = MaterialTheme.typography.titleSmall,
                 modifier = Modifier.weight(1f),
             )
+            if (onMove != null) {
+                IconButton(onClick = onMove) {
+                    Icon(Icons.Outlined.SwapHoriz, contentDescription = stringResource(R.string.import_stickers_move_selected))
+                }
+            }
+            if (onCopy != null) {
+                IconButton(onClick = onCopy) {
+                    Icon(Icons.Outlined.ContentCopy, contentDescription = stringResource(R.string.import_stickers_copy_selected))
+                }
+            }
             IconButton(onClick = onSelectAll, enabled = !allPicked) {
                 Icon(Icons.Outlined.SelectAll, contentDescription = stringResource(CommonR.string.common_select_all))
             }

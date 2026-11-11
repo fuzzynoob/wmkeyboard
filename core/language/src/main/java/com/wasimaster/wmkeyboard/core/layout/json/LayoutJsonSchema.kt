@@ -130,7 +130,12 @@ class PropertyHint(
 }
 
 /** Which document a screen edits. */
-enum class LayoutJsonRoot { LAYOUT, PANEL }
+/**
+ * What the editor is editing: a whole layout, a panel layout, or one row of
+ * keys on its own (the keyboard-wide number and arrow rows, a JSON array of
+ * keys in the format a layout's rows use).
+ */
+enum class LayoutJsonRoot { LAYOUT, PANEL, ROW }
 
 object LayoutJsonSchema {
 
@@ -146,6 +151,9 @@ object LayoutJsonSchema {
     val panel: ObjectShape by lazy { shapeOf(PanelLayoutSpec.serializer().descriptor) as ObjectShape }
 
     val key: ObjectShape by lazy { shapeOf(Key.serializer().descriptor) as ObjectShape }
+
+    /** One row of keys on its own, the document [LayoutJsonRoot.ROW] edits. */
+    val row: ListShape by lazy { ListShape(key) }
 
     val action: VariantShape by lazy { checkNotNull(key.property("action")) { "Key has no action" }.shape as VariantShape }
 
@@ -168,8 +176,9 @@ object LayoutJsonSchema {
     }
 
     /** The shape the whole of [document] should have, for the screen [root] names. */
-    fun rootShape(document: JsonDocument, root: LayoutJsonRoot): ObjectShape = when (root) {
+    fun rootShape(document: JsonDocument, root: LayoutJsonRoot): JsonShape = when (root) {
         LayoutJsonRoot.PANEL -> panel
+        LayoutJsonRoot.ROW -> row
         LayoutJsonRoot.LAYOUT -> if ((document.root as? JsonObjectNode)?.member("format") != null) layoutFile else layout
     }
 
@@ -338,6 +347,13 @@ object LayoutJsonHints {
                 examples = listOf(JsonValueExample("0.8"), JsonValueExample("1"), JsonValueExample("1.2")),
                 range = KeyLabelScaleRange.toDoubles(),
             ),
+            "Key.flickScale" to PropertyHint(
+                examples = listOf(JsonValueExample("0.8"), JsonValueExample("1.5")),
+                range = KeyHintScaleRange.toDoubles(),
+            ),
+            "Key.flickInsetDp" to PropertyHint(examples = listOf(JsonValueExample("2"), JsonValueExample("-1"))),
+            "Key.hintShiftXDp" to PropertyHint(examples = listOf(JsonValueExample("2"), JsonValueExample("-2"))),
+            "Key.hintShiftYDp" to PropertyHint(examples = listOf(JsonValueExample("2"), JsonValueExample("-2"))),
             "Key.hintScale" to PropertyHint(
                 examples = listOf(JsonValueExample("1.5"), JsonValueExample("2")),
                 range = KeyHintScaleRange.toDoubles(),
@@ -442,8 +458,8 @@ data class ResolvedShape(val shape: JsonShape, val property: PropertyShape?)
 
 /**
  * How a shape reads in a suggestion's detail and the doc strip: the words a JSON
- * author already uses. Deliberately untranslated, for the reason `LuaApiDocs`
- * gives: these name the types of a programming format.
+ * author already uses. Deliberately untranslated, for the reason the plugin API docs
+ * give: these name the types of a programming format.
  */
 fun JsonShape.summary(): String = when (this) {
     is ObjectShape -> if (typeName.startsWith("action:")) "action" else typeName

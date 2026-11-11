@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.core.voice.parakeet
 
+import com.wasimaster.wmkeyboard.core.voice.executorch.EtCatalog
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtEngine
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtModel
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtNative
@@ -7,19 +8,24 @@ import com.wasimaster.wmkeyboard.core.voice.executorch.EtRunner
 import com.wasimaster.wmkeyboard.core.voice.executorch.EtStore
 import com.wasimaster.wmkeyboard.core.voice.executorch.PieceVocab
 import com.wasimaster.wmkeyboard.core.voice.executorch.Tensor
+import com.wasimaster.wmkeyboard.core.voice.sherpa.QnnSpeech
 import java.io.File
 
 /**
  * Offline Parakeet: NVIDIA's Parakeet TDT 0.6B v3, a token-and-duration
  * transducer for 25 European languages that tells them apart itself, run on
- * [EtNative]. It transcribes a whole clip once it ends, like Whisper, but
- * without decoding a word at a time: the encoder reads the clip once, and the
- * transducer then walks its frames, skipping as many as the duration head says.
+ * [EtNative]. It reads a whole clip, but without decoding a word at a time:
+ * the encoder reads the clip once, and the transducer then walks its frames,
+ * skipping as many as the duration head says. Dictation runs it as a stream
+ * ([newStream]) that passes over the clip as it grows, for the words so far.
  *
  * The program carries four methods (preprocessor, encoder, decoder_step,
  * joint) and its own constants as methods (blank_id, num_rnn_layers,
  * pred_hidden), so nothing about the model's shape is hard-coded here beyond
  * defaults for those. Every call runs on [EtNative.dispatcher].
+ *
+ * An NPU build ([EtModel.npu], k2-fsa's QNN context binaries for one
+ * Snapdragon chip) runs through [QnnSpeech] instead, on the same thread.
  */
 object ParakeetEngine {
 
@@ -41,15 +47,75 @@ object ParakeetEngine {
     /** Opens [model] ahead of a clip. On [EtNative.dispatcher] only. Throws when it will not load. */
     fun warm(filesDir: File, model: EtModel) {
         require(model.engine == EtEngine.PARAKEET)
-        EtNative.programs(listOf(EtStore.file(filesDir, model, PROGRAM)))
-        vocabFor(filesDir, model)
+        val runs = runnable(filesDir, model)
+        if (runs.npu != null) return QnnSpeech.warm(filesDir, runs)
+        EtNative.programs(listOf(EtStore.file(filesDir, runs, PROGRAM)))
+        vocabFor(filesDir, runs)
     }
 
     /** [pcm] (16 kHz mono, in [-1, 1]) as text. On [EtNative.dispatcher] only. */
-    fun transcribe(filesDir: File, model: EtModel, pcm: FloatArray): String {
+    fun transcribe(filesDir: File, chosen: EtModel, pcm: FloatArray): String {
+        val model = runnable(filesDir, chosen)
+        if (model.npu != null) return QnnSpeech.transcribe(filesDir, model, pcm, minOf(pcm.size, MAX_CLIP_SECONDS * 16_000))
         val program = EtNative.programs(listOf(EtStore.file(filesDir, model, PROGRAM))).single()
         val tokens = decode(program, pcm, program.constant("blank_id")?.toInt() ?: DEFAULT_BLANK)
         return vocabFor(filesDir, model).decode(tokens).trim()
+    }
+
+    /**
+     * A clip heard as it is said (#1168): the words so far come from passes
+     * over the clip as it grows, the finished phrase from one over all of it.
+     * See [ParakeetStream]. On [EtNative.dispatcher] only. Throws when [model]
+     * will not load.
+     */
+    fun newStream(filesDir: File, chosen: EtModel): ParakeetStream {
+        require(chosen.engine == EtEngine.PARAKEET)
+        val model = runnable(filesDir, chosen)
+        if (model.npu != null) {
+            QnnSpeech.warm(filesDir, model)
+            // Each pass pads to the bucket it lands in, so a pass costs the
+            // same however little was said; QnnSpeech moves to a longer
+            // bucket, if one is on the device, as the phrase outgrows it.
+            return ParakeetStream(MAX_CLIP_SECONDS * 16_000, transcribe = { pcm, count ->
+                QnnSpeech.transcribe(filesDir, model, pcm, count)
+            })
+        }
+        val program = EtNative.programs(listOf(EtStore.file(filesDir, model, PROGRAM))).single()
+        val vocab = vocabFor(filesDir, model)
+        val blank = program.constant("blank_id")?.toInt() ?: DEFAULT_BLANK
+        return ParakeetStream(maxSamples(program), transcribe = { pcm, count ->
+            vocab.decode(decode(program, if (count == pcm.size) pcm else pcm.copyOf(count), blank)).trim()
+        })
+    }
+
+    /**
+     * [model], or for a GPU build while ExecuTorch's Vulkan build is not the
+     * one loaded (its gate still downloading, or this process loaded the
+     * plain build before it came), the CPU model from the same weights when
+     * that is on the device. A GPU program does not load without the Vulkan
+     * delegate; with no twin to fall back on, it throws, as any model that
+     * will not load does.
+     */
+    private fun runnable(filesDir: File, model: EtModel): EtModel = cpuIfNeeded(filesDir, model)
+
+    /**
+     * [model], or the CPU model of the same weights when [model] is a GPU or
+     * NPU build that cannot run in this process right now: ExecuTorch's
+     * Vulkan build not the one loaded, or sherpa-onnx's QNN library or the
+     * chip's QNN runtime not here yet (each is asked for, so a later
+     * dictation has it). With no CPU twin on the device, it throws, as any
+     * model that will not load does. Moonshine's NPU builds go through it too.
+     */
+    internal fun cpuIfNeeded(filesDir: File, model: EtModel): EtModel {
+        val runsNow = when {
+            model.npu != null -> QnnSpeech.usable()
+            model.gpu -> EtNative.delegate == "vulkan" || run { EtNative.requestVulkan(); false }
+            else -> true
+        }
+        if (runsNow) return model
+        val twin = model.cpuTwin?.let(EtCatalog::byId)?.takeIf { EtStore.isDownloaded(filesDir, it) }
+        val needs = if (model.npu != null) "sherpa-onnx's NPU library and this phone's NPU runtime" else "ExecuTorch's Vulkan build"
+        return twin ?: error("${model.label} needs $needs, which is not loaded")
     }
 
     /** The longest clip the preprocessor takes, in samples; 50 s for v3. */

@@ -134,9 +134,11 @@ internal val ProviderEndpoints: Map<String, List<ServiceEndpoint>> = mapOf(
     ProviderTypes.WIKTIONARY.id to listOf(ServiceEndpoint.KAIKKI),
     ProviderTypes.WIKTIONARY_REST.id to listOf(ServiceEndpoint.WIKTIONARY),
     ProviderTypes.DICTIONARY_API.id to listOf(ServiceEndpoint.DICTIONARY_API),
+    ProviderTypes.URBAN_DICTIONARY.id to listOf(ServiceEndpoint.URBAN_DICTIONARY),
     ProviderTypes.DATAMUSE.id to listOf(ServiceEndpoint.DATAMUSE),
     ProviderTypes.CURRENCY_API.id to listOf(ServiceEndpoint.CURRENCY_API, ServiceEndpoint.CURRENCY_API_MIRROR),
     ProviderTypes.FRANKFURTER.id to listOf(ServiceEndpoint.FRANKFURTER),
+    ProviderTypes.ALLRATESTODAY.id to listOf(ServiceEndpoint.ALLRATESTODAY),
     ProviderTypes.ER_API.id to listOf(ServiceEndpoint.ER_API),
     ProviderTypes.COINBASE.id to listOf(ServiceEndpoint.COINBASE),
     ProviderTypes.COINGECKO.id to listOf(ServiceEndpoint.COINGECKO),
@@ -242,6 +244,8 @@ internal fun ProviderPage(
         }
         // The kind's own settings: what used to be appended to the tool's page.
         ProviderOwnSettings(repository, settings, tool, type, row, onNavigate)
+        // What a paid service has cost so far (#1135).
+        if (row != null) ProviderUsageGroup(row, tool)
         ServerFieldsGroup(repository, settings, endpoints = ProviderEndpoints[type.id].orEmpty(), level = SettingLevel.ADVANCED)
         val usedBy = settings.watch { s ->
             row?.let { ProviderEdits.usedBy(s, it.entry.credentialKey, tool, env) }.orEmpty()
@@ -338,11 +342,16 @@ internal fun ProviderOwnSettings(
         }
         ProviderTypes.WHISTLE.id -> if (WhistleEngine.shipped) WhistleModelManager(settings)
         ProviderTypes.ASR4ALL.id, ProviderTypes.PARAKEET.id, ProviderTypes.MOONSHINE.id,
-        ProviderTypes.SHERPA.id, ProviderTypes.OMNILINGUAL.id,
-        -> EtEngine.byId(type.id)?.takeIf { it.runtimeShipped }?.let { EtModelManager(it, settings) }
+        ProviderTypes.SHERPA.id, ProviderTypes.OMNILINGUAL.id, ProviderTypes.VOSK.id,
+        -> EtEngine.byId(type.id)?.takeIf { it.runtimeShipped }?.let {
+            EtModelManager(it, settings)
+            if (it == EtEngine.SHERPA) SherpaCustomModels(settings)
+            // Where the engine's phrase ends, next to the engine (#1174).
+            if (it.live) VoicePhraseEndGroup(repository, settings)
+        }
         ProviderTypes.TRANSCRIPTION_SERVER.id -> VoiceServerSettings(repository, settings)
         // ---- Translate: the model lists that sat above the list, and DeepL's own use besides translating.
-        ProviderTypes.ML_KIT.id -> if (OnDeviceTranslator.AVAILABLE) TranslateModelManager(settings)
+        ProviderTypes.ML_KIT.id -> if (OnDeviceTranslator.offered) TranslateModelManager(settings)
         ProviderTypes.BERGAMOT.id -> if (BergamotTranslator.available) BergamotModelManager(settings)
         ProviderTypes.NLLB.id -> if (NllbTranslator.available) NllbModelManager(settings)
         ProviderTypes.DEEPL.id -> DeepLWriteSettingsGroup(repository, settings)
@@ -364,6 +373,7 @@ internal fun ProviderOwnSettings(
         ProviderTypes.OFFLINE_WORDNET.id -> OfflineDictionariesGroup(settings, listOf(OfflineDictionaryCatalog.OEWN))
         ProviderTypes.OFFLINE_BENGALI.id ->
             OfflineDictionariesGroup(settings, listOf(OfflineDictionaryCatalog.BENGALI_WIKTIONARY))
+        ProviderTypes.OFFLINE_LANGUAGES.id -> OfflineDictionariesGroup(settings, OfflineDictionaryCatalog.LANGUAGES)
         ProviderTypes.IMPORTED_DICTIONARIES.id -> ImportedDictionariesGroup()
         // ---- The speed test: a LibreSpeed row picks its server from the public list.
         ProviderTypes.LIBRESPEED.id -> LibreSpeedServerSettings(repository, settings, row)
@@ -455,12 +465,34 @@ private fun SearxSettings(repository: SettingsRepository, settings: LiveSettings
     }
 }
 
-/** The phone's recognizer: whether it may go online. */
+/** The phone's recognizer: which app's service it is, and whether it may go online. */
 @Composable
 private fun SystemRecognizerSettings(repository: SettingsRepository, settings: LiveSettings) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    val picked = settings.watch { it.whisper.systemService }
     SettingsGroup {
+        // #993: any app's recognition service, not only the phone's default.
         item(level = SettingLevel.STANDARD) {
+            val installed = remember { com.wasimaster.wmkeyboard.core.voice.recognitionServices(context) }
+            val defaultLabel = stringResource(R.string.voice_system_service_default)
+            val options = listOf("" to defaultLabel) +
+                installed.map { (component, label) -> component.flattenToString() to label } +
+                // A pick whose app has gone stays listed, so it can be changed back.
+                listOfNotNull(
+                    picked.takeIf { it.isNotBlank() && installed.none { (c, _) -> c.flattenToString() == it } }
+                        ?.let { it to stringResource(R.string.voice_system_service_missing) },
+                )
+            ChoiceSetting(
+                R.string.voice_system_service_title,
+                subtitle = stringResource(R.string.voice_system_service_subtitle),
+                info = stringResource(R.string.voice_system_service_info),
+                options = options,
+                selected = picked,
+                default = SettingsDefaults.whisper.systemService,
+            ) { scope.launch { repository.setVoiceSystemService(it) } }
+        }
+        item(level = SettingLevel.STANDARD, visible = picked.isBlank()) {
             ToggleSetting(
                 R.string.voice_system_on_device_title,
                 stringResource(R.string.voice_system_on_device_subtitle),

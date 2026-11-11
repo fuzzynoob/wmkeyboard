@@ -50,13 +50,15 @@ internal fun ServersSettingsScreen(repository: SettingsRepository, settings: Liv
         stringResource(R.string.servers_repos_group),
         info = stringResource(R.string.servers_repos_info),
     ) {
-        for (repo in ServiceRepo.entries) item { RepoLocationRows(repo, repository, settings) }
+        for (repo in ServiceRepo.entries) {
+            item(weight = REPO_ROW_WEIGHT) { RepoLocationRows(repo, repository, settings) }
+        }
     }
     for (group in ServiceGroup.entries) {
         SettingsGroup(stringResource(group.titleRes)) {
             selfHostedItems(group, repository, settings)
             for (endpoint in ServiceEndpoint.entries.filter { it.group == group }) {
-                item { EndpointField(endpoint, repository, settings) }
+                item(weight = ENDPOINT_ROW_WEIGHT) { EndpointField(endpoint, repository, settings) }
             }
         }
     }
@@ -74,8 +76,10 @@ internal fun SettingsGroupScope.serverItems(
     level: SettingLevel = SettingLevel.BASIC,
 ) {
     if (!BuildConfig.ENABLE_FDROID) return
-    for (repo in repos) item(level = level) { RepoLocationRows(repo, repository, settings) }
-    for (endpoint in endpoints) item(level = level) { EndpointField(endpoint, repository, settings) }
+    for (repo in repos) item(level = level, weight = REPO_ROW_WEIGHT) { RepoLocationRows(repo, repository, settings) }
+    for (endpoint in endpoints) {
+        item(level = level, weight = ENDPOINT_ROW_WEIGHT) { EndpointField(endpoint, repository, settings) }
+    }
 }
 
 /** The same rows as a group of their own, for a page with no natural group to put them in. */
@@ -225,6 +229,17 @@ private fun RepoLocationRows(repo: ServiceRepo, repository: SettingsRepository, 
     }
 }
 
+/**
+ * What one repository's rows cost to compose, in ordinary rows: a forge choice
+ * and up to five outlined text fields. Without it the five repositories counted
+ * as five rows, composed together as the screen opened, and that one frame was
+ * the whole of the Servers screen's wait.
+ */
+private const val REPO_ROW_WEIGHT = 6
+
+/** An address field: an outlined text field with a label and a hint under it. */
+private const val ENDPOINT_ROW_WEIGHT = 2
+
 /** A change this big at once is a paste rather than typing. */
 private const val MIN_PASTE_LENGTH = 8
 
@@ -265,6 +280,7 @@ internal val ServiceEndpoint.labelRes: Int
         ServiceEndpoint.PEXELS -> R.string.servers_pexels
         ServiceEndpoint.WIKIPEDIA -> R.string.servers_wikipedia
         ServiceEndpoint.DICTIONARY_API -> R.string.servers_dictionary_api
+        ServiceEndpoint.URBAN_DICTIONARY -> R.string.servers_urban_dictionary
         ServiceEndpoint.DATAMUSE -> R.string.servers_datamuse
         ServiceEndpoint.KAIKKI -> R.string.servers_kaikki
         ServiceEndpoint.WIKTIONARY -> R.string.servers_wiktionary
@@ -279,6 +295,7 @@ internal val ServiceEndpoint.labelRes: Int
         ServiceEndpoint.CURRENCY_API -> R.string.servers_currency_api
         ServiceEndpoint.CURRENCY_API_MIRROR -> R.string.servers_currency_api_mirror
         ServiceEndpoint.FRANKFURTER -> R.string.servers_frankfurter
+        ServiceEndpoint.ALLRATESTODAY -> R.string.servers_allratestoday
         ServiceEndpoint.ER_API -> R.string.servers_er_api
         ServiceEndpoint.COINBASE -> R.string.servers_coinbase
         ServiceEndpoint.COINGECKO -> R.string.servers_coingecko

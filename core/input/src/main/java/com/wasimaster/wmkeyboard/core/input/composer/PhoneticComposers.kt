@@ -3,10 +3,13 @@ package com.wasimaster.wmkeyboard.core.input.composer
 import com.wasimaster.wmkeyboard.core.script.ScriptId
 import com.wasimaster.wmkeyboard.core.transliteration.ArabicPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.AssamesePhonetic
+import com.wasimaster.wmkeyboard.core.transliteration.GreekPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.IndicPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.IndicProfiles
 import com.wasimaster.wmkeyboard.core.transliteration.IndicScript
+import com.wasimaster.wmkeyboard.core.transliteration.MinorPhonetic
 import com.wasimaster.wmkeyboard.core.transliteration.PersianPhonetic
+import com.wasimaster.wmkeyboard.core.transliteration.WylieTibetan
 
 /**
  * A phonetic layout's composer for a language whose rules are data rather than
@@ -22,13 +25,18 @@ import com.wasimaster.wmkeyboard.core.transliteration.PersianPhonetic
  *        contain to be worth remembering
  */
 class SchemeTransliterateComposer(
-    override val phoneticLanguage: String,
+    override val phoneticLanguage: String?,
     private val compose: (String) -> String,
     private val cluster: Pair<IntRange, Char?>?,
     private val isNative: (Char) -> Boolean,
     override val bufferDigits: Boolean = false,
     override val digitsStartBuffer: Boolean = false,
+    override val spaceText: String? = null,
+    /** Non-letters the rules read, which the buffer otherwise wouldn't take. */
+    private val bufferedSigns: String = "",
 ) : Composer {
+
+    override fun buffersChar(c: Char): Boolean = c in bufferedSigns
 
     override val isTransliterating: Boolean get() = true
 
@@ -69,7 +77,7 @@ object PhoneticComposers {
             put("bn", BengaliTransliterateComposer)
             put("hi", HindiTransliterateComposer)
             put("ur", UrduTransliterateComposer)
-            for (profile in IndicProfiles.all) {
+            for (profile in IndicProfiles.all + IndicProfiles.minor) {
                 val engine = IndicPhonetic(profile)
                 val script = profile.script
                 put(
@@ -79,6 +87,17 @@ object PhoneticComposers {
                         compose = engine::transliterate,
                         cluster = script.block to viramaFor(scriptIdOf(script)),
                         isNative = script::isNative,
+                    ),
+                )
+            }
+            for ((id, letters) in MinorPhonetic.languages) {
+                put(
+                    id,
+                    SchemeTransliterateComposer(
+                        phoneticLanguage = id,
+                        compose = { MinorPhonetic.transliterate(id, it) },
+                        cluster = null,
+                        isNative = { it.code in letters },
                     ),
                 )
             }
@@ -113,6 +132,30 @@ object PhoneticComposers {
                     // pass an all-digit run through untouched.
                     bufferDigits = true,
                     digitsStartBuffer = true,
+                ),
+            )
+            put(
+                "el",
+                SchemeTransliterateComposer(
+                    phoneticLanguage = "el",
+                    compose = GreekPhonetic::transliterate,
+                    cluster = null,
+                    isNative = GreekPhonetic::isGreek,
+                    // Chat spells θ with an 8 and ξ with a 3, also to start a word.
+                    bufferDigits = true,
+                    digitsStartBuffer = true,
+                ),
+            )
+            put(
+                "bo",
+                SchemeTransliterateComposer(
+                    // Wylie spells one exact thing, so nothing to rank.
+                    phoneticLanguage = null,
+                    compose = WylieTibetan::transliterate,
+                    cluster = null,
+                    isNative = WylieTibetan::isTibetan,
+                    spaceText = WylieTibetan.TSHEG,
+                    bufferedSigns = "+.~-",
                 ),
             )
         }

@@ -4,8 +4,10 @@ import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCapitals
 import com.wasimaster.wmkeyboard.core.gesture.DuetBeam
 import com.wasimaster.wmkeyboard.core.gesture.DuetWorkspace
 import com.wasimaster.wmkeyboard.core.gesture.GesturePoint
+import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.gesture.GlideBeam
 import com.wasimaster.wmkeyboard.core.gesture.GlideLanguageProfiles
+import com.wasimaster.wmkeyboard.core.gesture.GlideTolerances
 import com.wasimaster.wmkeyboard.core.gesture.GlideShapeSource
 import com.wasimaster.wmkeyboard.core.gesture.GlideToken
 import com.wasimaster.wmkeyboard.core.gesture.GlideCoverage
@@ -17,7 +19,9 @@ import com.wasimaster.wmkeyboard.core.gesture.RomanizedIndex
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.transliteration.PhoneticIndex
 import kotlin.math.exp
+import kotlin.math.hypot
 import kotlin.math.ln
+import kotlin.math.ln1p
 
 /**
  * A secondary-language word list paired with the id of the language it belongs
@@ -236,6 +240,7 @@ class SuggestionEngine(
         set(value) {
             secondaryDictionariesField = value
             generation.incrementAndGet()
+            retuneGlide()
         }
 
     /**
@@ -257,6 +262,25 @@ class SuggestionEngine(
             // The glide decoders carry the language's own weights (#966).
             retuneGlide()
         }
+
+    /**
+     * The spellings a joined glide reading of [languageId] must be found in, or
+     * null when there are none to check against, which leaves that language
+     * without joins ([retuneGlide]). Asked on a language switch and by
+     * [refreshCompoundLexicon], and only for a language that joins.
+     */
+    @Volatile
+    var compoundLexiconFor: (String) -> WordSource? = { null }
+        set(value) {
+            field = value
+            retuneGlide()
+        }
+
+    @Volatile
+    private var compoundLexicon: WordSource? = null
+
+    /** A lexicon has landed for the language being typed. */
+    fun refreshCompoundLexicon() = retuneGlide()
 
     /**
      * The spelling checker for the language being typed: Hunspell over the
@@ -289,6 +313,7 @@ class SuggestionEngine(
         set(value) {
             englishAsSecondaryField = value
             generation.incrementAndGet()
+            retuneGlide()
         }
 
     /**
@@ -400,9 +425,13 @@ class SuggestionEngine(
     /**
      * The last few words committed through the strip or the space bar, each
      * with the other readings the engine had for it at the time, newest last:
-     * what the context revision judges ([contextRevision]).
+     * what the context revision judges ([contextRevision]). Replaced whole,
+     * never edited: the main thread writes it while the suggestion dispatcher
+     * reads it, and clearing a deque under a reader mid-walk crashed the
+     * keyboard with an index of -4 (#1031).
      */
-    private val commits = ArrayDeque<Commit>()
+    @Volatile
+    private var commits: List<Commit> = emptyList()
 
     private class Commit(val word: String, val alternatives: List<String>)
 
@@ -426,13 +455,13 @@ class SuggestionEngine(
      */
     fun noteCommit(word: String, alternatives: List<String>) {
         if (word.isEmpty()) return
-        commits.addLast(Commit(word, alternatives.filter { it != word && ' ' !in it }.take(REVISION_ALTERNATIVES)))
-        while (commits.size > REVISION_DEPTH) commits.removeFirst()
+        val commit = Commit(word, alternatives.filter { it != word && ' ' !in it }.take(REVISION_ALTERNATIVES))
+        commits = (commits + commit).takeLast(REVISION_DEPTH)
     }
 
     /** Forgets the remembered commits: a new field, a caret jump. */
     fun clearCommits() {
-        commits.clear()
+        commits = emptyList()
     }
 
     /** What [contextRevision] found: the word standing wrong, its replacement, and the words after it. */
@@ -454,6 +483,10 @@ class SuggestionEngine(
      */
     fun contextRevision(maxBack: Int = 1): Revision? {
         val model = contextModel ?: return null
+        // One reading of each for the whole walk: either can be replaced from
+        // another thread between two lines of it.
+        val commits = commits
+        val sentence = sentence
         if (commits.size < 2 || sentence.size < 2) return null
         var best: Revision? = null
         var bestGain = REVISION_MARGIN
@@ -538,6 +571,13 @@ class SuggestionEngine(
      * whose data has not been loaded still answers — with its rules alone —
      * because a phonetic layout that commits Latin is never what was asked for.
      */
+    /** Whether Bangla is being typed on Borno Phonetic, whose literal reading is not Avro's. */
+    var bornoRules: Boolean
+        get() = bengaliBackend.scheme === PhoneticSchemes.BENGALI_BORNO
+        set(value) {
+            bengaliBackend.scheme = if (value) PhoneticSchemes.BENGALI_BORNO else PhoneticSchemes.BENGALI
+        }
+
     fun phoneticBackend(languageId: String?): PhoneticBackend? = when (languageId) {
         null -> null
         bengaliBackend.scheme.languageId -> bengaliBackend
@@ -602,6 +642,36 @@ class SuggestionEngine(
         set(value) {
             if (value == phoneticContextOffField) return
             phoneticContextOffField = value
+            generation.incrementAndGet()
+        }
+
+    /**
+     * Whether a space on a phonetic layout may replace a mistyped word with the
+     * one its keys were aiming at ([PhoneticCorrection]). Off, the fix still
+     * reaches the strip behind the head, as a Latin correction does.
+     */
+    @Volatile
+    private var phoneticAutocorrectField: Boolean = true
+    var phoneticAutocorrect: Boolean
+        get() = phoneticAutocorrectField
+        set(value) {
+            if (value == phoneticAutocorrectField) return
+            phoneticAutocorrectField = value
+            generation.incrementAndGet()
+        }
+
+    /**
+     * Each phonetic language's romanized spellings, by language id, for
+     * [phoneticFix]. The same indexes a glide decodes through, whichever layout
+     * is showing, where [glideRomanization] is only ever the current glide's.
+     */
+    @Volatile
+    private var phoneticRomanizedField: Map<String, RomanizedIndex> = emptyMap()
+    var phoneticRomanized: Map<String, RomanizedIndex>
+        get() = phoneticRomanizedField
+        set(value) {
+            if (value === phoneticRomanizedField) return
+            phoneticRomanizedField = value
             generation.incrementAndGet()
         }
 
@@ -708,6 +778,17 @@ class SuggestionEngine(
      */
     @Volatile
     var blacklist: Set<String> = emptySet()
+
+    /**
+     * American spellings English's word list in use has respelled (#999): set
+     * while that list is a Canadian, British or Australian one, empty
+     * otherwise. The list itself never offers `color`, but the word pairs and
+     * the context model learned their English from American text and did, at
+     * the top of the strip. Such a word is held back like a blacklisted one,
+     * unless the list in use has it after all or the user added it by hand.
+     */
+    @Volatile
+    var regionalAvoid: Set<String> = emptySet()
 
     /**
      * Per-word rank adjustments from the word card (#99): key -> steps in
@@ -965,7 +1046,14 @@ class SuggestionEngine(
      * True when [word] must not be offered or used as an autocorrect target,
      * for either reason (user blacklist or the offensive-words filter).
      */
-    private fun suppressed(word: String): Boolean = blacklisted(word) || offensive(word)
+    private fun suppressed(word: String): Boolean = blacklisted(word) || offensive(word) || regionallyAvoided(word)
+
+    /** Whether [word] is an American spelling the English list in use replaced; see [regionalAvoid]. */
+    private fun regionallyAvoided(word: String): Boolean {
+        if (regionalAvoid.isEmpty()) return false
+        val lower = word.lowercase()
+        return lower in regionalAvoid && !dictionary.contains(lower) && !userLexicon.isAddedByHand(lower)
+    }
 
     /** Whether the strip would hold [word] back: on the blacklist, or a blocked offensive word. */
     fun suppresses(word: String): Boolean = suppressed(word)
@@ -1255,8 +1343,23 @@ class SuggestionEngine(
         }
 
     /**
+     * The radii each language decodes with in place of the global ones, keyed
+     * by language id (issue #1136). [retuneGlide] lays the primary language's
+     * entry over [glideTuning] before its profile, so a language switch picks
+     * them up the same way it picks up the profile.
+     */
+    @Volatile
+    var glideTolerancesByLanguage: Map<String, GlideTolerances> = emptyMap()
+        set(value) {
+            if (value == field) return
+            field = value
+            retuneGlide()
+        }
+
+    /**
      * The weights every glide decoder runs with right now: the user's
-     * tuning with the language's profile and the check-up's override on it.
+     * tuning with the language's own radii, its profile and the check-up's
+     * override on it.
      * What a replay ([glide] with a `tuning`) should start from.
      */
     val glideTuningInForce: GlideBeam.Tuning get() = languageTuning
@@ -1322,11 +1425,22 @@ class SuggestionEngine(
 
     /**
      * Rebuilds the decoders from [glideTuning] with [primaryLanguageId]'s
-     * profile on it (#966), when that changed anything: a switch between
+     * own radii (#1136) and profile on it (#966), when that changed anything: a switch between
      * two languages with the same weights costs nothing.
      */
     private fun retuneGlide() {
-        val profiled = GlideLanguageProfiles.tune(glideTuning, primaryLanguageId)
+        val mixed = secondaryDictionariesField.isNotEmpty() || englishAsSecondaryField
+        val ownRadii = GlideTolerances.resolve(glideTuning, glideTolerancesByLanguage, primaryLanguageId)
+        val forLanguage = GlideLanguageProfiles.tune(ownRadii, primaryLanguageId, mixed)
+        // Joining needs something to check the joined spelling against, so with
+        // no lexicon it is off, and the decoder never offers one (#1014).
+        val joins = forLanguage.joinCost.isFinite()
+        compoundLexicon = if (joins) compoundLexiconFor(primaryLanguageId) else null
+        val profiled = if (joins && compoundLexicon == null) {
+            forLanguage.copy(joinCost = Double.POSITIVE_INFINITY)
+        } else {
+            forLanguage
+        }
         val override = glideFreqWeightOverride
         val tuned = if (override == null || override == profiled.freqWeight) profiled else profiled.copy(freqWeight = override)
         if (tuned == languageTuning) return
@@ -1491,6 +1605,12 @@ class SuggestionEngine(
         openHead: Int = 0,
         openTail: Int = 0,
         /**
+         * A segment of a stroke that crossed the spacebar, whose context is
+         * read over the whole phrase by [readGlidePhrase]: scores stay the
+         * decoder's own, with no context blended in and no rerank.
+         */
+        phrase: Boolean = false,
+        /**
          * Weights to replay the stroke under instead of the ones in force
          * (the glide check-up, #966 §5.5): the built-in decoder only, since
          * the weights are its, through the same sources, blacklist and
@@ -1517,8 +1637,15 @@ class SuggestionEngine(
         val slips = !deep && tiers == null && tuning == null
         // The other engines read the layout's own spellings only, so never
         // on a phonetic layout, where the answer is the romanization's own.
+        // These engines have no open ends: a walk from or to the spacebar is
+        // cut off for them, or they would read it as letters (#968).
+        val walkless = if (openHead + openTail in 1 until stroke.size) {
+            stroke.subList(openHead, stroke.size - openTail)
+        } else {
+            stroke
+        }
         val neural = externalGlide?.takeIf { romanization.isEmpty && tuning == null }?.decode(
-            path = stroke,
+            path = walkless,
             keys = keys,
             keyWidth = keyWidth,
             sources = sources,
@@ -1532,7 +1659,7 @@ class SuggestionEngine(
         if (neural != null) {
             return finishGlide(
                 withApostrophes(neural, romanization), romanization, limit,
-                previousWord, previousWord2, previousWord3, recentWords, slips,
+                previousWord, previousWord2, previousWord3, recentWords, slips, phrase,
             )
         }
         val beam = when {
@@ -1540,13 +1667,13 @@ class SuggestionEngine(
             deep -> deepGlideBeam
             else -> glideBeam
         }
-        val decoded = beam.decode(
+        fun decodeTo(pool: Int) = beam.decode(
             path = stroke,
             keys = keys,
             keyWidth = keyWidth,
             sources = sources,
             ws = glideWorkspace.get(),
-            limit = maxOf(limit, if (deep) GLIDE_DEEP_POOL else GLIDE_RERANK_POOL),
+            limit = maxOf(limit, pool),
             shapes = shapes,
             // Never on a phonetic layout. There the stroke spells a
             // romanization and the answer is Bengali, so a guess would be
@@ -1557,10 +1684,106 @@ class SuggestionEngine(
             openHead = openHead,
             openTail = openTail,
         )
+        val first = decodeTo(if (deep) GLIDE_DEEP_POOL else GLIDE_RERANK_POOL)
+        // A close call is where the context model can still change the answer,
+        // so only those pay for the wider pool (#1016).
+        val decoded = if (!deep && contextModel != null && glideIsClose(first)) decodeTo(GLIDE_DEEP_POOL) else first
         return finishGlide(
             withApostrophes(decoded, romanization), romanization, limit,
-            previousWord, previousWord2, previousWord3, recentWords, slips,
+            previousWord, previousWord2, previousWord3, recentWords, slips, phrase,
         )
+    }
+
+    /**
+     * The words a stroke that crossed the spacebar spells, reading its
+     * segments' [slots] as one phrase ([GlidePhraseLattice]) after the two
+     * words before the stroke. For each slot, its word first and then its
+     * other readings. The context model, when there is one, has its say on the
+     * phrases close enough for it to change the answer, unless [useModel] says
+     * not to: a preview runs this every few frames, and the model's forward
+     * steps belong to the lift.
+     */
+    fun readGlidePhrase(
+        slots: List<GlidePhraseLattice.Slot>,
+        previousWord: String?,
+        previousWord2: String?,
+        useModel: Boolean = true,
+    ): List<List<String>> {
+        val followers = HashMap<String, Boolean>()
+        // The same three words come up on many paths, and each asks the stores
+        // across the native boundary several times.
+        val lifts = HashMap<Triple<String?, String?, String>, Double>()
+        val lift = GlidePhraseLattice.Lift { back2, back1, word ->
+            if (back1 == null) return@Lift 0.0
+            lifts[Triple(back2, back1, word)]?.let { return@Lift it }
+            val w = word.lowercase()
+            val w1 = back1.lowercase()
+            val trigram = if (back2 == null) {
+                0
+            } else {
+                val w2 = back2.lowercase()
+                maxOf(userLexicon.trigramCount(w2, w1, w) * PACK_COUNT_SCALE, ngramPack.trigramCount(w2, w1, w))
+            }
+            // A personal pair counts as what it is worth in [contextCount]:
+            // once typed, it outranks a population prior seen dozens of times.
+            val bigram = if (trigram > 0) {
+                0
+            } else {
+                maxOf(
+                    userLexicon.bigramCount(w1, w) * PACK_COUNT_SCALE,
+                    ngramPack.bigramCount(w1, w),
+                    seedBigrams.count(w1, w),
+                )
+            }
+            val known = trigram == 0 && bigram == 0 &&
+                followers.getOrPut(w1) { ngramPack.nextWords(w1, 1).isNotEmpty() }
+            GlidePhraseLattice.lift(trigram, bigram, known).also { lifts[Triple(back2, back1, word)] = it }
+        }
+        val back1 = previousWord?.takeUnless(WordContext::isSentinel)
+        val back2 = previousWord2?.takeUnless(WordContext::isSentinel).takeIf { back1 != null }
+        val phrases = GlidePhraseLattice.read(slots, back2, back1, lift = lift)
+        val best = (if (useModel) withPhraseModel(phrases) else phrases).firstOrNull() ?: return slots.map { it.words }
+        return GlidePhraseLattice.slotOrders(slots, best, back2, back1, lift)
+    }
+
+    /**
+     * The one-letter word a chained segment that only turned at [turn] stands
+     * for, with its score on the decoder's scale (`ln(1 + frequency)`), less
+     * [GLIDE_ONE_LETTER_COST] so a two-letter word that fits as well still
+     * leads until the words around it say otherwise, and the squared distance
+     * in key widths to the key. Null on a phonetic layout, whose answers are
+     * not its letters, or with no such word within a key's width.
+     */
+    fun glideOneLetter(turn: GesturePoint, keys: List<KeyCenter>, keyWidth: Float): Pair<String, Double>? {
+        if (!glideRomanization.isEmpty || keyWidth <= 0f) return null
+        var best: Pair<String, Double>? = null
+        for (key in keys) {
+            val d = hypot(key.x - turn.x, key.y - turn.y) / keyWidth
+            if (d > 1f) continue
+            val word = String(Character.toChars(key.codePoint)).lowercase()
+            val frequency = dictionaryFrequencyOf(word)
+            if (frequency <= 0 || suppressed(word)) continue
+            val score = ln1p(frequency.toDouble()) - GLIDE_ONE_LETTER_COST - d * d
+            if (best == null || score > best.second) best = word to score
+        }
+        return best?.let { (word, score) -> displayForm(word) to score }
+    }
+
+    /** [GlidePhraseLattice.blendModel] over the phrases its cap could still bring level with the leader. */
+    private fun withPhraseModel(phrases: List<GlidePhraseLattice.Phrase>): List<GlidePhraseLattice.Phrase> {
+        val model = contextModel ?: return phrases
+        val leader = phrases.firstOrNull() ?: return phrases
+        val reach = 2 * GlidePhraseLattice.MODEL_CAP_PER_WORD * leader.words.count { it != null }
+        val close = phrases.filter { leader.score - it.score <= reach }
+        if (close.size < 2) return phrases
+        val context = sentence
+        val slot = model.slotOf(primaryLanguageId)
+        val logProbs = close.map { phrase ->
+            val words = phrase.words.filterNotNull().map { it.lowercase() }
+            if (words.isEmpty()) return@map Float.NaN
+            model.revise(context, words.take(1), words.drop(1), register, contextField, slot).firstOrNull() ?: Float.NaN
+        }
+        return GlidePhraseLattice.blendModel(close, logProbs)
     }
 
     /**
@@ -1605,12 +1828,32 @@ class SuggestionEngine(
             limit = maxOf(limit, GLIDE_RERANK_POOL),
             partial = partial,
         )
-        if (partial) return decoded.take(limit)
+        if (partial) return decoded.filterNot(::unprovenJoin).take(limit)
         return finishGlide(
             withApostrophes(decoded, romanization), romanization, limit,
             previousWord, previousWord2, previousWord3, recentWords, slips = true,
         )
     }
+
+    /**
+     * Whether [candidate] can only have come from joining listed words, and its
+     * whole spelling is nowhere to be found (#1014): `fragenroot` for `garagentor`.
+     * The decoder does not say which readings it joined, and need not: a reading
+     * every source but the lexicon has never heard of is one. A look-ahead guess
+     * is a listed word that the stroke has not finished.
+     */
+    private fun unprovenJoin(candidate: GlideBeam.Candidate): Boolean {
+        val lexicon = compoundLexicon ?: return false
+        if (candidate.ahead > 0) return false
+        val word = candidate.word
+        if (word.length < MIN_JOINED_LENGTH || !word.all(Char::isLetter)) return false
+        val lower = word.lowercase()
+        return !lexicon.contains(lower) && !glideTriggers.contains(lower) && !isKnownWord(word)
+    }
+
+    /** Whether the decoder's top two readings of a stroke sit within [GLIDE_CLOSE_GAP]. */
+    private fun glideIsClose(decoded: List<GlideBeam.Candidate>): Boolean =
+        decoded.size >= 2 && decoded[0].score - decoded[1].score < GLIDE_CLOSE_GAP
 
     /** What [glide] and [glideTokens] do with a decoder's raw readings. */
     @Suppress("LongParameterList")
@@ -1624,15 +1867,21 @@ class SuggestionEngine(
         recentWords: List<String>,
         /** Whether the leader's nearest slips join the strip ([withLeaderSlips]). */
         slips: Boolean,
+        /** Whether [readGlidePhrase] will read the context instead; see [glide]. */
+        phrase: Boolean = false,
     ): List<GlideBeam.Candidate> {
         // On a phonetic layout the stroke spelled a romanization; the words it
         // stands for are what the rest of this — the blacklist, the reranker,
         // the caller — should ever see.
         val words = if (romanization.isEmpty) decoded else romanization.resolve(decoded)
-        val filtered = words.filterNot { suppressed(it.word) }
+        val filtered = words.filterNot { suppressed(it.word) || unprovenJoin(it) }
         if (filtered.isEmpty()) return filtered
-        val blended = blendGlideContextModel(filtered)
-        val reranked = rerankGlide(blended, previousWord, previousWord2, previousWord3, recentWords)
+        val reranked = if (phrase) {
+            filtered
+        } else {
+            val blended = blendGlideContextModel(filtered)
+            rerankGlide(blended, previousWord, previousWord2, previousWord3, recentWords)
+        }
         val ranked = shiftGlideScores(reranked)
             // One word per spelling, whatever source it came from (#172). The
             // decoder keys its results on each trie's own spelling, and the
@@ -1703,8 +1952,10 @@ class SuggestionEngine(
      * In nats on the decoder's own scores rather than as a reorder after the
      * context rerank, so a preference the user has taught also widens the
      * gap the ambiguity picker measures: a stroke they have corrected three
-     * times stops asking. A rank adjustment is ten times anything the
-     * outcomes can say, so where the user put a word by hand always wins.
+     * times stops asking. Where the user put a word by hand always wins: a
+     * word with a rank adjustment takes that and no outcome nudge, since a
+     * taught pair lifts by [GlideOutcomes.MAX_TAUGHT_LIFT_NATS], more than a
+     * couple of rank steps.
      */
     private fun shiftGlideScores(decoded: List<GlideBeam.Candidate>): List<GlideBeam.Candidate> {
         if (decoded.isEmpty()) return decoded
@@ -1712,7 +1963,8 @@ class SuggestionEngine(
         if (rankOffsets.isEmpty() && nudges == null) return decoded
         var moved = false
         val shifted = decoded.mapIndexed { i, c ->
-            val shift = rankOffset(c.word) + (nudges?.get(i) ?: 0.0)
+            val hand = rankOffset(c.word)
+            val shift = if (hand != 0.0) hand else nudges?.get(i) ?: 0.0
             if (shift == 0.0) {
                 c
             } else {
@@ -1795,11 +2047,13 @@ class SuggestionEngine(
 
     /**
      * The context model's say on a stroke's candidates, in the decoder's
-     * own nats (#966): each moves by [GLIDE_LM_BLEND] per nat the model
-     * prefers it over the leader, at most [GLIDE_LM_BLEND_CAP] either way,
-     * as [blendContextModel] does for typing. The leader is the reference
-     * and never moves; a word the model cannot read keeps its decoder
-     * score. Before [rerankGlide], which still reorders on its own evidence.
+     * own nats (#966): each moves by the language's
+     * [GlideLanguageProfiles.Profile.lmBlend] per nat the model prefers it over
+     * the reference, at most [GlideLanguageProfiles.Profile.lmBlendCap] either
+     * way, as [blendContextModel] does for typing. The reference is the first
+     * candidate the model can read, spelling an unlisted one through its pieces
+     * (#1016), and never moves; a word it cannot read keeps its decoder score.
+     * Before [rerankGlide], which still reorders on its own evidence.
      *
      * Heavier than typing's because a stroke says less than taps do: on
      * 2,294 German swipes with a word before them it took the decoder's
@@ -1809,14 +2063,14 @@ class SuggestionEngine(
     private fun blendGlideContextModel(decoded: List<GlideBeam.Candidate>): List<GlideBeam.Candidate> {
         val model = contextModel ?: return decoded
         if (decoded.size < 2) return decoded
-        val scores = model.scores(decoded.map { it.word.lowercase() })
-        val reference = scores.firstOrNull() ?: return decoded
-        if (reference.isNaN()) return decoded
+        val scores = model.scoresSpelled(decoded.take(GLIDE_LM_SPELLED).map { it.word.lowercase() })
+        val reference = scores.firstOrNull { !it.isNaN() } ?: return decoded
+        val profile = GlideLanguageProfiles.forLanguage(primaryLanguageId)
         var moved = false
         val shifted = decoded.mapIndexed { i, c ->
             val lp = scores.getOrNull(i)
             if (lp == null || lp.isNaN()) return@mapIndexed c
-            val shift = (GLIDE_LM_BLEND * (lp - reference)).coerceIn(-GLIDE_LM_BLEND_CAP, GLIDE_LM_BLEND_CAP)
+            val shift = (profile.lmBlend * (lp - reference)).coerceIn(-profile.lmBlendCap, profile.lmBlendCap)
             if (shift == 0.0) {
                 c
             } else {
@@ -2077,6 +2331,13 @@ class SuggestionEngine(
      * Only where the bare spelling is no word of its own, in any list or in
      * the lexicon: `its` against *it's* and `were` against *we're* stay the
      * coin tosses the docs say they are, and keep their own key.
+     *
+     * A bare spelling a list holds only as the word with its apostrophe left
+     * off is no word of its own, though (#1051): German lists count `gehts`
+     * far above *geht's*, and [Apostrophes] repairs one to the other. Kept
+     * out, the user's own *geht's*, learned three times over, never reached
+     * the walk, and the stroke went on reading `gehe`. Such a spelling stands
+     * in at the user's count like any other.
      */
     private fun glideApostropheSources(): List<FuzzyBeamSearch.WalkSource> =
         apostropheFree().trie.walkers().map {
@@ -2094,11 +2355,13 @@ class SuggestionEngine(
         apostropheFreeCache?.takeIf { it.stamp == stamp }?.let { return it }
         val words = HashMap<String, String>()
         val entries = ArrayList<Pair<String, Int>>()
+        val repairs = mixLanguageIds().map { Apostrophes.repairs(it) }.filter { it.isNotEmpty() }
         for ((word, count) in userLexicon.allWords()) {
             if (word.none(WordContext::isApostrophe)) continue
             val bare = word.filterNot(WordContext::isApostrophe).lowercase()
             if (bare.length < 2 || bare.none { it.isLetter() }) continue
-            if (inDictionaries(bare) || userLexicon.contains(bare)) continue
+            if (userLexicon.contains(bare)) continue
+            if (inDictionaries(bare) && repairs.none { bare in it }) continue
             if (words.putIfAbsent(bare, word) == null) entries += bare to count.coerceAtLeast(1)
         }
         return ApostropheFree(stamp, if (entries.isEmpty()) PackedTrie.EMPTY else PackedTrie.of(entries), words)
@@ -2357,6 +2620,25 @@ class SuggestionEngine(
     }
 
     companion object {
+        /** Digits a word typed at full speed may have slipped onto the number row for. */
+        const val EAGER_DIGIT_SLIPS = 2
+
+        /** The most spellings [fastDigitReading] tries before giving up. */
+        private const val MAX_DIGIT_READINGS = 64
+
+        /** Factor on the confidence gate for a digit-carrying word typed at full speed. */
+        const val EAGER_DIGIT_CONFIDENCE = 0.5
+
+        /**
+         * What follows a number on purpose: ordinals, times, units. A digit
+         * in front of one of these is the number it says.
+         */
+        val NUMBER_SUFFIXES = setOf(
+            "st", "nd", "rd", "th", "am", "pm", "s", "k", "m", "g", "h", "d", "p", "x", "km", "kg", "cm",
+            "mm", "ml", "mg", "gb", "mb", "kb", "tb", "hz", "fps", "mp", "px", "pt", "min", "hr", "hrs",
+            "yr", "yrs", "mo", "wk", "ft", "in", "lb", "lbs", "oz", "ms", "sec", "secs", "mins", "kw",
+        )
+
         /** Language id of bundled English, the only special-cased secondary. */
         private const val EN = "en"
 
@@ -2488,6 +2770,14 @@ class SuggestionEngine(
          * aimed at the letter itself. */
         const val SPACE_SLIP_MIN_DROP = 0.25f
 
+        /** How far below its key's centre a tap must land for its letter to be
+         * offered, not applied, as a spacebar miss (#1107): anywhere in the
+         * lower half. A thumb aimed at the spacebar that falls a row short
+         * lands there nine times in ten, at a scatter of half a key, against
+         * seven in ten below [SPACE_SLIP_MIN_DROP]; half the taps aimed at
+         * the letter land there too, which is why it only asks. */
+        const val SPACE_SLIP_OFFER_DROP = 0f
+
         /** Shortest typed run a split autocorrect may rewrite: two 2-letter
          * halves plus margin — below this, splits stay strip suggestions. */
         private const val SPLIT_AUTOCORRECT_MIN_LENGTH = 5
@@ -2503,8 +2793,25 @@ class SuggestionEngine(
          */
         const val DEFAULT_AUTOCORRECT_CONFIDENCE = 4.0
 
-        /** Slider bounds: 1.5 corrects eagerly, 10 only on near-certainty. */
-        const val MIN_AUTOCORRECT_CONFIDENCE = 1.5
+        /** Slider bounds: 1 takes the best candidate whatever the runner-up, 10 only near-certainty. */
+        const val MIN_AUTOCORRECT_CONFIDENCE = 1.0
+
+        /** Below this the slider also lets a two-edit word fire, for hands that often miss twice (#1055). */
+        private const val TWO_EDIT_FIXES_BELOW = 1.5
+
+        /**
+         * How much rarer than the strip's best word a swapped-back word may be
+         * and still be applied ([swapFix]). `want` against `what` for `wnat` is
+         * a few times over; a word twenty times rarer than a slip's is more
+         * likely a word nobody meant.
+         */
+        private const val SWAP_FIX_RIVAL_RATIO = 20.0
+
+        /**
+         * What a swap fix is sure of, for the undo chip: it applied where the
+         * margin rule would not, so it is never past the middle.
+         */
+        private const val SWAP_FIX_CERTAINTY = 0.5
         const val MAX_AUTOCORRECT_CONFIDENCE = 10.0
 
         /** Nothing to do: neither applied nor offered. */
@@ -2584,6 +2891,12 @@ class SuggestionEngine(
          * real rare words as well: `cress` (`dress`), `votive` (`motive`).
          */
         private const val TYPO_SHADOW_RATIO = 1_000.0
+
+        /** The chip's bar for the same comparison; see [rareSpellingFix]. A guess, not measured. */
+        private const val RARE_SPELLING_RATIO = 100.0
+
+        /** Shorter spellings are too often an abbreviation to ask about. */
+        private const val RARE_SPELLING_MIN_LENGTH = 4
 
         /**
          * How far down its list a word must rank before [typoShadowed] may call
@@ -2719,6 +3032,15 @@ class SuggestionEngine(
          */
         private const val PHONETIC_CONTEXT_RANK_STEP = 0.25
 
+        /** How many spellings [phoneticWalk] asks for; the search returns up to twice this. */
+        private const val PHONETIC_FIX_WALK = 16
+
+        /** Readings asked of the walk behind [phoneticKeyedSpelling]: it keeps the first. */
+        private const val KEYED_SPELLING_WALK = 4
+
+        /** Corrections shown behind the head when none of them takes the space. */
+        private const val PHONETIC_FIX_OFFERS = 2
+
         /** Handicap on a once-reverted pair: the x0.25 of the old design. */
         private val PAIR_PENALTY = ln(4.0)
 
@@ -2766,6 +3088,12 @@ class SuggestionEngine(
         private const val JOIN_MIN_FREQ = 50
         private const val JOIN_CONFIDENCE = 1.25
 
+        /** How much commoner a [bridgedJoin] word must be than the fragment
+         * typed after the space. On a downloaded list's raw counts that is
+         * ten times; on the bundled list's log scale, around two hundred for
+         * a word as common as *enough*. */
+        private const val BRIDGE_FRAGMENT_RATIO = 10
+
         /** How many ranked candidates a reranker may reorder. */
         private const val RERANK_POOL = 8
 
@@ -2800,14 +3128,35 @@ class SuggestionEngine(
         const val LM_BLEND = 0.2
         const val LM_BLEND_CAP = 1.0
 
+        /** Two parts of four letters, the least a joined reading can be. */
+        private const val MIN_JOINED_LENGTH = 8
+
         /**
-         * [LM_BLEND] and [LM_BLEND_CAP] for a glide's candidates
-         * ([blendGlideContextModel]): fitted on 2,294 German swipes against
-         * a corpus bigram (#966), the cap where 2 to 3 nats was asked for.
-         * Re-sweep the weight once against the downloaded model.
+         * How many of a stroke's candidates [blendGlideContextModel] asks the
+         * model about, the rest keeping their decoder scores: each unlisted one
+         * costs a few forward steps (#1016). Sixteen is reached only by a stroke
+         * [glideIsClose] widened, or by a deep decode.
          */
-        const val GLIDE_LM_BLEND = 0.7
-        const val GLIDE_LM_BLEND_CAP = 3.0
+        const val GLIDE_LM_SPELLED = 16
+
+        /**
+         * Unlisted words spelled per keystroke when typing. Each one steps the
+         * model once per piece, on every letter, so this is far below the
+         * glide's [GLIDE_LM_SPELLED], which runs once a stroke.
+         */
+        const val LM_SPELLED = 4
+
+        /**
+         * How close, in nats, a stroke's top two readings are for it to decode
+         * wider. On FUTO's 2,588 German strokes the right word sits at rank 9 to
+         * 16 on 18 of them: this gap widens 21% of strokes and reaches 12 of the
+         * 18, half a nat widens 11% and reaches 7, and three widen 59% for 17.
+         * Few strokes, and no German context model to say how many then win.
+         */
+        const val GLIDE_CLOSE_GAP = 1.0
+
+        /** What a one-letter reading of a chained segment gives up; see [glideOneLetter]. */
+        const val GLIDE_ONE_LETTER_COST = 1.0
 
         /**
          * How the blend grows with the taps' spread (mean distance to the
@@ -3027,11 +3376,25 @@ class SuggestionEngine(
         // (edits == 0) always participate, and a known word keeps its nearest
         // slips ([knownWordSlips]).
         val walked = rankedFor(lower, limit, touch, keys)
+        // The keys as pressed, with only accents left off, spelling a listed
+        // word: `chale` is chalé, `caminhao` caminhão (#215). That word is
+        // what was typed as much as a known word is, and autocorrect already
+        // lets no edited reading rival it (#200), so the strip treats it as
+        // known too: edits and splits stay behind it. Ranked on frequency
+        // alone, a pt_BR list's commoner `chave` (a far slip) and `caminho` (a
+        // dropped letter) led, and `chulé` fell off the strip altogether.
+        val accented = if (known || ambiguous) null else accentedSpelling(lower, walked)
+        val spelled = known || accented != null
         for (c in walked) {
-            if (c.edits > 0 && known) continue
+            if (c.edits > 0 && spelled) continue
             merged.merge(c.word, c.score, ::maxOf)
         }
-        if (known) knownWordSlips(lower, walked, merged)
+        if (accented != null) merged.merge(accented.first, accented.second, ::maxOf)
+        val slips = when {
+            known -> knownWordSlips(lower, walked, merged)
+            accented != null -> knownWordSlips(lower, walked, merged, accented.second)
+            else -> emptySet()
+        }
         // A word typed without its apostrophe — "thats" for that's, "cest"
         // for c'est — reads as the spelling that has one. The lists cannot
         // offer it themselves: they were tokenised at the apostrophe, so they
@@ -3047,7 +3410,7 @@ class SuggestionEngine(
             hyphenReading(lower)?.let { (spelling, score) -> merged.merge(spelling, score, ::maxOf) }
             // Hunspell's spellings, for a word it does not accept and no list
             // leads to: a misspelt compound has nothing else to offer it.
-            if (!known && spellSuggestions) spellCandidates(composing, lower, merged)
+            if (!spelled && spellSuggestions) spellCandidates(composing, lower, merged)
         }
         // The prefix sources read the buffer literally, so they sit out an
         // ambiguous decode: `adg` is not the start of anybody's name, and
@@ -3072,8 +3435,11 @@ class SuggestionEngine(
             // a user who turned "Add missing spaces" off did not want "his to"
             // on the strip while typing "history" either, and the join the
             // other way round is a different candidate that stays.
-            if (!known && autocorrectSplits) {
+            if (!spelled && autocorrectSplits) {
                 for (split in splitCandidates(lower, touch)) {
+                    // A letter tapped only half low reaches the strip on a
+                    // pair the keyboard knows, the one it could be asked about.
+                    if (split.dropped && !split.leaned && !knownPhrase(split.left, split.right)) continue
                     merged.merge(split.text, split.score, ::maxOf)
                 }
             }
@@ -3183,16 +3549,17 @@ class SuggestionEngine(
             null
         }
 
+        val order = slipsStayBelow(reordered ?: ranked, accented?.first?.lowercase() ?: lower, slips)
         if (caseExact) {
             // Expanded before the slice: one key can be two words here, and a
             // key whose spellings all disagree with what was typed is none.
-            return (reordered ?: ranked).asSequence()
+            return order.asSequence()
                 .flatMap { if (it.contains('@')) sequenceOf(it) else caseExactForms(it, composing).asSequence() }
                 .distinct()
                 .take(limit)
                 .toList()
         }
-        val latin = (reordered ?: ranked)
+        val latin = order
             .take(limit)
             // Emails are stored verbatim; case-matching the typed prefix would
             // corrupt the address ("John" -> "John.doe@..."). Commit as stored.
@@ -3278,18 +3645,62 @@ class SuggestionEngine(
      * So up to [KNOWN_WORD_SLIPS] one-edit words come back, best first, each at
      * its own score but never above [KNOWN_WORD_SLIP_GAP] under the word typed.
      * Only the strip changes. Autocorrect still leaves a known word alone.
+     * [typedScore] is the word the keys spell: [lower] itself, or its
+     * accented spelling when only that is listed (#215).
      */
     private fun knownWordSlips(
         lower: String,
         walked: List<FuzzyBeamSearch.ScoredCandidate>,
         merged: HashMap<String, Double>,
-    ) {
-        val typed = walked.firstOrNull { it.edits == 0 && it.completedChars == 0 && it.word.lowercase() == lower }
-            ?.score ?: return
+        typedScore: Double? = walked.firstOrNull {
+            it.edits == 0 && it.completedChars == 0 && it.word.lowercase() == lower
+        }?.score,
+    ): Set<String> {
+        val typed = typedScore ?: return emptySet()
         val ceiling = typed - KNOWN_WORD_SLIP_GAP
-        for (c in slipsOf(lower, walked).take(KNOWN_WORD_SLIPS)) {
-            merged.merge(c.word, minOf(c.score, ceiling), ::maxOf)
+        val slips = slipsOf(lower, walked).take(KNOWN_WORD_SLIPS).toList()
+        for (c in slips) merged.merge(c.word, minOf(c.score, ceiling), ::maxOf)
+        return slips.mapTo(HashSet()) { it.word.lowercase() }
+    }
+
+    /**
+     * The listed word [lower]'s keys spell with only accents left off, and its
+     * score on the walk's scale; null when there is none (#215).
+     *
+     * The walk's own reading first. A rare word misses the walk's top ranks
+     * once commoner edits fill them, though: `chule` reaches dozens of words
+     * a slip or two away before `chulé`, 53 on the pt_BR list's 0 to 255. So
+     * the lists are then read directly, as [accentShadowed] reads a stand-in,
+     * and the accents are priced as the walk prices them.
+     */
+    private fun accentedSpelling(
+        lower: String,
+        walked: List<FuzzyBeamSearch.ScoredCandidate>,
+    ): Pair<String, Double>? {
+        walked.firstOrNull { it.edits == 0 && it.completedChars == 0 && it.accents > 0 && !suppressed(it.word) }
+            ?.let { return it.word to it.score }
+        val (word, score) = accentedLookup(lower) ?: return null
+        if (word == lower || word.length != lower.length || suppressed(word)) return null
+        val accents = word.indices.count { word[it] != lower[it] }
+        return word to score - accents * FuzzyBeamSearch.COST_ACCENT
+    }
+
+    /**
+     * [order] with [slips] behind the word typed. A slip is on the strip as a
+     * second thought, so context may not put it first: after `hello`, the word
+     * `words` typed in full stays ahead of `world`, one letter off. The typed
+     * letters with an apostrophe put back are no slip: `that's` still leads
+     * `thats` (#215).
+     */
+    private fun slipsStayBelow(order: List<String>, lower: String, slips: Set<String>): List<String> {
+        if (slips.isEmpty()) return order
+        val at = order.indexOfFirst { it.lowercase() == lower }
+        if (at <= 0) return order
+        val (jumped, kept) = order.subList(0, at).partition {
+            it.lowercase() in slips && it.filter(Char::isLetterOrDigit).lowercase() != lower
         }
+        if (jumped.isEmpty()) return order
+        return kept + order[at] + jumped + order.subList(at + 1, order.size)
     }
 
     /**
@@ -3304,6 +3715,8 @@ class SuggestionEngine(
         val key = WordKey.of(lower)
         return walked.asSequence()
             .filter { it.edits == 1 && it.completedChars == 0 && WordKey.of(it.word) != key }
+            // The word with a hyphen in it is not a slip: [hyphenReading] decides that.
+            .filterNot { it.word.replace("-", "").lowercase() == lower }
             .filterNot { suppressed(it.word) }
     }
 
@@ -3323,6 +3736,19 @@ class SuggestionEngine(
         val words = merged.keys.toList()
         val leader = words.maxByOrNull { merged.getValue(it) } ?: return
         val scores = model.scores(words.map { it.lowercase() })
+        // An unlisted leader is spelled, or the whole blend would sit out every
+        // word the model holds only in pieces (#1016). So is anything the shift
+        // could lift past the leader: a word further back than the cap can't
+        // get there, so spelling it would buy nothing.
+        val leading = merged.getValue(leader)
+        val unlisted = words.indices
+            .filter { scores[it].isNaN() && leading - merged.getValue(words[it]) < LM_BLEND_CAP }
+            .sortedByDescending { merged.getValue(words[it]) }
+            .take(LM_SPELLED)
+        if (unlisted.isNotEmpty()) {
+            val spelled = model.scoresSpelled(unlisted.map { words[it].lowercase() })
+            unlisted.forEachIndexed { at, i -> scores[i] = spelled[at] }
+        }
         val reference = scores[words.indexOf(leader)]
         if (reference.isNaN()) return
         var best = -1
@@ -3594,15 +4020,93 @@ class SuggestionEngine(
         }
         if (lower.length < 2) return null
         val joinedFreq = freqOf(joined)
-        if (joinedFreq < JOIN_MIN_FREQ) return null
         val rarerPart = minOf(freqOf(prev), freqOf(lower))
-        if (joinedFreq * JOIN_CONFIDENCE <= rarerPart) return null
-        return joined
+        if (joinedFreq >= JOIN_MIN_FREQ && joinedFreq * JOIN_CONFIDENCE > rarerPart) return joined
+        return bridgedJoin(prev, lower, ::freqOf)
+    }
+
+    /**
+     * [joinCandidate] across a space that took the place of a letter (#1107):
+     * the thumb meant the `n` above the space bar, so `e ough` is *enough*.
+     * Only while what is being typed is no word worth the name, since a space
+     * in front of a real word was most likely a space; and the word that comes
+     * out must be as common as a plain join's. The commonest of the letters
+     * next to the space bar wins.
+     *
+     * "No word worth the name" is a word at least [BRIDGE_FRAGMENT_RATIO]
+     * times rarer than the bridged one, not a word no list holds: a
+     * downloaded list counts `ough` from the text it was built on, and typing
+     * the slip a few times teaches it to the personal dictionary, and either
+     * one used to take the chip away for good. `i to` stays two words, `to`
+     * being far commoner than *into*.
+     */
+    private fun bridgedJoin(prev: String, lower: String, freqOf: (String) -> Int): String? {
+        var best: String? = null
+        var bestFreq = JOIN_MIN_FREQ - 1
+        for (letter in spaceAdjacentKeys) {
+            if (!letter.isLetter()) continue
+            val joined = prev + letter.lowercaseChar() + lower
+            if (joined.length > JOIN_MAX_LENGTH || suppressed(joined)) continue
+            val freq = freqOf(joined)
+            if (freq > bestFreq) {
+                best = joined
+                bestFreq = freq
+            }
+        }
+        return best?.takeIf { freqOf(lower).toLong() * BRIDGE_FRAGMENT_RATIO < bestFreq }
+    }
+
+    /**
+     * [joinCandidate] across the full stop a double space put in (#1107): two
+     * thumbs that meant `bb` hit the space bar twice, the keyboard read that
+     * as the end of a sentence, and `lo. y` stands where *lobby* was meant.
+     * Each space is tried as one of the letters next to the space bar, so the
+     * word that comes out has two letters between the halves. Held to
+     * [bridgedJoin]'s terms: a common enough word, and what is being typed no
+     * more than a fragment beside it. Null unless both halves are letters.
+     * Chip only, like every join.
+     */
+    fun periodSlipJoin(previousWord: String?, composing: String): String? {
+        val prev = previousWord?.lowercase() ?: return null
+        val lower = composing.lowercase()
+        if (prev.isEmpty() || lower.isEmpty() || WordContext.isSentinel(prev)) return null
+        if (!prev.all { it.isLetter() } || !lower.all { it.isLetter() }) return null
+        fun freqOf(word: String) = maxOf(
+            dictionaryFrequencyOf(word),
+            weighted(userLexicon.frequencyOf(word), USER_WORD_WEIGHT),
+        )
+        var best: String? = null
+        var bestFreq = JOIN_MIN_FREQ - 1
+        for (first in spaceAdjacentKeys) {
+            if (!first.isLetter()) continue
+            for (second in spaceAdjacentKeys) {
+                if (!second.isLetter()) continue
+                val joined = prev + first.lowercaseChar() + second.lowercaseChar() + lower
+                if (joined.length > JOIN_MAX_LENGTH || suppressed(joined)) continue
+                val freq = freqOf(joined)
+                if (freq > bestFreq) {
+                    best = joined
+                    bestFreq = freq
+                }
+            }
+        }
+        // A lone letter is a fragment whatever a downloaded list counts for it
+        // (`y` is a Spanish word); the joined word still has to be listed.
+        return best?.takeIf { lower.length == 1 || freqOf(lower).toLong() * BRIDGE_FRAGMENT_RATIO < bestFreq }
     }
 
     /** One reading of a typed run as two words; [dropped] when a boundary
-     * letter had to go to get there. */
-    private class SplitReading(val text: String, val score: Double, val dropped: Boolean)
+     * letter had to go to get there, and [leaned] when that letter's tap sat
+     * low enough on its key ([SPACE_SLIP_MIN_DROP]) to vouch for it. */
+    private class SplitReading(
+        val text: String,
+        val score: Double,
+        val dropped: Boolean,
+        val leaned: Boolean = false,
+    ) {
+        val left: String get() = text.substringBefore(' ')
+        val right: String get() = text.substringAfter(' ')
+    }
 
     /**
      * Missing-space fixes: "ofthe" → "of the", scored by the rarer half so
@@ -3614,12 +4118,14 @@ class SuggestionEngine(
      * offered too — at a discount that mirrors the walk's deletion cost, so
      * an exact split of the same material always outranks a dropped-letter
      * reading of it. That reading is a claim about where a finger landed,
-     * and it is only made when the tap says so ([leansToSpacebar]): the word
+     * and it is only made when the tap says so ([spacebarDrop]): the word
      * lists have gaps ("config", "inbox"), and with no tap to consult the
      * reading fired on every unlisted word that happened to break into two
      * listed ones around a bottom-row letter ("co fig", "in ox"). A letter
      * with no tap behind it — a glide, a hardware key, pasted text — was not
-     * fat-fingered onto the bottom row either.
+     * fat-fingered onto the bottom row either. A tap in the lower half of the
+     * key but not as low as that is half the evidence: the reading is made,
+     * not [SplitReading.leaned], and only ever offered (#1107).
      *
      * A learned word anchors a half only once it is established: a spelling
      * seen once is not evidence that the user meant it here.
@@ -3657,21 +4163,29 @@ class SuggestionEngine(
                 results.add(SplitReading("$left $right", score, dropped = false))
             }
             // Boundary char dropped: both halves must be real words of some
-            // substance — single-letter halves ("a", "i") explain nearly any
-            // string and would fire on every stumble.
-            if (i + 1 < word.length - 1 && word[i] in spaceAdjacentKeys && left.length >= 2 &&
-                leansToSpacebar(word[i], taps?.get(i))
-            ) {
+            // substance — a list keeps every letter as a word, and a stray
+            // one explains nearly any string. A one-letter first half only
+            // where it is at least as common as the word after it, which is
+            // what `i` and `a` are and a letter the list merely kept is not:
+            // "ibwant" is *i want* (#1107).
+            val drop = if (i + 1 < word.length - 1 && word[i] in spaceAdjacentKeys) {
+                spacebarDrop(word[i], taps?.get(i))
+            } else {
+                null
+            }
+            if (drop != null && drop > SPACE_SLIP_OFFER_DROP) {
                 val tail = word.substring(i + 1)
                 if (tail.length >= 2) {
                     val tailFreq = freqOf(tail)
-                    if (tailFreq > 0) {
+                    if (tailFreq > 0 && (left.length >= 2 || leftFreq >= tailFreq)) {
                         // A key this hand is known to hit for the space bar
                         // prices the dropped letter closer to an exact split.
                         val slip = editHabitsField.spaceSlip(word[i]) / EditHabits.MAX_SHRINK
                         val weight = WEIGHT_SPLIT_DROPPED + (WEIGHT_SPLIT - WEIGHT_SPLIT_DROPPED) * slip
                         val score = ln(1.0 + minOf(leftFreq, tailFreq) * weight)
-                        results.add(SplitReading("$left $tail", score, dropped = true))
+                        results.add(
+                            SplitReading("$left $tail", score, dropped = true, leaned = drop >= SPACE_SLIP_MIN_DROP),
+                        )
                     }
                 }
             }
@@ -3680,18 +4194,19 @@ class SuggestionEngine(
     }
 
     /**
-     * Whether the tap that typed [ch] landed low on its key, toward the
-     * spacebar, by at least [SPACE_SLIP_MIN_DROP] key widths. A finger aimed
-     * at the spacebar that caught the row above lands near that row's bottom
-     * edge; one aimed at the letter lands around its centre. Centres are the
-     * touch model's, so a hand whose taps sit low on every key (adapt to
-     * taps) is measured against where it actually types. False with no
-     * model, no tap for this letter, or a letter the model does not know.
+     * How far below its key's centre, toward the spacebar, the tap that typed
+     * [ch] landed, in key widths (negative above it). A finger aimed at the
+     * spacebar that caught the row above lands in the lower half of that row,
+     * most of the time well down it ([SPACE_SLIP_MIN_DROP]); one aimed at the
+     * letter lands around its centre. Centres are the touch model's, so a hand
+     * whose taps sit low on every key (adapt to taps) is measured against
+     * where it actually types. Null with no model, no tap for this letter, or
+     * a letter the model does not know.
      */
-    private fun leansToSpacebar(ch: Char, tap: TouchPoint?): Boolean {
-        if (tap == null) return false
-        val center = touchModelField?.center(ch) ?: return false
-        return tap.y - center.y >= SPACE_SLIP_MIN_DROP
+    private fun spacebarDrop(ch: Char, tap: TouchPoint?): Float? {
+        if (tap == null) return null
+        val center = touchModelField?.center(ch) ?: return null
+        return tap.y - center.y
     }
 
     /**
@@ -3727,7 +4242,7 @@ class SuggestionEngine(
         previousWord2: String? = null,
     ): String? {
         phoneticPick(languageId, composing)?.let { return it }
-        val forms = phoneticBackend(languageId)?.spellings?.lookup(composing) ?: return null
+        val forms = phoneticBackend(languageId)?.listedForms(composing) ?: return null
         return inContext(forms, languageId, previousWord, previousWord2).firstOrNull { !suppressed(it) }
     }
 
@@ -3866,7 +4381,28 @@ class SuggestionEngine(
         limit: Int,
         previousWord: String? = null,
         previousWord2: String? = null,
-    ): List<String> {
+    ): List<String> = phoneticReadings(backend, composing, limit, previousWord, previousWord2).words
+
+    /**
+     * [words], best first, at most the limit asked for; [uncorrected] is what
+     * would lead them had [phoneticFix] not stepped in, and null when it didn't.
+     */
+    private class PhoneticReadings(val words: List<String>, val uncorrected: String?)
+
+    private fun phoneticReadings(
+        backend: PhoneticBackend,
+        composing: String,
+        limit: Int,
+        previousWord: String?,
+        previousWord2: String?,
+    ): PhoneticReadings {
+        // A mark the rules write as it is (Borno's lone comma) is no part of
+        // the word to look up: ranked without it and given back after.
+        val tail = PhoneticTail.of(composing, backend.scheme.transliterate)
+        if (tail.isNotEmpty()) {
+            val word = phoneticReadings(backend, composing.dropLast(tail.length), limit, previousWord, previousWord2)
+            return PhoneticReadings(word.words.map { it + tail }, word.uncorrected?.let { it + tail })
+        }
         val spellings = backend.spellings
         val index = backend.index
         val phonetic = backend.scheme.transliterate(composing)
@@ -3882,7 +4418,8 @@ class SuggestionEngine(
         // পৰা or পঢ়া by what came before — but never lifts anything above
         // them, so the preview ([phoneticSpelling]) is still what a space
         // commits.
-        val listed = inContext(spellings.lookup(composing), language, previousWord, previousWord2)
+        val exact = backend.spellsExactly(composing)
+        val listed = inContext(backend.listedForms(composing), language, previousWord, previousWord2)
         ordered.addAll(listed)
         // Phonetic siblings from the dictionary (আছি for "asi") outrank the
         // literal transliteration only when clearly more common — the commit
@@ -3895,12 +4432,24 @@ class SuggestionEngine(
         val siblings = index.lookup(composing)
         val literalFreq = index.frequencyOf(phonetic)
         val topSiblingFreq = siblings.firstOrNull()?.let { index.frequencyOf(it) } ?: 0
-        if (backend.scheme.languageId in phoneticSiblingsOff ||
+        if (exact || backend.scheme.languageId in phoneticSiblingsOff ||
             (literalFreq > 0 && topSiblingFreq < literalFreq * SIBLING_CONFIDENCE)
         ) {
             ordered.add(phonetic)
         }
         ordered.addAll(siblings)
+        // An inflected form no list holds, recognised as a known stem plus a
+        // Bengali ending: ছেলেগুলো from ছেলে, so the whole ranks and commits as
+        // a word rather than a bare transliteration. Avro and Borno both (bn);
+        // the join desktop Avro's candidate list and Borno do. See [BengaliSuffixes].
+        var hasEnding = false
+        if (language == PhoneticSchemes.BENGALI.languageId) {
+            BengaliSuffixes.join(composing, { bengaliStemReading(backend, it) }, backend.scheme.transliterate)
+                .forEach {
+                    hasEnding = true
+                    ordered.add(it)
+                }
+        }
         // The literal reading, then whatever else the rules think the spelling
         // could mean. For a scheme whose rules are never undecided (Avro) that
         // is the literal again and adds nothing; for one that may be running
@@ -3912,7 +4461,185 @@ class SuggestionEngine(
         // way: the dictionary siblings and the rules' own, which is where the
         // word list's ambiguity lives ("kam" کم or کام).
         val rest = inContext(ordered.filterNot(listed.toSet()::contains), language, previousWord, previousWord2)
-        return (listed.asSequence() + rest.asSequence()).filterNot(::suppressed).take(limit).toList()
+            // Letters chosen one by one: only the user's own earlier pick goes ahead of them.
+            .let { words ->
+                if (exact && phoneticPick(language, composing) == null) words.sortedByDescending { it == phonetic } else words
+            }
+        val plain = (listed.asSequence() + rest.asSequence()).filterNot(::suppressed).toList()
+        // Whatever the map or an earlier pick says about the buffer is an
+        // answer, and so is a recognised ending. Nothing there to correct.
+        val settled = exact || listed.isNotEmpty() || hasEnding || phoneticPick(language, composing) != null
+        val fix = if (settled) {
+            null
+        } else {
+            phoneticFix(backend, composing, plain.firstOrNull(), maxOf(literalFreq, topSiblingFreq), previousWord, previousWord2)
+        }
+        val words = when {
+            fix == null -> plain
+            fix.lead != null -> listOf(fix.lead) + plain
+            else -> plain.take(1) + fix.offers + plain.drop(1)
+        }
+        return PhoneticReadings(words.distinct().take(limit), plain.firstOrNull().takeIf { fix?.lead != null })
+    }
+
+    /** What [phoneticWalk] found for one buffer: its nearby spellings, none of them completions. */
+    private class PhoneticWalk(
+        val language: String,
+        val typed: String,
+        val generation: Long,
+        val spellings: List<FuzzyBeamSearch.ScoredCandidate>,
+    )
+
+    @Volatile
+    private var lastPhoneticWalk: PhoneticWalk? = null
+
+    /**
+     * The walk behind [phoneticFix], kept for the buffer it was last run on: the
+     * strip and the space bar ask about one buffer several times over, and the
+     * space bar may be asking on the main thread.
+     */
+    private fun phoneticWalk(romanized: RomanizedIndex, language: String, typed: String): PhoneticWalk {
+        val gen = generation.get()
+        lastPhoneticWalk?.takeIf { it.generation == gen && it.typed == typed && it.language == language }
+            ?.let { return it }
+        val found = beam.search(
+            romanized.walkSources(), typed, proximity, PHONETIC_FIX_WALK, beamWorkspace.get(),
+            maxEdits = 1, habits = editHabitsField,
+        )
+        return PhoneticWalk(language, typed, gen, found.filter { it.edits > 0 && it.completedChars == 0 })
+            .also { lastPhoneticWalk = it }
+    }
+
+    /**
+     * What a phonetic layout's keystrokes spelled, when its keys stand for
+     * several letters each: the romanized spelling the key sets and taps most
+     * likely meant, read against [phoneticRomanized]'s spellings the way a T9
+     * buffer is read against a word list. [composing] holds only the anchor of
+     * each key, so everything downstream — Avro's rules, the reading, the
+     * strip, the commit — runs on this instead, as if the spelling had been
+     * typed key for key. One-row Avro is the board that needs it.
+     *
+     * A completion's head counts: mid-word, `valo` is the best reading of
+     * `vak` (keys v, a, k) only because the word goes on. A letter typed in
+     * capitals keeps its case, since Avro reads `T` and `t` as two letters.
+     * [composing] itself when the keys are not ambiguous, the language has no
+     * spellings, or nothing decodes.
+     */
+    fun phoneticKeyedSpelling(
+        language: String,
+        composing: String,
+        touch: List<TouchPoint?>?,
+        keys: KeySets?,
+    ): String {
+        if (keys?.isAmbiguous != true || composing.isEmpty()) return composing
+        val romanized = phoneticRomanized[language]?.takeUnless { it.isEmpty } ?: return composing
+        val gen = generation.get()
+        lastKeyedSpelling?.takeIf {
+            it.generation == gen && it.language == language && it.typed == composing && it.touch == touch &&
+                it.keys == keys
+        }?.let { return it.spelled }
+        val model = touchModelField
+        val scoring = if (model != null && touch != null && touch.any { it != null }) {
+            FuzzyBeamSearch.TouchScoring(model, touch)
+        } else {
+            null
+        }
+        val best = beam.search(
+            romanized.walkSources(), composing.lowercase(), proximity, KEYED_SPELLING_WALK, beamWorkspace.get(),
+            maxEdits = 1, touch = scoring, habits = editHabitsField, keys = keys,
+        ).firstOrNull()
+        val head = best?.let { it.word.substring(0, it.word.length - it.completedChars) }
+        val spelled = when {
+            head.isNullOrEmpty() -> composing
+            head.length != composing.length -> head
+            else -> String(CharArray(head.length) { i ->
+                if (composing[i].isUpperCase() && composing[i].lowercaseChar() == head[i]) composing[i] else head[i]
+            })
+        }
+        lastKeyedSpelling = KeyedSpelling(language, composing, touch, keys, gen, spelled)
+        return spelled
+    }
+
+    private class KeyedSpelling(
+        val language: String,
+        val typed: String,
+        val touch: List<TouchPoint?>?,
+        val keys: KeySets?,
+        val generation: Long,
+        val spelled: String,
+    )
+
+    @Volatile
+    private var lastKeyedSpelling: KeyedSpelling? = null
+
+    /** See [phoneticFix]: the word that may take a space, and what else to offer. */
+    private class PhoneticFix(val lead: String?, val offers: List<String>)
+
+    /**
+     * English-style autocorrect for a phonetic layout: [composing] read as a
+     * mistyped romanized spelling, so `vako` finds `valo` and through it ভালো,
+     * which no fold would reach. Null when there is nothing to say: too short
+     * for a verdict, not letters, or a spelling somebody really writes.
+     *
+     * [head] is the reading it would replace and [rivalFrequency] the best the
+     * word list can say for this buffer as typed. See [PhoneticCorrection] for
+     * the verdict; this supplies the walk, the words before ([contextCount]:
+     * pairs and triples, the user's and the corpus pack's) and what the verdict
+     * has no way to know: that the buffer is an English word or one of the
+     * user's own, or that the user took this correction back before.
+     */
+    @Suppress("ReturnCount")
+    private fun phoneticFix(
+        backend: PhoneticBackend,
+        composing: String,
+        head: String?,
+        rivalFrequency: Int,
+        previousWord: String?,
+        previousWord2: String?,
+    ): PhoneticFix? {
+        val language = backend.scheme.languageId
+        if (composing.length < PhoneticCorrection.MIN_LENGTH) return null
+        if (!composing.all { it in 'a'..'z' || it in 'A'..'Z' }) return null
+        val romanized = phoneticRomanized[language]?.takeUnless { it.isEmpty } ?: return null
+        val typed = composing.lowercase()
+        if (romanized.spells(typed)) return null
+        val prev = previousWord?.lowercase()?.takeIf { it.isNotEmpty() && language !in phoneticContextOff }
+        val prev2 = previousWord2?.lowercase()?.takeIf { it.isNotEmpty() }
+        fun context(word: String) =
+            prev?.let { contextBoost(contextCount(it, prev2, word.lowercase())) * PhoneticCorrection.CONTEXT_WEIGHT } ?: 0.0
+        val ranked = PhoneticCorrection.merged(
+            phoneticWalk(romanized, language, typed).spellings.mapNotNull { found ->
+                val word = inContext(romanized.readingsOf(found.word), language, prev, prev2)
+                    .firstOrNull { !suppressed(it) } ?: return@mapNotNull null
+                PhoneticCorrection.Candidate(
+                    word,
+                    PhoneticCorrection.rank(romanized.spellingEvidence(found.word), found.editCost, context(word)),
+                    found.editCost,
+                    backend.index.frequencyOf(word),
+                )
+            },
+        )
+        val offers = ranked.asSequence().map { it.word }.filter { it != head }.take(PHONETIC_FIX_OFFERS).toList()
+        val mayLead = phoneticAutocorrect && language !in phoneticSiblingsOff && head != null &&
+            !dictionary.contains(typed) && !userLexicon.contains(typed) && !userLexicon.contains(head)
+        val rival = PhoneticCorrection.rivalRank(rivalFrequency, head?.let(::context) ?: 0.0)
+        val lead = PhoneticCorrection.leader(ranked, rival)?.word?.takeIf {
+            mayLead && it != head && correctionStats.penalty(head.orEmpty(), it) == CorrectionStats.Penalty.NONE
+        }
+        return PhoneticFix(lead, offers)
+    }
+
+    /**
+     * A Bengali stem's best native reading for [BengaliSuffixes.join], or null
+     * when the stem is not a known word — a listed spelling, then a dictionary
+     * sibling, then its literal reading only if the list holds it. The null is
+     * what keeps an ending from being joined onto nonsense.
+     */
+    private fun bengaliStemReading(backend: PhoneticBackend, stem: String): String? {
+        backend.listedForms(stem).firstOrNull()?.let { return it }
+        backend.index.lookup(stem).firstOrNull()?.let { return it }
+        val literal = backend.scheme.transliterate(stem)
+        return literal.takeIf { backend.index.frequencyOf(it) > 0 }
     }
 
     /**
@@ -3956,7 +4683,7 @@ class SuggestionEngine(
             words,
             isNative = { w -> w.isNotEmpty() && w.all { scheme.isNative(it) || it == '\u200C' || it == '\u200D' } },
             isListed = { knownPhoneticWord(backend, it) },
-            lead = lead && composing.isNotEmpty() && !backend.spellings.contains(composing),
+            lead = lead && composing.isNotEmpty() && !backend.spellings.contains(composing) && !backend.spellsExactly(composing),
         )
     }
 
@@ -3972,7 +4699,7 @@ class SuggestionEngine(
     fun neuralCommit(languageId: String, composing: String, head: String, readings: () -> List<String>): String? {
         if (composing.isEmpty() || head.isEmpty()) return null
         val backend = phoneticBackend(languageId) ?: return null
-        if (backend.spellings.contains(composing) || knownPhoneticWord(backend, head)) return null
+        if (backend.spellings.contains(composing) || backend.spellsExactly(composing) || knownPhoneticWord(backend, head)) return null
         val scheme = backend.scheme
         if (!head.all { scheme.isNative(it) || it == '\u200C' || it == '\u200D' }) return null
         val words = readings().map(scheme.normalize).filterNot(::suppressed)
@@ -4010,8 +4737,16 @@ class SuggestionEngine(
      * @param script the script [output] is in
      * @param alternate the other script's best, or null when there is none
      *        worth a flip (see [PhoneticScriptVerdict.Verdict.contested])
+     * @param uncorrected what [output] stands in for when it is a correction
+     *        ([phoneticFix]): the reading that goes in if the correction may
+     *        not, and what the field holds until the space. Null otherwise.
      */
-    class PhoneticCommit(val output: String, val script: PhoneticScript, val alternate: String?)
+    class PhoneticCommit(
+        val output: String,
+        val script: PhoneticScript,
+        val alternate: String?,
+        val uncorrected: String? = null,
+    )
 
     /**
      * The commit for [composing], without the strip around it: no fuzzy walk,
@@ -4027,15 +4762,17 @@ class SuggestionEngine(
     ): PhoneticCommit? {
         val backend = phoneticBackend(languageId) ?: return null
         if (composing.isEmpty()) return null
-        val native = phoneticSuggestions(backend, composing, 1, previousWord, previousWord2).firstOrNull()
-            ?: backend.scheme.transliterate(composing)
-        if (!phoneticMixing) return PhoneticCommit(native, PhoneticScript.NATIVE, alternate = null)
+        val readings = phoneticReadings(backend, composing, 1, previousWord, previousWord2)
+        val native = readings.words.firstOrNull() ?: backend.scheme.transliterate(composing)
+        if (!phoneticMixing) {
+            return PhoneticCommit(native, PhoneticScript.NATIVE, alternate = null, uncorrected = readings.uncorrected)
+        }
         val verdict = scriptVerdict(backend, composing, previousWord)
         val latin = latinForm(composing)
         return if (verdict.script == PhoneticScript.LATIN) {
             PhoneticCommit(latin, PhoneticScript.LATIN, native.takeIf { verdict.contested })
         } else {
-            PhoneticCommit(native, PhoneticScript.NATIVE, latin.takeIf { verdict.contested })
+            PhoneticCommit(native, PhoneticScript.NATIVE, latin.takeIf { verdict.contested }, readings.uncorrected)
         }
     }
 
@@ -4120,10 +4857,22 @@ class SuggestionEngine(
             .filter { it.edits == 0 && !suppressed(it.word) }
             .map { it.word }
             .toMutableList()
+        // What this user taught the English layout: a name, a brand, slang no
+        // list holds. Ahead of the list, whose words they never asked for by
+        // name (#1033). Untagged words belong to every language.
+        val own = userLexicon.complete(lower, limit).map { it.word }.filter { word ->
+            !suppressed(word) && userLexicon.languageOf(word).let { it == null || it == EN }
+        }
+        found.addAll(0, own)
         // The word as typed is the likeliest reading of an English word, and
         // the walk ranks it by frequency like any other.
-        if (found.remove(lower)) found.add(0, lower)
-        return found.take(limit).map { displayForm(it) }
+        if (found.removeAll { it.equals(lower, ignoreCase = true) }) found.add(0, lower)
+        return found.distinctBy { it.lowercase() }.take(limit).map { displayForm(it) }
+    }
+
+    /** An English chip on a conversion strip was picked: the pick counts, once, as an English word (#1033). */
+    fun learnEnglishPick(word: String) {
+        if (userLexicon.learnWord(word, count = 1, langId = EN)) generation.incrementAndGet()
     }
 
     /**
@@ -4563,6 +5312,11 @@ class SuggestionEngine(
      *        a word ("form" → "from"), which only fires when the context
      *        agrees. Null — a sentence start, or a caller without it — never
      *        applies such a fix.
+     * @param fastTyping the word was typed at full speed, where a digit in it
+     *        is far more likely a thumb landing on the number row than a
+     *        number: up to [EAGER_DIGIT_SLIPS] digits may then be read as the
+     *        letters under them ("y97" → "you"), and each digit fix counts as
+     *        one slip rather than a full edit.
      */
     fun decideCorrection(
         word: String,
@@ -4570,6 +5324,7 @@ class SuggestionEngine(
         timingMultiplier: Double = 1.0,
         previousWord: String? = null,
         keys: KeySets? = null,
+        fastTyping: Boolean = false,
     ): CorrectionDecision {
         val lower = word.lowercase()
         if (caseExact) {
@@ -4577,11 +5332,14 @@ class SuggestionEngine(
         } else if (word == lower) {
             dictionaryCapital(lower)?.let { return it }
         }
-        if (lower.length < 3) return NO_CORRECTION
         // An all-caps word is a deliberate acronym or shout, not a typo of a
         // lowercase word — don't "correct" it away when the user asked us not to.
+        if (lower.length < 3) {
+            if (skipAllCapsAutocorrect && isAllCaps(word)) return NO_CORRECTION
+            return shortAccentFix(word, lower, touch)
+        }
         if (skipAllCapsAutocorrect && isAllCaps(word)) return NO_CORRECTION
-        val ordinary = decideOrdinary(word, lower, touch, timingMultiplier, keys)
+        val ordinary = decideOrdinary(word, lower, touch, timingMultiplier, keys, fastTyping)
         return withTaughtFix(word, lower, previousWord, ordinary)
     }
 
@@ -4775,6 +5533,38 @@ class SuggestionEngine(
     }
 
     /**
+     * The one fix a word under three letters gets (#1182): its accents put
+     * back. Romanian writes `în` and `și` dozens of times a page, and with
+     * every two-letter word off limits `in` and `si` were never fixed.
+     *
+     * Nothing else is guessed at that length, since a slip in two letters
+     * reaches half the language. An accent twin spends every key as pressed,
+     * so it is safe: it applies when the typed spelling is no word of its own,
+     * or is one only as the twin typed without its accents ([accentShadowed]).
+     * Two twins within [ACCENT_SHADOW_RATIO] of each other are offered, not
+     * applied, and an undone pair is left to the penalty memory as usual.
+     */
+    private fun shortAccentFix(word: String, lower: String, touch: List<TouchPoint?>?): CorrectionDecision {
+        if (lower.length != 2 || lower.any { !it.isLetter() }) return NO_CORRECTION
+        val known = inDictionaries(lower) || userLexicon.isEstablished(lower, learnedWordMinCount)
+        if (known && !accentShadowed(lower, touch)) return NO_CORRECTION
+        if (spellAccepted(word)) return NO_CORRECTION
+        val twins = rankedFor(lower, FuzzyBeamSearch.AUTOCORRECT_K / 2, touch)
+            .filter { it.edits == 0 && it.completedChars == 0 && it.accents > 0 && !suppressed(it.word) }
+            .filter { correctionStats.penalty(lower, it.word) != CorrectionStats.Penalty.BLOCKED }
+            .sortedByDescending { it.dictScore + it.accents * FuzzyBeamSearch.COST_ACCENT }
+        val best = twins.firstOrNull() ?: return NO_CORRECTION
+        val fixed = matchCase(word, best.word)
+        val bestScore = best.dictScore + best.accents * FuzzyBeamSearch.COST_ACCENT
+        val rival = twins.getOrNull(1)?.let { it.dictScore + it.accents * FuzzyBeamSearch.COST_ACCENT }
+        val clear = rival == null || bestScore - rival >= ln(ACCENT_SHADOW_RATIO)
+        if (!clear || correctionStats.penalty(lower, best.word) != CorrectionStats.Penalty.NONE) {
+            return CorrectionDecision(offer = fixed)
+        }
+        return CorrectionDecision(apply = fixed, certainty = 1.0)
+    }
+
+    /**
      * Whether the word lists hold [lower] only as the accentless spelling of a
      * far commoner word (#200).
      *
@@ -4825,7 +5615,12 @@ class SuggestionEngine(
      * [TYPO_SHADOW_RATIO] times over. A word in Android's personal dictionary
      * was put there by the user, and is never shadowed.
      */
-    private fun typoShadowed(lower: String, touch: List<TouchPoint?>?, keys: KeySets? = null): Boolean {
+    private fun typoShadowed(
+        lower: String,
+        touch: List<TouchPoint?>?,
+        keys: KeySets? = null,
+        ratio: Double = TYPO_SHADOW_RATIO,
+    ): Boolean {
         if (systemDictionary.contains(lower)) return false
         var typed = Double.NEGATIVE_INFINITY
         val holders = ArrayList<Pair<TrieWalker, Int>>(2)
@@ -4850,9 +5645,36 @@ class SuggestionEngine(
             .filter { it.edits == 1 && it.completedChars == 0 && !suppressed(it.word) }
             .maxOfOrNull { it.dictScore }
             ?: return false
-        if (fix - typed < ln(TYPO_SHADOW_RATIO)) return false
+        if (fix - typed < ln(ratio)) return false
         // Last, because the first rank asked of a list builds its histogram.
         return holders.all { (walker, frequency) -> walker.rankOfFrequency(frequency) > TYPO_SHADOW_MIN_RANK }
+    }
+
+    /**
+     * The fix to ask about for a listed spelling too near a typo to rewrite and
+     * too near one to wave through: `verg` for `very`, rarer than [typoShadowed]
+     * needs by a tenth of its ratio (#1047). The word stands, so `cress` and
+     * `votive` lose nothing, and the chip comes with this word rather than a
+     * word later, when the context model would get to it. Null for a word the
+     * user or a spelling checker has vouched for.
+     */
+    private fun rareSpellingFix(
+        word: String,
+        lower: String,
+        touch: List<TouchPoint?>?,
+        keys: KeySets?,
+    ): String? {
+        if (lower.length < RARE_SPELLING_MIN_LENGTH || userLexicon.isEstablished(lower, learnedWordMinCount)) return null
+        if (contacts.contains(lower) || apps.contains(lower) || knownCompound(lower) || spellAccepted(word)) return null
+        if (!typoShadowed(lower, touch, keys, RARE_SPELLING_RATIO)) return null
+        val fix = rankedFor(lower, FuzzyBeamSearch.AUTOCORRECT_K / 2, touch, keys)
+            .take(FuzzyBeamSearch.AUTOCORRECT_K)
+            .filter { it.edits == 1 && it.completedChars == 0 && !suppressed(it.word) }
+            .maxByOrNull { it.dictScore }
+            ?.word
+            ?: return null
+        if (correctionStats.penalty(lower, fix) != CorrectionStats.Penalty.NONE) return null
+        return matchCase(word, fix)
     }
 
     /**
@@ -5254,12 +6076,13 @@ class SuggestionEngine(
         touch: List<TouchPoint?>?,
         timingMultiplier: Double,
         keys: KeySets? = null,
+        fastTyping: Boolean = false,
     ): CorrectionDecision {
         // A shadowed spelling is protected by neither the lists nor the
         // lexicon. The lexicon learned it only because a list vouched for it.
         val known = inDictionaries(lower) || userLexicon.isEstablished(lower, learnedWordMinCount)
         if (known && !accentShadowed(lower, touch) && !typoShadowed(lower, touch, keys)) {
-            return NO_CORRECTION
+            return CorrectionDecision(offer = rareSpellingFix(word, lower, touch, keys))
         }
         // A word the spelling checker accepts stands, shadowed or not: its
         // rules vouch for it where a frequency list only counted it.
@@ -5277,7 +6100,13 @@ class SuggestionEngine(
         // buffers those); anything more digit-heavy is deliberate input —
         // codes, model numbers — and is never rewritten.
         val digits = lower.count { it.isDigit() }
-        if (digits > 0 && (!digitSlipCorrections || digits > 1)) return NO_CORRECTION
+        if (digits > 0 && !digitSlipsPossible(lower, digits, fastTyping)) return NO_CORRECTION
+        // Two slipped digits in a short word are two edits, past the one a
+        // walk of under five letters is allowed, so "y97" never reached "you".
+        // Read them directly instead: each digit as the letters under it.
+        if (fastTyping && digits >= 2) {
+            fastDigitReading(lower)?.let { return CorrectionDecision(apply = matchCase(word, it), certainty = 1.0) }
+        }
 
         // The walk ranks WALK_K deep for the strip's context boosts, but the
         // silent-replacement decision stays on the same top-8 it has always
@@ -5303,7 +6132,15 @@ class SuggestionEngine(
             // edit is a fix in place, as long as nothing was completed.
             // Slips mixed with a real edit apply only when eager: that mix
             // is what rewrites a correctly typed new word (see [SlipFixes]).
-            val correctionShaped = if (c.slips > 0) {
+            // A word whose only changes are its digits put back as the
+            // letters under them is one kind of slip made once per digit, the
+            // way a run of wide taps is; at full speed it counts as such
+            // whatever the number of digits allowed.
+            val digitFix = fastTyping && digits > 0 && c.completedChars == 0 &&
+                c.edits <= digits && digitSubShape(lower, c.word)
+            val correctionShaped = if (digitFix) {
+                true
+            } else if (c.slips > 0) {
                 c.completedChars == 0 && c.edits - c.slips <= 1 &&
                     (slipFixes == SlipFixes.EAGER || !mixesSlips(c))
             } else when (c.edits) {
@@ -5315,6 +6152,7 @@ class SuggestionEngine(
                     c.completedChars == 1 && c.word != lower
                 }
                 1 -> c.completedChars == 0
+                2 -> c.completedChars == 0 && autocorrectConfidence < TWO_EDIT_FIXES_BELOW
                 else -> false
             }
             // A digit-carrying word is only ever fixed in place: same length,
@@ -5406,7 +6244,11 @@ class SuggestionEngine(
         val effectiveConfidence = (
             autocorrectConfidence *
                 (if (adaptiveConfidence) correctionStats.confidenceMultiplier() else 1.0) *
-                timingMultiplier
+                timingMultiplier *
+                // A digit between letters at full speed is a thumb on the
+                // number row far more often than a code, so its fix needs
+                // less of a lead.
+                (if (fastTyping && digits > 0) EAGER_DIGIT_CONFIDENCE else 1.0)
             ).coerceIn(MIN_AUTOCORRECT_CONFIDENCE, MAX_AUTOCORRECT_CONFIDENCE)
         val gate = ln(effectiveConfidence)
         val top = candidates.firstOrNull()
@@ -5503,8 +6345,19 @@ class SuggestionEngine(
                 complexity = complexityOf(lower, top),
             )
         }
+        // Two letters typed the wrong way round (#1105).
+        if (single == null && !probation) {
+            swapFix(lower, candidates, top, gate)?.let { fix ->
+                return CorrectionDecision(
+                    apply = matchCase(word, fix.word),
+                    certainty = SWAP_FIX_CERTAINTY,
+                    complexity = complexityOf(lower, fix),
+                )
+            }
+        }
         // No single word explains the typed string; a missing space might.
-        splitCorrection(lower, top?.score, effectiveConfidence, touch)?.let {
+        val split = splitCorrection(lower, top?.score, effectiveConfidence, touch)
+        split?.apply?.let {
             return CorrectionDecision(
                 apply = matchCase(word, it),
                 // A split held to the same margin as any other correction, so
@@ -5528,7 +6381,10 @@ class SuggestionEngine(
         } else {
             margin >= gate * OFFER_MARGIN_FRACTION
         }
-        val offer = top
+        // A space slip the tap only half vouched for already beat every word
+        // by the full margin, so it is asked about ahead of a word that only
+        // came close.
+        val offer = split?.offer ?: top
             ?.takeIf { mayBeOffered }
             ?.takeIf { clearsOffer }
             ?.word
@@ -5537,6 +6393,37 @@ class SuggestionEngine(
 
     /** A reading that spends slips and a real edit together. */
     private fun mixesSlips(c: FuzzyBeamSearch.ScoredCandidate): Boolean = c.slips > 0 && c.edits > c.slips
+
+    /**
+     * The word [lower] spells with one neighbouring pair of letters swapped
+     * back, when the margin rule found no word clear enough to apply (#1105).
+     *
+     * A swap keeps every letter the user typed, so it is the better account of
+     * `wnat` than `what` with the `n` a slip for `h`, though `what` is the
+     * commoner word and ranks first; and the margin rule, seeing two close
+     * words, applied neither. So: the best listed word one swap away, applied
+     * when it is not far rarer than the strip's best ([SWAP_FIX_RIVAL_RATIO]),
+     * and when no second swap reads nearly as well — `hwo` is `who` and `how`,
+     * and stays as typed. Not at the slider's most careful end. Only listed
+     * words: a pair the user undid has lost its list score in [candidates].
+     */
+    private fun swapFix(
+        lower: String,
+        candidates: List<FuzzyBeamSearch.ScoredCandidate>,
+        top: FuzzyBeamSearch.ScoredCandidate?,
+        gate: Double,
+    ): FuzzyBeamSearch.ScoredCandidate? {
+        if (top == null || autocorrectConfidence >= MAX_AUTOCORRECT_CONFIDENCE) return null
+        val swaps = candidates.filter {
+            it.edits == 1 && it.slips == 0 && it.completedChars == 0 && it.accents == 0 &&
+                it.dictScore.isFinite() && EditOps.isOneSwap(lower, it.word.lowercase())
+        }
+        val fix = swaps.firstOrNull() ?: return null
+        val rival = swaps.getOrNull(1)
+        if (rival != null && fix.score - rival.score < gate) return null
+        if (fix.score < top.score - ln(SWAP_FIX_RIVAL_RATIO)) return null
+        return fix
+    }
 
     /**
      * How far a correction cleared its bar, mapped onto 0..1.
@@ -5604,7 +6491,8 @@ class SuggestionEngine(
      * — a name, a product, jargon — breaks into two of them somewhere, and
      * that is far commoner than a missed spacebar that happens to fall
      * exactly between two words. Until the pair is known the split stays a
-     * strip suggestion. The dropped-letter reading needs the low tap on top.
+     * strip suggestion. The dropped-letter reading needs the low tap on top;
+     * a tap only in the lower half of the key makes it an offer instead.
      *
      * A spelling already in the user's lexicon is theirs, established or
      * not, and is never split.
@@ -5614,38 +6502,103 @@ class SuggestionEngine(
         bestWordScore: Double?,
         effectiveConfidence: Double,
         touch: List<TouchPoint?>?,
-    ): String? {
+    ): SplitVerdict? {
         if (!autocorrectSplits) return null
         if (lower.length < SPLIT_AUTOCORRECT_MIN_LENGTH) return null
         if (userLexicon.contains(lower)) return null
-        val splits = splitCandidates(lower, touch)
+        val known = splitCandidates(lower, touch)
             .filter { reading ->
-                val halves = reading.text.split(' ')
-                halves.all { it.length >= 2 && !suppressed(it) } &&
-                    knownPhrase(halves[0], halves[1])
+                // A one-letter first half only from a space slip, which
+                // [splitCandidates] allows for a word as common as `i` alone.
+                !suppressed(reading.left) && !suppressed(reading.right) && reading.right.length >= 2 &&
+                    (reading.left.length >= 2 || reading.dropped) &&
+                    knownPhrase(reading.left, reading.right)
             }
             .sortedWith(compareByDescending<SplitReading> { it.score }.thenBy { it.text })
-        val best = splits.firstOrNull() ?: return null
-        // The same pair memory word corrections use: a split the user
-        // reverted is never forced on them again.
-        if (correctionStats.penalty(lower, best.text) != CorrectionStats.Penalty.NONE) return null
-        val rival = maxOf(
-            bestWordScore ?: Double.NEGATIVE_INFINITY,
-            splits.getOrNull(1)?.score ?: Double.NEGATIVE_INFINITY,
-            SOLO_RUNNER_UP_SCORE,
-        )
-        if (best.score - rival < ln(effectiveConfidence)) return null
-        return best.text
+        fun clears(reading: SplitReading): Boolean {
+            // The same pair memory word corrections use: a split the user
+            // reverted is never forced on them again, nor asked about.
+            if (correctionStats.penalty(lower, reading.text) != CorrectionStats.Penalty.NONE) return false
+            val rival = maxOf(
+                bestWordScore ?: Double.NEGATIVE_INFINITY,
+                known.firstOrNull { it !== reading }?.score ?: Double.NEGATIVE_INFINITY,
+                SOLO_RUNNER_UP_SCORE,
+            )
+            return reading.score - rival >= ln(effectiveConfidence)
+        }
+        // Applied: an exact split, or a dropped letter whose tap leaned well
+        // toward the spacebar. Every reading is its rival, the ones only asked
+        // about included.
+        known.firstOrNull { !it.dropped || it.leaned }
+            ?.takeIf(::clears)
+            ?.let { return SplitVerdict(apply = it.text) }
+        // Asked: the best reading of all is a dropped letter tapped in the
+        // lower half of its key, but not low enough to apply (#1107), with the
+        // same phrase and the same margin.
+        val asked = known.firstOrNull()?.takeIf { it.dropped && !it.leaned && clears(it) } ?: return null
+        return SplitVerdict(offer = asked.text)
     }
 
-    /** True when [candidate] is [typed] with its single digit swapped for a
-     * letter and every other character untouched. */
+    /** What [splitCorrection] makes of a run: a split to apply, or one to offer. */
+    private class SplitVerdict(val apply: String? = null, val offer: String? = null)
+
+    /**
+     * True when [candidate] is [typed] with its single digit swapped for a
+     * letter next to it on the number row and every other character
+     * untouched. Next to it, because the reading is a claim about where a
+     * thumb landed: `3` is the `w`, `e` or `r` under it, never a `y` four
+     * keys over. The walk priced that `y` as any far slip, so `ton3` had
+     * `tony` close enough behind `tone` to block it (#1107).
+     */
+    /**
+     * Whether a word carrying [digits] digits may still be a slip on the number
+     * row. One digit may be, when the IME buffers them at all; at full speed
+     * ([fastTyping]) up to [EAGER_DIGIT_SLIPS], as long as a letter is left
+     * for the reading to stand on. A digit leading the word is never a run of
+     * them ("10am"), and never ahead of what follows a number: "5pm", "4th"
+     * and "3kg" are what they say.
+     */
+    private fun digitSlipsPossible(lower: String, digits: Int, fastTyping: Boolean): Boolean {
+        if (!digitSlipCorrections) return false
+        val limit = if (fastTyping) EAGER_DIGIT_SLIPS else 1
+        if (digits > limit || digits >= lower.length) return false
+        if (lower[0].isDigit()) {
+            if (lower.length > 1 && lower[1].isDigit()) return false
+            if (lower.substring(1) in NUMBER_SUFFIXES) return false
+        }
+        return true
+    }
+
+    /**
+     * The word [lower] spells with each digit read as a letter next to it on
+     * the number row, when one listed word clearly leads (twice the next
+     * one's frequency); null otherwise. Only ever a handful of spellings: a
+     * digit sits over two or three letters.
+     */
+    private fun fastDigitReading(lower: String): String? {
+        var readings = listOf("")
+        for (ch in lower) {
+            val options = if (ch.isDigit()) proximityField.neighborsOf(ch).filter { it.isLetter() } else ch.toString()
+            if (options.isEmpty()) return null
+            readings = readings.flatMap { head -> options.map { head + it } }
+            if (readings.size > MAX_DIGIT_READINGS) return null
+        }
+        val listed = readings
+            .filter { !suppressed(it) && correctionStats.penalty(lower, it) != CorrectionStats.Penalty.BLOCKED }
+            .map { it to dictionaryFrequencyOf(it) }
+            .filter { it.second > 0 }
+            .sortedByDescending { it.second }
+        val top = listed.firstOrNull() ?: return null
+        val next = listed.getOrNull(1)
+        return top.first.takeIf { next == null || top.second >= next.second * 2 }
+    }
+
     private fun digitSubShape(typed: String, candidate: String): Boolean {
         if (candidate.length != typed.length) return false
         for (i in typed.indices) {
             val t = typed[i]
             if (t.isDigit()) {
-                if (candidate[i].isDigit()) return false
+                if (candidate[i].isDigit() || !proximityField.areAdjacent(t, candidate[i])) return false
             } else if (candidate[i] != t) {
                 return false
             }
@@ -5685,8 +6638,11 @@ class SuggestionEngine(
         // memory says: in such a language a capital is a letter, and the one
         // vote the memory keeps per key cannot tell two words apart.
         if (caseExact) caseSpellings(key).firstOrNull()?.let { return it }
-        return userLexicon.displayOf(key) ?: systemWordCases[key]
-            ?: listSpelling(key)?.takeUnless { userLexicon.isCasePinned(key) } ?: word
+        userLexicon.displayOf(key)?.let { return it }
+        // Pinned with no spelling on file is pinned in small letters: the
+        // store keeps no shape for "ok", so nothing else may give it one (#1043).
+        if (userLexicon.isCasePinned(key)) return word
+        return systemWordCases[key] ?: listSpelling(key) ?: word
     }
 
     private fun displayForm(word: String): String = displayOf(word)

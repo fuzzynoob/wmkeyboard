@@ -72,10 +72,80 @@ class NoSpaceTest {
     }
 
     @Test
+    fun `with nothing to take back, the tap still joins the next glide`() {
+        val (service, editor) = keyboard(initial = "foot")
+        service.noSpace()
+        assertEquals("foot", editor.text.toString())
+        service.glide("ball")
+        assertEquals("football ", editor.text.toString())
+    }
+
+    @Test
+    fun `a Space after that tap keeps its separator and spends the arm`() {
+        val (service, editor) = keyboard(initial = "foot")
+        service.noSpace()
+        service.onKey(space)
+        assertEquals("foot ", editor.text.toString())
+        service.glide("ball")
+        assertEquals("foot ball ", editor.text.toString())
+    }
+
+    @Test
+    fun `a space after a word ending in niqqud comes back out`() {
+        val (service, editor) = keyboard(initial = "\u05D1\u05B7 ")
+        service.noSpace()
+        assertEquals("\u05D1\u05B7", editor.text.toString())
+    }
+
+    @Test
     fun `a space after a mark stays`() {
         val (service, editor) = keyboard(initial = "foo. ")
         service.noSpace()
         assertEquals("foo. ", editor.text.toString())
+    }
+
+    // ---- A word still open (#1023) ----
+
+    @Test
+    fun `a tap with a word open leaves it open, marked`() {
+        val (service, editor) = keyboard()
+        "foo".forEach { service.onText(it.toString()) }
+        service.noSpace()
+        assertTrue(service.uiState.value.noSpaceWordEnd)
+        assertEquals("foo", editor.text.toString())
+        // Still the word being written: it can go on.
+        service.onText("d")
+        assertEquals("food", editor.text.toString())
+        assertTrue(service.uiState.value.noSpaceWordEnd)
+    }
+
+    @Test
+    fun `a space pressed on a marked word still types its space`() {
+        val (service, editor) = keyboard()
+        "foo".forEach { service.onText(it.toString()) }
+        service.noSpace()
+        service.onKey(space)
+        assertEquals("foo ", editor.text.toString())
+        assertFalse(service.uiState.value.noSpaceWordEnd)
+    }
+
+    @Test
+    fun `a marked word picked off the strip takes no space`() {
+        val (service, editor) = keyboard()
+        "foo".forEach { service.onText(it.toString()) }
+        service.noSpace()
+        service.onSuggestionTapped("food")
+        assertEquals("food", editor.text.toString())
+        assertFalse(service.uiState.value.noSpaceWordEnd)
+    }
+
+    @Test
+    fun `backspacing the marked word away takes the mark with it`() {
+        val (service, _) = keyboard()
+        service.onText("f")
+        service.noSpace()
+        service.onKey(Key("", action = KeyAction.Delete))
+        assertFalse(service.uiState.value.noSpaceWordEnd)
     }
 
     // ---- Pressed as a key, through the same path a tap or flick takes (#939) ----

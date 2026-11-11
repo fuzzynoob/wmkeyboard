@@ -15,9 +15,13 @@ Typing never needs the internet. Layouts, prediction, autocorrect, gesture typin
 Every GitHub release has an **offline** build: the standard app with the internet permission taken out, so Android refuses every connection it tries. From 0.6.4 it is about the size of the standard build, because it leaves out the same two things the standard build downloads only when you want them:
 
 - **Interface languages.** The app's own screens are in English. Each of the other 48 languages is one small file on the release page, `wmkeyboard-<version>-vc<code>-lang-<code>.apk`, about 2 MB.
-- **Feature libraries.** The native code behind offline voice typing, grammar and spell checking, the scanners, handwriting, the RIME and Mozc engines, on-device translation and on-device AI. Each library is one file.
+- **Feature libraries.** The native code behind offline voice typing, grammar and spell checking, the scanners, handwriting, the RIME and Mozc engines, Firefox Translations and on-device AI. Each library is one file.
 
 Typing, prediction, autocorrect, gesture typing, the clipboard and every tool that needs neither of those work straight after install. For the rest, fetch the files you want on another device and import them; nothing is pushed at you that you never use. Up to 0.6.3 the offline build carried all of it: 275 MB for `arm64-v8a`, against about 22 MB now.
+
+Anything the offline build turns down says that this is the offline build, and gives the two ways out: get the file on another device and import it, or install the standard build over this one from the same release page. The standard build installs like an update, so your settings, themes and learned words stay (see [Switching builds](/start/editions/#switching-builds)). That holds for a download, a feature library, an online service such as search or AI, the speed test and the update check alike, so none of them says to check the connection when no connection could help.
+
+A standard build whose network access the phone has switched off is not the offline build, and since 0.6.6 it no longer calls itself one. Some systems let you take the internet permission away from a single app (GrapheneOS calls it the **Network** permission), and the app then sees exactly what the offline build sees. In that case every refusal says that network access is off in the phone's settings and where to turn it back on, instead of sending you to the release page for a build you already have. **Version** under About names the build that is installed: "Standard build" or "Offline build".
 
 ### Interface languages
 
@@ -31,13 +35,19 @@ Language packs need Android 11 or later, which added the way for an app to load 
 
 ### Feature libraries
 
-<SettingsPath path="Privacy / Downloads / Feature libraries" />
+<SettingsPath path="About / Feature libraries" />
+
+**About / Feature libraries** lists every library your phone can use on one page, with its files, its size and whether it is on the phone. It is also on the Storage screen and under Privacy / Downloads. It leaves out what your phone could never run, such as another chip's NPU files. Press a row to open the settings of its feature. On a build that can download, each missing row has **Download**, and **Download all missing** fetches them one after another and keeps going if you leave the page. It skips the NPU runtime until you accept Qualcomm's licence on that row. On the Play edition the two ML Kit and LiteRT-LM modules behind Translate and on-device AI are not listed, and still download from their own screens.
+
+A feature whose model runs on a library that is not on the phone yet fetches the library with its first model download. Its download row says so before you press it: handwriting, the sticker generator, search by meaning, the text scanner's packs and neural phonetic suggestions add **Also downloads the library that runs it**, with the library's size where the build knows it, and **Downloading the library that runs it** with that file's own bytes while it comes in. Handwriting goes further and numbers the two steps.
 
 On the offline build, **Feature libraries** says how many of the app's libraries are on the phone. **Get the files** lists every one still missing, each with its exact file name, size and address, a copy and an open-in-browser button, and **Share** to send the list to another device. **Import** takes the files once they are on the phone. A feature that needs a missing library says so where you use it, with the same **Get the files** button limited to that feature's own files, instead of offering a download that cannot work. The scanner panel in the keyboard points here.
 
+An update can bring a newer version of a library. The old file is then deleted, since the new version cannot use it, and the library shows as missing until you import the new file. On-device AI with a LiteRT model (a `.litertlm` or `.task` file) says so in the chat and the AI tools instead of asking you to wait for a download.
+
 The libraries come from two places:
 
-- **The project's own libraries** (whisper.cpp, ExecuTorch, Sherpa, Harper, Hunspell, Tesseract, RIME, Mozc, zinnia, Bergamot, CTranslate2, llama.cpp, OpenCV, zxing-cpp and the others) are on the data repository's [`natives` release](https://github.com/wasi-master/wmkeyboard-data/releases/tag/natives), each named `<sha256>-<library>.so`. Download the one listed for your phone; the list already picks your phone's ABI.
+- **The project's own libraries** (whisper.cpp, ExecuTorch, Sherpa, Harper, Hunspell, Tesseract, RIME, Mozc, zinnia, Bergamot, llama.cpp, OpenCV, zxing-cpp and the others) are on the data repository's [`natives` release](https://github.com/wasi-master/wmkeyboard-data/releases/tag/natives), each named `<sha256>-<library>.so`. Download the one listed for your phone; the list already picks your phone's ABI.
 - **Other vendors' libraries** (Google's ML Kit, LiteRT and LiteRT-LM, Microsoft's ONNX Runtime behind Sherpa and the neural phonetic suggestions, Qualcomm's NPU runtime) can't be republished, so the list links the vendor's own package, an `.aar` file on Google's Maven repository or Maven Central. Import the `.aar` whole. The keyboard takes out the one library it needs for your phone and leaves the rest.
 
 <a id="every-feature-library"></a>Every feature library, by what it adds. On the `natives` release the project's own files carry their checksum in front of the name, so look for the name after it; the other vendors' files are the ones inside their `.aar`. A feature that needs a library names it in its banner too.
@@ -45,23 +55,31 @@ The libraries come from two places:
 | What it adds | Files |
 |---|---|
 | On-device AI with LiteRT-LM models (`.task`, `.litertlm`) | `liblitertlm_jni.so` |
-| Google's on-device translation and language detection (ML Kit) | `libtranslate_jni.so`, `liblanguage_id_l2c_jni.so` |
 | The LiteRT Whisper models for offline voice typing, and the sticker editor's background remover | `libtensorflowlite_jni.so` |
 | Google's handwriting recognition (ML Kit) | `libdigitalink.so` |
-| whisper.cpp Whisper models, the Whistle engine and voice noise reduction | `libwmwhispercpp.so`, `libwmwhispercpp_v82.so`, `libwmwhispercpp_opencl.so`, `libwmwhistle.so`, `libwmdenoise.so` |
+| whisper.cpp Whisper models, the Whistle engine and voice noise reduction | `libwmwhispercpp.so`, `libwmwhispercpp_v82.so`, `libwmwhispercpp_i8mm.so`, `libwmwhispercpp_opencl.so`, `libwmwhistle.so`, `libwmdenoise.so` |
+| whisper.cpp on Mali, Xclipse and PowerVR GPUs | `libwmwhispercpp_vulkan.so` |
 | Smaller voice uploads to a transcription server | `libwmopus.so` |
 | The Asr4All, Parakeet and Moonshine voice engines, and the FUTO swipe engine | `libwmexecutorch.so` |
-| The Sherpa and Omnilingual voice engines, Read back voices and neural phonetic typing | `libonnxruntime.so`, `libwmsherpa.so`, `libwmxlit.so` |
+| The same with Qualcomm's NPU delegate, for models exported for a Snapdragon NPU | `libwmexecutorch_qnn.so` |
+| The same with MediaTek's NPU delegate, for models exported for a Dimensity 9300 or 9400 | `libwmexecutorch_neuron.so` |
+| The same with the Vulkan GPU delegate, for models exported for the GPU | `libwmexecutorch_vulkan.so` |
+| NPU builds of Parakeet and Moonshine, on sherpa-onnx's QNN recognizers | `libwmsherpa_qnn.so` |
+| The Sherpa and Omnilingual voice engines, Read back voices, neural phonetic typing, Add niqqud and Add tashkeel | `libonnxruntime.so`, `libwmsherpa.so`, `libwmxlit.so` |
+| The Vosk voice engine | `libvosk.so`, `libwmvosk.so` |
 | Grammar checking with Harper | `libharper_jni.so` |
+| GiellaLT's grammar checkers (Sámi languages, Faroese) | `libwmdivvungrammar.so` |
+| Plugins, and the plugin editor's checks | `libwm_python_jni.so` |
+| Telling the language of a text to translate, on builds without ML Kit | `libwmfasttext.so`, `libwmcld3.so` |
 | Spell checking with an imported Hunspell dictionary | `libwmhunspell.so`, `libwmdivvun.so`, `libwmvoikko.so` |
 | Offline text scanning with Tesseract | `libwmtess.so` |
 | The RIME engine for Chinese | `libwmrime.so` |
 | The Mozc engine for Japanese | `libwmmozc.so` |
-| Firefox Translations (Bergamot), the free on-device translation engine | `libwmbergamot.so` |
-| The NLLB-200 translation engine | `libwmct2.so` |
+| Firefox Translations (Bergamot), the on-device translation engine | `libwmbergamot.so` |
 | Chinese and Japanese handwriting without Google | `libwmzinnia.so` |
-| On-device AI with any GGUF model (llama.cpp) | `libwmllama.so`, `libwmllama_v82.so` |
+| On-device AI with any GGUF model (llama.cpp) | `libwmllama.so`, `libwmllama_v82.so`, `libwmllama_i8mm.so` |
 | llama.cpp on Adreno GPUs | `libwmllama_opencl.so` |
+| llama.cpp on Mali, Xclipse and PowerVR GPUs | `libwmllama_vulkan.so` |
 | The built-in document scanner | `libwmdocscan.so` |
 | QR and barcode reading without Google | `libwmzxing.so` |
 | The sticker generator, picture upscaling and PaddleOCR text scanning | `libwmimagegen.so`, `libwmimagegen_qnn.so` |
@@ -76,6 +94,8 @@ A version that changes a library pins the new file, so after updating the offlin
 
 Everything the keyboard downloads is a file with a public address. Fetch it anywhere, in a browser on this phone or on a computer, move it to the phone, and import it. The keyboard installs it through the same code the download would have used: the same parsing, the same checksum where the download has one, and the same place on disk. An imported word list is indistinguishable from a downloaded one.
 
+On the offline build these screens have no **Download** button, because it could only fail, and the import row is always shown whatever the settings depth. A few things have no import yet and say so on their screen: Read back's offline voices, the strong noise reduction model, the semantic search models and the sticker generator's models.
+
 Each screen that downloads something has an import row with two buttons:
 
 - **Get the files** lists what that screen would download, with an open-in-browser and a copy button beside each file, and **Share** to send the whole list to another device. The browser does the fetching, so this works on a build with no internet permission too.
@@ -85,12 +105,16 @@ Each screen that downloads something has an import row with two buttons:
 |---|---|---|
 | A language's word list, word pairs and emoji names | <SettingsPath path="Languages & layouts / (a language) / Dictionaries / Language pack" /> | The language pack zip, or the loose `.txt.gz` and `.json.gz` files |
 | Chinese, Japanese and Cantonese conversion tables | The same Language pack row | Inside the language pack, or the loose `.tsv` |
+| A language's context model | The same Language pack row, whose **Get the files** lists every size of it. On the build with no internet, the Context model row above it has no download button and points here | `en_context.wmlm`, `en_context_large.wmlm` or `bn_rom_context.wmlm` |
+| Romanized dictation's model, and the neural readings on the phonetic layouts | <SettingsPath path="Languages & layouts / (a language) / Voice typing / Romanized dictation model" />, or the language's Neural suggestions model row, below the model while it is missing | The model's three files, `indicxlit-latin-encoder.int8.onnx`, `indicxlit-latin-decoder.int8.onnx` and `indicxlit-latin-vocab.txt` (without `-latin` for the neural readings), loose or with the `<sha256>-` the release names them with, checked against their size and checksum |
+| FUTO Swipe's glide models | <SettingsPath path="Typing / Gestures / Glide engine" />, under the engine once FUTO Swipe is picked and its licence agreed to | Both files, `honorable_sturgeon/model_fp32.pte` and `magic_macaw/model_fp32.pte`. Both download as `model_fp32.pte`, so they are told by size and checksum, whatever they are called |
 | Offline voice models <Flavor edition="google" /> | <SettingsPath path="Voice typing / Recognition engine" />, on the Whisper screen below the model catalog | The model's `.tflite` and its `filters_vocab_*.bin` |
-| Asr4All, Parakeet, Moonshine, Sherpa and Omnilingual models | <SettingsPath path="Voice typing / Recognition engine" />, at the top of each engine's model list | Every file of the model, told by size and checksum |
+| Asr4All, Parakeet, Moonshine, Sherpa, Omnilingual and Vosk models | <SettingsPath path="Voice typing / Recognition engine" />, at the top of each engine's model list | Every file of the model, told by size and checksum |
 | Handwriting models <Flavor edition="google" /> | <SettingsPath path="Tools / Handwriting / Recognition models" />, below the models | The model's two or three `.zip` files from `dl.google.com` |
 | zinnia's Chinese and Japanese handwriting models | The same row | The one `.model` file, such as `handwriting-ja-0.3.model` |
 | PaddleOCR's handwriting models for other scripts | The same row | The model and its character list, such as `ppocrv5-ink-latin.mnn` and `ppocrv5-ink-latin-keys.txt` |
 | Text recognition data | <SettingsPath path="Tools / Text scan (OCR) / Language data" />, below the languages | `<language>.traineddata`, or PaddleOCR's `ocr_det_fp16.tflite`, `ocr_rec_fp16.tflite` and `keys_v5.txt` for Chinese and Japanese. The F-Droid build has no `.traineddata` languages, and its PaddleOCR files are `ppocrv5-det.mnn`, `ppocrv5-rec.mnn` and `keys_v5.txt` |
+| Firefox Translations models | <SettingsPath path="Tools / Translate / Providers / On device (Firefox Translations)" />, below each list of directions | Each direction's model, lexical table and vocabulary files. Told by size and checksum, packed as published or unpacked |
 | GIF packs | <SettingsPath path="Tools / GIFs / Providers" />, on the Offline GIF packs screen | A CleverKeys GIF pack zip |
 | Offline dictionaries for the Dictionary tool | <SettingsPath path="Tools / Dictionary / Dictionary sources" />, on each offline dictionary's screen | `wiktionary.wmdict.gz` or `oewn.wmdict.gz` |
 | Google's gesture library, which you bring yourself (not in the Google Play version) | <SettingsPath path="Typing / Gestures / Gesture library" /> | `libjni_latinime.so` or `libjni_latinimegoogle.so`, only the [pinned builds](/typing/glide-typing/#googles-gesture-library), told by name or by checksum |
@@ -108,7 +132,7 @@ Files are recognised by name, which is the name they are published under. Renami
 
 A language pack is one zip holding everything a language downloads: its word lists, its word-pair data, its emoji names, and for Chinese, Japanese and Cantonese their conversion tables. There is one per folder of the [data repository](https://github.com/wasi-master/wmkeyboard-data), named `wmkb-lang-<code>.zip`, on its [language packs release](https://github.com/wasi-master/wmkeyboard-data/releases/tag/language-packs). **Get the files** on a language's screen links its own pack directly. The packs are rebuilt whenever the data changes. A pack, or one of its files on its own, can also be opened straight from a file manager or a chat app: WM Keyboard asks before installing it, then shows the same report. The same works for every other file in the table above, and the question names what the file is: a model, a dictionary, a GIF pack, RIME schemas, an interface language, a feature library or Google's gesture library. A `.so` file is never offered as language files.
 
-Some folders serve two languages. The Bangla pack also carries Banglish, and importing it installs both, along with desktop Avro's dictionary (`bn_avro_dictionary.txt.gz`) for the Avro candidate list and the Khipro spellings (`bn_khipro_glide.txt.gz`) that glide typing on Khipro reads. The packs of Bangla, Assamese, Hindi, Urdu, Persian, Arabic and the eight Indic phonetic languages also carry the phonetic index built over the word list (`<code>_phonetic_v1r1.wmpi.gz`), which the phonetic layout reads instead of folding the list on the phone. Where a pack holds more than one word list for a language, the import asks which one to install, since a language uses one at a time. English's pack has five: the AOSP lists for **United States**, **United Kingdom**, **Canada** and **Australia**, and the counted **Frequency** list. The dialog opens on the one a download would start on, the others are listed as not used, and **Cancel** installs none of them. To switch later, import the pack again and pick another; the new list replaces the old one. The word list is kept at the size you last chose for downloads (Large, 300,000 words, until you pick another), the same cap a download applies.
+Some folders serve two languages. The Bangla pack also carries Banglish, and importing it installs both (of Bangla's two word lists, the counted `bn_full_v2`; `bn_full` is there for older app versions), along with desktop Avro's dictionary (`bn_avro_dictionary.txt.gz`) for the Avro candidate list and the Khipro spellings that glide typing on Khipro reads (`bn_khipro_glide.txt.gz` for Classic, `bn_khipro_dark_glide.txt.gz` for Dark). The packs of Bangla, Assamese, Hindi, Urdu, Persian, Arabic and the eight Indic phonetic languages also carry the phonetic index built over the word list (`<code>_phonetic_v1r1.wmpi.gz`, `v1r2` for Bangla and Assamese), which the phonetic layout reads instead of folding the list on the phone. Where a pack holds more than one word list for a language, the import asks which one to install, since a language uses one at a time. English's pack has five: the AOSP lists for **United States**, **United Kingdom**, **Canada** and **Australia**, and the counted **Frequency** list. The dialog opens on the one a download would start on, the others are listed as not used, and **Cancel** installs none of them. To switch later, import the pack again and pick another; the new list replaces the old one. The word list is kept at the size you last chose for downloads (Large, 300,000 words, until you pick another), the same cap a download applies.
 
 ## Voice models
 
@@ -116,7 +140,17 @@ A whisper.cpp Whisper model is one `.bin` file, and it is only installed if it m
 
 The [Whistle](/tools/whistle/) model is one file, `whistle.cact`. Only the exact file the app downloads is accepted: its SHA-256 is checked before it is put in place.
 
-The models of the other offline engines, [Asr4All](/tools/asr4all/), Parakeet, Moonshine, [Sherpa](/tools/sherpa/) and [Omnilingual](/tools/omnilingual/), import from the **Import from a file** row at the top of each engine's model list. **Get the files** lists every file of every model not on the phone, straight from Hugging Face at the revision the app pins. A model is several files (a tokenizer, the model itself, for Sherpa a voice detector too), and it is ready once all of them are in. Each file is told by its size and SHA-256 rather than its name, because names like `tokens.txt` and `model.pte` repeat from model to model; a renamed file still installs. A file several models share, such as Sherpa's `silero_vad.onnx`, goes only to the models whose other files you have imported, so import it together with them.
+The models of the other offline engines, [Asr4All](/tools/asr4all/), Parakeet, Moonshine, [Sherpa](/tools/sherpa/), [Omnilingual](/tools/omnilingual/) and [Vosk](/tools/vosk/), import from the **Import from a file** row at the top of each engine's model list. **Get the files** lists every file of every model not on the phone, straight from Hugging Face at the revision the app pins. A model is several files (a tokenizer, the model itself, for Sherpa a voice detector too), and it is ready once all of them are in. Each file is told by its size and SHA-256 rather than its name, because names like `tokens.txt` and `model.pte` repeat from model to model; a renamed file still installs. A file several models share, such as Sherpa's `silero_vad.onnx`, goes only to the models whose other files you have imported, so import it together with them.
+
+## Translation models
+
+The offline build translates with Firefox Translations, on a 64-bit phone with Android 9 or later. To set it up:
+
+1. Under <SettingsPath path="Tools / Translate / Providers / On device (Firefox Translations)" />, press **Get the files** on the banner, get `libwmbergamot.so` and import it.
+2. Press **Get the files** on a direction's row for that direction's files, or on the import row below the directions for every direction not on the phone, and download every file of each direction you want. French into German needs French → English and English → German.
+3. Press **Import** and pick them all. A direction is ready once it has all its files. Translate's language menus then list it.
+
+The links go to WM Keyboard's copy of Mozilla's files, the `translations` release of the [data repository](https://github.com/wasi-master/wmkeyboard-data/releases/tag/translations) on GitHub, which opens in any browser. Mozilla's own server answers Chrome and the browsers built on it with an error, so its addresses work only in Firefox, curl or wget. The copy holds the same files, packed as Mozilla publishes them and named by their SHA-256, under the MPL-2.0 with Mozilla's licence beside them. The app knows each file by its size and SHA-256 rather than its name, so a file from either place, renamed or not, packed or unpacked, imports the same. Files imported before the library wait for it.
 
 ## GIF packs
 
@@ -126,11 +160,9 @@ Only the **Discord community** packs carry animated GIFs. The **thumbnail** pack
 
 ## What cannot work offline
 
-One thing outside the F-Droid build has no file to import:
+- **ML Kit and NLLB-200 translation.** Google's ML Kit downloads and keeps its language models itself, with no way to install one from a file, and NLLB-200's 630 MB model has no import. The offline build [translates with Firefox Translations](#translation-models) instead.
 
-- **On-device translation.** Google's ML Kit downloads and keeps its language models itself, and offers no way to install one from a file.
-
-Everything reaching an online service (web and image search, GIFs from KLIPY or GIPHY, the dictionary and synonyms lookups, cloud AI providers, the currency rates, backups to a cloud account) needs the connection by definition. On a build with no internet permission those say that the build cannot connect, rather than waiting for a network that will never come. The Dictionary tool is the exception once an [offline dictionary](/tools/search/#offline-dictionaries) is imported: it then defines English words from the phone.
+Everything reaching an online service (web and image search, GIFs from KLIPY or GIPHY, the dictionary and synonyms lookups, cloud AI providers, the currency rates, backups to a cloud account) needs the connection by definition. On the offline build those say that it is the offline build and cannot connect, and point to the standard build, rather than waiting for a network that will never come. The Dictionary tool is the exception once an [offline dictionary](/tools/search/#offline-dictionaries) is imported: it then defines English words from the phone.
 
 ## Details & edge cases
 

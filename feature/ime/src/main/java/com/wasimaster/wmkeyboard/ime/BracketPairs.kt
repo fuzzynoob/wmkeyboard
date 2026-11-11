@@ -1,5 +1,25 @@
 package com.wasimaster.wmkeyboard.ime
 
+/** How far back No space reads: past a word's last letter and the marks on it. */
+const val NO_SPACE_LOOK_BACK = 16
+
+/**
+ * Whether [text] ends on a word's letter or digit, the marks on it counted with
+ * it (#1057): a Hebrew word ending in niqqud ends on the point, not the letter.
+ */
+fun endsOnWordCharacter(text: CharSequence): Boolean {
+    var at = text.length
+    while (at > 0) {
+        val cp = Character.codePointBefore(text, at)
+        when (Character.getType(cp).toByte()) {
+            Character.NON_SPACING_MARK, Character.ENCLOSING_MARK, Character.COMBINING_SPACING_MARK ->
+                at -= Character.charCount(cp)
+            else -> return Character.isLetterOrDigit(cp)
+        }
+    }
+    return false
+}
+
 /**
  * Opening bracket → its closer, for the auto-close rule
  * (`TextEditingSettings.autoCloseBrackets`): typing the opener types the
@@ -20,6 +40,23 @@ val AUTO_CLOSE_PAIRS: Map<Char, String> = mapOf(
     '「' to "」", '『' to "』", '｢' to "｣",
     '【' to "】", '〔' to "〕", '〖' to "〗", '〘' to "〙", '〚' to "〛",
 )
+
+/**
+ * The closing `"` or `'` to type behind the caret when one lands, for the
+ * separate quotes switch (#970), or null. [before] is the character in front
+ * of the one just typed, [after] the text ahead of the caret.
+ *
+ * A quote right after a letter or digit closes something or is an apostrophe
+ * ("don't", 5"), so it stands down, and it pairs only where a bracket would:
+ * with nothing it would end up wrapped around.
+ */
+fun autoCloseQuoteFor(typed: Char, before: Char?, after: CharSequence?): String? {
+    if (typed != '"' && typed != '\'') return null
+    if (before != null && before.isLetterOrDigit()) return null
+    val next = after?.firstOrNull() ?: return typed.toString()
+    val room = next.isWhitespace() || next in AUTO_CLOSE_CLOSERS || next in CLAUSE_ENDS
+    return if (room) typed.toString() else null
+}
 
 /** The closers of [AUTO_CLOSE_PAIRS], for the "type over it" test below. */
 val AUTO_CLOSE_CLOSERS: Set<Char> = AUTO_CLOSE_PAIRS.values.mapTo(HashSet()) { it[0] }
@@ -68,6 +105,7 @@ fun typesOverCloser(typed: Char, after: CharSequence?): Boolean =
  */
 fun deletesEmptyPair(before: CharSequence, after: CharSequence?): Boolean {
     val opener = before.lastOrNull() ?: return false
+    if (opener == '"' || opener == '\'') return after?.firstOrNull() == opener
     val closer = AUTO_CLOSE_PAIRS[opener] ?: return false
     return after?.firstOrNull() == closer[0]
 }

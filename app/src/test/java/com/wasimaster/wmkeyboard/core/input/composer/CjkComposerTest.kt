@@ -52,9 +52,13 @@ class CjkComposerTest {
         assertSame(StrokeComposer, composerFor(han, ComposerType.STROKE))
         assertSame(T9PinyinComposer, composerFor(han, ComposerType.T9_PINYIN))
         assertSame(ZhuyinComposer, composerFor(han, ComposerType.ZHUYIN))
+        assertSame(T9ZhuyinComposer, composerFor(han, ComposerType.T9_ZHUYIN))
         assertSame(CangjieComposer, composerFor(han, ComposerType.CANGJIE))
         assertSame(CangjieQuickComposer, composerFor(han, ComposerType.CANGJIE_QUICK))
+        assertSame(WubiComposer, composerFor(han, ComposerType.WUBI))
         assertSame(JyutpingComposer, composerFor(han, ComposerType.JYUTPING))
+        assertSame(RomanizedCantoneseComposer.YALE, composerFor(han, ComposerType.YALE))
+        assertSame(RomanizedCantoneseComposer.CANTONESE_PINYIN, composerFor(han, ComposerType.CANTONESE_PINYIN))
     }
 
     /**
@@ -144,16 +148,38 @@ class CjkComposerTest {
     @Test
     fun `romaji composes hiragana with sokuon and syllabic n`() {
         val c = JapaneseComposer
-        assertEquals("こんにちは", c.composeBuffer("konnichiha"))
+        assertEquals("こんにちは", c.composeBuffer("konnnichiha"))
         assertEquals("ありがとう", c.composeBuffer("arigatou"))
         assertEquals("にほん", c.composeBuffer("nihon"))
         assertEquals("けっこん", c.composeBuffer("kekkon"))
         assertEquals("がっこう", c.composeBuffer("gakkou"))
         assertEquals("しんぶん", c.composeBuffer("shinbun"))
-        assertEquals("おんな", c.composeBuffer("onna"))
+        assertEquals("おんな", c.composeBuffer("onnna"))
         assertEquals("きょう", c.composeBuffer("kyou"))
         assertEquals("し", c.composeBuffer("shi"))
         assertEquals("つ", c.composeBuffer("tsu"))
+    }
+
+    @Test
+    fun `romaji follows mozc for nn and the v row`() {
+        // #1113: `nn` is one ん whatever follows, as in Google Japanese Input.
+        val c = JapaneseComposer
+        assertEquals("こんや", c.composeBuffer("konnya"))
+        assertEquals("こんいん", c.composeBuffer("konnin"))
+        assertEquals("きんえん", c.composeBuffer("kinnen"))
+        assertEquals("しんや", c.composeBuffer("shinnya"))
+        assertEquals("こんや", c.composeBuffer("kon'ya"))
+        assertEquals("こにん", c.composeBuffer("konin"))
+        assertEquals("ゔぉーかる", c.composeBuffer("vo-karu"))
+        assertEquals("ゔぁんがーど", c.composeBuffer("vannga-do"))
+        assertTrue("ヴォーカル" in c.candidates("vo-karu"))
+        assertTrue("ヴァンガード" in c.candidates("vannga-do"))
+        // The rest of Mozc's table comes along.
+        assertEquals("てぃ", c.composeBuffer("thi"))
+        assertEquals("いぇ", c.composeBuffer("ye"))
+        assertEquals("くぁ", c.composeBuffer("kwa"))
+        assertEquals("まっちゃ", c.composeBuffer("matcha"))
+        assertEquals("っ", c.composeBuffer("xtsu"))
     }
 
     @Test
@@ -182,7 +208,7 @@ class CjkComposerTest {
 
         // The spans always sum back to the input length — no romaji char is lost
         // or double-counted, so a whole-buffer choice consumes the whole buffer.
-        for (r in listOf("konnichiha", "arigatou", "nihon", "onna", "n'ya")) {
+        for (r in listOf("konnnichiha", "arigatou", "nihon", "onnna", "n'ya", "xtsu", "t'yu", "matcha")) {
             assertEquals(r.length, Kana.transduce(r).sumOf { it.romajiLen })
             assertEquals(Kana.toHiragana(r), Kana.transduce(r).joinToString("") { it.kana })
         }
@@ -196,6 +222,32 @@ class CjkComposerTest {
         assertEquals("ｶﾞ", Kana.toHalfWidthKatakana("ガ"))
         assertEquals("ﾊﾟ", Kana.toHalfWidthKatakana("パ"))
         assertEquals("ｳﾞ", Kana.toHalfWidthKatakana("ヴ"))
+    }
+
+    @Test
+    fun `kana variant key reaches kana spelled in romaji`() {
+        // Godan's 小゛゜ key: the romaji keys collapse into the marked kana.
+        assertEquals("が", Kana.cycleLastKana("ka"))
+        assertEquals("hiが", Kana.cycleLastKana("hika"))
+        assertEquals("ば", Kana.cycleLastKana("ha"))
+        assertEquals("っ", Kana.cycleLastKana("tsu"))
+        assertEquals("ぁ", Kana.cycleLastKana("a"))
+        assertEquals("きや", Kana.cycleLastKana("kya"))
+        // A doubled consonant only read as っ because of what followed it.
+        assertEquals("っが", Kana.cycleLastKana("kka"))
+        // Kana typed as kana swaps in place, as it always did.
+        assertEquals("が", Kana.cycleLastKana("か"))
+        assertEquals("か", Kana.cycleLastKana("が"))
+        assertEquals("づ", Kana.cycleLastKana("っ"))
+        assertEquals("ガ", Kana.cycleLastKana("カ"))
+        // In front of a caret inside the reading, not at its end.
+        assertEquals("がな", Kana.cycleLastKana("かな", end = 1))
+        assertEquals("がna", Kana.cycleLastKana("kana", end = 2))
+        // Nothing to cycle: no kana yet, or one with no other form.
+        assertEquals(null, Kana.cycleLastKana("k"))
+        assertEquals(null, Kana.cycleLastKana("na"))
+        assertEquals(null, Kana.cycleLastKana("n"))
+        assertEquals(null, Kana.cycleLastKana(""))
     }
 
     @Test
@@ -485,6 +537,24 @@ class CjkComposerTest {
         assertEquals(2, PinyinComposer.consumedFor("nihao", "N1"))
         // An unknown candidate falls back to consuming the whole buffer.
         assertEquals(5, PinyinComposer.consumedFor("nihao", "??"))
+    }
+
+    @Test
+    fun `a digit in a pinyin reading is the letter under it on the number row`() {
+        PinyinSyllables.valid = fixtureSyllables
+        CjkDictionaries.pinyin = ConversionDictionary.parse(
+            sequenceOf(
+                "ni\tN1\t100",
+                "hao\tH1\t100",
+                "nihao\tNH\t50",
+            ),
+        )
+        // `9` sits over the `o`: nihao with the last tap a row too high, and
+        // `8` over the `i` (#1107). Before, nothing segmented past the digit.
+        assertEquals(listOf("NH", "N1"), PinyinComposer.candidates("niha9"))
+        assertEquals(listOf("NH", "N1"), PinyinComposer.candidates("n8hao"))
+        assertEquals(5, PinyinComposer.consumedFor("niha9", "NH"))
+        assertEquals(2, PinyinComposer.consumedFor("n8hao", "N1"))
     }
 
     /**
@@ -1075,5 +1145,43 @@ class CjkComposerTest {
         assertTrue(!JapaneseComposer.buffersChar('。', ""))
         assertTrue(!JapaneseComposer.buffersChar('「', "ka"))
         assertEquals("にほん。", JapaneseComposer.composeBuffer("nihon。"))
+    }
+
+    // #1106: a pinyin reading is edited where the caret is, like a Japanese one.
+
+    @Test
+    fun `pinyin edits a reading in place and keypads do not`() {
+        assertTrue(PinyinComposer.editsReadingInPlace)
+        assertTrue(JyutpingComposer.editsReadingInPlace)
+        assertTrue(!T9PinyinComposer.editsReadingInPlace)
+        assertTrue(!StrokeComposer.editsReadingInPlace)
+    }
+
+    @Test
+    fun `a caret in a pinyin reading maps to the letter it sits after`() {
+        // `mmbxjn`, the caret put between the j and the n.
+        assertEquals(5, PinyinComposer.bufferIndex("mmbxjn", 5))
+        assertEquals(5, PinyinComposer.previewOffset("mmbxjn", 5))
+        assertEquals(0, PinyinComposer.bufferIndex("mmbxjn", 0))
+    }
+
+    @Test
+    fun `localizing takes Traditional text to the region's forms and only then`() {
+        HanVariant.twVariants = HanPhraseTable.parse(sequenceOf("裏\t裡", "爲\t為"))
+        CjkConfig.traditionalOutput = true
+        try {
+            HanVariant.region = HanVariant.HanRegion.GENERIC
+            assertEquals("裏面", HanVariant.localize("裏面"))
+            HanVariant.region = HanVariant.HanRegion.TAIWAN
+            assertEquals("裡面", HanVariant.localize("裏面"))
+            assertEquals("裡面", HanVariant.localize(HanVariant.localize("裏面")))
+            assertEquals("因為", HanVariant.localize("因爲"))
+            CjkConfig.traditionalOutput = false
+            assertEquals("裏面", HanVariant.localize("裏面"))
+        } finally {
+            CjkConfig.traditionalOutput = false
+            HanVariant.region = HanVariant.HanRegion.GENERIC
+            HanVariant.twVariants = HanPhraseTable.EMPTY
+        }
     }
 }

@@ -1,0 +1,109 @@
+---
+title: "WM Pass"
+description: "A password book in the keyboard, built on the separate WM Pass password manager: unlock it with your fingerprint or master password without leaving the app, fill a login in two taps, browse and search the vault, type, copy or show a field, add a login, make or change a password, and get WM Pass's own buttons on the strip. The vault stays in that app."
+sidebar:
+  order: 17.8
+---
+
+The **WM Pass** tool is a password book in the keyboard, built on [WM Pass](https://github.com/wasi-master/wm-pass), a separate password manager from the same author. The keyboard does not hold a vault of its own. It shows what WM Pass lists, asks for one value when you tap it, types it into the field, and keeps nothing.
+
+## Setting it up
+
+1. Install WM Pass and make a vault there. Until it is installed, the tool and its page in the Tools list have a **Get WM Pass** button that opens its page on Google Play.
+2. In WM Pass, open **Settings**, then **Security**, and turn on **Let WM Keyboard fill**. It is off until you do this.
+3. In WM Keyboard, add the **WM Pass** tool to your toolbar from the Tools list.
+
+## Unlocking without leaving the app
+
+When the vault is locked, the tool shows a lock and the ways in. Neither takes you out of the app you are typing in.
+
+- **Fingerprint** brings up WM Pass's own fingerprint prompt over that app. WM Pass checks the fingerprint; the keyboard only starts the prompt. Once the vault opens, the keyboard comes back with the tool open on your vault. Close the prompt to go back as you were, or tap **Use password** on it to get WM Pass's unlock screen instead. Without fingerprint unlock set up in WM Pass, the button reads **Unlock in WM Pass** and opens that screen straight away, still over your app.
+- **Password** (**Type password** when there is no fingerprint) types your master password into the tool's own box, shown as dots. **Unlock** or Enter sends it to WM Pass, which checks it. The box empties as soon as the password is sent. A wrong one shakes the lock and the box is ready for another go; after too many, the tool shows how long WM Pass makes you wait. A duress password does what it does at WM Pass's own door. A vault that also needs a key file or a security key has to be unlocked in WM Pass.
+
+A vault opened from the keyboard locks after the time set under **Lock after leaving the app** in WM Pass, counted from when it opened, and never sooner than a minute. **Lock** at the top of the tool locks it at once.
+
+## Using it
+
+Open the tool while the field you want is focused. It lists everything in the vault, logins, cards, notes, Wi-Fi networks and every other kind, except what is in WM Pass's trash or on its hidden shelf. Each item wears a coloured letter, the same colour every time, with a small badge for its kind, and a star when it is a favourite. Tap the search box at the top to look for one; it uses WM Pass's own search.
+
+Logins saved for the app in front sit above the list as cards, under **Saved for** and the app's name. A browser does not tell a keyboard which site it is showing, so in a browser there are none: search instead. The chips over the list narrow it to **This app**, **Favourites**, **Logins**, **Codes**, **Cards**, **Notes** or **Other**, each with how many it holds; tap the chip again to go back to **All**. A long list is cut into letters. At the bottom, the vault's name and how many items it has.
+
+Beside a login, the round buttons type its username, its password and its code straight away. Tap the item itself to open it.
+
+## Filling a sign-in form
+
+**Fill**, on the cards above the list and at the top of an open login, fills a sign-in form in one tap. It types the username into the box you are in, moves on to the next box the way the form's Next key or a Tab would, and types the password there once that box is a password box. A form that asks for the password on a second page works too: the password goes in when its box comes up, as long as that is within 15 seconds and in the same app. If the next box is not a password box, nothing more is typed. Tapped while you are already in a password box, **Fill** types only the password.
+
+## An item, opened
+
+An open item lists its fields. A plain one, such as a username, a website or a card's expiry date, shows as it is. A secret, such as a password, a card number or a hidden field you added, shows as dots: the keyboard has only its name.
+
+- **Type**, the keyboard button, puts that one field into the box you are typing in. A secret comes over from WM Pass only on that tap, and goes straight to the field.
+- **Show**, the eye beside a secret, shows it for ten seconds, with a ring counting them down, then hides it again. Digits and symbols are coloured so a password is easier to read out or copy by hand. Tap the eye again to hide it sooner.
+- **Copy** asks WM Pass to copy it. WM Pass puts it on the clipboard itself, marked sensitive and cleared after the time set in WM Pass, so a copied secret never passes through the keyboard.
+- **Open in WM Pass** opens the item there, once the vault is open. It is left off while you are typing in WM Pass itself.
+- **Change password**, on an item that has one, opens a box for the new password. **Save** hands it to WM Pass, which keeps the old one in the item's history.
+
+## Making a password
+
+The key button at the top of the list opens WM Pass's generator: a new password, made the way you set the generator up in WM Pass, large, with its strength under it. **Type it** types it into your field, **Another** makes a new one, and **Save as a login** starts a new login with it as the password.
+
+## Adding a login
+
+The plus button at the top of the list, **Add a login**, opens four boxes: name, username, password and website. The keys type into one box at a time; **Next** moves on, and a tap on any box in the list goes back to it. **New password** fills the password box from WM Pass's generator, set up the way you set it there, and **Show** shows what is in it. A bar under the password rates how hard it is to guess, from **Very weak** to **Very strong**, with a rough count of bits. **Save** hands the login to WM Pass.
+
+The name can be left empty: WM Pass names the login after the website, or after the app. A login added while an app is in front is tied to that app by its signing certificate, so it comes first there next time. In a browser it is not, since one browser shows every site; give it the website instead.
+
+What you type into these boxes stays in the keyboard's memory until you save or close the tool. It is not learned, is not offered back as a suggestion, and is not kept for undo.
+
+## Two taps, and never in private fields
+
+Typing anything from WM Pass takes two taps: one to open the tool, one on the field you want. The tool types and copies nothing into a field that asks the keyboard not to learn from it, such as a private browser tab, and says so instead.
+
+
+## Buttons in WM Pass's own fields
+
+While you type in some of WM Pass's own fields, the strip offers the buttons that sit beside that field there:
+
+- In a card's number, **Scan the card**. In the name on the card and the expiry date as well, when WM Pass's card scanner is set to Google's, since only that one reads them.
+- In a Wi-Fi network's name and password, **Fill in from a QR code** and **Pick a network saved on this phone**.
+
+A tap on a chip has WM Pass press that button, so it does exactly what the button does. The field tells the keyboard which buttons it has and nothing about what it holds, and the chips wear the keyboard's own words, so they follow its language. Each WM Pass screen names its fields afresh, so a tap meant for a screen you have left does nothing. The chips work whether or not **Let WM Keyboard fill** is on, since nothing from the vault comes to the keyboard. They give way to word suggestions once those appear.
+
+## The code chip
+
+With one-time code chips turned on, focusing a code box in an app that has a login saved in WM Pass offers its current code on the suggestion strip. It uses the same chip as codes read from notifications, and it disappears when the code stops being valid. Tap it to type the code.
+
+## API keys in settings
+
+The key fields in WM Keyboard's settings get a WM Pass button once WM Pass has a vault and **Let WM Keyboard fill** is on. They include the key and secret of every service under Providers (translation, AI, search, GIFs and the rest), smart home tokens, the Hugging Face and Telegram bot tokens, the GitHub token for imports, and a voice server's key. On a phone without WM Pass the fields look as they always did.
+
+- **Fill from WM Pass** lists the API key items in your vault, with the ones named for that service first. Pick one and its key goes into the field.
+- **Save in WM Pass** keeps what the field holds as an API key item named for the service, such as "DeepL", or "DeepL (Work)" for a second DeepL key you gave a name. If an item of that name is already there, WM Pass changes its key and keeps the old one in the item's history. A service that has a key and a secret ends up as one item that holds both.
+
+If the vault is locked, the button opens WM Pass. Unlock it there, come back, and press the button again.
+
+## Places for copies
+
+Both apps can send backups to the same kinds of place: a folder, a server, or a cloud account. A place you set up in one can be picked in the other, so a server's address and password only have to be typed once.
+
+- In WM Keyboard, open [Backup & restore](/reference/settings/backup/#locations), press **Add a location**, then **Use a place from WM Pass**. WM Pass opens, asks you to unlock it, and lists its places. Tap one.
+- In WM Pass, the place chooser has **Use a place from WM Keyboard**. WM Keyboard opens its list of locations, behind its app lock if you set one for Backup & restore. Tap one.
+
+The app that receives a place opens it as a new place it hasn't saved yet. Look it over and save it. Each app keeps its own copy from then on: changing or removing the place in one leaves the other alone.
+
+A login the server simply checks comes across whole: a WebDAV, FTP, SFTP, SMB, IMAP or NAS password, an SFTP key, an S3 key pair, a Git token. A sign-in does not. Google Drive, Dropbox, OneDrive and Box are signed in to separately by each app, and the token one app holds would not work in the other. Box and Proton Drive also replace their tokens every time they're used, so two apps sharing one would keep signing each other out. pCloud, MEGA and iCloud Drive keep a session too. For all of those, the receiving app asks you to sign in. A folder on the phone comes without the folder, because Android lets each app into a folder only when you pick it there. A folder inside an account that still has its app's default name, such as "WM Keyboard backups", becomes the other app's default.
+
+Nothing crosses unless you tap a place on the other app's screen. Each app answers only the other one, checked by its signing certificate, and the place goes straight from one app's memory to the other's. It never passes through a file or the clipboard. A nearby computer paired over KDE Connect belongs to WM Keyboard alone and isn't offered.
+
+## What this means for privacy
+
+A password you type this way passes through the keyboard's process on its way to the field, as anything you type does. It goes through the same path as a generated password, so it is not learned, predicted from or added to your typing statistics. So does a password you type into **Add a login** or **Change password** on its way to WM Pass, and the master password you type to unlock: the keyboard hands it to WM Pass and keeps nothing. The keyboard sees every key of your master password when you type it at WM Pass's own door too, so typing it here shows the keyboard nothing more. Nothing is written to disk, and no network is involved.
+
+The fingerprint never reaches the keyboard at all. The prompt is WM Pass's own, and the keyboard can start it but cannot answer it.
+
+A password you copy in WM Pass instead goes through the clipboard, so the keyboard's [clipboard history](/tools/clipboard/#passwords-are-handled-deliberately) sees it like any other copy. When WM Pass wipes the clipboard after the time set there, the history drops that clip at the same moment.
+
+Each side checks the other. WM Pass answers only a WM Keyboard signed by a known certificate, and WM Keyboard asks only a WM Pass signed by a known certificate. An app that copied the name gets nothing and is told nothing.
+
+If you would rather keep passwords out of the keyboard's process altogether, leave this off and use WM Pass as your device's autofill service instead.

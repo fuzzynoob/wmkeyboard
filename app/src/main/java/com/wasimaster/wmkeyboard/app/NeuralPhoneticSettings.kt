@@ -191,19 +191,30 @@ private fun XlitModelRow(
     // nothing: it fetches, or asks to delete what is here.
     val missing = status is XlitDownloads.Status.NotDownloaded || status is XlitDownloads.Status.Failed
     val here = status is XlitDownloads.Status.Downloaded
+    // ONNX Runtime, when it is not here yet: the size above counts it, and
+    // this says what the rest of it is.
+    val libraryLine = libraryFirstLine(FeatureModules.onnx).takeIf { !here }
     val deleteLabel = stringResource(CommonR.string.common_delete)
     WmRow(
         title = stringResource(title),
-        subtitle = value,
+        subtitle = withLibraryLine(value, libraryLine),
         icon = SettingsRowIcons[title],
         highlightKey = title,
         swipeActions = if (here) listOf(deleteSwipeAction(deleteLabel) { confirmDelete = true }) else emptyList(),
         onClick = when {
-            missing -> download
+            missing && !offlineBuild -> download
             here -> ({ confirmDelete = true })
             else -> null
         },
-    )
+    )    // For a phone that cannot download (#998): the pack's three files, fetched
+    // elsewhere and imported here, checked as the download checks them.
+    if (missing) {
+        OfflineImportRow(
+            subtitle = stringResource(R.string.offline_import_xlit_subtitle),
+            links = remember(pack) { pack.parts.mapNotNull { part -> IndicXlitModels.url(part)?.let { OfflineLink(part.fileName, it) } } },
+            onImported = { downloads.refresh(context) },
+        )
+    }
 }
 
 /**

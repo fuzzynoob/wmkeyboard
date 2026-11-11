@@ -27,7 +27,7 @@ Open the toolbox and hold-and-drag a tool:
 - Drag a toolbox tool up onto the toolbar to pin it.
 - Drag a tool around inside the toolbox grid to reorder it there.
 - Drag a pinned toolbar tool back down into the toolbox to unpin it.
-- Drop a tool on the middle of another tool to put the two in a folder. See [Folders](#folders).
+- Drop a tool on the middle of another tool to put the two in a folder. See [Folders](#folders). The middle is small on purpose: anywhere else on it, the tool takes that place. With a folder open, the star makes its toolbar button run the first tool on a tap and open the folder on a hold.
 
 It's the same drag-to-pin model Gboard uses. The first time you open the toolbox, a hint explains the drag. Dismiss it and it only resurfaces occasionally as a reminder.
 
@@ -55,7 +55,7 @@ Out of the box, the tools that come in pairs hold to their partner, the same pai
 
 Every other tool holds to its own settings page. The cursor tools have pairs too (left and right to a word left and right, up and down to page up and down, word left and right to the start and end of the line), but their hold repeats the move, so the pairs only take over once **Hold to repeat on the toolbar** is off; see [Text editing](/tools/text-editing/).
 
-All of it is yours to change. Open any tool's own page and the **Press and hold on the toolbar** row picks another tool for its hold to run: hold Text edit to open the clipboard, say. The row shows what a hold does right now. The picker's first row, **Default**, says what the tool does untouched. **Settings page** gets the settings page back on a tool that has a pair, and **Does nothing** is for a tool whose hold you would rather have do nothing at all: it still buzzes, and nothing opens.
+All of it is yours to change. Open any tool's own page and the **Press and hold on the toolbar** row picks another tool for its hold to run: hold Text edit to open the clipboard, say. The row shows what a hold does right now. The picker's first row, **Default**, says what the tool does untouched. **Settings page** gets the settings page back on a tool that has a pair, and **Does nothing** is for a tool whose hold you would rather have do nothing at all: it still buzzes, and nothing opens. On a tool that can [float over other apps](#tools-in-a-floating-box), **In a floating box** opens the tool itself in a box over the app.
 
 The picker fills the screen. The tools sit in the same groups as on the Tools page, with a search field over them that matches a tool's name or its description. Tap a group's heading to fold it away; a folded heading still shows how many tools it holds. The key and swipe action picker in the layout editor works the same way. Each picker opens again with the groups folded and scrolled the way you left them, until the app is closed. The first time, it opens on the current choice.
 
@@ -69,6 +69,37 @@ The third gesture is optional too. **Rearrange by dragging**, under <SettingsPat
 - Cursor tools that repeat on hold, Selection mode while its hold arms the mode, Trackpad while its hold opens the pad, and Voice while its hold picks a [voice typing mode](/tools/voice/#starting-dictation), say so instead of offering a second action. One gesture cannot do both. See **Repeat cursor tools on hold** under [Typing](/reference/settings/typing/).
 - Binding a tool to itself is refused, since that is a slow tap.
 - Nothing is shown while you hold. The buzz says the hold registered; the tool washes out and the drag notice appears only once your finger moves.
+
+## Tools in a floating box
+
+A few tools can open in a box of their own that floats over whatever app you're in and stays there when the keyboard closes: **Calculator**, **Unit converter**, **Currency converter**, **Clock**, **To-do list**, **Notes** and **Translate**. The box shows the same panel the tool has in the keyboard, with the same sums, timers, tasks and notes, since it's the same tool.
+
+There are two ways to open one:
+
+- Bind a tool's hold to it: on the tool's page, set **Press and hold on the toolbar** to **In a floating box**. Holding the tool on the toolbar then opens it in the box.
+- From the [floating button](/reference/settings/floating-button/#gestures): its action list has a **Floating boxes** group, so a tap, a hold or a quick menu action can open, say, **Calculator in a box** straight over the app, without the keyboard coming up first.
+
+Drag the box by its title bar to move it, and drag the grip in its bottom right corner to resize it. It opens where you last left it, at the size you last gave it. If the open keyboard would cover it, the box moves up to sit above the keys, and goes back to its place when the keyboard closes. The cross in its title bar closes it. The arrows next to the cross move the tool into the keyboard as its panel, for when you want the keys under it.
+
+To get the box out of the way without closing it, tuck it into the side of the screen, the way the floating button tucks: push it past the left or right edge by its title bar, or tap the line in its title bar to send it to the nearer side. A small tab with the tool's icon stays on that edge. Drag the tab up or down to move it along the edge, and tap it to bring the box back where it was. The tool's button on the toolbar brings it back too. While the box is tucked, the keys type into the app's field.
+
+Only one box is open at a time; opening another tool in it swaps what it shows. While a tool is in the box, its button on the toolbar doesn't open a second copy in the keyboard: the box gives a small bounce to show where the tool already is.
+
+The box never takes the focus away from the app, so the keyboard keeps typing into the app's field. A tool's own text box is the exception: tap a note, a task's name or the text to translate, and the keys type there, as they do with the tool open in the keyboard. If the keyboard is closed, tapping the text box brings it up. **Insert** in the calculator and the converters types the result into the app's field while the keyboard is open, and copies it to the clipboard while it's closed. Translate's **Insert** and **Replace** do the same with the translation.
+
+Translate shares its text box with the keyboard's own search panels, such as GIFs and web search. If you open one of those while Translate is in the box, the box keeps showing its last translation and waits. Its text comes back, ready to type into, once the keyboard is down to its keys again. Text you selected and sent to Translate from the selection bar goes into the box, too.
+
+<SettingsPath path="Tools / Close floating boxes on a tap outside" />
+
+For a box that comes up for one sum and goes, turn on **Close floating boxes on a tap outside**. A tap anywhere else on the screen then closes it, and the tap still reaches the app underneath. Taps on the keyboard don't count, so typing into the box's text box doesn't close it. The setting is off by default, and a tucked box ignores it.
+
+The box draws over other apps through the same **Display over other apps** permission the floating button uses. The first time you open a box without it, the keyboard explains why and opens Android's page for it.
+
+## Tools on the home screen
+
+<SettingsPath path="Tools / (any tool) / Add to home screen" />
+
+A tool with a panel can have an icon of its own on your home screen, so the level, the compass or the unit converter can stand in for an app you no longer need. **Add to home screen** on the tool's page asks your launcher to pin it. Tapping the icon opens a blank text box with the keyboard up and that tool already open on it. Whatever the tool types, such as a sum, a translation or a password, lands in the box, and **Copy** and **Share** under it take it from there. Each tool opens as its own entry in Recents, under the tool's name, so you can switch from the compass to the converter the way you switch apps, and tapping an icon again brings its tool back where you left it. An icon pinned before 0.6.6 still opens in one shared screen; pin it again to give it its own entry. The tool opens in WM Keyboard only, so if another keyboard is in use the screen says so and offers to switch. The Clock, Notes and To-do list pin their own screens in the app instead.
 
 ## What does this button do?
 
@@ -105,6 +136,8 @@ Pick a page size that's a multiple of your row size and every page comes out wit
 
 ## Folders
 
+Launchers with their own shortcut list, a secondary launcher for one, offer **WM Keyboard tool** there and add any tool with its own icon. **Add to home screen** on a tool's page does the same from here.
+
 A long toolbox is easier to scan in groups. Hold a tool, drag it over the middle of another one, and let go when that tool lights up: the two become a folder in that tool's place. The edges of a tool still mean "put it beside this one", so reordering works as before; only the middle files it. Drop more tools on the folder to add them, and drop a toolbar tool there to unpin it straight into the folder.
 
 A new folder is called **Folder**. Tap it to open it in the toolbox, and the header shows what you can do with it:
@@ -137,7 +170,7 @@ A row's switch enables or disables the tool everywhere at once: toolbar, toolbox
 
 To keep a tool working but out of the toolbox grid, open its page and turn off **Show in toolbox**. It still runs from the toolbar if pinned, from its keyword, from [selection actions](/smart/selection-actions/) and from the hardware leader key; the grid just loses one cell. Each tool has its own switch. A small tune icon marks the tools with settings beyond the switch. Most have them. Four don't, because their real options live on other screens: Settings, Sound & haptics, One-handed, and [Resize](/tools/resize/).
 
-Related pages cover most of these tools in depth: [Clipboard manager](/tools/clipboard/), [Snippets & text expansion](/tools/snippets/), [Notes](/tools/notes/), [To-do list](/tools/todo/), [Text editing & cursor tools](/tools/text-editing/), [Trackpad](/tools/trackpad/), [Handwriting](/tools/handwriting/), [Camera tool](/tools/camera/), [Gallery](/tools/gallery/), [Send files](/tools/send/), [Voice typing](/tools/voice/), [Offline voice (Whisper)](/tools/whisper/), [Scanner (OCR, QR, documents)](/tools/scanner/), [Translate](/tools/translate/), [Search & Wikipedia](/tools/search/), [AI tools](/tools/ai/), [AI reply](/tools/ai-reply/), [Utility tools](/tools/utilities/), [Internet speed test](/tools/speed-test/), [Media controls](/tools/media/), [Music ID](/tools/music-id/), [Calendar](/tools/calendar/), [App launcher](/tools/app-launcher/), [Resize](/tools/resize/), and [Instruments](/tools/instruments/) (flashlight, compass, level, moon phase, weather). The master tool list is being built out on [Reference → Tools](/reference/settings/tools/).
+Related pages cover most of these tools in depth: [WM Pass](/tools/wm-pass/), [Clipboard manager](/tools/clipboard/), [Snippets & text expansion](/tools/snippets/), [Notes](/tools/notes/), [To-do list](/tools/todo/), [Text editing & cursor tools](/tools/text-editing/), [Trackpad](/tools/trackpad/), [Handwriting](/tools/handwriting/), [Camera tool](/tools/camera/), [Gallery](/tools/gallery/), [Send files](/tools/send/), [Voice typing](/tools/voice/), [Offline voice (Whisper)](/tools/whisper/), [Scanner (OCR, QR, documents)](/tools/scanner/), [Translate](/tools/translate/), [Search & Wikipedia](/tools/search/), [AI tools](/tools/ai/), [AI reply](/tools/ai-reply/), [Utility tools](/tools/utilities/), [Internet speed test](/tools/speed-test/), [Media controls](/tools/media/), [Music ID](/tools/music-id/), [Calendar](/tools/calendar/), [App launcher](/tools/app-launcher/), [Resize](/tools/resize/), and [Instruments](/tools/instruments/) (flashlight, compass, level, moon phase, weather). The master tool list is being built out on [Reference → Tools](/reference/settings/tools/).
 
 ## Panels and captured keys
 
@@ -168,7 +201,7 @@ Tap the switch again, or tap the box itself, and the box takes the keys back wit
 The keys that come up under a tool's box cover most of the tool: the translation under Translate's box, the clips a search found, the rest of a note. To see it all again, put the keys down. The box keeps its text and its caret, and the tool takes back the room the keys had, so the keyboard stays the same height. Any of these does it:
 
 - The keyboard button at the right end of the box's suggestion strip, after the undo arrow and the mic.
-- The system Back button or gesture. The first Back puts the keys down; the next one does what Back did before, such as closing the tool. The AI chat's message box and a plugin's text field already put the keys away on Back, so there Back works as it always has.
+- The system Back button or gesture, with **Back puts a tool's keys down first** on (Appearance / Toolbox, off by default). The first Back then puts the keys down and the next one closes the tool. Off, Back closes the tool at once. The AI chat's message box and a plugin's text field always put the keys away on Back.
 - A swipe down on the spacebar, with [**Swipe down to hide the keyboard**](/typing/gestures/) on, and the **Hide keyboard** tool or key. With a tool's keys up, these put down only the keys and leave the tool open.
 
 Tap the box and the keys come back, with the caret where you tapped. Moving to another box, or opening another tool, brings the keys up for that box. A hardware keyboard still types into the box while the keys are down. The typing test and the toolbox's own boxes have no way to put the keys down: their keys are the point of the screen, and Back closes them.
@@ -223,7 +256,7 @@ The leader is one switch in a broader hardware-keyboard group. Arrow-key navigat
 - **Reverse order for RTL languages**: off by default. Mirrors the pinned tool order when the active layout's script runs right-to-left.
 - **Tool layout**: Spread out by default. Fixed size packs the pinned tools to the left at one size, Spread out splits the width evenly, and Scroll keeps each tool at a comfortable size and lets the bar scroll sideways.
 - **Hide toolbar & clipboard on lock screen**: off by default. See [above](#which-tools-work-before-you-unlock-your-phone).
-- **Toolbar top padding** and **Toolbar bottom padding**: 4dp and 0dp by default, each adjustable from 0–24dp. They add space above and below the tools, and the keyboard grows by the same amount.
+- **Toolbar top padding** and **Toolbar bottom padding**: 4dp and 0dp by default, each adjustable from −12 to 24dp. They add space above and below the tools, and the keyboard grows by the same amount. Below 0 they take height off the strip instead, for a toolbar that is too tall even with no padding, though the strip never gets shorter than 24dp.
 - **Tool labels**: off by default. Shows each tool's name under its icon. The label is 10sp by default.
 - **Reset pinned tools**: restores the toolbar to Emoji, Clipboard, and Settings, after a confirmation. This always resets the *global* row, even while a mode with its own pinned toolbar is active. To change what a mode itself pins, edit that mode instead. On a tablet, reset writes the shipped three and the tablet's own default immediately re-expands it, so you get five or seven back rather than three. It touches the pinned row alone; the grid has its own row below.
 - **Reset toolbox order**: puts the toolbox grid back in the order it shipped in, after a confirmation. Only shown once you've dragged something. See [below](#details--edge-cases).

@@ -38,8 +38,8 @@
 # pinned version when the machine has none.
 set -euo pipefail
 
-RUSTUP_VERSION=1.28.2
-RUSTUP_SHA256=20a06e644b0d9bd2fbdbfd52d42540bdde820ea7df86e92e533c073da0cdd43c
+RUSTUP_VERSION=1.29.2
+RUSTUP_SHA256=5be191e8c70a5007074254cb74d78dbfdd25cd5a61c27de7b8e5410122ec24f4
 
 HERE=$(cd "$(dirname "$0")" && pwd)
 
@@ -59,6 +59,14 @@ if ! command -v rustup >/dev/null 2>&1; then
     "$init" -y --no-modify-path --profile minimal --default-toolchain none
     rm -f "$init"
 fi
+
+# No Qualcomm code in F-Droid's libraries: ExecuTorch's QNN variant is
+# compiled against Qualcomm's proprietary QNN headers.
+export WMKB_ET_QNN=0
+# The same for sherpa-onnx's QNN library (libwmsherpa_qnn).
+export WMKB_SHERPA_QNN=0
+# Nor MediaTek's NeuroPilot one: it compiles against MediaTek's NeuronAdapter.h.
+export WMKB_ET_NEURON=0
 
 scripts=$(python3 "$HERE/gates.py" fdroid-scripts)
 [ -n "$scripts" ] || { echo "native/gates.py listed no build scripts" >&2; exit 1; }

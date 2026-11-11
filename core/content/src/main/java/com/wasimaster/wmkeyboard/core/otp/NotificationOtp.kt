@@ -38,6 +38,8 @@ data class NotificationOtp(
     val notificationKey: String?,
     /** [android.service.notification.StatusBarNotification.getPostTime]. */
     val postedAt: Long,
+    /** When an authenticator's code stops working. A notification's has no known end. */
+    val validUntil: Long? = null,
 )
 
 /**
@@ -80,6 +82,10 @@ object NotificationOtpBus {
             if (key in retired) return
             firstSeen.getOrPut(key) { otp.postedAt }.also { retired.retainAll(firstSeen.keys) }
         }
+        // Newest wins by when a code arrived, not by when it was read: a group
+        // summary or a scan of the shade can hand over an older code late.
+        val current = _latest.value
+        if (current != null && keyOf(current) != key && seen < current.postedAt) return
         _latest.value = if (seen < otp.postedAt) otp.copy(postedAt = seen) else otp
     }
 
@@ -113,6 +119,18 @@ object NotificationOtpCapture {
     @Volatile
     private var cached: Boolean? = null
 
+    /** When Android last handed the listener a notification with its text hidden, or 0. */
+    fun lastRedactedAt(context: Context): Long = prefs(context).getLong("redacted_at", 0L)
+
+    internal fun noteRedacted(context: Context, at: Long) {
+        prefs(context).edit().putLong("redacted_at", at).apply()
+    }
+
+    /** Forgets [lastRedactedAt], once the listener has been allowed to read codes. */
+    fun clearRedacted(context: Context) {
+        prefs(context).edit().remove("redacted_at").apply()
+    }
+
     fun isEnabled(context: Context): Boolean =
         cached ?: prefs(context).getBoolean(KEY_ENABLED, false).also { cached = it }
 
@@ -122,6 +140,30 @@ object NotificationOtpCapture {
         // Turning the feature off must also drop a code already captured —
         // holding it would be exactly the reading the user just opted out of.
         if (!value) NotificationOtpBus.clear()
+    }
+
+    private const val KEY_KEYWORDS = "keywords"
+
+    @Volatile
+    private var keywordsLoaded = false
+
+    /**
+     * Hands the user's own code words (#992) to [ClipEntities] the first time
+     * a notification is read, for a listener that starts before the keyboard
+     * has mirrored them this run.
+     */
+    fun loadKeywords(context: Context) {
+        if (keywordsLoaded) return
+        keywordsLoaded = true
+        val raw = prefs(context).getString(KEY_KEYWORDS, null).orEmpty()
+        ClipEntities.setUserOtpKeywords(ClipEntities.parseOtpKeywords(raw))
+    }
+
+    /** Mirrors the user's code words, [raw] as typed in settings. */
+    fun setKeywords(context: Context, raw: String) {
+        keywordsLoaded = true
+        ClipEntities.setUserOtpKeywords(ClipEntities.parseOtpKeywords(raw))
+        prefs(context).edit().putString(KEY_KEYWORDS, raw).apply()
     }
 
     private fun prefs(context: Context) =
@@ -185,6 +227,13 @@ object NotificationOtpExtractor {
         Regex(
             "\\b(?:use|enter|type)\\s+(?:code\\s+)?$BRAND_PREFIX$CODE\\b",
             RegexOption.IGNORE_CASE,
+        ),
+        // "当前验证码为 467321", "認証コードは123456です", "인증번호 [123456]"
+        // (#992): the keyword, a few joining characters that are not part of
+        // a code, then the code. ASCII guards, since `\b` means nothing next
+        // to Han and Android's `\w` matches it.
+        Regex(
+            "(?:${ClipEntities.CJK_OTP_KEYWORDS})[^0-9A-Za-z\\n]{0,6}?(?<![0-9A-Za-z])$CODE(?![0-9A-Za-z])",
         ),
     )
 

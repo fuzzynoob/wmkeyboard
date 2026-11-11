@@ -245,14 +245,26 @@ enum class ComposerType {
     /** Chinese: 注音 bopomofo symbols with tone marks, Taiwan's standard method. */
     ZHUYIN,
 
+    /** Chinese: 注音 bopomofo on a 12-key pad, typed as ambiguous digit runs. */
+    T9_ZHUYIN,
+
     /** Chinese: 倉頡 Cangjie radical decomposition, typed as the letters a-y. */
     CANGJIE,
 
     /** Chinese: 速成 Quick — a character's first and last Cangjie radical only. */
     CANGJIE_QUICK,
 
+    /** Chinese: 五笔 Wubi 86, at most four root components typed on the letters a-y. */
+    WUBI,
+
     /** Cantonese: 粵拼 Jyutping romanisation with optional tone digits 1-6. */
     JYUTPING,
+
+    /** Cantonese: Yale romanisation over the Jyutping pack, `h` marking a low tone. */
+    YALE,
+
+    /** Cantonese: 教院拼音 Cantonese Pinyin over the Jyutping pack, tone digits 1-9. */
+    CANTONESE_PINYIN,
 
     /** Korean: 천지인 (Cheonjiin) keypad, vowels built from the strokes ㅣ ㆍ ㅡ. */
     CHEONJIIN,
@@ -263,6 +275,12 @@ enum class ComposerType {
      * pad's 획추가 and 쌍자음 keys.
      */
     NARATGEUL,
+
+    /** Korean: 베가 (Vega) keypad, every key a cycle, spelled as [NARATGEUL] is. */
+    VEGA,
+
+    /** Korean: 모아키 (Moakey), a consonant key dragged towards its vowel. */
+    MOAKEY,
 
     /**
      * Bengali: ক্ষিপ্র Khipro, composed from lowercase keys with `f` and `/` as
@@ -276,6 +294,9 @@ enum class ComposerType {
      * apart until `/` joins them, one press per extra consonant.
      */
     KHIPRO_DARK,
+
+    /** Bengali: Borno Phonetic, Codepotro's published keymap, ranked like Avro. */
+    BORNO_PHONETIC,
 }
 
 /**

@@ -30,7 +30,7 @@ The chart counts requests, not bytes. A failed request carries no data but it st
 **Servers contacted** lists every server by name, with the feature that used it. There are no favicons, because fetching one would be a request of its own. Three badges can appear:
 
 - **New**: first contacted in the last 7 days, on a log that is older than that. On a fresh log nothing is new, so nothing says so.
-- **Your server**: an address you typed in yourself, such as a LibreTranslate, SearXNG or Ollama server, a Mozhi, SimplyTranslate, Lingva or Translite instance, a DeepL proxy, a translation server, a LanguageTool server, a transcription server, a Stable Diffusion, ComfyUI or image server for the sticker generator, or a WebDAV, S3, SFTP, SMB, FTP, Git or IMAP backup.
+- **Your server**: an address you typed in yourself, such as a LibreTranslate, SearXNG or Ollama server, a Mozhi, SimplyTranslate, Lingva or Translite instance, a DeepL proxy, a translation server, a LanguageTool server, a transcription server, a Stable Diffusion, ComfyUI or image server for the sticker generator, or a WebDAV, S3, SFTP, SMB, NFS, FTP, Git, IMAP, Synology or QNAP backup.
 - **Local network**: a private address or a `.local`, `.lan` or `.home.arpa` name. The screen decides this from the name alone. It never looks the name up, since that would be a request too.
 
 Press a server to see only its requests.
@@ -83,7 +83,7 @@ A few parts of the app are other people's code that make their own requests, out
 - **Play Store builds** ask the Play Store about updates and about the parts of the app it delivers on demand.
 - **Voice typing** with Android's own recognizer is Android's request, not the keyboard's.
 
-Everything the keyboard's own code does is here. That isn't a promise made once: a test in the project fails the build if any file opens a connection, an HTTP client or a socket without going through the log. The two files it lets through are KDE Connect's plumbing. One wraps sockets that are already counted, and the other sends the small discovery announcements KDE Connect uses to find computers on your network. Those carry a device name and a random id, and they aren't logged.
+Everything the keyboard's own code does is here. That isn't a promise made once: a test in the project fails the build if any file opens a connection, an HTTP client or a socket without going through the log. The files it lets through open nothing of their own that goes unrecorded: KDE Connect's plumbing, which wraps sockets already counted and sends the small discovery announcements KDE Connect uses to find computers on your network (those carry a device name and a random id, and aren't logged); the listeners that LAN share and LocalSend keep open for devices on your network while you use those tools; and the socket code behind SMB and NFS backups, whose traffic is counted on the backup's row.
 
 ## Related pages
 

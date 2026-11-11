@@ -9,7 +9,11 @@
 #include <android/bitmap.h>
 #include <jni.h>
 
+#include <memory>
+#include <vector>
+
 #include "docscan.hpp"
+#include "themecopy.hpp"
 
 namespace {
 
@@ -102,6 +106,105 @@ Java_com_wasimaster_wmkeyboard_core_docscan_DocScanNative_nativeEnhance(
         return JNI_FALSE;
     }
     return JNI_TRUE;
+}
+
+// Label-sized things in the bitmap, four ints each: x y width height.
+JNIEXPORT jintArray JNICALL
+Java_com_wasimaster_wmkeyboard_core_docscan_DocScanNative_nativeLabelCandidates(
+        JNIEnv* env, jobject, jobject bitmap) {
+    std::vector<cv::Rect> found;
+    {
+        Locked src(env, bitmap);
+        if (!src.ok()) return nullptr;
+        try {
+            found = wmdocscan::labelCandidates(src.mat);
+        } catch (...) {
+            return nullptr;
+        }
+    }
+    std::vector<jint> flat;
+    for (const auto& r : found) {
+        flat.push_back(r.x);
+        flat.push_back(r.y);
+        flat.push_back(r.width);
+        flat.push_back(r.height);
+    }
+    jintArray out = env->NewIntArray(static_cast<jsize>(flat.size()));
+    if (out && !flat.empty()) env->SetIntArrayRegion(out, 0, static_cast<jsize>(flat.size()), flat.data());
+    return out;
+}
+
+// A keyboard theme read off a screenshot: the theme's JSON, then for each picture
+// it needs that picture's name and an int array of width, height and ARGB pixels.
+// Null when the bitmap shows no key grid.
+JNIEXPORT jobjectArray JNICALL
+Java_com_wasimaster_wmkeyboard_core_docscan_DocScanNative_nativeCopyTheme(
+        JNIEnv* env, jobject, jobjectArray bitmaps, jfloat widthDp, jobjectArray texts, jintArray boxes) {
+    // Each run of text read in the first bitmap, with four ints in boxes: x y w h.
+    std::vector<wmdocscan::ReadText> letters;
+    if (texts && boxes) {
+        const jsize count = env->GetArrayLength(texts);
+        if (env->GetArrayLength(boxes) == count * 4) {
+            std::vector<jint> b(static_cast<size_t>(count) * 4);
+            env->GetIntArrayRegion(boxes, 0, count * 4, b.data());
+            for (jsize i = 0; i < count; ++i) {
+                auto text = static_cast<jstring>(env->GetObjectArrayElement(texts, i));
+                if (!text) continue;
+                const char* chars = env->GetStringUTFChars(text, nullptr);
+                if (chars) {
+                    letters.push_back({chars, {b[i * 4], b[i * 4 + 1], b[i * 4 + 2], b[i * 4 + 3]}});
+                    env->ReleaseStringUTFChars(text, chars);
+                }
+                env->DeleteLocalRef(text);
+            }
+        }
+    }
+    wmdocscan::ThemeCopy copy;
+    {
+        const jsize pictures = env->GetArrayLength(bitmaps);
+        if (pictures < 1) return nullptr;
+        std::vector<std::unique_ptr<Locked>> locked;
+        for (jsize i = 0; i < pictures; ++i) {
+            locked.push_back(std::make_unique<Locked>(env, env->GetObjectArrayElement(bitmaps, i)));
+            if (!locked.back()->ok()) return nullptr;
+        }
+        std::vector<cv::Mat> others;
+        for (jsize i = 1; i < pictures; ++i) others.push_back(locked[i]->mat);
+        try {
+            copy = wmdocscan::copyTheme(locked[0]->mat, widthDp, false, letters, others);
+        } catch (...) {
+            return nullptr;
+        }
+    }
+    if (!copy.found) return nullptr;
+    jclass object = env->FindClass("java/lang/Object");
+    if (!object) return nullptr;
+    const auto size = static_cast<jsize>(1 + copy.images.size() * 2);
+    jobjectArray out = env->NewObjectArray(size, object, nullptr);
+    if (!out) return nullptr;
+    env->SetObjectArrayElement(out, 0, env->NewStringUTF(copy.json.c_str()));
+    jsize at = 1;
+    for (const auto& [name, image] : copy.images) {
+        const auto count = static_cast<jsize>(2 + image.total());
+        jintArray pixels = env->NewIntArray(count);
+        if (!pixels) return nullptr;
+        jint* to = env->GetIntArrayElements(pixels, nullptr);
+        to[0] = image.cols;
+        to[1] = image.rows;
+        jint* next = to + 2;
+        for (int y = 0; y < image.rows; ++y) {
+            const auto* row = image.ptr<cv::Vec4b>(y);
+            for (int x = 0; x < image.cols; ++x) {
+                *next++ = static_cast<jint>(static_cast<uint32_t>(row[x][3]) << 24 | static_cast<uint32_t>(row[x][0]) << 16 |
+                                            static_cast<uint32_t>(row[x][1]) << 8 | row[x][2]);
+            }
+        }
+        env->ReleaseIntArrayElements(pixels, to, 0);
+        env->SetObjectArrayElement(out, at++, env->NewStringUTF(name.c_str()));
+        env->SetObjectArrayElement(out, at++, pixels);
+        env->DeleteLocalRef(pixels);
+    }
+    return out;
 }
 
 }  // extern "C"

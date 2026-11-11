@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources>
+<resources xmlns:xliff="urn:oasis:names:tc:xliff:document:1.2">
     <!-- Clock: the ring screen -->
     <string name="clock_ring_alarm">Alarm</string>
     <string name="clock_ring_timer_done">Time is up</string>
@@ -65,8 +65,19 @@
     <string name="clock_fade_off">Off</string>
     <string name="clock_auto_silence_title">Stop ringing after</string>
     <string name="clock_auto_silence_subtitle">An alarm nobody answers stops by itself and shows as missed in the history</string>
+    <string name="clock_pin_local_title">Show local time first</string>
+    <string name="clock_pin_local_subtitle">Your phone\'s own time ahead of the cities</string>
+    <string name="clock_pin_utc_title">Show UTC first</string>
+    <string name="clock_pin_utc_subtitle">UTC ahead of the cities, after local time</string>
+    <string name="clock_remove_city_title">Remove <xliff:g id="city" example="Tokyo">%1$s</xliff:g>?</string>
+    <string name="clock_alarm_auto_snooze_label">Snoozes when nobody answers</string>
+    <string name="clock_alarm_auto_snooze_default">As in settings</string>
     <string name="clock_auto_snooze_title">Snooze when nobody answers</string>
-    <string name="clock_auto_snooze_subtitle">An alarm that stops ringing by itself snoozes instead, up to this many times, before it counts as missed</string>
+    <string name="clock_auto_snooze_subtitle">An alarm that stops ringing by itself snoozes instead, up to this many times or until someone answers, before it counts as missed</string>
+    <string name="clock_auto_snooze_forever">Until answered</string>
+    <string name="clock_ringing_now_title">Ringing now</string>
+    <string name="clock_ringing_now_alarm">An alarm. Tap to answer it</string>
+    <string name="clock_ringing_now_timer">A timer. Tap to answer it</string>
     <string name="clock_upcoming_title">Notice before an alarm</string>
     <string name="clock_upcoming_subtitle">Shows the next alarm in the notifications this long before it rings, with a button to skip it</string>
     <string name="clock_snoozed_notice_title">Notice while snoozed</string>

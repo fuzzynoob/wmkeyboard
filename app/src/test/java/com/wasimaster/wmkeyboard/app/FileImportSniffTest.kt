@@ -5,6 +5,8 @@ import com.wasimaster.wmkeyboard.core.icons.IconPackFile
 import com.wasimaster.wmkeyboard.core.layout.KeysCafeLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import com.wasimaster.wmkeyboard.core.plugins.PluginFile
+import com.wasimaster.wmkeyboard.core.settings.foreign.ForeignKeyboard
+import com.wasimaster.wmkeyboard.core.settings.foreign.ForeignTheme
 import com.wasimaster.wmkeyboard.core.stickers.StickerPackFile
 import com.wasimaster.wmkeyboard.core.stickers.whatsapp.WaStickersFile
 import com.wasimaster.wmkeyboard.core.theme.FlexTheme
@@ -82,6 +84,11 @@ class FileImportSniffTest {
             WMFileTypes.textKindFor("""{"shopping":["milk","eggs"]}""", "list.json"),
         )
         assertEquals(WMFileTypes.Opened.Unrecognized, WMFileTypes.textKindFor("hello", "notes.txt"))
+        // Clink's encrypted export package is named as such, not called unreadable.
+        assertEquals(
+            WMFileTypes.Opened.ClinkProtected,
+            WMFileTypes.textKindFor("""{"clinkPackage":1,"payload":"ARbG","kind":"theme"}""", "M&M.clinktheme.json"),
+        )
         assertEquals(WMFileTypes.Opened.Unrecognized, WMFileTypes.textKindFor("", "empty.json"))
     }
 
@@ -213,6 +220,45 @@ class FileImportSniffTest {
         assertEquals("Mac Mine", (opened as WMFileTypes.Opened.DesktopLayoutFile).layouts.single().layout.name)
     }
 
+    // ---- Clink ----
+
+    @Test
+    fun `a Clink theme opens as a converted theme, not as a theme of all defaults`() {
+        val colour = """{"r": 0.2, "g": 0.4, "b": 0.6, "a": 1}"""
+        val theme = """{"id": "brick", "name": "Brick", "isDark": false, "background": $colour,
+            "keyFill": $colour, "keyText": $colour, "specialKeyFill": $colour,
+            "specialKeyText": $colour, "accent": $colour}"""
+        val opened = WMFileTypes.textKindFor(theme, "brick.clinktheme")
+        assertTrue("a Clink theme was not recognised: $opened", opened is WMFileTypes.Opened.ClinkThemeFile)
+        assertEquals("Brick", (opened as WMFileTypes.Opened.ClinkThemeFile).result.theme.name)
+    }
+
+    @Test
+    fun `a Clink layout opens as a foreign layout`() {
+        val layout = """{"id": "custom-x", "name": "Mine", "rows": [["q", "w"], ["a", "s"], ["z", "x"]]}"""
+        val opened = WMFileTypes.textKindFor(layout, "mine.clinklayout")
+        assertTrue("a Clink layout was not recognised: $opened", opened is WMFileTypes.Opened.ForeignLayout)
+        assertEquals("Mine", (opened as WMFileTypes.Opened.ForeignLayout).converted.layout.name)
+    }
+
+    // ---- Kinetica ----
+
+    @Test
+    fun `a Kinetica backup opens as a whole backup, not as a table of snippets`() {
+        val backup = listOf(
+            "kinetica-backup\t1",
+            "pref\tstring\tpref_theme_brightness\tlight",
+            "expand\tbrb\t0\tbe right back",
+            "word\ten\thello\t3",
+        ).joinToString("\n")
+        val opened = WMFileTypes.textKindFor(backup, "kinetica_backup_2026-11-04_1200.txt")
+        assertTrue("a Kinetica backup was not recognised: $opened", opened is WMFileTypes.Opened.ForeignBackupFile)
+        val read = (opened as WMFileTypes.Opened.ForeignBackupFile).backup
+        assertEquals(ForeignKeyboard.KINETICA, read.keyboard)
+        assertEquals(false, (read.themes.single() as ForeignTheme.Kinetica).result.theme.dark)
+        assertEquals("brb", read.snippets.single().trigger)
+    }
+
     // ---- Multiling O ----
 
     @Test
@@ -256,6 +302,10 @@ class FileImportSniffTest {
         assertEquals(
             WMFileTypes.Opened.Plugin,
             WMFileTypes.archiveKindFor("""{"format":"${PluginFile.FORMAT}"}"""),
+        )
+        assertEquals(
+            WMFileTypes.Opened.SoundPack,
+            WMFileTypes.archiveKindFor("""{"schemaVersion":1,"sounds":{"keypress.default":{}}}"""),
         )
     }
 

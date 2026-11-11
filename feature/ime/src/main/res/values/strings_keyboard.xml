@@ -103,6 +103,10 @@
     <string name="ime_toolbar_show_desc">Show the toolbar</string>
     <string name="ime_toolbar_hide_desc">Hide the toolbar</string>
     <string name="ime_autofill_dismiss_desc">Hide the autofill suggestions</string>
+    <!-- #1003: in a password field with no saved login on the strip. %1$s is the password manager app, such as Bitwarden. -->
+    <string name="ime_password_manager_chip">Open <xliff:g id="app" example="Bitwarden">%1$s</xliff:g></string>
+    <string name="ime_password_manager_chip_wm_pass">Fill from WM Pass</string>
+    <string name="ime_password_manager_dismiss_desc">Hide the password manager button</string>
     <string name="ime_smart_replies_dismiss_desc">Hide the smart replies</string>
     <string name="ime_candidates_more_desc">More candidates</string>
     <string name="ime_emoji_panel_open_desc">Open the emoji panel</string>
@@ -128,6 +132,11 @@
          strip, which opens the menu below. -->
     <string name="ime_suggestion_hold_label">Word options</string>
     <!-- An alternative on the recent-word row (#842), read by TalkBack as what a tap does. %1$s is the word written, %2$s the one that would replace it. -->
+    <!-- The Retype button on the suggestion strip or the recent words' row (#1189). Keep it short. -->
+    <string name="ime_retype_button">Retype</string>
+    <string name="ime_retype_button_desc">Retype the word at the cursor</string>
+    <string name="ime_retype_button_nothing">No word to retype. Put the cursor right after a word.</string>
+    <string name="ime_retype_button_spent">That word is cleared. Type it again, or pick it from the strip.</string>
     <string name="ime_recent_word_replace_desc">Change <xliff:g id="word" example="form">%1$s</xliff:g> to <xliff:g id="offer" example="from">%2$s</xliff:g></string>
     <!-- Shown over the strip while a held word is slid up or down (#790). %1$s is the word, %2$s its new rank, such as +2 or −3. -->
     <string name="ime_suggestion_rank_badge">\"<xliff:g id="word" example="mary">%1$s</xliff:g>\" rank <xliff:g id="rank" example="+2">%2$s</xliff:g></string>
@@ -241,10 +250,14 @@
     <string name="ime_word_card_keep_capitals_hint">Stops the keyboard relearning the word\'s capitals from how you type it. Words the keyboard has not learned have no spelling to keep — change the spelling to teach it one.</string>
     <!-- The spelling bar, before anything has been typed into it. %1$s is the
          word being respelled. -->
+    <string name="ime_word_menu_correct">Correct \"<xliff:g id="word" example="kagay">%1$s</xliff:g>\" to…</string>
+    <string name="ime_word_correct_hint">Type what \"<xliff:g id="word" example="kagay">%1$s</xliff:g>\" should become</string>
+    <string name="ime_word_correct_label"><xliff:g id="word" example="kagay">%1$s</xliff:g> →</string>
     <string name="ime_word_spell_hint">Type a new spelling for \"<xliff:g id="word" example="teh">%1$s</xliff:g>\"</string>
-    <!-- Screen reader names of the spelling bar's two buttons. -->
+    <!-- Screen reader names of the spelling bar's buttons. -->
     <string name="ime_word_spell_apply_desc">Use this spelling</string>
     <string name="ime_word_spell_cancel_desc">Leave the spelling alone</string>
+    <string name="ime_word_spell_paste_desc">Paste a word</string>
 
     <!-- Heading over the control that edits the personal dictionary's count. -->
     <string name="ime_word_card_weight_title">Learned weight</string>
@@ -268,6 +281,11 @@
     <!-- Screen reader name for the chip that takes an autocorrect back. The
          word on the chip is read after this, so it says what pressing does. -->
     <string name="ime_undo_correction_desc">Put back the word you typed</string>
+    <string name="ime_delete_undo_chip">Undo “%1$s”</string>
+    <string name="ime_delete_redo_chip">Redo “%1$s”</string>
+    <string name="ime_delete_undo_plain">Undo delete</string>
+    <string name="ime_delete_redo_plain">Delete again</string>
+    <string name="ime_delete_undo_dismiss_desc">Hide the undo</string>
     <string name="ime_capture_undo_desc">Undo the last change</string>
     <string name="ime_capture_redo_desc">Redo the change you undid</string>
     <string name="ime_capture_keys_lower_desc">Put the keys down</string>
@@ -412,6 +430,7 @@
     <string name="ime_tool_resize">Resize</string>
     <string name="ime_resize_reset">Reset</string>
     <string name="ime_resize_done">Done</string>
+    <string name="ime_resize_full_width_bars">Full-width toolbar</string>
     <string name="ime_resize_height_handle_desc">Drag to change the keyboard height</string>
     <string name="ime_resize_bottom_handle_desc">Drag to move the bottom edge of the keyboard</string>
     <string name="ime_resize_left_handle_desc">Drag to change the space left of the keyboard</string>
@@ -419,6 +438,7 @@
     <string name="ime_resize_move_desc">Drag to move the keyboard up or down</string>
     <string name="ime_tool_settings">Settings</string>
     <string name="ime_tool_flashlight">Flashlight</string>
+    <string name="ime_tool_screenshot">Screenshot</string>
     <string name="ime_tool_compass">Compass</string>
     <string name="ime_tool_level">Level</string>
     <string name="ime_tool_undo">Undo</string>
@@ -459,6 +479,130 @@
     <string name="ime_tool_find_replace">Find &amp; replace</string>
     <string name="ime_tool_notes">Notes</string>
     <string name="ime_tool_todo">To-do list</string>
+    <string name="ime_tool_wm_pass">WM Pass</string>
+    <string name="ime_wmpass_username">Username</string>
+    <string name="ime_wmpass_password">Password</string>
+    <string name="ime_wmpass_code">Code</string>
+    <string name="ime_wmpass_open">Open WM Pass</string>
+    <string name="ime_wmpass_retry">Check again</string>
+    <string name="ime_wmpass_empty">Nothing in the vault yet.</string>
+    <string name="ime_wmpass_no_match">Nothing in the vault matches “%1$s”.</string>
+    <string name="ime_wmpass_search_hint">Search the vault</string>
+    <string name="ime_wmpass_clear_search_desc">Clear the search</string>
+    <string name="ime_wmpass_add">Add a login</string>
+    <string name="ime_wmpass_matches_desc">Saved for this app</string>
+    <string name="ime_wmpass_type">Type</string>
+    <string name="ime_wmpass_copy">Copy</string>
+    <string name="ime_wmpass_open_item">Open in WM Pass</string>
+    <string name="ime_wmpass_change_password">Change password</string>
+    <string name="ime_wmpass_back">All items</string>
+    <string name="ime_wmpass_field_website">Website</string>
+    <string name="ime_wmpass_field_notes">Notes</string>
+    <string name="ime_wmpass_field_name">Name</string>
+    <string name="ime_wmpass_name_hint">Name it, or leave it to the website</string>
+    <string name="ime_wmpass_username_hint">Email or username</string>
+    <string name="ime_wmpass_website_hint">example.com</string>
+    <string name="ime_wmpass_new_login">New login</string>
+    <string name="ime_wmpass_new_login_info">Saved in WM Pass. Added while an app is in front, it is tied to that app, unless the app is a browser.</string>
+    <string name="ime_wmpass_new_password_for">New password for %1$s</string>
+    <string name="ime_wmpass_new_password_hint">Type the new password</string>
+    <string name="ime_wmpass_new_password_info">WM Pass keeps the old password in the item\'s history.</string>
+    <string name="ime_wmpass_generate">New password</string>
+    <string name="ime_wmpass_show">Show</string>
+    <string name="ime_wmpass_hide">Hide</string>
+    <string name="ime_wmpass_save">Save</string>
+    <string name="ime_wmpass_next">Next</string>
+    <string name="ime_wmpass_done">Done</string>
+    <string name="ime_wmpass_not_set">Not set</string>
+    <string name="ime_wmpass_private_field">This field asked the keyboard not to remember anything, as a private browser tab does, so nothing from WM Pass is typed or copied into it.</string>
+    <string name="ime_wmpass_copied">WM Pass copied it, and clears it from the clipboard after a while.</string>
+    <string name="ime_wmpass_copy_failed">WM Pass did not copy it. The vault may have locked.</string>
+    <string name="ime_wmpass_type_failed">WM Pass did not send it. The vault may have locked.</string>
+    <string name="ime_wmpass_saved">Saved in WM Pass.</string>
+    <string name="ime_wmpass_save_failed">WM Pass did not save it. The vault may have locked.</string>
+    <string name="ime_wmpass_changed">Password changed.</string>
+    <string name="ime_wmpass_change_failed">WM Pass did not change it. The vault may have locked.</string>
+    <string name="ime_wmpass_no_password">WM Pass did not make a password. The vault may have locked.</string>
+    <string name="ime_wmpass_gone">That item is gone, or the vault locked.</string>
+    <!-- The buttons a field of WM Pass's own offers on the strip; the same words as the buttons beside it there. -->
+    <string name="ime_wmpass_chip_scan_card">Scan the card</string>
+    <string name="ime_wmpass_chip_wifi_code">Fill in from a QR code</string>
+    <string name="ime_wmpass_chip_wifi_saved">Pick a network saved on this phone</string>
+    <string name="ime_wmpass_no_vault">WM Pass has no vault yet. Make one there first.</string>
+    <string name="ime_wmpass_off">To use this, turn on Let WM Keyboard fill in WM Pass, under Settings, Security.</string>
+    <string name="ime_wmpass_get">Get WM Pass</string>
+    <string name="ime_wmpass_missing">This tool is a password book on WM Pass, a separate password manager. It is not installed.</string>
+    <string name="ime_wmpass_untrusted">An app using WM Pass\'s name is installed, but it is not signed by WM Pass, so it was not asked for anything.</string>
+    <!-- The WM Pass tool's locked face, and unlocking without leaving the app being typed in. -->
+    <string name="ime_wmpass_locked_title">WM Pass is locked</string>
+    <string name="ime_wmpass_locked_body">Unlock it here, without leaving this app.</string>
+    <string name="ime_wmpass_locked_body_app">Unlock it here and stay in %1$s.</string>
+    <string name="ime_wmpass_fingerprint">Fingerprint</string>
+    <string name="ime_wmpass_use_password">Password</string>
+    <string name="ime_wmpass_type_master">Type password</string>
+    <string name="ime_wmpass_unlock_in_pass">Unlock in WM Pass</string>
+    <string name="ime_wmpass_unlock">Unlock</string>
+    <string name="ime_wmpass_master_hint">Master password</string>
+    <string name="ime_wmpass_master_info">Goes only to WM Pass. The keyboard does not learn it or keep it.</string>
+    <string name="ime_wmpass_unlocking">Unlocking…</string>
+    <string name="ime_wmpass_wrong">Wrong password.</string>
+    <string name="ime_wmpass_wait">Too many tries. Try again in %1$s.</string>
+    <string name="ime_wmpass_lock">Lock WM Pass</string>
+    <string name="ime_wmpass_unlocked">Unlocked.</string>
+    <string name="ime_wmpass_locked_now">Locked.</string>
+    <string name="ime_wmpass_prompt_failed">WM Pass did not start its unlock. Update WM Pass, or open it.</string>
+    <string name="ime_wmpass_needs_door">This vault also needs its key file or security key. Open WM Pass to unlock it.</string>
+    <string name="ime_wmpass_unlock_failed">WM Pass did not answer. Update it, or open it to unlock.</string>
+    <!-- Filling a sign-in form: the username here, the password in the next box. -->
+    <string name="ime_wmpass_fill">Fill</string>
+    <string name="ime_wmpass_fill_desc">Fill the username, then the password</string>
+    <string name="ime_wmpass_fill_next">Username typed. The password follows in the password box.</string>
+    <string name="ime_wmpass_no_username">This login has no username to fill.</string>
+    <string name="ime_wmpass_type_username">Type the username</string>
+    <string name="ime_wmpass_type_password">Type the password</string>
+    <string name="ime_wmpass_type_code">Type the code</string>
+    <string name="ime_wmpass_peek">Show for a moment</string>
+    <string name="ime_wmpass_favourite_desc">Favourite</string>
+    <!-- The chips over the list. -->
+    <string name="ime_wmpass_filter_all">All</string>
+    <string name="ime_wmpass_filter_app">This app</string>
+    <string name="ime_wmpass_filter_favourites">Favourites</string>
+    <string name="ime_wmpass_filter_logins">Logins</string>
+    <string name="ime_wmpass_filter_codes">Codes</string>
+    <string name="ime_wmpass_filter_cards">Cards</string>
+    <string name="ime_wmpass_filter_notes">Notes</string>
+    <string name="ime_wmpass_filter_other">Other</string>
+    <string name="ime_wmpass_filter_empty">Nothing here.</string>
+    <string name="ime_wmpass_saved_for">Saved for %1$s</string>
+    <plurals name="ime_wmpass_item_count">
+        <item quantity="one">%1$s · %2$d item</item>
+        <item quantity="other">%1$s · %2$d items</item>
+    </plurals>
+    <!-- The generator's own page. -->
+    <string name="ime_wmpass_type_it">Type it</string>
+    <string name="ime_wmpass_another">Another</string>
+    <string name="ime_wmpass_save_as_login">Save as a login</string>
+    <string name="ime_wmpass_generator_info">From WM Pass\'s generator, made the way it is set up there.</string>
+    <string name="ime_wmpass_strength_0">Very weak</string>
+    <string name="ime_wmpass_strength_1">Weak</string>
+    <string name="ime_wmpass_strength_2">Fair</string>
+    <string name="ime_wmpass_strength_3">Strong</string>
+    <string name="ime_wmpass_strength_4">Very strong</string>
+    <string name="ime_wmpass_strength_bits">%1$d bits</string>
+    <!-- An item's kind, under its name. -->
+    <string name="ime_wmpass_kind_login">Login</string>
+    <string name="ime_wmpass_kind_card">Card</string>
+    <string name="ime_wmpass_kind_wifi">Wi-Fi network</string>
+    <string name="ime_wmpass_kind_note">Note</string>
+    <string name="ime_wmpass_kind_identity">Identity</string>
+    <string name="ime_wmpass_kind_ssh">SSH key</string>
+    <string name="ime_wmpass_kind_api">API key</string>
+    <string name="ime_wmpass_kind_database">Database</string>
+    <string name="ime_wmpass_kind_licence">Licence</string>
+    <string name="ime_wmpass_kind_recovery">Recovery codes</string>
+    <string name="ime_wmpass_kind_otp">One-time code</string>
+    <string name="ime_wmpass_kind_document">Document</string>
+    <string name="ime_wmpass_kind_other">Item</string>
     <string name="ime_tool_location">Location</string>
     <string name="ime_tool_clock">Clock</string>
     <string name="ime_tool_music_id">Music ID</string>
@@ -518,6 +662,7 @@
     <string name="ime_emoji_mix_first_desc">First emoji</string>
     <string name="ime_emoji_mix_second_desc">Second emoji</string>
     <string name="ime_emoji_mix_none">No mix</string>
+    <string name="ime_emoji_mix_search_desc">Search the emoji</string>
     <string name="ime_emoji_mix_swap_desc">Swap the two emoji</string>
     <string name="ime_emoji_mix_shuffle_desc">A random mix</string>
     <string name="ime_emoji_mix_shuffle_hold_desc">Choose what the shuffle picks from</string>
@@ -608,10 +753,12 @@
     <string name="ime_toolbox_folder_name_hint">Folder name…</string>
     <string name="ime_toolbox_folder_pin_desc">Pin the folder to the toolbar</string>
     <string name="ime_toolbox_folder_unpin_desc">Remove the folder from the toolbar</string>
+    <string name="ime_toolbox_folder_main_desc">On the toolbar, tap for the first tool and hold for the folder</string>
     <string name="ime_toolbox_folder_ungroup_desc">Ungroup the folder</string>
     <string name="ime_toolbox_folder_take_out">Drop here to take the tool out of the folder</string>
     <string name="ime_toolbox_folder_empty">Every tool in this folder is on the toolbar.</string>
     <!-- Spoken for a folder cell. %1$s is the folder name. -->
+    <string name="ime_toolbar_app_desc">Open <xliff:g id="app" example="Maps">%1$s</xliff:g></string>
     <plurals name="ime_toolbox_folder_desc">
         <item quantity="one">%1$s, folder with %2$d tool</item>
         <item quantity="other">%1$s, folder with %2$d tools</item>
@@ -629,6 +776,8 @@
     <string name="ime_search_attribution_brave">via Brave</string>
     <!-- Names the search service. Tavily is a brand name: keep it as it is. -->
     <string name="ime_search_attribution_tavily">via Tavily</string>
+    <!-- The search service, then what it says is left of this month's searches or credits (#1135): "via Tavily · 812 left". -->
+    <string name="ime_search_attribution_left">%1$s · %2$s left</string>
     <string name="ime_unit_convert_title">Unit converter</string>
     <string name="ime_password_tab_passphrase">Passphrase</string>
     <!-- Tab in the password generator: a code made of digits only. -->
@@ -661,6 +810,9 @@
     <string name="ime_launcher_app_info_action">App info</string>
     <string name="ime_launcher_pin_action">Pin app</string>
     <string name="ime_launcher_unpin_action">Unpin app</string>
+    <string name="ime_launcher_toolbar_add_action">Put on the toolbar</string>
+    <string name="ime_launcher_toolbar_remove_action">Take off the toolbar</string>
+    <string name="ime_launcher_toolbar_full">The toolbar has no room for more apps. Take one off first.</string>
     <string name="ime_launcher_hide_action">Hide app from the grid</string>
     <string name="ime_launcher_unhide_action">Show app in the grid again</string>
     <!-- Marks a search result the user hid from the grid. -->
@@ -672,7 +824,13 @@
     <string name="ime_launcher_open_floating_action">Open in a floating window</string>
     <string name="ime_launcher_open_split_action">Open in split screen</string>
     <!-- Under "Open in a floating window" on a device without a desktop or freeform window mode. -->
-    <string name="ime_launcher_floating_unsupported">This device may open it full screen</string>
+    <string name="ime_launcher_floating_unsupported">Opens full screen on this phone</string>
+    <string name="ime_launcher_floating_fell_back">This phone has no floating window the keyboard can open, so it opened normally</string>
+    <string name="ime_launcher_split_fell_back">Split screen didn\'t work on this phone, so it opened normally</string>
+    <string name="launch_probe_message">Checking how this phone opens apps…</string>
+    <string name="launch_emulated_back">Back</string>
+    <string name="launch_emulated_expand">Open full screen</string>
+    <string name="launch_emulated_close">Close</string>
     <string name="ime_launcher_pair_action">Pair in split screen with…</string>
     <!-- Opens the app's own page: its screens (activities), hide and App info. -->
     <string name="ime_launcher_page_action">Screens, hide and App info…</string>
@@ -813,6 +971,10 @@
     <string name="ime_clipboard_empty">The clipboard history is empty.\nCopied text shows here.</string>
     <!-- %1$s is what the user typed in the clipboard search box. -->
     <string name="ime_clipboard_no_match">No clips match “%1$s”.</string>
+    <!-- Over the passages of the user's notes that a clipboard search found, listed above the clips (#1104). -->
+    <string name="ime_clipboard_notes_section">From notes</string>
+    <!-- Over the clips a clipboard search found, when passages from notes are listed above them. -->
+    <string name="ime_clipboard_clips_section">Clips</string>
     <string name="ime_clip_pin">Pin</string>
     <string name="ime_clip_unpin">Unpin</string>
     <!-- Button in the press-and-hold details for an image clip. The image is
@@ -824,6 +986,10 @@
     <string name="ime_clip_edit_placeholder">Type the clip’s text</string>
     <!-- A clip's own labels (#612): the hold popup's action, and the editor opened on them. -->
     <string name="ime_clip_tags">Tags</string>
+    <string name="ime_clip_paste_next">Paste next</string>
+    <string name="ime_clip_paste_next_toast">This clip pastes next</string>
+    <string name="ime_clip_metadata_working_toast">Removing the video\'s metadata…</string>
+    <string name="ime_clip_metadata_failed_toast">The keyboard could not remove the metadata from this file, so it did not paste it</string>
     <string name="ime_clip_tags_title">Tags</string>
     <string name="ime_clip_tags_placeholder">Tags, with a comma between them</string>
     <!-- The hold popup's action and the clip shortcut button that open the QR code tool on a text clip (#766). -->
@@ -897,6 +1063,17 @@
     <string name="ime_clip_filter_files">Files</string>
     <!-- Filter showing clips with the same text but for case and spacing (#612). -->
     <string name="ime_clip_filter_duplicates">Duplicates</string>
+    <!-- A tag filter chip pressed a second time: only the clips that do not carry tag %1$s. -->
+    <string name="ime_clip_filter_without_tag">Not #%1$s</string>
+    <!-- A kind filter chip (Text, Links…) pressed a second time (#1187): only the clips that are not %1$s. -->
+    <string name="ime_clip_filter_without">Not %1$s</string>
+    <!-- TalkBack name of a filter chip's press and hold (#1187): the chip joins the filters already set instead of replacing them. -->
+    <string name="ime_clip_filter_add_desc">Add to the filters</string>
+    <!-- The chip at the end of the clipboard's filter row while filters are set (#1187); it shows only the count. %1$d is how many chips are set. -->
+    <plurals name="ime_clip_filter_clear_desc">
+        <item quantity="one">Clear %1$d filter</item>
+        <item quantity="other">Clear %1$d filters</item>
+    </plurals>
     <!-- Hold popup: delete the other clips the duplicates filter groups with this one (#612). -->
     <string name="ime_clip_keep_only">Keep only this one</string>
     <!-- Hold popup, while searching: close the search and scroll the history to this clip (#612). -->
@@ -924,6 +1101,7 @@
     <!-- Picking several clips to combine or delete them (#612). -->
     <string name="ime_clip_select">Select</string>
     <string name="ime_clip_select_cancel_desc">Stop selecting</string>
+    <string name="ime_clip_select_all_desc">Select all, or none</string>
     <plurals name="ime_clip_selected_count">
         <item quantity="one">%1$d selected</item>
         <item quantity="other">%1$d selected</item>
@@ -1072,6 +1250,9 @@
     <string name="ime_selection_macro_stop_label">Stop</string>
     <string name="ime_selection_macro_open_in_desc">Open in %1$s</string>
     <string name="ime_selection_macro_busy_desc">Working</string>
+    <!-- Spoken label of a selection-bar button that a plugin added. %1$s is the
+         button's name, %2$s the name of the plugin that added it. -->
+    <string name="ime_selection_macro_plugin_desc">%1$s, from %2$s</string>
     <!-- The AI Translate action as a chip on the selection bar, where the plain Translate chip (the Translate tool) can sit beside it (#434). -->
     <string name="ime_selection_macro_ai_translate_label">AI translate</string>
     <string name="ime_selection_macro_nothing_to_undo_toast">Nothing left to undo</string>

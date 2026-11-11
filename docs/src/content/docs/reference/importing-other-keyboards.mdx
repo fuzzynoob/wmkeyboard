@@ -1,6 +1,6 @@
 ---
 title: "Importing from other keyboards"
-description: "Bring layouts, themes, dictionaries, input methods and whole settings backups over from FlorisBoard, HeliBoard, LeanType, FUTO, CleverKeys, Unexpected Keyboard, AnySoftKeyboard, Samsung Keyboard (Keys Cafe), Multiling O, Gboard, gcin, OpenVanilla, Rime and m17n, plus layouts made for Windows, macOS and Linux: what converts, what doesn't, and why."
+description: "Bring layouts, themes, dictionaries, input methods and whole settings backups over from FlorisBoard, HeliBoard, LeanType, FUTO, CleverKeys, Unexpected Keyboard, AnySoftKeyboard, Samsung Keyboard (Keys Cafe), Multiling O, Kinetica, Clink, Gboard, gcin, OpenVanilla, Rime and m17n, plus layouts made for Windows, macOS and Linux: what converts, what doesn't, and why."
 sidebar:
   order: 6
 ---
@@ -8,7 +8,7 @@ sidebar:
 import SettingsPath from '@components/SettingsPath.astro';
 import KeyCap from '@components/KeyCap.astro';
 
-Switching keyboards usually means leaving your layouts, themes and dictionaries behind. WM Keyboard reads FlorisBoard, HeliBoard, LeanType, FUTO, Unexpected Keyboard, CleverKeys, Samsung Keyboard (Keys Cafe) and Multiling O files directly and converts them into its own, so the grid you built, the theme you picked and the word list you collected come with you. It also reads the layout files people make for computers (Windows `.klc`, macOS `.keylayout` and Linux XKB), which is where a lot of layouts for smaller languages live.
+Switching keyboards usually means leaving your layouts, themes and dictionaries behind. WM Keyboard reads FlorisBoard, HeliBoard, LeanType, FUTO, Unexpected Keyboard, CleverKeys, Samsung Keyboard (Keys Cafe), Multiling O, Kinetica and Clink files directly and converts them into its own, so the grid you built, the theme you picked and the word list you collected come with you. It also reads the layout files people make for computers (Windows `.klc`, macOS `.keylayout` and Linux XKB), which is where a lot of layouts for smaller languages live.
 
 Conversion is honest about being lossy. A layout import always ends on a confirm dialog that lists what changed and what could not be carried, and nothing is written until you accept it. A `.flex` theme opened from a file manager gets the same treatment. The **FlorisBoard** button inside Settings is the one route without a confirm step: it saves the theme straight away and then tells you what it saved. Saved is not switched on, so you still get to look first.
 
@@ -33,6 +33,9 @@ Conversion is honest about being lossy. A layout import always ends on a confirm
 | `.mim` | m17n (ibus-m17n, fcitx5-m17n): ITRANS, InScript, Tamil99 and the other Indic methods | A layout whose rules write the text as you type |
 | Colour theme text | HeliBoard, LeanType | One theme, from a file or from the clipboard |
 | `OK_Settings_Begin` theme text or a theme link | Multiling O Keyboard | One theme, from a file or from the clipboard |
+| `kinetica_backup_….txt` backup | Kinetica 2.2 and later | A list of everything inside to pick from: see [Whole backups](#whole-backups). The **Kinetica** button on the themes screen takes its theme alone |
+| `.clinktheme` | Clink (iOS) | One theme, with a dark and a light look when it switched with the phone |
+| `.clinklayout` | Clink (iOS) | A custom layout of its letter rows |
 | `.zip` theme | Gboard, the Rboard community | One theme, with a look each for key borders on and off |
 | `.zip` or `.pack` theme pack | Rboard | Any or all of the themes inside, each its own theme |
 | `.keyman-touch-layout` | Keyman | A custom layout, without the keyboard's rules |
@@ -63,27 +66,33 @@ To make the file on the other keyboard:
 | FlorisBoard | **Backup & Restore** in its settings, under Advanced. You get a `.zip` |
 | CleverKeys | Its backup screen. A full backup `.zip` or a settings `.json` both work |
 | AnySoftKeyboard | Its backup screen. You get `AnySoftKeyboardPrefs.xml` |
+| Kinetica | **Backup** in its settings, then **Export a backup**. You get `kinetica_backup_<date>.txt` |
 
 Menu names differ between versions of each keyboard; look for "backup" or "export" in its settings.
 
 ### What comes across
 
-| Part | HeliBoard, LeanType | FUTO | FlorisBoard | CleverKeys, AnySoftKeyboard |
-|---|---|---|---|---|
-| Your own letter layouts | Yes | Yes | Yes | CleverKeys: yes, with the language you set for each. AnySoftKeyboard: no |
-| Your colour themes | Yes, and the one in use is switched on | Yes, and the one in use is switched on | Yes, and the one in use is switched on | No |
-| Your languages | Yes, each with the closest built-in layout, or with your own layout when it is imported too | Yes | Yes | No |
-| Dictionaries you added | Yes | Yes | None in the backup | No |
-| Words learned from your typing | Yes, as a word list | Yes, as a word list | None in the backup | No |
-| Words you added by hand | None in the backup, see the note below | Yes, as words you added here | None in the backup | No |
-| Words never suggested | Yes | Yes | No | No |
-| Settings | Yes | Yes | Yes | Yes |
+| Part | HeliBoard, LeanType | FUTO | FlorisBoard | CleverKeys, AnySoftKeyboard | Kinetica |
+|---|---|---|---|---|---|
+| Your own letter layouts | Yes | Yes | Yes | CleverKeys: yes, with the language you set for each. AnySoftKeyboard: no | None: its boards are built in |
+| Your colour themes | Yes, and the one in use is switched on | Yes, and the one in use is switched on | Yes, and the one in use is switched on | No | Its one theme, switched on, worked out as in [Kinetica themes](#kinetica-themes) |
+| Your languages | Yes, each with the closest built-in layout, or with your own layout when it is imported too | Yes | Yes | No | Yes, with the letter arrangement you picked (QWERTZ, AZERTY…) for the one in use |
+| Dictionaries you added | Yes | Yes | None in the backup | No | Named but not carried, see below |
+| Words learned from your typing | Yes, as a word list | Yes, as a word list | None in the backup | No | Yes, as a word list, with the capitals and word pairs it learned |
+| Words you added by hand | None in the backup, see the note below | Yes, as words you added here | None in the backup | No | Part of its learned words |
+| Words never suggested | Yes | Yes | No | No | Yes |
+| Text expansions | None in the backup | None in the backup | None in the backup | No | Yes, as snippets |
+| Settings | Yes | Yes | Yes | Yes | Yes |
 
 Languages are added in front of the ones you already have, and the first becomes the one you type in. The app downloads each new language's word list and prediction data in the background, the same way the setup wizard does.
 
 A layout keeps its name. HeliBoard stores the name it was given in its file name, and that is what you see. A layout made for one language is filed under that language; a layout made for a whole script (HeliBoard's "Latin" layouts) is filed under the language its letters suggest. You can change it later in the layout editor.
 
 Learned words arrive as their own list under [Custom dictionaries](/reference/settings/dictionaries/), not mixed into this keyboard's learning, so you can switch them off or delete them in one place.
+
+Kinetica keeps one list of words for each language, learned as you type, mistakes included, so they arrive as that list rather than as words you vouched for. A word Kinetica had seen only once is left out: Kinetica itself waits for a second use before it suggests one. A capital it learned (`GitHub`, `Dennis`) stays on the word, and the pairs it learned (with **Learn phrases** on) come along for next-word predictions.
+
+Kinetica's text expansions become snippets in a folder named Kinetica, so the whole set has one off switch. Kinetica swaps a trigger for its text only when you ask, from its bar, so here each one waits as a chip on the suggestion strip and never rewrites what you typed. A trigger with several texts offers them all. A trigger made only of symbols, like `^^`, is one the keyboard can't watch for, so that snippet comes without it: you can still insert it from the snippets panel, or give it a trigger of its own.
 
 ### Which settings come across
 
@@ -95,15 +104,15 @@ Only settings that mean exactly the same thing in both keyboards are offered. Ea
 | Key popup | Popup on key press |
 | Vibrate on key press, Vibration length | Vibration, and its length in milliseconds |
 | Sound on key press, Key sound volume | Sound, and its volume |
-| Autocorrect | Autocorrection |
+| Autocorrect | Autocorrection. Kinetica's level: Off turns it off, Normal and Aggressive turn it on |
 | Automatic capitals | Auto-capitalization |
 | Double space types a period | Double-space period |
 | Suggestions, Emoji suggestions | Show suggestions, emoji suggestions |
 | Glide typing | Gesture or glide input |
 | Long press delay | Long press timeout |
 | Key height | Keyboard height, from its scale (1.25 times is 60 dp here) |
-| Split keyboard | Split keyboard |
-| Light or dark | The light, dark or black colour set, or following the system |
+| Split keyboard | Split keyboard. Kinetica's layout mode: Split turns it on and Full width turns it off |
+| Light or dark | The light, dark or black colour set, or following the system. Kinetica's light, dark or system brightness |
 | Press and hold on toolbar keys | HeliBoard and LeanType's toolbar key codes: the long press you set for each toolbar key |
 
 A toolbar key's long press comes across only where you changed it in HeliBoard. The long presses HeliBoard ships with (Undo to redo, Copy to cut, Clipboard to paste and the rest) are the [pairs this app holds to already](/tools/overview/#hold-a-tool-for-a-second-action). A long press set to repeat the key is left out, since here that is the cursor tools' own setting, and so is one with no tool here, like clearing the clipboard history.
@@ -122,6 +131,9 @@ The list ends with what the backup holds that has nowhere to go here, so nothing
 - **Custom fonts and background pictures** from HeliBoard.
 - **Language models and voice data** from FUTO, which are that keyboard's own engines.
 - **Shortcuts on FUTO's added words.** The words come across; the shortcuts on them do not.
+- **Kinetica's chords**, text typed by holding keys together. This app has no gesture for them.
+- **Word lists Kinetica had imported.** Its backup names them but leaves them out, as they are large and you still have the files. Import those files again under [Custom dictionaries](/reference/settings/dictionaries/).
+- **Kinetica's background picture**, which Kinetica keeps out of its backup on purpose.
 
 HeliBoard keeps the words you add by hand in Android's own personal dictionary, not in its backup. Bring those across from <SettingsPath path="Typing / Suggestions / Personal dictionary" /> with its import from Android.
 
@@ -363,7 +375,7 @@ The rows are written exactly where a download would have put them, so everything
 
 Three things to know:
 
-- **Only Cangjie and stroke land.** A pack often holds Wubi, Zhengma, Boshiamy and others as well, and this keyboard has no way to type those, so a table for one would be a large file that changed nothing. The app names the tables it found back to you instead. Cangjie Quick needs no table of its own: it is the same codes queried differently.
+- **Only Cangjie, stroke and Wubi 86 land.** A pack often holds Wubi 98, Zhengma, Boshiamy and others as well, and this keyboard has no way to type those, so a table for one would be a large file that changed nothing. The app names the tables it found back to you instead. Cangjie Quick needs no table of its own: it is the same codes queried differently.
 - **How common each character is survives the import.** The pack FlorisBoard ships stores that as a fraction between 0 and 1, in a column its own converter labels as a whole number, so it is read by what the file actually holds rather than by what the column claims. Without that every character imported as equally common, and which one a code offers first is decided by exactly this number.
 - **A stroke table is rewritten as it is read.** Those tables spell the five strokes as the letters `h s p n z`; a stored code here is always 1 to 5. Without that translation every row would be dropped for having a code no key can produce.
 
@@ -485,6 +497,73 @@ The nineteen colours on Multiling's **Color** screen land like this:
 | Suggestion highlight | The accent |
 
 A colour of `0` is how that screen says "none", so it stays unset here and this app works it out. The key corner radius, the label size and bold labels come across too. A shadow behind the key labels has no place here, and a wallpaper is only a switch in the text, never the picture; the result message says so when a theme has either.
+
+### Kinetica themes
+
+<SettingsPath path="Appearance / Keyboard themes / Kinetica" />
+
+Kinetica has no theme file and no named themes. Its look is a few settings, and they travel in its backup: in Kinetica, open **Backup** in its settings and tap **Export a backup**, which saves a `kinetica_backup_<date>.txt`. The **Kinetica** button reads that file and takes only the theme. To bring the rest across too (the learned and blocked words, the expansions, the languages and settings), open the file from a file manager or from <SettingsPath path="Data / Backup & restore / Import from another keyboard" />: that shows the whole list, theme included. See [Whole backups](#whole-backups).
+
+Kinetica stores where its colours come from and whether they are light or dark, not the colours themselves, and works them out each time it draws. This app works them out the same way:
+
+| Kinetica | Here |
+|---|---|
+| Default, dark or light | Kinetica's own grey palette with its blue accent |
+| Custom colour (`#RRGGBB`) | The colour spread over the keys, the board, the suggestion bar and the popups by Kinetica's own rules, so a dark colour dims the board as it did there |
+| Material You | Kinetica's grey palette with the theme's **Follow wallpaper colors** switch on, so it takes the wallpaper's colours from Android 12 on |
+| Light or dark: follow the system | One theme with a dark look and a light look, ready for the two slots of <SettingsPath path="Appearance / Keyboard themes / Auto theme" /> |
+| Key borders and their width | A border in the hint colour, 1 to 4 dp |
+| Swipe trail: theme, a preset or a typed colour | The glide trail colour |
+
+Letter keys keep Kinetica's key colour and every other key, enter included, takes its function-key colour, the way Kinetica paints them. The corner hint is drawn at the 40% Kinetica draws it at, and keys keep its 7 dp corners.
+
+Some of it does not come across, and the **Kinetica** button's result message says which. A rainbow trail takes the theme's colour instead, and keys lit up as a swipe crosses them aren't drawn here. Kinetica's background picture never reaches the backup in the first place: Kinetica keeps the picture on the phone on purpose, so add it again in the [theme editor](/themes/editor/).
+
+Kinetica has no layouts to bring across. Its boards are built into the app, one per language, and nothing in Kinetica lets you make or share your own.
+
+### Clink themes
+
+<SettingsPath path="Appearance / Keyboard themes / Clink" />
+
+Clink is a keyboard for iPhone and iPad. A theme from it is a `.clinktheme` file: what **Export** in its theme menu saves, and what its theme repositories publish. The **Clink** button reads one, and so does opening it from a file manager. A whole Clink theme repository can be added under Addons as well; see [Clink repositories](/addons/installing/#clink-repositories). Newer versions of Clink wrap what **Export** saves in an encrypted package that only Clink opens. WM Keyboard recognises one and says so instead of importing it; the plain files Clink's theme repositories publish still import.
+
+| Clink | Here |
+|---|---|
+| Background, and its gradient | The board, and its gradient. A radial gradient stays radial; an angular one becomes a sweep |
+| Key fill, key text, key gradient | The letter keys |
+| Special key fill and text | Shift, delete, the mode keys, and enter unless the theme paints enter itself |
+| Accent | The accent |
+| Paint for a group: letters, modifiers, return | The letter, modifier and enter colours, the letters' pressed colour and corner radius |
+| Paint for space, backspace or shift, or one key | That key's own colours |
+| Outer stroke, or else the inner one | The key border, up to 4 dp |
+| Key shadow, when on | The key's lift and its shadow colour |
+| Capsule or square keys | Pill or square key shape |
+| Semibold, bold, heavy or black labels | Bold key labels |
+| Font design (serif, monospaced, rounded, typewriter, marker and the rest) | The Google font nearest to that iOS face |
+| Liquid glass, liquid ice | Frosted glass, which keeps their see-through boards readable |
+| Material: metal, stitched, 3D (retro, mechanical, modern, brick, berry), cartoon, wood, stone, ceramic, resin, candy, letterpress, paper craft, art glass, holo, neon, terminal, typewriter, arcade, gamepad, instrument, molten | The [key material](/themes/editor/#key-material) that draws it, with the 3D depth and the cartoon's flat or raised look |
+| Inner shadow, on a plain key | A pressed-in top edge |
+| (Clink has no popup colours of its own) | The key preview grows out of the key in the letter keys' colours, shape and outline, the way Clink's callout does |
+| Moving background: snow, rain, bokeh, starfield, warp speed, fireflies, embers, bubbles, confetti, fireworks, aurora, nebula, lava, waves | The [moving background](/themes/editor/#moving-background) of the same name, with its colours, amount, speed, brightness, size and how much it reacts to typing. Rain on a terminal or monospaced theme is code rain |
+| A light and a dark look that switch with the phone | One theme with a dark look and a light look, ready for the two slots of <SettingsPath path="Appearance / Keyboard themes / Auto theme" /> |
+
+The finer touches of a Clink finish (its painted edges, the glitch of a terminal theme) are drawn the way the nearest preset draws them, and the material's controls in the editor can take a converted theme further. A material or a moving background that a later Clink adds, and that this version has no preset for, comes across as plain keys or a still board, and the result message says so. It also says when a key outline was dashed or dotted, which becomes a solid one. A Clink theme file never carries pictures, so a theme that used one needs it added again in the [theme editor](/themes/editor/).
+
+A `.clinklayout` is a name and rows of letters. It comes across like any other foreign grid: the letters in their rows, with this keyboard's own shift, delete and bottom row round them, and the language guessed from the letters for you to confirm.
+
+#### Clink actions
+
+A Clink action is a `.clinkext` file: a short Python function, `transform(text)`, that turns some text into other text, such as Reverse, Title Case or Word Count. Open one from a file manager, import it under <SettingsPath path="Tools / Plugins / Manage plugins" />, or add a whole actions repository such as [`anti-ltd/clink-actions`](https://github.com/anti-ltd/clink-actions) under Addons. Each action becomes a plugin with one button on the [selection bar](/smart/selection-actions/#from-plugins), so plugins have to be turned on first, and the install screen says what it asks for before anything is saved.
+
+Every plugin here is written in Python and runs on a port of [PyMini](https://github.com/anti-ltd/PyMini), the interpreter Clink itself uses, so a Clink action runs on the same interpreter as every other plugin and behaves as it does in Clink: the same language subset, and the modules `math`, `re`, `json`, `time`, `random` and `sys`. It gets the same sandbox too, with no files and no network, and a step budget that stops a runaway loop. The converted plugin is an ordinary one, so you can open it in the plugin editor and change it.
+
+Clink runs an action on the word before the cursor, the text before it, or nothing, as the action says. Here every action works on the selection instead: select the text and tap the button. An action that asks for nothing, such as Shrug, puts its text in place of the selection. One that keeps its input, such as Word Count, leaves the selection and adds its result after it.
+
+#### Open in Clink links
+
+Every item on [Clink's community page](https://www.anti.ltd/store/clink/community) has an **Open in Clink** button, a `clink://community/…` link. Clink has no Android app, so on an Android phone WM Keyboard answers it. The link opens a preview with the item's picture, name, author, kind and description, looked up in the page's public list.
+
+The file itself is not part of that list. Clink hands community items only to a signed-in Clink app, so WM Keyboard cannot download one. Export the theme or layout from Clink (or ask whoever shared it for the file), then press **Import a Clink file** on the preview. It goes through the same import as opening the file from a file manager. An exported action (`.clinkext`) imports the same way, as a plugin. Plugins, sounds and Clink's other kinds have nothing to become here, and the preview says so.
 
 ### FUTO Keyboard themes
 
