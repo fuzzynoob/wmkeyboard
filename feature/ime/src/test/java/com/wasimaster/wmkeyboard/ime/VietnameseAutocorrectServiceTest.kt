@@ -54,12 +54,13 @@ class VietnameseAutocorrectServiceTest {
      * that guessed anyway would be the worst possible failure — there is
      * nothing to guess from, so anything it produced would be invented.
      */
-    private fun viEngine(withWords: Boolean = true) = SuggestionEngine(
+    private fun viEngine(withWords: Boolean = true, words: List<String> = emptyList()) = SuggestionEngine(
         if (withWords) {
             Trie().apply {
                 insert("tiếng", 9000)
                 insert("nghiêng", 6000)
                 insert("nguyễn", 7000)
+                for (word in words) insert(word, 8000)
             }
         } else {
             Trie()
@@ -81,12 +82,13 @@ class VietnameseAutocorrectServiceTest {
         editor: RecordingEditor,
         withWords: Boolean = true,
         restoreMarks: Boolean = true,
+        words: List<String> = emptyList(),
     ): GlideKeyboard {
         val service = GlideKeyboard(editor)
         plantPersonalStores(service)
         val engine = WMKeyboardService::class.java.getDeclaredField("suggestionEngine")
         engine.isAccessible = true
-        engine.set(service, viEngine(withWords))
+        engine.set(service, viEngine(withWords, words))
         val latin = ScriptRegistry[ScriptId.LATIN]
         seedState(
             service,
@@ -218,6 +220,49 @@ class VietnameseAutocorrectServiceTest {
         type(service, "tieng")
         space(service)
         assertEquals("ngiêng tieng ", editor.text.toString())
+    }
+
+    /**
+     * A word that already carries marks but spells no Vietnamese syllable is
+     * a slip, not a choice: `oonh` composes to `ônh`, which no rhyme allows,
+     * and `ông` is one key away. Correcting it adds no mark the user left out,
+     * so it needs autocorrect and the list, not [restoreMarks].
+     */
+    @Test
+    fun `a marked word that is no syllable is corrected with restore marks off`() {
+        val editor = RecordingEditor()
+        val service = keyboardOn(editor, restoreMarks = false, words = listOf("ông", "cùng", "đông"))
+
+        type(service, "oonh")
+        assertEquals("ônh", service.uiState.value.composingPreview)
+        space(service)
+        type(service, "cufnh")
+        space(service)
+        type(service, "ddoonh")
+        space(service)
+
+        assertEquals("ông cùng đông ", editor.text.toString())
+    }
+
+    /**
+     * Only a slip is corrected without [restoreMarks]: a word with the shape of
+     * a syllable that went wrong at one key. `fair` composes to `fải`, which
+     * has no Vietnamese onset at all — it is teen-code or English, written that
+     * way on purpose — and `phải` being in the list says nothing about it. A
+     * marked syllable the list has never heard of (`mèo`) is a word too.
+     */
+    @Test
+    fun `a marked word that is not a slip lands as typed with restore marks off`() {
+        val editor = RecordingEditor()
+        val service = keyboardOn(editor, restoreMarks = false, words = listOf("phải", "tải", "méo"))
+
+        type(service, "fair")
+        assertEquals("fải", service.uiState.value.composingPreview)
+        space(service)
+        type(service, "meof")
+        space(service)
+
+        assertEquals("fải mèo ", editor.text.toString())
     }
 
     /**

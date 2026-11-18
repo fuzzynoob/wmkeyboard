@@ -888,6 +888,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.ConversionDictionary
 import com.wasimaster.wmkeyboard.core.input.composer.ConversionWordLists
 import com.wasimaster.wmkeyboard.core.input.composer.JapaneseUserWords
 import com.wasimaster.wmkeyboard.core.input.composer.VietnameseConfig
+import com.wasimaster.wmkeyboard.core.input.composer.VietnameseOrthography
 import com.wasimaster.wmkeyboard.core.input.composer.VietnameseTelexComposer
 import com.wasimaster.wmkeyboard.core.input.composer.VietnameseVniComposer
 import com.wasimaster.wmkeyboard.core.input.imported.ImportedInputMethods
@@ -22343,7 +22344,12 @@ open class WMKeyboardService : InputMethodService() {
             // Asked for separately (VietnameseSettings.restoreMarks): typing
             // without marks is a choice people make, and autocorrect being on
             // for their other languages does not say they want marks added.
-            vietnameseComposed != null && autocorrect && state.settings.vietnamese.restoreMarks &&
+            // A word that already carries marks and spells no syllable (`ônh`
+            // from `oonh`) is not that choice but a slip, and correcting it to
+            // `ông` adds nothing the user left out, so it needs autocorrect
+            // alone.
+            vietnameseComposed != null && autocorrect &&
+                (state.settings.vietnamese.restoreMarks || isVietnameseSlip(state, vietnameseComposed)) &&
                 state.allowsTypingIntelligence && !gluedToWord -> {
                 val decision = suggestionEngine?.decideCorrection(
                     vietnameseComposed,
@@ -30109,6 +30115,20 @@ open class WMKeyboardService : InputMethodService() {
      */
     private fun isVietnameseTransliterator(state: KeyboardUiState): Boolean =
         state.composer === VietnameseTelexComposer || state.composer === VietnameseVniComposer
+
+    /**
+     * Whether a composed Vietnamese word is a slip rather than a spelling: it
+     * carries a mark the keyboard made, so it was meant as Vietnamese; no
+     * syllable is spelled that way (`ônh`, `cùnh`); and every part of it is
+     * one Vietnamese has, so it went wrong at a key rather than being
+     * something else. An unmarked word is never one — typing without marks is
+     * a choice — and neither is a real syllable, nor a word with no onset or
+     * nucleus Vietnamese spells: `fải` is teen-code and `đkm` an abbreviation,
+     * written that way on purpose.
+     */
+    private fun isVietnameseSlip(state: KeyboardUiState, composed: String): Boolean =
+        VietnameseOrthography.hasVietnameseMark(composed) && !state.composer.isPlausibleWord(composed) &&
+            VietnameseOrthography.isSyllablePrefix(composed)
 
     /**
      * Starts working out what a space would make of [typed], now.

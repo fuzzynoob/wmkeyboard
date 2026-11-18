@@ -16,6 +16,8 @@ import java.text.Normalizer
  * Vietnamese syllable starts `bl`, while `mèo` passes whether or not any
  * wordlist has heard of it. Used to decide what may be *learned*, never what
  * may be typed — a syllable that fails here still commits exactly as typed.
+ * A marked word that fails it is also what the keyboard treats as a slip, and
+ * hands to autocorrect without asking for restore marks.
  */
 object VietnameseOrthography {
 
@@ -68,6 +70,69 @@ object VietnameseOrthography {
         "ưa", "ưi", "ưu", "ươi", "ươu",
         "ya", "yêu",
     )
+
+    /**
+     * The codas each closed nucleus takes.
+     *
+     * The flat [CODAS] list says which endings exist, not which rhyme may carry
+     * them, and the two are far from free: `nh` and `ch` follow only `a`, `ê`,
+     * `i` and the glides that end on them (`oa`, `uê`, `uy`), and `ng` never
+     * follows `ê`, `i` or `y` — so `anh` and `ông` are words while `ônh` and
+     * `ing` are a slip of one key. This is UniKey's `VCPairList`
+     * (ukengine.cpp) for the finished, marked spellings, plus two it leaves
+     * out: `oo` for `boong` and `xoong`, and `oe` + `ng` for `xoẻng`.
+     *
+     * Only the nuclei listed here are held to it. The open ones keep the
+     * looser reading they had, which is what keeps `ưan` (`wan`) the word
+     * UniKey leaves standing.
+     */
+    private val CODAS_OF = hashMapOf(
+        "a" to setOf("c", "ch", "m", "n", "ng", "nh", "p", "t"),
+        "ă" to setOf("c", "m", "n", "ng", "p", "t"),
+        "â" to setOf("c", "m", "n", "ng", "p", "t"),
+        "e" to setOf("c", "m", "n", "ng", "p", "t"),
+        "ê" to setOf("c", "ch", "m", "n", "nh", "p", "t"),
+        "i" to setOf("c", "ch", "m", "n", "nh", "p", "t"),
+        "o" to setOf("c", "m", "n", "ng", "p", "t"),
+        "ô" to setOf("c", "m", "n", "ng", "p", "t"),
+        "ơ" to setOf("m", "n", "p", "t"),
+        "u" to setOf("c", "m", "n", "ng", "p", "t"),
+        "ư" to setOf("c", "m", "n", "ng", "t"),
+        "y" to setOf("t"),
+        "iê" to setOf("c", "m", "n", "ng", "p", "t"),
+        "yê" to setOf("m", "n", "ng", "t"),
+        "oa" to setOf("c", "ch", "m", "n", "ng", "nh", "p", "t"),
+        "oă" to setOf("c", "m", "n", "ng", "t"),
+        "oe" to setOf("n", "ng", "t"),
+        "oo" to setOf("c", "ng"),
+        "uâ" to setOf("n", "ng", "t"),
+        "uê" to setOf("c", "ch", "n", "nh"),
+        "uô" to setOf("c", "m", "n", "ng", "t"),
+        "ươ" to setOf("c", "m", "n", "ng", "p", "t"),
+        "uy" to setOf("c", "ch", "n", "nh", "p", "t"),
+        "uyê" to setOf("n", "t"),
+    )
+
+    /**
+     * Whether [nucleus] may close on [coda], with the two onsets that change
+     * the answer: `gi` swallows the `i` of `iê`, so `giếng` reads as `ê` + `ng`,
+     * and `qu` swallows the `u` of `uy`, so `quỳnh` reads as `y` + `nh`. UniKey
+     * makes the same two exceptions (`isValidCVC`).
+     *
+     * And a third, for a word with no mark at all: its `e` may be the `ê` the
+     * user left off, so `benh` and `ech` are read as `bênh` and `êch` would
+     * be, the way UniKey's row for a bare `e` has them. An `e` carrying a tone
+     * is plainly not one, and `bénh` is refused.
+     */
+    private fun takesCoda(onset: String, nucleus: String, coda: String, unmarked: Boolean): Boolean {
+        if (coda.isEmpty()) return true
+        val allowed = CODAS_OF[nucleus] ?: return true
+        if (coda in allowed) return true
+        if (unmarked && nucleus == "e" && (coda == "ch" || coda == "nh")) return true
+        if (onset == "gi" && (nucleus == "ê" || nucleus == "e") && (coda == "n" || coda == "ng")) return true
+        if (onset == "qu" && nucleus == "y" && (coda == "n" || coda == "nh")) return true
+        return false
+    }
 
     /**
      * The onsets the open nucleus `uơ` may follow.
@@ -134,6 +199,7 @@ object VietnameseOrthography {
         if (onset !in ONSETS) return false
         if (coda !in CODAS) return false
         if (nucleus !in NUCLEI) return false
+        if (!takesCoda(onset, nucleus, coda, unmarked = tone == null && !hasVietnameseMark(base))) return false
         // `uơ` is the one nucleus an onset may refuse, and the one that takes no
         // coda at all: `huơ` and `quơ` are syllables, `huơng` and `nguơ` are not
         // — the first is `hương` and the second is not a word.

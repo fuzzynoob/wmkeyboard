@@ -343,6 +343,28 @@ class VietnameseComposerTest {
     }
 
     @Test
+    fun orthographyKnowsWhichCodaEachRhymeTakes() {
+        // `nh` and `ch` follow only a, ê, i and the glides that end on them
+        // (oa, uê, uy); `ng` never follows ê, i or y. UniKey's VCPairList
+        // holds the same split, and these are what it refuses.
+        for (w in listOf("ônh", "cùnh", "đônh", "ếng", "ing", "ưnh", "ơng", "ôch", "uyng")) {
+            assertFalse(w, VietnameseOrthography.isSyllable(w))
+        }
+        for (w in listOf(
+            "ông", "cùng", "đông", "anh", "ếch", "bệnh", "tình", "ích", "xoong", "khoanh", "huỳnh",
+            "quỳnh", "quyn", "giếng", "giêng", "thuyền", "chuyện", "người", "nước", "kẻng", "xẻng",
+            "xoẻng",
+        )) {
+            assertTrue(w, VietnameseOrthography.isSyllable(w))
+        }
+        // Written with no mark at all, an `e` may be the `ê` the user left off,
+        // so `benh` and `ech` stay words the way UniKey's bare-e row has them;
+        // an `e` that carries a tone is plainly not `ê`, and `bénh` is a slip.
+        for (w in listOf("benh", "kenh", "ech", "chenh")) assertTrue(w, VietnameseOrthography.isSyllable(w))
+        for (w in listOf("bénh", "ẹch")) assertFalse(w, VietnameseOrthography.isSyllable(w))
+    }
+
+    @Test
     fun telexMarkKeyReachUnderStrictTones() {
         // Under the strict rule the reached letters keep their mark, because
         // `đo`, `đôn`, `tôt` and `nân` are words the rules can still spell —
