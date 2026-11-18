@@ -1,12 +1,6 @@
 name: Sync Wiki
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'docs/**'
-      - '.github/workflows/wiki-sync.yml'
-      - '.github/scripts/convert-mdx.js'
+  # Fork: manual only. It syncs docs to upstream's wiki layout and failed here.
   workflow_dispatch:
 
 jobs:

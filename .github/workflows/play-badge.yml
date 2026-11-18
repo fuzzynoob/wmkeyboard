@@ -9,8 +9,7 @@ name: Play badge
 # A failed scrape writes nothing, so the badge keeps its last good value
 # instead of turning into "unknown".
 on:
-  schedule:
-    - cron: '17 */6 * * *'
+  # Fork: no schedule. The badge is upstream's Play listing; the fork has none.
   workflow_dispatch:
 
 concurrency:

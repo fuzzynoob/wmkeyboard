@@ -1,8 +1,8 @@
 name: CI
 
 on:
-  push:
-    branches: [main]
+  # Fork: not on every push to main. Upstream's reds made it fail every time;
+  # run it by hand, or on a pull request.
   pull_request:
   workflow_dispatch:
 

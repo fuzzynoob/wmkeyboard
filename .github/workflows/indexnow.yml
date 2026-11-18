@@ -4,12 +4,7 @@ name: IndexNow
 # then tell IndexNow (Bing, Yandex, Seznam, Naver) which pages changed. Pages
 # are picked by their sitemap <lastmod>, which is each page's git date.
 on:
-  push:
-    branches:
-      - main
-    paths:
-      - 'docs/src/content/docs/**'
-      - 'docs/src/pages/**'
+  # Fork: manual only. It pings search engines for upstream's docs site.
   workflow_dispatch:
     inputs:
       all:

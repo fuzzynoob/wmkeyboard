@@ -13,11 +13,8 @@ name: Publish feature libraries
 # content-addressed and never replaced, so a library already there is skipped
 # and an unchanged one costs nothing. Needs DATA_REPO_TOKEN, as release.yml.
 on:
-  push:
-    branches: [main]
-    paths:
-      - '**/jniLibs/**'
-      - 'native/gates.json'
+  # Fork: manual only. It uploads to upstream's data repository, which the
+  # fork has no token for.
   workflow_dispatch:
 
 concurrency:

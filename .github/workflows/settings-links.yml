@@ -14,21 +14,8 @@ name: Settings links
 # moved, so pull before pushing again after a run that did.
 
 on:
-  push:
-    branches: [main]
-    # Path filters are not evaluated for tag pushes, so every v* tag runs.
-    tags: ['v*']
-    paths:
-      - 'app/src/main/java/com/wasimaster/wmkeyboard/app/SettingsSearch.kt'
-      - 'app/src/main/java/com/wasimaster/wmkeyboard/app/SettingsRoutes.kt'
-      - 'app/src/main/java/com/wasimaster/wmkeyboard/app/SettingsDeepLink.kt'
-      - 'app/src/test/java/com/wasimaster/wmkeyboard/app/SettingsLinksDump.kt'
-      - 'core/settings/src/main/java/com/wasimaster/wmkeyboard/core/settings/KeyboardModes.kt'
-      - '**/src/main/res/values/*.xml'
-      - 'gradle.properties'
-      - 'docs/scripts/extract_settings_links.sh'
-      - 'docs/scripts/extract-settings-since.mjs'
-      - '.github/workflows/settings-links.yml'
+  # Fork: manual only. On every push it committed back to main, so the local
+  # main kept falling behind noob/main.
   workflow_dispatch:
 
 # One refresh at a time, and never cancelled halfway through a push back.
