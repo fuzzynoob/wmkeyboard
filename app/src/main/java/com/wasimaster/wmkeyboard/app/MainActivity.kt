@@ -59,6 +59,8 @@ import com.wasimaster.wmkeyboard.app.storage.StorageScreen
 import com.wasimaster.wmkeyboard.app.resources.ResourcesScreen
 import com.wasimaster.wmkeyboard.app.storage.storageRoute
 import com.wasimaster.wmkeyboard.app.language.appLanguageSplitCompat
+import com.wasimaster.wmkeyboard.app.launcher.LauncherAppIcons
+import com.wasimaster.wmkeyboard.app.launcher.LauncherAppIconsScreen
 import com.wasimaster.wmkeyboard.app.launcher.LauncherCombos
 import com.wasimaster.wmkeyboard.app.launcher.LauncherCombosScreen
 import com.wasimaster.wmkeyboard.app.lock.AppLockSecretPrompt
@@ -130,6 +132,9 @@ import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -310,6 +315,9 @@ class MainActivity : FragmentActivity() {
     /** Whether the installed version's release notes are open; see [EXTRA_SHOW_RELEASE_NOTES]. */
     private val showReleaseNotes = MutableStateFlow(false)
 
+    /** The favourites list asked for by a custom button on the keyboard (#1236). */
+    private val showFavourites = MutableStateFlow(false)
+
     /**
      * The app language (#322). On Android 12 and older nothing else applies
      * it, so the base context itself carries the chosen locale; on Android 13+
@@ -354,6 +362,8 @@ class MainActivity : FragmentActivity() {
         // Modes added since this install was first seeded — the settings
         // screen should list them even if the keyboard has not run yet.
         lifecycleScope.launch { repository.seedNewDefaultModes() }
+        // Plugin tiles made as custom buttons become tools of their own.
+        lifecycleScope.launch { repository.migratePluginTiles() }
         val nav = navFor(intent)
         pendingNav.value = nav
         // A rotation rebuilds the activity from the same intent. The dialog
@@ -367,6 +377,9 @@ class MainActivity : FragmentActivity() {
             savedInstanceState.getBoolean(STATE_RELEASE_NOTES)
         } else {
             intent.getBooleanExtra(EXTRA_SHOW_RELEASE_NOTES, false)
+        }
+        if (savedInstanceState == null && intent.getBooleanExtra(MainActivityContract.EXTRA_OPEN_FAVOURITES, false)) {
+            showFavourites.value = true
         }
         setContent {
             val stored = repository.settings
@@ -415,12 +428,15 @@ class MainActivity : FragmentActivity() {
                     // window that fits the system bars, so the pan stays.
                     val stopAtKeyboard = Build.VERSION.SDK_INT >= Build.VERSION_CODES.VANILLA_ICE_CREAM
                     if (stopAtKeyboard) ResizeForKeyboard()
+                    val favouritesWanted by showFavourites.collectAsStateWithLifecycle()
                     Box(if (stopAtKeyboard) Modifier.imePadding() else Modifier) {
                         SettingsNavHost(
                             repository = repository,
                             settings = settings,
                             pending = pending,
                             onPendingHandled = { pendingNav.value = null },
+                            openFavourites = favouritesWanted,
+                            onFavouritesClosed = { showFavourites.value = false },
                         )
                     }
                     // Settings fields rely on the window panning; keep it in
@@ -431,6 +447,9 @@ class MainActivity : FragmentActivity() {
                     // The app lock's own PIN, password or pattern sheet. Once,
                     // up here, like the system prompt it stands in for.
                     AppLockSecretPrompt(appLock)
+                    // The feedback form, and the shake and screenshot that
+                    // open it when About › Feedback turns them on (#1242).
+                    FeedbackFormHost(settings)
                     // Here rather than beside the card on the home screen,
                     // which is the one screen the user may not be on when
                     // the offer arrives.
@@ -472,6 +491,7 @@ class MainActivity : FragmentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         if (intent.getBooleanExtra(EXTRA_SHOW_RELEASE_NOTES, false)) showReleaseNotes.value = true
+        if (intent.getBooleanExtra(MainActivityContract.EXTRA_OPEN_FAVOURITES, false)) showFavourites.value = true
         navFor(intent)?.let { nav ->
             pendingNav.value = nav
             nav.missing?.let { missingLink.value = it }
@@ -750,6 +770,8 @@ private fun SettingsNavHost(
     settings: LiveSettings,
     pending: PendingNav? = null,
     onPendingHandled: () -> Unit = {},
+    openFavourites: Boolean = false,
+    onFavouritesClosed: () -> Unit = {},
 ) {
     val navController = rememberNavController()
     // The path strip's record of which screens the user walked through. Saved
@@ -789,8 +811,12 @@ private fun SettingsNavHost(
     // read by every group; changed from Home, a page's footer or Accessibility.
     val depthResolved = settings.watch { it.settingsDepthResolved() }
     val hiddenRows = settings.watch { it.appUi.hiddenSettingsRows }
-    val depthControl = remember(depthResolved, hiddenRows) {
-        DepthControl(depthResolved, hiddenRows) { depth -> foldScope.launch { repository.setSettingsDepth(depth) } }
+    val switchedOffRows = settings.watch { it.appUi.switchedOffRows }
+    val alsoUnder = settings.watch { it.appUi.alsoUnderLine }
+    val depthControl = remember(depthResolved, hiddenRows, switchedOffRows, alsoUnder) {
+        DepthControl(depthResolved, hiddenRows, switchedOffRows, alsoUnder) { depth ->
+            foldScope.launch { repository.setSettingsDepth(depth) }
+        }
     }
     // Which feature bundles are on (Extensions), read by Home, Advanced, the
     // Tools list and every picker; a route a switched-off bundle owns is
@@ -915,11 +941,12 @@ private fun SettingsNavHost(
             // out a link to itself, read by every row and heading.
             LocalSettingLinks provides rememberSettingLinks(settings.watch { it.appUi.settingLinks }),
             // Favourite screens and rows (#898), behind the button in every
-            // top bar, and gone with it.
+            // top bar, and gone with it, except while a custom button on the
+            // keyboard has asked for the list itself (#1236).
             LocalSettingsFavourites provides rememberSettingsFavourites(
                 settings.watch { it.appUi.settingsFavourites },
                 repository,
-            ).takeIf { settings.watch { it.appUi.favouritesButton } },
+            ).takeIf { settings.watch { it.appUi.favouritesButton } || openFavourites },
             // "Icons in settings", animated once here for every row and
             // heading, so the screen the switch is on sees its tiles leave.
             LocalIconReveal provides rememberIconReveal(
@@ -975,6 +1002,8 @@ private fun SettingsNavHost(
                 if (settings.watch { it.onboardingDone }) {
                     NewSettingsBar(openNewSetting, Modifier.align(Alignment.BottomCenter))
                 }
+                // The favourites list a custom button on the keyboard opened (#1236).
+                if (openFavourites) FavouritesSheet(here = null, onDismiss = onFavouritesClosed)
             }
         }
     }
@@ -1239,6 +1268,10 @@ private fun SettingsNavGraph(
                     onOpenBlacklist = { navController.navigate("blacklist") },
                     onOpenAutopilot = { navController.navigate("typing/autopilot") },
                     onOpenOctopus = { navController.navigate("typing/octopus") },
+                    onOpenStripLook = {
+                        SettingsHighlight.request(R.string.appearance_suggestion_text_size_title)
+                        navController.navigate("appearance/toolbar")
+                    },
                 )
             }
         }
@@ -1363,6 +1396,33 @@ private fun SettingsNavGraph(
                 )
             }
         }
+        composable("keypress/delete") {
+            SettingsScreen(
+                stringResource(R.string.typing_group_backspace_title),
+                { navController.popBackStack() },
+                route = "keypress/delete",
+            ) {
+                KeyPressDeleteSettings(repository, settings)
+            }
+        }
+        composable("keypress/alternates") {
+            SettingsScreen(
+                stringResource(R.string.keypress_alternates_group_title),
+                { navController.popBackStack() },
+                route = "keypress/alternates",
+            ) {
+                KeyPressAlternatesSettings(repository, settings)
+            }
+        }
+        composable("keypress/timing") {
+            SettingsScreen(
+                stringResource(R.string.keypress_timing_group_title),
+                { navController.popBackStack() },
+                route = "keypress/timing",
+            ) {
+                KeyPressTimingSettings(repository, settings)
+            }
+        }
         composable("keypress/shortcuts") {
             SettingsScreen(
                 stringResource(R.string.keypress_shortcuts_group_title),
@@ -1401,6 +1461,32 @@ private fun SettingsNavGraph(
                 subtitle = stringResource(R.string.backup_sync_screen_subtitle),
             ) {
                 BackupSyncSettings(repository, settings)
+            }
+        }
+        // One location's own schedule and contents, from its row on the
+        // Automatic backup screen or its menu on the Locations card.
+        composable(BACKUP_LOCATION_ROUTE) { backStackEntry ->
+            val id = backStackEntry.arguments?.getString("id").orEmpty()
+            val place = settings.watch { s -> s.autoBackup.locations.firstOrNull { it.id == id } }
+            val context = LocalContext.current
+            SettingsScreen(
+                place?.title(context) ?: stringResource(R.string.backup_location_page_title),
+                { navController.popBackStack() },
+                route = backupLocationRoute(id),
+                accent = routeAccent("backup/auto"),
+                subtitle = stringResource(R.string.backup_location_page_subtitle),
+            ) {
+                BackupLocationSettings(repository, settings, id)
+            }
+        }
+        composable("backup/history") {
+            SettingsScreen(
+                stringResource(R.string.restore_screen_title),
+                { navController.popBackStack() },
+                route = "backup/history",
+                subtitle = stringResource(R.string.restore_screen_subtitle),
+            ) {
+                RestorePointsSettings(repository, settings)
             }
         }
         composable("backup/contents") {
@@ -1513,6 +1599,24 @@ private fun SettingsNavGraph(
                 MusicAppsScreen(repository, settings)
             }
         }
+        composable(CustomButtons.ROUTE) {
+            SettingsScreen(
+                stringResource(R.string.custombuttons_title),
+                { navController.popBackStack() },
+                route = CustomButtons.ROUTE,
+            ) {
+                CustomButtonsScreen(repository, settings)
+            }
+        }
+        composable(LauncherAppIcons.ROUTE) {
+            SettingsScreen(
+                stringResource(R.string.launcherappicons_title),
+                { navController.popBackStack() },
+                route = LauncherAppIcons.ROUTE,
+            ) {
+                LauncherAppIconsScreen(repository, settings)
+            }
+        }
         composable(LauncherCombos.ROUTE) {
             SettingsScreen(
                 stringResource(R.string.launchercombos_title),
@@ -1596,6 +1700,15 @@ private fun SettingsNavGraph(
                 )
             }
         }
+        composable("appearance/keys") {
+            SettingsScreen(
+                stringResource(R.string.appearance_keys_section_title),
+                { navController.popBackStack() },
+                route = "appearance/keys",
+            ) {
+                AppearanceKeysSettings(repository, settings)
+            }
+        }
         composable("appearance/toolbar") {
             SettingsScreen(
                 stringResource(R.string.appearance_toolbar_section_title),
@@ -1637,6 +1750,15 @@ private fun SettingsNavGraph(
                 LayoutSizeSettings(
                     repository, settings,
                 )
+            }
+        }
+        composable("layout/panels") {
+            SettingsScreen(
+                stringResource(R.string.panel_layouts_title),
+                { navController.popBackStack() },
+                route = PANEL_LAYOUTS_ROUTE,
+            ) {
+                PanelLayoutsScreen(repository) { route -> navController.navigate(route) }
             }
         }
         composable("layout/onehanded") {
@@ -1728,6 +1850,18 @@ private fun SettingsNavGraph(
                     navController.navigate(route)
                 }
             }
+        }
+        composable("theme_rules/{themeId}") { backStackEntry ->
+            val requested = backStackEntry.arguments?.getString("themeId").orEmpty()
+            // Same reading of a copied link as theme_edit above.
+            val darkSlot = isSystemInDarkTheme()
+            val themeId = settings.watch { s ->
+                SettingLinks.themeEditTarget(requested, s.effectiveThemeId(darkSlot)) { id ->
+                    s.customThemes.findThemeFamily(id) != null
+                }
+            }
+            // Its own Scaffold, like the layout's JSON: the code needs the height.
+            ThemeRuleSheetScreen(repository, settings, themeId) { navController.popBackStack() }
         }
         composable("theme_assets/{themeId}") { backStackEntry ->
             val requested = backStackEntry.arguments?.getString("themeId").orEmpty()
@@ -1898,7 +2032,12 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = noteEditRoute(noteId),
             ) {
-                NoteEditorScreen(settings, noteId) { navController.popBackStack() }
+                NoteEditorScreen(
+                    settings,
+                    noteId,
+                    onOpenNote = { other -> navController.navigate(noteEditRoute(other)) },
+                    onNavigate = { route -> navController.navigate(route) },
+                ) { navController.popBackStack() }
             }
         }
         composable("notes/tags") {
@@ -2000,7 +2139,7 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = "plugins",
             ) {
-                PluginsScreen { route -> navController.navigate(route) }
+                PluginsScreen(repository, settings) { route -> navController.navigate(route) }
             }
         }
         composable("plugin/{pluginId}") { entry ->
@@ -2010,7 +2149,7 @@ private fun SettingsNavGraph(
                 { navController.popBackStack() },
                 route = pluginRoute(pluginId),
             ) {
-                PluginDetailScreen(pluginId, onNavigate = { route -> navController.navigate(route) }) {
+                PluginDetailScreen(pluginId, repository, settings, onNavigate = { route -> navController.navigate(route) }) {
                     navController.popBackStack()
                 }
             }
@@ -2272,6 +2411,11 @@ private fun SettingsNavGraph(
         }
         // The custom Double Pinyin scheme (#502). Its own Scaffold, like the
         // layout JSON editor: the scheme is a page of text and needs the height.
+        // Every snippet as one text document (gap list item 33). Its own
+        // Scaffold, like the scheme editor below: it needs the height.
+        composable(SNIPPETS_TEXT_ROUTE) {
+            SnippetTextScreen(settings) { navController.popBackStack() }
+        }
         composable(DOUBLE_PINYIN_CUSTOM_ROUTE) {
             DoublePinyinSchemeScreen(repository, settings) { navController.popBackStack() }
         }
@@ -2480,7 +2624,11 @@ private fun SettingsNavGraph(
                 route = "tools",
                 pinned = { ToolsSearchField(query) { query = it } },
             ) {
-                ToolsSettings(repository, settings, query) { tool -> navController.navigate("tool/${tool.name}") }
+                ToolsSettings(
+                    repository, settings, query,
+                    onCustomButtons = { navController.navigate(CustomButtons.ROUTE) },
+                    onOpenRoute = { navController.navigate(it) },
+                ) { tool -> navController.navigate("tool/${tool.name}") }
             }
         }
         composable("tool/{toolName}") { backStackEntry ->
@@ -2956,6 +3104,7 @@ private fun SettingsNavGraph(
                     onOpenDebugLog = { navController.navigate("debug_log") },
                     onOpenStorage = { navController.navigate("storage") },
                     onOpenResources = { navController.navigate("resources") },
+                    onOpenDebugInfo = { navController.navigate("debug_info") },
                     onOpenImportHub = { navController.navigate("import_hub") },
                     onOpenStatistics = { navController.navigate("statistics") },
                     onOpenEggGame = { navController.navigate("egg_game") },
@@ -2967,7 +3116,7 @@ private fun SettingsNavGraph(
             // The screen behind seven taps on the version row. Deliberately
             // absent from the search index and the launcher shortcuts — a
             // secret that can be searched for is a menu entry.
-            KeycapCatcherScreen(anim = this) { navController.popBackStack() }
+            KeycapCatcherScreen(settings) { navController.popBackStack() }
         }
         composable("import_hub") {
             SettingsScreen(
@@ -2996,6 +3145,15 @@ private fun SettingsNavGraph(
                 ResourcesScreen(useRoot = settings.watch { it.launcher.useRoot }) { navController.navigate(it) }
             }
         }
+        composable("debug_info") {
+            SettingsScreen(
+                stringResource(R.string.about_debug_info_title),
+                { navController.popBackStack() },
+                route = "debug_info",
+            ) {
+                DebugInfoScreen()
+            }
+        }
         composable("feature_libraries") {
             SettingsScreen(
                 stringResource(R.string.feature_libraries_title),
@@ -3015,6 +3173,7 @@ private fun SettingsNavGraph(
                     repository,
                     settings,
                     onOpenLearnedCorrections = { navController.navigate("learnedcorrections") },
+                    onOpenEggGame = { navController.navigate("egg_game") },
                 )
             }
         }
@@ -3785,6 +3944,20 @@ internal fun SettingsGroup(
     val scope = SettingsGroupScope().apply(builder)
     val route = LocalScreenRoute.current.orEmpty()
     val depthControl = LocalSettingsDepth.current
+    // Show switched-off settings (#1112): a row waiting on another setting is
+    // drawn anyway, greyed out and untouchable until that setting turns it on.
+    // A page reached from a link, a search or the New settings walk shows
+    // them too, so the setting it was sent to is there even before the one it
+    // depends on is turned on.
+    if (depthControl.switchedOffRows || (LocalDepthReveal.current?.arrived ?: SettingsHighlight.pending)) {
+        scope.items.replaceAll { e ->
+            if (!e.conditional || e.visible) {
+                e
+            } else {
+                SettingsGroupScope.Entry(true, true, e.key, e.level, e.weight) { SwitchedOffRow(e.content) }
+            }
+        }
+    }
     val depth = depthControl.depth
     val groupAbove = !depth.shows(level)
     val folds = LocalAdvancedFolds.current
@@ -4577,7 +4750,26 @@ private val GROUP_CARD_INSET = 32.dp
  */
 @Composable
 private fun settingsRowWidth(): Dp =
-    LocalConfiguration.current.screenWidthDp.dp - GROUP_CARD_INSET
+    LocalSettingsRowWidth.current ?: (LocalConfiguration.current.screenWidthDp.dp - GROUP_CARD_INSET)
+
+/**
+ * How wide the rows are where that is not the settings list's card: the rows
+ * of a dialog, set by [RowsAtOwnWidth]. Null in the list itself.
+ */
+internal val LocalSettingsRowWidth = compositionLocalOf<Dp?> { null }
+
+/**
+ * Settings rows in [content] budget their line against the width they are
+ * given rather than the screen's (#1324). A dialog is narrower than the list,
+ * and a slider row that measured the screen put its name beside the slider
+ * there and squeezed it to a letter a line.
+ */
+@Composable
+internal fun RowsAtOwnWidth(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    BoxWithConstraints(modifier) {
+        CompositionLocalProvider(LocalSettingsRowWidth provides maxWidth) { content() }
+    }
+}
 
 /**
  * Whether [text], drawn in [style], fits beside a row's title once the row has
@@ -4765,13 +4957,43 @@ internal fun ToggleNavRow(
     default: Boolean? = null,
     onChange: (Boolean) -> Unit,
     onOpen: () -> Unit,
+) = ToggleNavRow(
+    title = stringResource(title),
+    subtitle = subtitle,
+    checked = checked,
+    route = route,
+    info = info,
+    default = default,
+    icon = SettingsRowIcons[title],
+    highlightKey = title,
+    onChange = onChange,
+    onOpen = onOpen,
+)
+
+/**
+ * [ToggleNavRow] for a row named at run time: a layout of the user's own on
+ * Layout & size (#1318), whose switch turns it on and whose row opens it in
+ * the editor.
+ */
+@Composable
+internal fun ToggleNavRow(
+    title: String,
+    subtitle: String?,
+    checked: Boolean,
+    route: String,
+    info: String? = null,
+    default: Boolean? = null,
+    icon: ImageVector? = null,
+    @StringRes highlightKey: Int = 0,
+    onChange: (Boolean) -> Unit,
+    onOpen: () -> Unit,
 ) {
-    val name = stringResource(title)
-    HighlightableRow(name, title, info = info) {
+    val name = title
+    HighlightableRow(name, highlightKey, info = info) {
         WmRow(
             title = name,
             subtitle = subtitle,
-            icon = SettingsRowIcons[title],
+            icon = icon,
             flightTo = route,
             trailingOnTitleLine = true,
             titleReflows = default != null,
@@ -5934,5 +6156,22 @@ internal fun <T> MultiChoiceSetting(
                 }
             }
         }
+    }
+}
+
+/**
+ * A row drawn while the setting it depends on is off (#1112): faded, its
+ * controls out of reach, and read out as unavailable.
+ *
+ * The controls are shielded by [RowShield], a sibling laid over them, rather
+ * than by consuming the row's touches: a consumed move is one the list around
+ * the row cannot scroll with either, and a finger that came down on a greyed
+ * row could not move the page.
+ */
+@Composable
+private fun SwitchedOffRow(content: @Composable () -> Unit) {
+    androidx.compose.foundation.layout.Box(Modifier.semantics(mergeDescendants = false) { disabled() }) {
+        androidx.compose.foundation.layout.Box(Modifier.alpha(0.38f)) { content() }
+        RowShield()
     }
 }

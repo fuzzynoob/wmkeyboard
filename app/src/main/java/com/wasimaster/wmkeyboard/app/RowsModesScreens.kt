@@ -97,6 +97,7 @@ import com.wasimaster.wmkeyboard.core.layout.AssetLayouts
 import com.wasimaster.wmkeyboard.core.layout.layoutAfterFancy
 import com.wasimaster.wmkeyboard.core.layout.resolveLayout
 import com.wasimaster.wmkeyboard.core.settings.KeyboardMode
+import com.wasimaster.wmkeyboard.core.settings.ModeEnterAction
 import com.wasimaster.wmkeyboard.core.settings.KeyboardModeCodec
 import com.wasimaster.wmkeyboard.core.settings.DefaultKeyboardModes
 import com.wasimaster.wmkeyboard.core.settings.ManualModeDuration
@@ -111,6 +112,7 @@ import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.isUsableTool
 import com.wasimaster.wmkeyboard.core.settings.isOwnRow
 import com.wasimaster.wmkeyboard.core.settings.modesOverridingRow
+import com.wasimaster.wmkeyboard.core.settings.modeWordChars
 import com.wasimaster.wmkeyboard.core.settings.stripHidden
 import com.wasimaster.wmkeyboard.core.settings.AppGroup
 import com.wasimaster.wmkeyboard.core.settings.ModeField
@@ -123,6 +125,10 @@ import com.wasimaster.wmkeyboard.core.tools.SymbolSet
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.ToolbarPlacement
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.ToolKey
+import com.wasimaster.wmkeyboard.core.settings.pluginToolKey
+import com.wasimaster.wmkeyboard.core.settings.shownWith
+import com.wasimaster.wmkeyboard.core.settings.toolKeys
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.PlaylistAdd
@@ -167,6 +173,7 @@ private fun barRowTitle(row: BarRow, settings: KeyboardSettings): Int = when (ro
     BarRow.MACROS -> R.string.rows_bar_macros_title
     BarRow.STICKERS -> R.string.rows_bar_stickers_title
     BarRow.RECENT -> R.string.typing_recent_word_bar_title
+    BarRow.SECOND_TOOLBAR -> R.string.rows_bar_second_toolbar_title
     BarRow.KEYBOARD -> R.string.rows_bar_keyboard_title
 }
 
@@ -214,6 +221,8 @@ private fun barRowStatus(row: BarRow, settings: KeyboardSettings): Int? = when (
     }
     // Only listed while it has a row of its own ([barRowsListed]).
     BarRow.RECENT -> CommonR.string.common_off.takeUnless { settings.suggestionStrip.recentWordBar }
+    // Only listed while it is on ([barRowsListed]).
+    BarRow.SECOND_TOOLBAR -> null
     BarRow.KEYBOARD -> null
 }
 
@@ -233,6 +242,7 @@ private fun barRowShown(row: BarRow, settings: KeyboardSettings): Boolean = when
         settings.selectionMacros.placement == SelectionMacroPlacement.OWN_ROW
     BarRow.STICKERS -> settings.gif.stickerSuggest
     BarRow.RECENT -> settings.suggestionStrip.recentWordBar
+    BarRow.SECOND_TOOLBAR -> settings.toolbarBehavior.secondRow
     BarRow.KEYBOARD -> true
 }
 
@@ -252,6 +262,8 @@ internal fun barRowsListed(order: List<BarRow>, settings: KeyboardSettings): Lis
             BarRow.STICKERS -> settings.gif.stickerSuggest
             // Inline they are part of the strip's entry, as the tools are.
             BarRow.RECENT -> settings.rows.recentWordPlacement == RecentWordPlacement.OWN_ROW
+            // A row that is switched off on the Toolbar page (#1217).
+            BarRow.SECOND_TOOLBAR -> settings.toolbarBehavior.secondRow
             else -> true
         }
     }
@@ -365,6 +377,12 @@ private fun BarRowPreview(row: BarRow, shown: Boolean) {
             BarRow.RECENT -> repeat(2) {
                 PreviewGlyph("abc")
                 PreviewPill(22.dp, scheme.secondaryContainer)
+            }
+            // The clipboard trio and a caret move, the row's own defaults.
+            BarRow.SECOND_TOOLBAR -> for (icon in listOf(
+                Icons.Outlined.ContentCut, Icons.Outlined.ContentCopy, Icons.Outlined.ContentPaste,
+            )) {
+                Icon(icon, contentDescription = null, modifier = Modifier.size(12.dp), tint = scheme.onSurfaceVariant)
             }
             BarRow.KEYBOARD -> PreviewKeys(scheme.outline)
         }
@@ -1489,9 +1507,11 @@ internal fun <T> ReorderSetting(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun ToolChips(
-    tools: List<ToolbarTool>,
-    selected: List<ToolbarTool>,
-    onToggle: (ToolbarTool) -> Unit,
+    tools: List<ToolKey>,
+    selected: List<ToolKey>,
+    /** The names of the plugins shown as tools, by id; see [rememberPluginToolNames]. */
+    pluginNames: Map<String, String>,
+    onToggle: (ToolKey) -> Unit,
 ) {
     FlowRow(
         modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
@@ -1501,7 +1521,7 @@ private fun ToolChips(
             FilterChip(
                 selected = tool in selected,
                 onClick = { onToggle(tool) },
-                label = { Text(stringResource(toolTitle(tool)), maxLines = 1) },
+                label = { Text(toolKeyTitle(tool, pluginNames), maxLines = 1) },
             )
         }
     }
@@ -1899,6 +1919,9 @@ internal fun ModeEditor(
             ) { save(current().copy(commitAsTyped = it)) }
         }
         item(level = SettingLevel.ADVANCED) {
+            ModeCharsSetting(settings.watch { modeIn(it).wordChars }) { save(current().copy(wordChars = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
             ChoiceSetting(
                 title = R.string.modes_incognito_title,
                 info = stringResource(R.string.modes_incognito_info),
@@ -1935,16 +1958,36 @@ internal fun ModeEditor(
             ) { save(current().copy(keyHaptics = it)) }
         }
         item(level = SettingLevel.ADVANCED) {
+            // One choice over two fields: a line break ([KeyboardMode.enterNewline])
+            // or one of the actions ([KeyboardMode.enterAction], gap list item 9).
             ChoiceSetting(
                 title = R.string.modes_enter_newline_title,
                 info = stringResource(R.string.modes_enter_newline_info),
                 options = listOf(
-                    false to stringResource(R.string.modes_inherit_label),
-                    true to stringResource(CommonR.string.common_on),
+                    MODE_ENTER_INHERIT to stringResource(R.string.modes_inherit_label),
+                    MODE_ENTER_NEWLINE to stringResource(R.string.modes_enter_newline_label),
+                    ModeEnterAction.SEND.id to stringResource(R.string.modes_enter_send_label),
+                    ModeEnterAction.SEARCH.id to stringResource(R.string.modes_enter_search_label),
+                    ModeEnterAction.GO.id to stringResource(R.string.modes_enter_go_label),
+                    ModeEnterAction.NEXT.id to stringResource(R.string.modes_enter_next_label),
+                    ModeEnterAction.DONE.id to stringResource(R.string.modes_enter_done_label),
                 ),
-                selected = settings.watch { modeIn(it).enterNewline },
-                default = false,
-            ) { save(current().copy(enterNewline = it)) }
+                selected = settings.watch { mode ->
+                    val m = modeIn(mode)
+                    when {
+                        m.enterNewline -> MODE_ENTER_NEWLINE
+                        else -> ModeEnterAction.of(m.enterAction)?.id ?: MODE_ENTER_INHERIT
+                    }
+                },
+                default = MODE_ENTER_INHERIT,
+            ) { choice ->
+                save(
+                    current().copy(
+                        enterNewline = choice == MODE_ENTER_NEWLINE,
+                        enterAction = ModeEnterAction.of(choice)?.id,
+                    ),
+                )
+            }
         }
         item(level = SettingLevel.ADVANCED) {
             ChoiceSetting(
@@ -2172,14 +2215,17 @@ internal fun ModeEditor(
                 }
             }
             item(level = SettingLevel.STANDARD) {
+                // A mode can pin a plugin's tool too, after the built-in ones.
+                val pluginNames = rememberPluginToolNames()
                 ToolChips(
                     tools = settings.watch { s ->
                         ToolbarTool.entries.filter {
                             it in s.enabledTools && isSupportedTool(it) &&
                                 isUsableTool(it, s)
-                        }
-                    },
+                        }.toolKeys()
+                    } + pluginNames.keys.map(::pluginToolKey),
                     selected = pinned,
+                    pluginNames = pluginNames,
                 ) { tool ->
                     save(
                         current().copy(
@@ -2191,9 +2237,10 @@ internal fun ModeEditor(
             item(level = SettingLevel.STANDARD) {
                 // toolTitle() hands back a resource id, and the reorder dialog
                 // takes a plain (T) -> String, so the names are resolved here.
-                val toolNames = mutableMapOf<ToolbarTool, String>()
+                val pluginNames = rememberPluginToolNames()
+                val toolNames = mutableMapOf<ToolKey, String>()
                 for (tool in pinned) {
-                    toolNames[tool] = stringResource(toolTitle(tool))
+                    toolNames[tool] = toolKeyTitle(tool, pluginNames)
                 }
                 ReorderableColumn(
                     pinned,
@@ -2214,14 +2261,17 @@ internal fun ModeEditor(
         }
         if (order != null) {
             item(level = SettingLevel.ADVANCED) {
+                val pluginNames = rememberPluginToolNames()
                 ToolChips(
                     tools = settings.watch { s ->
-                        s.toolboxOrder.filter {
-                            it in s.enabledTools && isSupportedTool(it) &&
-                                isUsableTool(it, s)
+                        s.toolboxOrder.filter { key ->
+                            key.shownWith(pluginNames.keys) {
+                                it in s.enabledTools && isSupportedTool(it) && isUsableTool(it, s)
+                            }
                         }
                     },
                     selected = order,
+                    pluginNames = pluginNames,
                 ) { tool ->
                     save(
                         current().copy(
@@ -2231,9 +2281,10 @@ internal fun ModeEditor(
                 }
             }
             item(level = SettingLevel.ADVANCED) {
-                val toolNames = mutableMapOf<ToolbarTool, String>()
+                val pluginNames = rememberPluginToolNames()
+                val toolNames = mutableMapOf<ToolKey, String>()
                 for (tool in order) {
-                    toolNames[tool] = stringResource(toolTitle(tool))
+                    toolNames[tool] = toolKeyTitle(tool, pluginNames)
                 }
                 ReorderableColumn(
                     order,
@@ -2575,6 +2626,19 @@ internal fun ModeEditor(
                 selected = settings.watch { modeIn(it).oneHanded },
                 default = null,
             ) { save(current().copy(oneHanded = it)) }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                title = R.string.modes_dark_mode_title,
+                info = stringResource(R.string.modes_dark_mode_info),
+                options = listOf(
+                    null to stringResource(R.string.modes_condition_any),
+                    true to stringResource(R.string.modes_dark_mode_on),
+                    false to stringResource(R.string.modes_dark_mode_off),
+                ),
+                selected = settings.watch { modeIn(it).darkMode },
+                default = null,
+            ) { save(current().copy(darkMode = it)) }
         }
         item(level = SettingLevel.ADVANCED) {
             ChoiceSetting(
@@ -2929,6 +2993,48 @@ private fun ModeListSetting(
     )
 }
 
+/**
+ * A mode's extra in-word characters ([KeyboardMode.wordChars]), typed as they
+ * are with nothing between them: a comma is a character a mode can add, so
+ * this cannot be a [ModeListSetting]. Saved through [modeWordChars], so what
+ * the row shows is what the keyboard reads.
+ */
+@Composable
+private fun ModeCharsSetting(value: String, onChange: (String) -> Unit) {
+    var editing by remember { mutableStateOf(false) }
+    WmRow(
+        title = stringResource(R.string.modes_word_chars_title),
+        subtitle = value.ifEmpty { stringResource(R.string.modes_word_chars_subtitle) },
+        onClick = { editing = true },
+    )
+    if (!editing) return
+    var text by remember { mutableStateOf(value) }
+    AlertDialog(
+        onDismissRequest = { editing = false },
+        title = { Text(stringResource(R.string.modes_word_chars_title)) },
+        text = {
+            Column {
+                Text(stringResource(R.string.modes_word_chars_info))
+                OutlinedTextField(
+                    value = text,
+                    onValueChange = { text = it },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = {
+                editing = false
+                onChange(modeWordChars(text))
+            }) { Text(stringResource(CommonR.string.common_save)) }
+        },
+        dismissButton = {
+            TextButton(onClick = { editing = false }) { Text(stringResource(CommonR.string.common_cancel)) }
+        },
+    )
+}
+
 @Composable
 private fun HintEditorDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
     var text by remember { mutableStateOf("") }
@@ -2955,3 +3061,9 @@ private fun HintEditorDialog(onAdd: (String) -> Unit, onDismiss: () -> Unit) {
         },
     )
 }
+
+/** [KeyboardMode.enterNewline] and [KeyboardMode.enterAction] both unset. */
+private const val MODE_ENTER_INHERIT = "inherit"
+
+/** [KeyboardMode.enterNewline] on. */
+private const val MODE_ENTER_NEWLINE = "newline"

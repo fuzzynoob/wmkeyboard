@@ -86,6 +86,8 @@
     <string name="fonts_tool_recent_copies_desc">Show your latest copies in a row on the suggestion strip, until you type</string>
     <string name="fonts_tool_read_back_desc">Read the selection, or everything in the field, aloud in the keyboard\'s language. Tap again to stop</string>
     <string name="fonts_tool_leave_field_desc">Press Esc to leave the text field, then hide the keyboard. Works in apps that answer Esc, such as a browser\'s address bar</string>
+    <string name="fonts_tool_homophones_desc">List the characters that sound like the Chinese or Japanese character before the cursor, and swap it for one</string>
+    <string name="fonts_tool_debug_info_desc">What the field in front asked the keyboard for, and the keyboard\'s state, for a bug report. Never the text in it</string>
     <string name="fonts_tool_quick_note_desc">Start a new note with the keys already typing into it, or add to one of your latest notes</string>
     <string name="fonts_tool_snippets_desc">Insert saved text snippets</string>
     <string name="fonts_tool_text_edit_desc">Cursor, selection and clipboard controls</string>
@@ -97,6 +99,7 @@
     <string name="fonts_tool_resize_desc">Drag the keyboard to change its height and position</string>
     <string name="fonts_tool_settings_desc">Open this settings app</string>
     <string name="fonts_tool_flashlight_desc">Turn the torch on or off from the keyboard</string>
+    <string name="fonts_tool_privacy_shade_desc">Cover the app above the keyboard so nobody nearby can read it</string>
     <string name="fonts_tool_screenshot_desc">Take a screenshot of the app, with the keyboard put away first</string>
     <string name="fonts_tool_compass_desc">Live compass with a degree readout and an optional qibla</string>
     <string name="fonts_tool_level_desc">Bubble level that uses the accelerometer</string>
@@ -119,7 +122,7 @@
     <string name="fonts_tool_phonetic_english_desc">One press turns English words on Avro and Hindi phonetic on or off</string>
     <string name="fonts_tool_selection_actions_desc">One press turns the bar of actions for selected text on or off</string>
     <string name="fonts_tool_fancy_desc">One press puts the Fancy text keyboard on screen, and takes it off again</string>
-    <string name="fonts_tool_custom_layout_desc">One press shows a secondary layout of your own over the letters, and takes it off again</string>
+    <string name="fonts_tool_custom_layout_desc">One press switches to a second layout you select, and the next press goes back</string>
     <string name="fonts_tool_sound_haptics_desc">Adjust the key sound and the vibration from the keyboard</string>
     <string name="fonts_tool_numpad_desc">A number pad layout of its own</string>
     <string name="fonts_tool_handwriting_desc">Write words by hand with a finger or an S Pen. Your device does the recognition</string>
@@ -170,6 +173,8 @@
     <string name="fonts_tool_select_word_desc">Select the word at the cursor</string>
     <string name="fonts_tool_select_line_desc">Select the full line at the cursor</string>
     <string name="fonts_tool_select_all_desc">Select everything in the field</string>
+    <string name="fonts_tool_timestamp_desc">Type the date and time in one tap, in the format chosen in the Clock tool</string>
+    <string name="fonts_tool_clear_field_desc">Delete everything in the field in one tap. Undo brings it back</string>
     <string name="fonts_tool_select_mode_desc">Every cursor move selects text until you turn it off</string>
     <string name="fonts_tool_copy_desc">Copy the selected text</string>
     <string name="fonts_tool_cut_desc">Cut the selected text</string>

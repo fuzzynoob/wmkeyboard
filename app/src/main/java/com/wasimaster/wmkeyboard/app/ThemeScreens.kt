@@ -1,6 +1,10 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.core.fonts.FontFile
+import com.wasimaster.wmkeyboard.core.fonts.FontImportResult
+import com.wasimaster.wmkeyboard.content.R as ContentR
 import androidx.compose.runtime.collectAsState
+import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.LocalContentColor
 import com.wasimaster.wmkeyboard.ime.ui.rememberIconFile
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
@@ -207,9 +211,19 @@ import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.AppColorScope
 import com.wasimaster.wmkeyboard.core.theme.AppColorSource
+import com.wasimaster.wmkeyboard.core.theme.DEFAULT_KEY_GLOW_DP
+import com.wasimaster.wmkeyboard.core.theme.KEY_GLOW_RANGE
+import com.wasimaster.wmkeyboard.core.theme.KEY_OVERRIDE_RADIUS_RANGE
+import com.wasimaster.wmkeyboard.core.theme.LooseTheme
+import com.wasimaster.wmkeyboard.core.theme.ORB_SPOT_POSITION_RANGE
+import com.wasimaster.wmkeyboard.core.theme.ORB_SPOT_RADIUS_RANGE
+import com.wasimaster.wmkeyboard.core.theme.OrbSpot
 import com.wasimaster.wmkeyboard.core.theme.PaletteStyle
+import com.wasimaster.wmkeyboard.core.theme.defaultOrbSpots
 import com.wasimaster.wmkeyboard.core.theme.paletteStyleSwatch
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
+import com.wasimaster.wmkeyboard.core.settings.effectiveThemeId
+import com.wasimaster.wmkeyboard.core.settings.themeSelectionTarget
 import com.wasimaster.wmkeyboard.core.settings.CROP_FRAME_SUFFIX
 import com.wasimaster.wmkeyboard.core.settings.CROP_ORIGINAL_SUFFIX
 import com.wasimaster.wmkeyboard.core.settings.RotationInterval
@@ -330,6 +344,7 @@ import com.wasimaster.wmkeyboard.core.theme.ThemeCodec
 import com.wasimaster.wmkeyboard.core.theme.FutoTheme
 import com.wasimaster.wmkeyboard.core.theme.FutoThemeResult
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
+import com.wasimaster.wmkeyboard.core.theme.findThemeSpec
 import com.wasimaster.wmkeyboard.core.theme.alphaFraction
 import com.wasimaster.wmkeyboard.core.theme.withAlphaFraction
 import com.wasimaster.wmkeyboard.core.theme.brush
@@ -368,6 +383,7 @@ import kotlin.math.roundToInt
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapHoriz
 import com.wasimaster.wmkeyboard.core.theme.FlexResult
 import com.wasimaster.wmkeyboard.core.theme.FlexTheme
+import com.wasimaster.wmkeyboard.core.theme.deviceWallpaperPalette
 import com.wasimaster.wmkeyboard.core.theme.dynamicSnyggPalette
 import com.wasimaster.wmkeyboard.core.theme.GboardResult
 import com.wasimaster.wmkeyboard.core.theme.GboardTheme
@@ -700,6 +716,11 @@ private fun ThemePickerChoiceRow(
     onClick: () -> Unit,
     multiSelect: Boolean = false,
     enabled: Boolean = true,
+    /**
+     * Drawn small beside the name (#1306): two copies of one theme, or a
+     * family's looks, read the same by name alone. Null draws the name only.
+     */
+    theme: ThemeSpec? = null,
 ) {
     Row(
         modifier = Modifier
@@ -714,9 +735,18 @@ private fun ThemePickerChoiceRow(
             RadioButton(selected = selected, onClick = onClick)
         }
         Spacer(Modifier.width(8.dp))
-        Text(name)
+        if (theme != null) {
+            Box(modifier = Modifier.width(ThemePickerThumbWidth)) {
+                ThemePreview(theme, animatedBadge = false, cached = true)
+            }
+            Spacer(Modifier.width(12.dp))
+        }
+        Text(name, modifier = Modifier.weight(1f))
     }
 }
+
+/** How wide a theme's thumbnail is in the pickers' rows. */
+private val ThemePickerThumbWidth = 72.dp
 
 /**
  * The list of every selectable theme, for one half of the auto pair.
@@ -739,6 +769,7 @@ private fun ThemePickerDialog(
     onDismiss: () -> Unit,
 ) {
     val rows = themePickerRows(settings)
+    val customs = settings.watch { it.customThemes }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -782,6 +813,7 @@ private fun ThemePickerDialog(
                                 name = row.name,
                                 selected = if (randomOn) inPool else row.id == selectedId,
                                 indented = row.indented,
+                                theme = remember(row.id, customs) { findThemeSpec(row.id, customs) },
                                 multiSelect = randomOn,
                                 // The set cannot be emptied: a half that selects
                                 // at random from nothing has nothing to show.
@@ -1328,8 +1360,17 @@ fun ThemesScreen(
                 context.contentResolver.readTextCapped(uri)
             }.getOrNull()
         }
-        val parsed = text?.let { ThemeCodec.decode(it) }
-            ?: return ThemeFileOutcome.failed(context.getString(R.string.theme_import_wrong_file_error))
+        // A file this app wrote decodes as itself. Anything else is read for
+        // the colours it names before the plain decoder is tried: that one
+        // takes any JSON object at all, and turned a chat assistant's theme
+        // into the default grey with the file's name on it.
+        val parsed = text?.let {
+            if (WMFileTypes.looksLikeThemeExport(it)) {
+                ThemeCodec.decode(it)
+            } else {
+                LooseTheme.read(it) ?: ThemeCodec.decode(it)
+            }
+        } ?: return ThemeFileOutcome.failed(context.getString(R.string.theme_import_wrong_file_error))
         // Set the fresh ids first — the parent's and every variant's — so
         // the extracted image filenames key off them and stay unique
         // against existing themes.
@@ -1400,7 +1441,7 @@ fun ThemesScreen(
     suspend fun importFutoTheme(uri: android.net.Uri, id: String): ThemeFileOutcome {
         val result = withContext(Dispatchers.IO) {
             runCatching {
-                context.contentResolver.requireInputStream(uri).use { FutoTheme.read(it) }
+                context.contentResolver.requireInputStream(uri).use { FutoTheme.read(it, deviceWallpaperPalette(context)) }
             }.getOrElse { FutoThemeResult.Unreadable }
         }
         return if (result is FutoThemeResult.Converted) {
@@ -1835,7 +1876,7 @@ fun ThemesScreen(
         // Not a sentence telling the user where to go: the card carries the
         // switch that makes the gallery live again.
         StateBanner(
-            text = stringResource(R.string.theme_gallery_auto_on_body),
+            text = stringResource(R.string.theme_gallery_auto_on_picks_body),
             action = stringResource(CommonR.string.common_disable),
         ) { scope.launch { repository.setAutoThemeEnabled(false) } }
     }
@@ -2153,7 +2194,11 @@ fun ThemesScreen(
 
     // The cards are drawn in the screen's own body rather than in rows, so the
     // theme that is on is read once, here, for all of them.
-    val selectedThemeId = settings.watch { it.keyboardThemeId }
+    // With Auto light and dark on, the half that is due now: the keyboard
+    // reads that, not the manual selection, so the ring goes on it too.
+    val selectedThemeId = settings.watch {
+        if (it.autoTheme.enabled) it.effectiveThemeId(it.autoDarkSlotNow()) else it.keyboardThemeId
+    }
     // Which rows of cards are composed: the ones near the screen, see
     // [ThemeGalleryRow]. Saved, so coming back from the editor composes the
     // rows that were on screen at once, at the heights they had.
@@ -2174,7 +2219,7 @@ fun ThemesScreen(
     // Default (system) card first, then customs, then built-ins — two per row.
     DefaultThemeCard(
         selected = selectedThemeId == DEFAULT_THEME_ID,
-        onSelect = { scope.launch { repository.setKeyboardThemeId(DEFAULT_THEME_ID) } },
+        onSelect = { scope.launch { repository.useTheme(settings.value, DEFAULT_THEME_ID) } },
     )
     // A pencil tap on a family card asks what to copy: (family, shown look).
     var copyScopeFor by remember { mutableStateOf<Pair<ThemeSpec, ThemeSpec>?>(null) }
@@ -2208,7 +2253,7 @@ fun ThemesScreen(
                                 ThemeCard(
                                     theme = shown,
                                     selected = members.any { it.id == selectedThemeId },
-                                    onSelect = { scope.launch { repository.setKeyboardThemeId(shown.id) } },
+                                    onSelect = { scope.launch { repository.useTheme(settings.value, shown.id) } },
                                     onEdit = { onEditTheme(shown.id) },
                                     editRoute = themeEditRoute(shown.id),
                                     onExport = {
@@ -2242,7 +2287,7 @@ fun ThemesScreen(
                                         {
                                             VariantSwatchRow(entry, shownId) { variant ->
                                                 shownVariant[entry.id] = variant.id
-                                                scope.launch { repository.setKeyboardThemeId(variant.id) }
+                                                scope.launch { repository.useTheme(settings.value, variant.id) }
                                             }
                                         }
                                     } else {
@@ -2286,7 +2331,7 @@ fun ThemesScreen(
                             ThemeCard(
                                 theme = shown,
                                 selected = members.any { it.id == selectedThemeId },
-                                onSelect = { scope.launch { repository.setKeyboardThemeId(shown.id) } },
+                                onSelect = { scope.launch { repository.useTheme(settings.value, shown.id) } },
                                 // A family card asks whether the copy is of the shown
                                 // look or of the whole set; a lone card just copies.
                                 onEdit = {
@@ -2311,7 +2356,7 @@ fun ThemesScreen(
                                     {
                                         VariantSwatchRow(entry, shownId) { variant ->
                                             shownVariant[entry.id] = variant.id
-                                            scope.launch { repository.setKeyboardThemeId(variant.id) }
+                                            scope.launch { repository.useTheme(settings.value, variant.id) }
                                         }
                                     }
                                 } else {
@@ -2734,17 +2779,7 @@ private fun VariantSwatchRow(
 private fun DefaultThemeCard(selected: Boolean, onSelect: () -> Unit) {
     // Preview approximated from the app's own Material scheme.
     val scheme = MaterialTheme.colorScheme
-    val preview = remember(scheme) {
-        themeFromSeed("preview_default", "Default", scheme.primary.argb(), dark = false).copy(
-            boardBackground = scheme.surfaceContainerLow.argb(),
-            keyBackground = scheme.surfaceContainerHighest.argb(),
-            keyText = scheme.onSurface.argb(),
-            modifierKeyBackground = scheme.surfaceContainerHigh.argb(),
-            enterKeyBackground = scheme.primary.argb(),
-            enterKeyText = scheme.onPrimary.argb(),
-            accent = scheme.primary.argb(),
-        )
-    }
+    val preview = remember(scheme) { defaultThemeLookalike(scheme) }
     Row(modifier = Modifier.padding(horizontal = 12.dp)) {
         Box(modifier = Modifier.weight(1f)) {
             ThemeCard(
@@ -2760,6 +2795,23 @@ private fun DefaultThemeCard(selected: Boolean, onSelect: () -> Unit) {
         Spacer(Modifier.weight(1f))
     }
 }
+
+/**
+ * The Default theme approximated as a spec from the app's own Material
+ * scheme. Default has no spec of its own (the keyboard derives it from the
+ * scheme), so anything that draws "the current theme" outside the keyboard,
+ * its gallery card and the keycap catcher's paddle, starts from this.
+ */
+internal fun defaultThemeLookalike(scheme: ColorScheme): ThemeSpec =
+    themeFromSeed("preview_default", "Default", scheme.primary.argb(), dark = false).copy(
+        boardBackground = scheme.surfaceContainerLow.argb(),
+        keyBackground = scheme.surfaceContainerHighest.argb(),
+        keyText = scheme.onSurface.argb(),
+        modifierKeyBackground = scheme.surfaceContainerHigh.argb(),
+        enterKeyBackground = scheme.primary.argb(),
+        enterKeyText = scheme.onPrimary.argb(),
+        accent = scheme.primary.argb(),
+    )
 
 /** A theme card's outline, which its selection ring follows. */
 private val ThemeCardShape = RoundedCornerShape(14.dp)
@@ -2878,6 +2930,9 @@ private fun ThemeCard(
             theme,
             modifier = if (editRoute == null) Modifier
             else Modifier.wmSharedBounds(takeOffKey("preview", editRoute)),
+            // Drawn once and kept as a picture: the gallery is dozens of
+            // cards, and a glass or photo theme is a lot of work per card.
+            cached = true,
         )
         swatches?.invoke()
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -3543,6 +3598,8 @@ private fun ThemeEditorContent(
     }
     val reduceMotion = settings.watch { it.reduceMotion }
     val previewScale = rememberPreviewScale(PreviewScaleSlot.THEME_EDITOR)
+    // The heading scrolls away over the pinned keyboard; see RegisterHidingHeader.
+    RegisterHidingHeader()
     RegisterPinned {
         AnimatedVisibility(
             visible = !keyboardDocked,
@@ -5255,6 +5312,16 @@ private fun ThemeEditorContent(
                 }
             }
         }
+        item {
+            // Many keys at once, by code, output or kind, as text (gap list 53).
+            val rules = look.watch { it.ruleSheet?.takeIf { sheet -> !isEmptySheet(sheet) } != null }
+            NavRow(
+                R.string.theme_rule_sheet_title,
+                subtitle = stringResource(
+                    if (rules) R.string.theme_rule_sheet_subtitle_on else R.string.theme_rule_sheet_subtitle_off,
+                ),
+            ) { onNavigate(themeRulesRoute(look.id)) }
+        }
     }
     if (addOverrideOpen) {
         AddKeyOverrideDialog(
@@ -5385,9 +5452,12 @@ private fun ThemeEditorContent(
     // own (#265, #769), opened from these rows or by pressing the part on the
     // preview, so the page carries one short group for them instead of three
     // long ones.
+    // Folds like the sections around it (#1318), rather than sitting open
+    // among them.
     SettingsGroup(
         stringResource(R.string.theme_parts_section_title),
         info = stringResource(R.string.theme_parts_section_body),
+        foldKey = "theme/parts",
     ) {
         item {
             WmRow(
@@ -5462,6 +5532,44 @@ private fun ThemeEditorContent(
                 supportsAlpha = true,
                 info = stringResource(R.string.theme_divider_body),
                 onChange = { update { t -> t.copy(dividerColor = it) } },
+            )
+        }
+        // Gap list item 28: the emoji search bar and the recently-copied chip
+        // can leave the shared card colour. Unset, each draws as it always did.
+        item(level = SettingLevel.ADVANCED) {
+            NullableColorRow(
+                R.string.theme_emoji_search_background_title,
+                look.watch { it.emojiSearchBackground },
+                fallback = look.watch { it.chipBackground ?: it.modifierKeyBackground },
+                supportsAlpha = true,
+                info = stringResource(R.string.theme_emoji_search_background_body),
+                onChange = { update { t -> t.copy(emojiSearchBackground = it) } },
+            )
+        }
+        item(level = SettingLevel.ADVANCED) {
+            NullableColorRow(
+                R.string.theme_emoji_search_text_title,
+                look.watch { it.emojiSearchText },
+                fallback = look.watch { it.suggestionText ?: it.keyText },
+                onChange = { update { t -> t.copy(emojiSearchText = it) } },
+            )
+        }
+        item(level = SettingLevel.ADVANCED) {
+            NullableColorRow(
+                R.string.theme_clip_chip_background_title,
+                look.watch { it.clipboardChipBackground },
+                fallback = look.watch { it.accent },
+                supportsAlpha = true,
+                info = stringResource(R.string.theme_clip_chip_background_body),
+                onChange = { update { t -> t.copy(clipboardChipBackground = it) } },
+            )
+        }
+        item(level = SettingLevel.ADVANCED) {
+            NullableColorRow(
+                R.string.theme_clip_chip_text_title,
+                look.watch { it.clipboardChipText },
+                fallback = look.watch { it.suggestionText ?: it.keyText },
+                onChange = { update { t -> t.copy(clipboardChipText = it) } },
             )
         }
     }
@@ -5578,6 +5686,7 @@ private fun ThemeEditorContent(
 
     // Decides which rows the group holds; each row reads its own radius.
     val hasCustomRadii = look.watch { it.keyCornerRadiusDp != null }
+    val sameAsLettersLabel = stringResource(R.string.theme_radius_same_as_letters)
     SettingsGroup(stringResource(R.string.theme_corners_section_title), foldKey = "theme/corners") {
         item(level = SettingLevel.STANDARD) {
             ToggleSetting(
@@ -5599,6 +5708,8 @@ private fun ThemeEditorContent(
                     } else {
                         t.copy(
                             keyCornerRadiusDp = null,
+                            modifierKeyCornerRadiusDp = null,
+                            actionKeyCornerRadiusDp = null,
                             popupCornerRadiusDp = null,
                             toolCircleRadiusDp = null,
                         )
@@ -5613,6 +5724,24 @@ private fun ThemeEditorContent(
                 range = 0f..28f,
                 display = { "${it.toInt()} dp" },
             ) { update { t -> t.copy(keyCornerRadiusDp = it.toInt()) } }
+        }
+        // Gap list item 29: function and action keys may round apart from the
+        // letters. The slider's bottom stop is "same as the letters" (null).
+        item(visible = hasCustomRadii, level = SettingLevel.ADVANCED) {
+            SliderRow(
+                R.string.theme_modifier_key_radius_title,
+                value = look.watch { it.modifierKeyCornerRadiusDp ?: -1 }.toFloat(),
+                range = -1f..28f,
+                display = { if (it < 0f) sameAsLettersLabel else "${it.toInt()} dp" },
+            ) { update { t -> t.copy(modifierKeyCornerRadiusDp = it.toInt().takeIf { r -> r >= 0 }) } }
+        }
+        item(visible = hasCustomRadii, level = SettingLevel.ADVANCED) {
+            SliderRow(
+                R.string.theme_action_key_radius_title,
+                value = look.watch { it.actionKeyCornerRadiusDp ?: -1 }.toFloat(),
+                range = -1f..28f,
+                display = { if (it < 0f) sameAsLettersLabel else "${it.toInt()} dp" },
+            ) { update { t -> t.copy(actionKeyCornerRadiusDp = it.toInt().takeIf { r -> r >= 0 }) } }
         }
         item(visible = hasCustomRadii, level = SettingLevel.ADVANCED) {
             SliderRow(
@@ -6312,12 +6441,14 @@ private fun ThemeEditorContent(
                     info = stringResource(R.string.theme_board_effect_reactive_body),
                 ) { v -> updateBoardEffect { it.copy(reactive = (v * 20).roundToInt() / 20f) } }
             }
-            for (slot in 0 until 2) {
+            // Two colours always; a third and a fourth once the one before is set.
+            for (slot in 0 until MAX_BOARD_EFFECT_COLORS) {
+                if (slot >= 2 && slot > boardEffect.colors.size) continue
                 item(level = SettingLevel.STANDARD) {
                     NullableColorRow(
-                        if (slot == 0) R.string.theme_board_effect_color_title else R.string.theme_board_effect_color2_title,
+                        BOARD_EFFECT_COLOR_TITLES[slot],
                         boardEffect.colors.getOrNull(slot),
-                        fallback = look.watch { if (slot == 0) it.accent else it.keyText },
+                        fallback = look.watch { if (slot == 1) it.keyText else it.accent },
                         supportsAlpha = true,
                         onChange = { c ->
                             updateBoardEffect { spec ->
@@ -6333,6 +6464,49 @@ private fun ThemeEditorContent(
                             }
                         },
                     )
+                }
+            }
+            if (boardEffectKindOrNull(boardEffect.kind) == BoardEffectKind.ORBS) {
+                item(level = SettingLevel.STANDARD) {
+                    ToggleSetting(
+                        title = R.string.theme_board_effect_orb_spots_title,
+                        subtitle = null,
+                        checked = boardEffect.orbSpots.isNotEmpty(),
+                        info = stringResource(R.string.theme_board_effect_orb_spots_body),
+                    ) { on ->
+                        updateBoardEffect {
+                            it.copy(orbSpots = if (on) defaultOrbSpots(maxOf(it.colors.size, 2)) else emptyList())
+                        }
+                    }
+                }
+                boardEffect.orbSpots.forEachIndexed { index, spot ->
+                    fun setSpot(change: (OrbSpot) -> OrbSpot) = updateBoardEffect { spec ->
+                        spec.copy(orbSpots = spec.orbSpots.mapIndexed { i, s -> if (i == index) change(s) else s })
+                    }
+                    item(level = SettingLevel.STANDARD) {
+                        SliderRow(
+                            stringResource(R.string.theme_board_effect_orb_x_title, index + 1),
+                            value = spot.x,
+                            range = ORB_SPOT_POSITION_RANGE,
+                            display = { "%d%%".format((it * 100).roundToInt()) },
+                        ) { v -> setSpot { it.copy(x = (v * 50).roundToInt() / 50f) } }
+                    }
+                    item(level = SettingLevel.STANDARD) {
+                        SliderRow(
+                            stringResource(R.string.theme_board_effect_orb_y_title, index + 1),
+                            value = spot.y,
+                            range = ORB_SPOT_POSITION_RANGE,
+                            display = { "%d%%".format((it * 100).roundToInt()) },
+                        ) { v -> setSpot { it.copy(y = (v * 50).roundToInt() / 50f) } }
+                    }
+                    item(level = SettingLevel.STANDARD) {
+                        SliderRow(
+                            stringResource(R.string.theme_board_effect_orb_size_title, index + 1),
+                            value = spot.radius,
+                            range = ORB_SPOT_RADIUS_RANGE,
+                            display = { "%d%%".format((it * 100).roundToInt()) },
+                        ) { v -> setSpot { it.copy(radius = (v * 50).roundToInt() / 50f) } }
+                    }
                 }
             }
         }
@@ -6897,6 +7071,35 @@ internal fun ThemeFontPickerDialog(
         script == null -> KeyboardFonts.googleFonts
         else -> KeyboardFonts.scriptFontChoices(script)?.fonts.orEmpty()
     }
+    // A font from a file, without leaving the editor for the Fonts screen
+    // (#1328): into the shared library, then picked here at once.
+    val scope = rememberCoroutineScope()
+    val importFont = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            val result = withContext(Dispatchers.IO) {
+                runCatching {
+                    context.contentResolver.requireInputStream(uri).use {
+                        FontFile.import(it, FontStore.get(context), name = fontFileLabel(context, uri))
+                    }
+                }.getOrElse { FontImportResult.Failed(ContentR.string.core_content_font_error_read) }
+            }
+            when (result) {
+                is FontImportResult.Imported -> onPick(FontStore.fontIdFor(result.font.id))
+                is FontImportResult.NotAFont -> Toast.makeText(context, result.messageRes, Toast.LENGTH_LONG).show()
+                FontImportResult.TooManyFonts -> Toast.makeText(
+                    context,
+                    context.resources.getQuantityString(R.plurals.fonts_import_limit_message, FontStore.MAX_FONTS, FontStore.MAX_FONTS),
+                    Toast.LENGTH_LONG,
+                ).show()
+                is FontImportResult.Failed -> Toast.makeText(
+                    context,
+                    context.getString(result.messageRes, *result.messageArgs.toTypedArray()),
+                    Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
+    }
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
@@ -6907,6 +7110,11 @@ internal fun ThemeFontPickerDialog(
                     family = null,
                     selected = current == null,
                 ) { onPick(null) }
+                ThemeFontChoiceRow(
+                    label = stringResource(R.string.fonts_import_action),
+                    family = null,
+                    selected = false,
+                ) { importFont.launch(FONT_MIME_TYPES) }
                 for (font in installed) {
                     val id = FontStore.fontIdFor(font.id)
                     ThemeFontChoiceRow(
@@ -7483,12 +7691,12 @@ private fun KeyOverrideDialog(
         }
     }
     if (shapePickerOpen) {
-        // The board's radius still decides how round a rounded key is: one
-        // number per theme is the shape the slider has, and the shapes that
-        // need their own (circle, pill) read no radius at all.
+        // Drawn at the radius this key will have: its own where it has one,
+        // else the board's. The shapes that need their own (circle, pill)
+        // read no radius at all.
         KeyShapePickerDialog(
             selected = keyShapeKindOrNull(override.shape),
-            radiusDp = theme.keyCornerRadiusDp ?: 8,
+            radiusDp = override.cornerRadiusDp ?: theme.keyCornerRadiusDp ?: 8,
             title = R.string.theme_key_override_shape_title,
             onAuto = {
                 onChange(override.copy(shape = null))
@@ -7530,6 +7738,61 @@ private fun KeyOverrideDialog(
                 override.border, fallback = theme.keyBorderColor ?: theme.keyText,
                 onChange = { onChange(override.copy(border = it)) },
             )
+            // The face as a gradient: a red-to-crimson enter key, a space bar
+            // that fades. Turned on, it starts from the colour the key has
+            // now and shades it darker, so the first look is a gentle one.
+            val faceStart = override.background ?: theme.keyBackground
+            ToggleSetting(
+                title = R.string.theme_key_override_gradient_title,
+                subtitle = null,
+                checked = override.gradient != null,
+            ) { on ->
+                onChange(
+                    override.copy(
+                        gradient = if (on) {
+                            GradientSpec(listOf(faceStart, faceStart.shaded(0.7f)), GradientType.LINEAR, 90f)
+                        } else {
+                            null
+                        },
+                    ),
+                )
+            }
+            override.gradient?.let { gradient ->
+                ColorRow(
+                    R.string.theme_key_override_gradient_start_title,
+                    gradient.colors.firstOrNull() ?: faceStart,
+                    supportsAlpha = true,
+                ) { c ->
+                    onChange(override.copy(gradient = gradient.copy(colors = listOf(c) + gradient.colors.drop(1).ifEmpty { listOf(c) })))
+                }
+                ColorRow(
+                    R.string.theme_key_override_gradient_end_title,
+                    gradient.colors.lastOrNull() ?: faceStart,
+                    supportsAlpha = true,
+                ) { c ->
+                    onChange(override.copy(gradient = gradient.copy(colors = gradient.colors.dropLast(1).ifEmpty { listOf(c) } + c)))
+                }
+                SliderRow(
+                    R.string.theme_key_override_gradient_angle_title,
+                    value = gradient.angleDeg.mod(360f).coerceIn(0f, 345f),
+                    range = 0f..345f,
+                    display = { "${it.roundToInt()}°" },
+                ) { v -> onChange(override.copy(gradient = gradient.copy(angleDeg = (v / 15f).roundToInt() * 15f))) }
+            }
+            NullableColorRow(
+                R.string.theme_key_override_glow_title,
+                override.glow, fallback = theme.accent,
+                supportsAlpha = true,
+                onChange = { glow -> onChange(override.copy(glow = glow, glowDp = if (glow == null) null else override.glowDp)) },
+            )
+            if (override.glow != null) {
+                SliderRow(
+                    R.string.theme_key_override_glow_size_title,
+                    value = override.glowDp ?: DEFAULT_KEY_GLOW_DP,
+                    range = KEY_GLOW_RANGE,
+                    display = { "${it.roundToInt()} dp" },
+                ) { v -> onChange(override.copy(glowDp = v.roundToInt().toFloat())) }
+            }
             if (popupsShown) {
                 NullableColorRow(
                     R.string.theme_popup_background_title,
@@ -7628,6 +7891,19 @@ private fun KeyOverrideDialog(
                     ?: stringResource(CommonR.string.common_auto),
                 onClick = { shapePickerOpen = true },
             )
+            ToggleSetting(
+                title = R.string.theme_key_override_radius_title,
+                subtitle = override.cornerRadiusDp?.let { "$it dp" } ?: stringResource(CommonR.string.common_auto),
+                checked = override.cornerRadiusDp != null,
+            ) { on -> onChange(override.copy(cornerRadiusDp = if (on) theme.keyCornerRadiusDp ?: 8 else null)) }
+            override.cornerRadiusDp?.let { radius ->
+                SliderRow(
+                    R.string.theme_key_override_radius_title,
+                    value = radius.toFloat(),
+                    range = KEY_OVERRIDE_RADIUS_RANGE.first.toFloat()..KEY_OVERRIDE_RADIUS_RANGE.last.toFloat(),
+                    display = { "${it.roundToInt()} dp" },
+                ) { onChange(override.copy(cornerRadiusDp = it.roundToInt())) }
+            }
             ChoiceControl(
                 options = listOf(
                     null to stringResource(CommonR.string.common_auto),
@@ -7689,6 +7965,9 @@ private fun DecalDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(R.string.theme_decal_section_title)) },
         text = {
+            // The dialog's own width, not the screen's: the slider rows put a
+            // short name beside the slider only where it fits (#1324).
+            RowsAtOwnWidth {
             Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
                 ThemePreview(theme, animatedBadge = false)
                 Spacer(Modifier.height(8.dp))
@@ -7722,6 +8001,7 @@ private fun DecalDialog(
                     range = 0.1f..1f,
                     display = { "${(it * 100).toInt()}%" },
                 ) { onChange(decal.copy(opacity = (it * 100).toInt() / 100f)) }
+            }
             }
         },
         confirmButton = {
@@ -8204,6 +8484,20 @@ private fun CropImageDialog(
 
 // ---- small building blocks ----
 
+/** The board effect's colour rows, in slot order. */
+private val BOARD_EFFECT_COLOR_TITLES = listOf(
+    R.string.theme_board_effect_color_title,
+    R.string.theme_board_effect_color2_title,
+    R.string.theme_board_effect_color3_title,
+    R.string.theme_board_effect_color4_title,
+)
+
+/** [this] ARGB colour with its red, green and blue scaled by [factor]; alpha kept. */
+private fun Long.shaded(factor: Float): Long {
+    fun ch(shift: Int) = (((this ushr shift) and 0xFF) * factor).roundToInt().coerceIn(0, 255).toLong() shl shift
+    return (this and 0xFF000000L) or ch(16) or ch(8) or ch(0)
+}
+
 /** Shared with the sticker editor, which needs the same throttled slider. */
 @Composable
 internal fun SliderRow(
@@ -8426,21 +8720,70 @@ private fun BackgroundSourceDialog(
     )
 }
 
+/**
+ * Which half of the Auto light and dark pair is due now, worked out the way
+ * the keyboard works it out: the phone's own dark mode (not this app's, which
+ * can be forced either way), the schedule, or the sun at the saved place.
+ */
+internal fun KeyboardSettings.autoDarkSlotNow(): Boolean {
+    val systemDark = (android.content.res.Resources.getSystem().configuration.uiMode and
+        android.content.res.Configuration.UI_MODE_NIGHT_MASK) == android.content.res.Configuration.UI_MODE_NIGHT_YES
+    val minutes = java.util.Calendar.getInstance().let {
+        it.get(java.util.Calendar.HOUR_OF_DAY) * 60 + it.get(java.util.Calendar.MINUTE)
+    }
+    val latitude = weather.latitude
+    val longitude = weather.longitude
+    val sun = if (autoTheme.trigger == AutoThemeTrigger.SUN && latitude != null && longitude != null) {
+        com.wasimaster.wmkeyboard.core.tools.SolarCalculator.forDate(
+            latitude.toDouble(), longitude.toDouble(), System.currentTimeMillis(),
+        )
+    } else {
+        null
+    }
+    return autoTheme.usesDarkSlot(systemDark, minutes, sun)
+}
+
+/**
+ * Makes [id] the theme, stored where the keyboard reads it: with Auto light
+ * and dark on, the half that is due now, the way the keyboard's own Themes
+ * panel does. Writing the manual selection under the pair changed nothing on
+ * screen (Telegram group: "select a theme with Auto on and it does nothing").
+ * A half that shuffles at random has no one theme to set, so the manual
+ * selection it is, as before.
+ */
+internal suspend fun SettingsRepository.useTheme(settings: KeyboardSettings, id: String) {
+    val darkSlot = settings.autoTheme.enabled && settings.autoDarkSlotNow()
+    when (settings.themeSelectionTarget(darkSlot, modeOwnsTheme = false)) {
+        com.wasimaster.wmkeyboard.core.settings.ThemeSelectionTarget.AUTO_DARK -> setAutoThemeDarkId(id)
+        com.wasimaster.wmkeyboard.core.settings.ThemeSelectionTarget.AUTO_LIGHT -> setAutoThemeLightId(id)
+        com.wasimaster.wmkeyboard.core.settings.ThemeSelectionTarget.MANUAL,
+        com.wasimaster.wmkeyboard.core.settings.ThemeSelectionTarget.NONE,
+        -> setKeyboardThemeId(id)
+    }
+}
+
 /** The photo providers a key of the user's own makes a theme's Photo services worth showing. */
 private val PHOTO_KEY_TYPES = setOf(ProviderTypes.UNSPLASH.id, ProviderTypes.PEXELS.id)
 
 /**
  * Whether this phone blurs another window behind ours right now: Android 12 or
- * later, with the system's cross-window blur on (battery saver and some
- * manufacturers' builds turn it off).
+ * later, with the system's cross-window blur on (battery saver, Samsung's
+ * Reduce transparency and blur, and some manufacturers' builds turn it off).
+ * Followed live, so the warning goes as soon as the user finds the switch and
+ * comes back, instead of staying until the screen is reopened.
  */
 @Composable
 private fun phoneBlursWindows(): Boolean {
     if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.S) return false
     val context = androidx.compose.ui.platform.LocalContext.current
-    return remember(context) {
-        context.getSystemService(android.view.WindowManager::class.java)?.isCrossWindowBlurEnabled == true
+    val windows = remember(context) { context.getSystemService(android.view.WindowManager::class.java) }
+    var on by remember(windows) { mutableStateOf(windows?.isCrossWindowBlurEnabled == true) }
+    androidx.compose.runtime.DisposableEffect(windows) {
+        val listener = java.util.function.Consumer<Boolean> { on = it }
+        runCatching { windows?.addCrossWindowBlurEnabledListener(context.mainExecutor, listener) }
+        onDispose { runCatching { windows?.removeCrossWindowBlurEnabledListener(listener) } }
     }
+    return on
 }
 
 // ---- labels for the material, board effect and lighting pickers ----

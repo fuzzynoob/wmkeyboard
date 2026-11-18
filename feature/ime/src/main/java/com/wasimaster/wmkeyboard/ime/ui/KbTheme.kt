@@ -4,11 +4,6 @@ import android.content.Context
 import android.os.Build
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.isSystemInDarkTheme
@@ -28,7 +23,9 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.withFrameMillis
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -98,6 +95,10 @@ import com.wasimaster.wmkeyboard.core.theme.WINDOW_BLUR_RADIUS_RANGE
 import com.wasimaster.wmkeyboard.core.theme.KeyEffectColorMode
 import com.wasimaster.wmkeyboard.core.theme.KeyEffectKind
 import com.wasimaster.wmkeyboard.core.theme.KeyOverride
+import com.wasimaster.wmkeyboard.core.theme.KEY_OVERRIDE_RADIUS_RANGE
+import com.wasimaster.wmkeyboard.core.theme.ORB_SPOT_POSITION_RANGE
+import com.wasimaster.wmkeyboard.core.theme.ORB_SPOT_RADIUS_RANGE
+import com.wasimaster.wmkeyboard.core.theme.OrbSpot
 import com.wasimaster.wmkeyboard.core.theme.keyEffectKindOrNull
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
 import com.wasimaster.wmkeyboard.core.theme.MAX_DECALS
@@ -111,6 +112,7 @@ import com.wasimaster.wmkeyboard.core.theme.MAX_EFFECT_IMAGES
 import com.wasimaster.wmkeyboard.core.theme.SECONDARY_SUGGESTION_SCALE_RANGE
 import com.wasimaster.wmkeyboard.core.theme.keyEffectColorMode
 import com.wasimaster.wmkeyboard.core.theme.KeyTextureScale
+import com.wasimaster.wmkeyboard.core.theme.TextureSlice
 import com.wasimaster.wmkeyboard.core.theme.ThemeAnimation
 import com.wasimaster.wmkeyboard.core.theme.ThemeBackgroundImage
 import com.wasimaster.wmkeyboard.core.theme.ThemeSpec
@@ -147,6 +149,7 @@ import com.wasimaster.wmkeyboard.core.theme.bounded
 import com.wasimaster.wmkeyboard.core.theme.keyLightingPatternOrNull
 import com.wasimaster.wmkeyboard.core.theme.keyLightingTargetOrNull
 import com.wasimaster.wmkeyboard.core.theme.resolveMaterial
+import com.wasimaster.wmkeyboard.core.theme.withRuleSheet
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.castsElevationShadow
 import com.wasimaster.wmkeyboard.core.theme.hueShift
@@ -276,6 +279,8 @@ data class KbTheme(
     val popupSelectedText: Color,
     /** Image painted inside the preview bubble, clipped to its shape. */
     val popupTexture: String?,
+    /** Nine-slice cuts of the key pictures, as [ThemeSpec.textureSlices]. */
+    val textureSlices: Map<String, TextureSlice> = emptyMap(),
     val toolbarIcon: Color,
     val toolCircle: Color,
     val toolCircleActive: Color,
@@ -307,7 +312,24 @@ data class KbTheme(
     val primarySuggestionPill: Color,
     val secondaryText: Color,
     val divider: Color,
+    /**
+     * The emoji search bar's fill and text, and the recently-copied chip's
+     * (gap list item 28); null draws each the way it always drew, off the
+     * card colour, the accent and the strip text. Read through
+     * [emojiSearchFill] and friends, which hold the fallbacks.
+     */
+    val emojiSearch: Color? = null,
+    val emojiSearchText: Color? = null,
+    val clipChip: Color? = null,
+    val clipChipText: Color? = null,
     val keyRadiusDp: Int,
+    /**
+     * The function keys' and the action keys' (Enter, space) own corner
+     * radii (gap list item 29); null follows [keyRadiusDp]. Carried into the
+     * grid by [KeyPalette], so a key's own radius is resolved once per palette.
+     */
+    val modifierKeyRadiusDp: Int? = null,
+    val actionKeyRadiusDp: Int? = null,
     val popupRadiusDp: Int,
     val popupShapeKind: KeyShapeKind,
     /** Shape of the list-menu popups; a safe derivative of the popup shape. */
@@ -321,6 +343,8 @@ data class KbTheme(
     /** Shape of the panel cards and search bars; a safe derivative of the chip shape. */
     val cardShapeKind: KeyShapeKind,
     val toolWidthDp: Int,
+    /** Height of a bar button (#1264); a user setting, which no theme sets. */
+    val toolHeightDp: Int = 38,
     /** Glyph size inside a tool button; a user setting a theme doesn't override. */
     val toolIconSizeDp: Int,
     val animation: ThemeAnimation,
@@ -379,6 +403,8 @@ data class KbBoardEffect(
      * colour of its own instead of the fallback.
      */
     val ownColors: Boolean = true,
+    /** The ORBS pools' own places, held to their ranges; empty scatters them. See [BoardEffectSpec.orbSpots]. */
+    val orbSpots: List<OrbSpot> = emptyList(),
 )
 
 /** A [KeyLightingSpec] resolved the same way. */
@@ -414,8 +440,17 @@ internal fun resolveBoardEffect(spec: BoardEffectSpec, accent: Color, keyText: C
         reactive = spec.reactive.coerceIn(BOARD_EFFECT_REACTIVE_RANGE),
         halfLifeMs = spec.halfLifeMs.coerceIn(BOARD_EFFECT_HALF_LIFE_RANGE),
         ownColors = spec.colors.isNotEmpty(),
+        orbSpots = spec.orbSpots.take(MAX_BOARD_EFFECT_COLORS).map {
+            OrbSpot(
+                x = it.x.finiteOr(0.5f).coerceIn(ORB_SPOT_POSITION_RANGE),
+                y = it.y.finiteOr(0.5f).coerceIn(ORB_SPOT_POSITION_RANGE),
+                radius = it.radius.finiteOr(0.3f).coerceIn(ORB_SPOT_RADIUS_RANGE),
+            )
+        },
     )
 }
+
+private fun Float.finiteOr(fallback: Float): Float = if (isFinite()) this else fallback
 
 /** A [TouchBloomSpec] resolved the same way. */
 @Immutable
@@ -586,9 +621,11 @@ data class KbMotion(
  * [bleedDp] is how far a leaning shape may spill into the gap around the key —
  * pass the horizontal gap where there is one, so a slanted key keeps its full
  * width; leave it at zero where the key has no gap of its own to lean into.
+ * [radiusDp] is one key's own radius (`KeyOverride.cornerRadiusDp`); null
+ * takes the board's.
  */
-fun KbTheme.keyShape(bleedDp: Float = 0f, kind: KeyShapeKind? = null) =
-    keyShapeFor(kind ?: keyShapeKind, keyRadiusDp, bleedDp)
+fun KbTheme.keyShape(bleedDp: Float = 0f, kind: KeyShapeKind? = null, radiusDp: Int? = null) =
+    keyShapeFor(kind ?: keyShapeKind, radiusDp ?: keyRadiusDp, bleedDp)
 
 /**
  * Whether a key at rest draws a face at all. False only when the theme's key
@@ -620,6 +657,24 @@ fun KbTheme.toolShape() = keyShapeFor(toolShapeKind, toolRadiusDp)
  * drew before a theme could say otherwise.
  */
 fun KbTheme.chipShape() = keyShapeFor(chipShapeKind, chipRadiusDp)
+
+/**
+ * The emoji search bar's fill (gap list item 28): the theme's own, else
+ * [fallback], the card colour it always drew with.
+ */
+fun KbTheme.emojiSearchFill(fallback: Color): Color = emojiSearch ?: fallback
+
+/** Text on the emoji search bar; [fallback] is the strip text it always used. */
+fun KbTheme.emojiSearchInk(fallback: Color): Color = emojiSearchText ?: fallback
+
+/**
+ * The recently-copied chip's fill: the theme's own, else the accent tint the
+ * chip always drew with. A fragment chip is an outline and asks for no fill.
+ */
+fun KbTheme.clipChipFill(): Color = clipChip ?: accent.copy(alpha = if (dark) 0.20f else 0.11f)
+
+/** Text and glyphs on the recently-copied chip, and its outline's hue. */
+fun KbTheme.clipChipInk(): Color = clipChipText ?: accent
 
 /**
  * The resolved outline of the list-menu popups — the language picker, the
@@ -845,22 +900,30 @@ fun emojiFamilyFor(emoji: String): FontFamily? =
 private fun typographyWith(family: FontFamily?): Typography {
     val base = Typography()
     if (family == null) return base
+    // Lining figures (#1203): Merriweather and Playfair draw old-style digits
+    // by default, whose 3, 4, 5, 7 and 9 drop below the line, so the number
+    // row looked misaligned. A font without old-style figures ignores this.
+    return typographyOf(base, family)
+}
+
+private fun typographyOf(base: Typography, family: FontFamily): Typography {
+    fun androidx.compose.ui.text.TextStyle.inFamily() = copy(fontFamily = family, fontFeatureSettings = "lnum")
     return Typography(
-        displayLarge = base.displayLarge.copy(fontFamily = family),
-        displayMedium = base.displayMedium.copy(fontFamily = family),
-        displaySmall = base.displaySmall.copy(fontFamily = family),
-        headlineLarge = base.headlineLarge.copy(fontFamily = family),
-        headlineMedium = base.headlineMedium.copy(fontFamily = family),
-        headlineSmall = base.headlineSmall.copy(fontFamily = family),
-        titleLarge = base.titleLarge.copy(fontFamily = family),
-        titleMedium = base.titleMedium.copy(fontFamily = family),
-        titleSmall = base.titleSmall.copy(fontFamily = family),
-        bodyLarge = base.bodyLarge.copy(fontFamily = family),
-        bodyMedium = base.bodyMedium.copy(fontFamily = family),
-        bodySmall = base.bodySmall.copy(fontFamily = family),
-        labelLarge = base.labelLarge.copy(fontFamily = family),
-        labelMedium = base.labelMedium.copy(fontFamily = family),
-        labelSmall = base.labelSmall.copy(fontFamily = family),
+        displayLarge = base.displayLarge.inFamily(),
+        displayMedium = base.displayMedium.inFamily(),
+        displaySmall = base.displaySmall.inFamily(),
+        headlineLarge = base.headlineLarge.inFamily(),
+        headlineMedium = base.headlineMedium.inFamily(),
+        headlineSmall = base.headlineSmall.inFamily(),
+        titleLarge = base.titleLarge.inFamily(),
+        titleMedium = base.titleMedium.inFamily(),
+        titleSmall = base.titleSmall.inFamily(),
+        bodyLarge = base.bodyLarge.inFamily(),
+        bodyMedium = base.bodyMedium.inFamily(),
+        bodySmall = base.bodySmall.inFamily(),
+        labelLarge = base.labelLarge.inFamily(),
+        labelMedium = base.labelMedium.inFamily(),
+        labelSmall = base.labelSmall.inFamily(),
     )
 }
 
@@ -1023,6 +1086,7 @@ internal fun defaultKbTheme(
         chipShapeKind = KeyShapeKind.ROUNDED,
         cardShapeKind = KeyShapeKind.ROUNDED,
         toolWidthDp = settings.toolbarBehavior.toolWidthDp,
+        toolHeightDp = settings.toolbarBehavior.toolHeightDp,
         toolIconSizeDp = settings.toolbarBehavior.iconSizeDp,
         animation = ThemeAnimation.NONE,
         animationSpeed = 1f,
@@ -1155,6 +1219,7 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
                 minRatio = SELECTED_GLYPH_CONTRAST,
             ),
         popupTexture = spec.popupTexture,
+        textureSlices = spec.textureSlices,
         toolbarIcon = spec.toolbarIcon?.let(::colorOf) ?: secondary,
         toolCircle = spec.toolCircleBackground?.let(::colorOf)
             ?: blendOver(keyText, board, 0.14f),
@@ -1186,7 +1251,13 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         ),
         secondaryText = spec.secondaryText?.let(::colorOf) ?: secondary,
         divider = spec.dividerColor?.let(::colorOf) ?: stripText.copy(alpha = 0.25f),
+        emojiSearch = spec.emojiSearchBackground?.let(::colorOf),
+        emojiSearchText = spec.emojiSearchText?.let(::colorOf),
+        clipChip = spec.clipboardChipBackground?.let(::colorOf),
+        clipChipText = spec.clipboardChipText?.let(::colorOf),
         keyRadiusDp = spec.keyCornerRadiusDp ?: settings.keyCornerRadiusDp,
+        modifierKeyRadiusDp = spec.modifierKeyCornerRadiusDp?.coerceIn(KEY_OVERRIDE_RADIUS_RANGE),
+        actionKeyRadiusDp = spec.actionKeyCornerRadiusDp?.coerceIn(KEY_OVERRIDE_RADIUS_RANGE),
         popupRadiusDp = spec.popupCornerRadiusDp ?: settings.popup.cornerRadiusDp,
         popupShapeKind = keyShapeKindOrNull(spec.popupShape) ?: settings.popup.shape,
         menuShapeKind = keyShapeKindOrNull(spec.menuShape)
@@ -1198,7 +1269,9 @@ private fun specKbTheme(spec: ThemeSpec, settings: KeyboardSettings): KbTheme {
         chipShapeKind = keyShapeKindOrNull(spec.chipShape) ?: KeyShapeKind.ROUNDED,
         cardShapeKind = keyShapeKindOrNull(spec.cardShape)
             ?: safeContainerKind(keyShapeKindOrNull(spec.chipShape) ?: KeyShapeKind.ROUNDED),
-        toolWidthDp = spec.toolWidthDp ?: settings.toolbarBehavior.toolWidthDp,
+        toolWidthDp = spec.toolWidthDp?.takeUnless { settings.toolbarBehavior.sizeOverTheme }
+            ?: settings.toolbarBehavior.toolWidthDp,
+        toolHeightDp = settings.toolbarBehavior.toolHeightDp,
         toolIconSizeDp = settings.toolbarBehavior.iconSizeDp,
         animation = spec.animation,
         animationSpeed = spec.animationSpeed,
@@ -1309,11 +1382,14 @@ private fun KeyOverride.mapColors(f: (Color) -> Color): KeyOverride {
     fun map(value: Long?): Long? = value?.let { f(Color(it.toInt())).argbLong() }
     return copy(
         background = map(background),
+        pressedBackground = map(pressedBackground),
         text = map(text),
         border = map(border),
         popupBackground = map(popupBackground),
         popupText = map(popupText),
         hint = map(hint),
+        gradient = gradient?.mapColors(f),
+        glow = map(glow),
     )
 }
 
@@ -1354,6 +1430,10 @@ private fun KbTheme.mapColors(f: (Color) -> Color): KbTheme = copy(
     primarySuggestionPill = f(primarySuggestionPill),
     secondaryText = f(secondaryText),
     divider = f(divider),
+    emojiSearch = emojiSearch?.let(f),
+    emojiSearchText = emojiSearchText?.let(f),
+    clipChip = clipChip?.let(f),
+    clipChipText = clipChipText?.let(f),
     keyOverrides = if (keyOverrides.isEmpty()) {
         keyOverrides
     } else {
@@ -1449,6 +1529,11 @@ internal fun KbTheme.accessibilityAdjusted(settings: KeyboardSettings): KbTheme 
             toolbarIcon = maxContrastOn(board),
             secondaryText = maxContrastOn(board).copy(alpha = 0.75f),
             divider = maxContrastOn(board).copy(alpha = 0.4f),
+            // Back to the chip and strip colours this mode has just made legible.
+            emojiSearch = null,
+            emojiSearchText = null,
+            clipChip = null,
+            clipChipText = null,
         )
     }
 
@@ -1615,7 +1700,9 @@ fun KeyboardThemeProvider(
         // The app's colours take the wallpaper's place the same way, for the
         // themes the scope covers: the ones that follow the wallpaper already
         // (and Default, below), or every theme.
-        val spec = settings.activeThemeSpec(darkSlot)?.let { stored ->
+        // The theme's own rule sheet is laid over it first, so the colours it
+        // sets follow the wallpaper or the app like any other.
+        val spec = settings.activeThemeSpec(darkSlot)?.withRuleSheet()?.let { stored ->
             when {
                 appPalette != null &&
                     (stored.followWallpaper || settings.appColors.scope == AppColorScope.ALL) ->
@@ -1945,6 +2032,14 @@ private fun lerpLong(a: Long, b: Long, t: Float): Long =
 
 private fun Color.toArgbLong(): Long = toArgb().toLong() and 0xFFFFFFFFL
 
+/**
+ * Two optional colours whose null means "the fallback", not "nothing": both
+ * set blend, and otherwise the side that holds at [t] wins, since a fallback
+ * is a colour this function cannot see.
+ */
+private fun lerpOptional(a: Color?, b: Color?, t: Float): Color? =
+    if (a != null && b != null) lerp(a, b, t) else if (t >= 0.5f) b else a
+
 private fun lerpColorOrNull(a: Color?, b: Color?, t: Float): Color? {
     // A null border means "no outline"; fade it in/out via a transparent stand-in.
     // Either elvis falling all the way through means both sides were absent.
@@ -2061,6 +2156,7 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         popupSelected = lerp(a.popupSelected, b.popupSelected, t),
         popupSelectedText = lerp(a.popupSelectedText, b.popupSelectedText, t),
         popupTexture = if (past) b.popupTexture else a.popupTexture,
+        textureSlices = if (past) b.textureSlices else a.textureSlices,
         toolbarIcon = lerp(a.toolbarIcon, b.toolbarIcon, t),
         toolCircle = lerp(a.toolCircle, b.toolCircle, t),
         toolCircleActive = lerp(a.toolCircleActive, b.toolCircleActive, t),
@@ -2082,9 +2178,17 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         primarySuggestionPill = lerp(a.primarySuggestionPill, b.primarySuggestionPill, t),
         secondaryText = lerp(a.secondaryText, b.secondaryText, t),
         divider = lerp(a.divider, b.divider, t),
+        emojiSearch = lerpOptional(a.emojiSearch, b.emojiSearch, t),
+        emojiSearchText = lerpOptional(a.emojiSearchText, b.emojiSearchText, t),
+        clipChip = lerpOptional(a.clipChip, b.clipChip, t),
+        clipChipText = lerpOptional(a.clipChipText, b.clipChipText, t),
         oneHandedPanel = lerp(a.oneHandedPanel, b.oneHandedPanel, t),
         oneHandedPanelIcon = lerp(a.oneHandedPanelIcon, b.oneHandedPanelIcon, t),
         keyRadiusDp = lerpI(a.keyRadiusDp, b.keyRadiusDp, t),
+        modifierKeyRadiusDp = lerpI(a.modifierKeyRadiusDp ?: a.keyRadiusDp, b.modifierKeyRadiusDp ?: b.keyRadiusDp, t)
+            .takeIf { a.modifierKeyRadiusDp != null || b.modifierKeyRadiusDp != null },
+        actionKeyRadiusDp = lerpI(a.actionKeyRadiusDp ?: a.keyRadiusDp, b.actionKeyRadiusDp ?: b.keyRadiusDp, t)
+            .takeIf { a.actionKeyRadiusDp != null || b.actionKeyRadiusDp != null },
         popupRadiusDp = lerpI(a.popupRadiusDp, b.popupRadiusDp, t),
         popupShapeKind = if (past) b.popupShapeKind else a.popupShapeKind,
         menuShapeKind = if (past) b.menuShapeKind else a.menuShapeKind,
@@ -2098,6 +2202,7 @@ private fun lerpKbTheme(a: KbTheme, b: KbTheme, t: Float): KbTheme {
         // toolbar every crossfade frame, which the top bar forbids (a width
         // animation restarts every icon's placement spring). Snap at midpoint.
         toolWidthDp = if (past) b.toolWidthDp else a.toolWidthDp,
+        toolHeightDp = if (past) b.toolHeightDp else a.toolHeightDp,
         toolIconSizeDp = if (past) b.toolIconSizeDp else a.toolIconSizeDp,
         animation = if (past) b.animation else a.animation,
         animationSpeed = lerpF(a.animationSpeed, b.animationSpeed, t),
@@ -2172,23 +2277,23 @@ fun autoKbTheme(settings: KeyboardSettings): KbTheme {
 @Composable
 fun themeAnimationPhase(animation: ThemeAnimation, speed: Float, reduceMotion: Boolean): () -> Float {
     if (animation == ThemeAnimation.NONE || reduceMotion) return NoThemePhase
-    val transition = rememberInfiniteTransition(label = "themeAnim")
-    val phase = transition.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                durationMillis = (16000f / speed.coerceIn(0.25f, 3f)).toInt(),
-                easing = LinearEasing,
-            ),
-            repeatMode = RepeatMode.Restart,
-        ),
-        label = "phase",
-    )
+    val periodMs = (16000f / speed.coerceIn(0.25f, 3f)).toLong().coerceAtLeast(1L)
+    val phase = remember { mutableFloatStateOf(0f) }
+    // A frame loop of its own rather than an infinite transition, so it can
+    // be paced (see ThemeFramePacing): the flow takes many seconds to go
+    // round, and drawing it at the display's 90 or 120 Hz redrew the whole
+    // board that often for a change nobody could see between two frames.
+    LaunchedEffect(periodMs) {
+        val start = withFrameMillis { it } - (phase.floatValue * periodMs).toLong()
+        while (true) {
+            paceThemeFlowFrame()
+            withFrameMillis { now -> phase.floatValue = ((now - start) % periodMs) / periodMs.toFloat() }
+        }
+    }
     // Handed out as a reader rather than the value, so the frame-by-frame
     // change lands in the draw that asks for it. Read here, it recomposed
     // [BoardBackground] on every frame for as long as the keyboard was up.
-    return remember(phase) { { phase.value } }
+    return remember(phase) { { phase.floatValue } }
 }
 
 private val NoThemePhase: () -> Float = { 0f }
@@ -2207,7 +2312,11 @@ private const val BOARD_HEIGHT_SHARE = 0.6f
  * through). FLOW/HUE_CYCLE animate the board layer.
  */
 @Composable
-fun BoxScope.BoardBackground(kb: KbTheme) {
+fun BoxScope.BoardBackground(
+    kb: KbTheme,
+    /** The share of the screen's width the board takes, for sizing the photo's decode. */
+    widthShare: Float = 1f,
+) {
     // In landscape prefer the theme's landscape image, falling back to the
     // portrait one when it has none — so a theme with a single image still
     // shows it in both orientations, exactly as before this split existed.
@@ -2220,8 +2329,18 @@ fun BoxScope.BoardBackground(kb: KbTheme) {
     // font-scale nudge or a floating-resize drag does not throw the decode
     // away. Over-estimating costs a little memory; under-estimating costs
     // sharpness, so the board is assumed to be a generous share of the screen.
-    val targetW = with(density) { configuration.screenWidthDp.dp.roundToPx() }
+    val targetW = with(density) { (configuration.screenWidthDp * widthShare.coerceIn(0.1f, 1f)).dp.roundToPx() }
     val targetH = with(density) { (configuration.screenHeightDp * BOARD_HEIGHT_SHARE).dp.roundToPx() }
+    // Under a picture, the board's own colour at full strength (#1222). The
+    // colour layer drawn over the picture is a scrim, and picking a photo
+    // clears it so the photo shows; with nothing under the picture, its
+    // opacity faded it into the app behind instead of into the board, which
+    // read as a keyboard that ignored every opacity it was given. A theme that
+    // asked for the app behind, blurred, keeps it.
+    if (imagePath != null && kb.frost?.windowBlur != true && !boardHidesImage(kb, imagePath)) {
+        val solid = kb.board.copy(alpha = 1f)
+        Box(modifier = Modifier.matchParentSize().drawBehind { drawRect(solid) })
+    }
     // Animated backgrounds play through Coil (its loader already carries the
     // GIF/animated-WebP decoders for the media tools) and stop by themselves
     // when the keyboard leaves the screen. Reduce motion — which power saving

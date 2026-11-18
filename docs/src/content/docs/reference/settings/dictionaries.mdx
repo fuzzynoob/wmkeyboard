@@ -29,6 +29,8 @@ Past 12 words the list grows a search box above it, with a clear button in the f
 
 **Import from Android's dictionary** and **Export to Android's dictionary** sit above the list. Each opens a checklist of the words missing on the other side, all checked: import adds the checked words as words you added by hand, and export copies them into Android's own personal dictionary. Both need WM Keyboard to be your current keyboard, because Android shares its dictionary with no other app. See [Android's dictionary](/smart/personal-dictionary/#androids-dictionary). To add the new words from a note or draft instead, use the [Learn from text](/tools/learn-from-text/) tool.
 
+**Export to a text file** saves your words, all of them or one language's, as a `.txt` in Gboard's dictionary format, which **Import a Gboard dictionary** and Gboard itself read back. See [Android's dictionary](/smart/personal-dictionary/#androids-dictionary).
+
 The dialog takes anything you type, but the store won't: a word over 32 characters (measured after lowercasing) is dropped silently, so the dialog closes and the list is exactly as it was. The same limit applies to words learned from typing.
 
 A row whose capitals are kept as written reads "capitals kept" after its count; the edit dialog's **Keep these capitals** switch turns that on or off. When you have moved words up or down from the keyboard's word card, a **Rank adjustments** group at the bottom lists them, each with a button to reset it. See [Personal dictionary](/smart/personal-dictionary/#from-the-suggestion-strip) for the card.
@@ -136,6 +138,10 @@ Lists are additive, so several can sit under one language, and for English and B
 <SettingsPath path="Typing / Suggestions / Suggestion blacklist" />
 
 Words the keyboard must never suggest or autocorrect to, listed alphabetically with a trash icon per row. **Add word** opens the same single-field dialog shape as the personal dictionary; whatever you type is stored trimmed and lowercased, so capitalization and stray spaces don't create duplicate entries. The list is empty by default, and nothing is blacklisted until you add something yourself. Once it has entries, a **Clear the blacklist** row appears above them and empties the lot behind a confirmation. Clearing only unblocks the words; nothing you've taught the keyboard is touched. Words also arrive here from the keyboard: **Never suggest** on a held suggestion, and **Delete** on a word that is still in a read-only word list.
+
+The dialog's **Pattern (regular expression)** switch adds a pattern instead of a word, also written as `/lo+l/` between slashes. A pattern hides every word it matches from start to end, ignoring case, and its row reads **Pattern**. A pattern the keyboard would refuse (bad syntax, over 200 characters, a backreference, a group repeated inside a repeat, too slow to check, or matching every word) turns **Add** off with the reason under the field.
+
+**Import from a file** and **Export to a file** move the list as a plain-text file, one entry per line, `#` for comments, and ` @en` at the end of a line for an entry blocked in one language. Import adds and never removes, drops repeats, and leaves out refused patterns; a message counts all three. Export appears once the list has entries. See [Suggestion blacklist](/smart/blacklist/#patterns) for the pattern rules and the file format.
 
 <PhoneFrame caption="The Suggestion blacklist editor, empty until you add a word.">
   <Shot id="reference/settings/dictionary-blacklist" alt="The Suggestion blacklist editor, empty until you add a word." />

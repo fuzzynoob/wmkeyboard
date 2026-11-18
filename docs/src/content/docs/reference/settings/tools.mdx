@@ -46,16 +46,16 @@ Tools are grouped by what they do, in this order. Each group starts folded shut,
 
 | Group | Tools |
 |---|---|
-| Panels | Emoji, Clipboard, Snippets, Notes, To-do list, Text editing, Trackpad, Numpad, Handwriting, Voice typing, Camera, Gallery, Dictionary, Vocabulary, Learn from text, Find & replace, Grammar check, App launcher, Media controls, KDE Connect, Smart home, Send files, Music ID |
+| Panels | Emoji, Clipboard, Snippets, Notes, To-do list, Text editing, Trackpad, Numpad, Handwriting, Voice typing, Camera, Gallery, Dictionary, Vocabulary, Learn from text, Find & replace, Grammar check, App launcher, Media controls, KDE Connect, Smart home, Send files, Files, Music ID |
 | Scanners | Text scan (OCR), QR & barcode scanner, Document scanner |
 | Online tools | Translate, GIFs, Stickers, Web search, Image search, Wikipedia, Currency converter, Internet speed test, AI writing tools, AI reply |
 | Create and convert | Special symbols, Calculator, Unit converter, QR code generator, Password generator, Text repeat, Read back, Typing speed test |
 | Keyboard modes | Keyboard modes, One-handed mode, Split keyboard, Floating keyboard, Keep on screen, Resize |
 | Cursor | The twelve one-tap cursor moves, Selection mode, plus Hide keyboard |
-| Quick actions | Undo, Redo, Copy, Cut, Paste, Autocorrect, Selection actions, English words, Switch language, Fancy text, Secondary layout, Incognito, Sound & haptics, Themes, Power saving, Settings shortcut, Statistics |
+| Quick actions | Undo, Redo, Copy, Cut, Paste, Autocorrect, Selection actions, English words, Switch language, Fancy text, Secondary layout, Incognito, Privacy shade, Sound & haptics, Themes, Power saving, Settings shortcut, Statistics |
 | Utilities | Flashlight, Screenshot, Compass, Bubble level, Calendar, Clock, Weather, Location, Moon phase, Plugins |
 
-Panels is the longest group by far. If twenty rows are too many to scan, turn on **Split the Panels group**, the switch just above the groups. It's off by default. On, Panels gives way to two groups in the same place: **Writing** holds Emoji, Clipboard, Snippets, Notes, Text editing, Trackpad, Numpad, Handwriting, Voice typing, Dictionary, Vocabulary, Learn from text, Find & replace and Grammar check, and **Connect and media** holds Camera, Gallery, App launcher, Media controls, Music ID, KDE Connect and Send files. Each of the two remembers whether you left it open, separately from Panels. The switch only changes this screen: the tool pickers elsewhere in settings, such as the floating button's, keep the one Panels group.
+Panels is the longest group by far. If twenty rows are too many to scan, turn on **Split the Panels group**, the switch just above the groups. It's off by default. On, Panels gives way to two groups in the same place: **Writing** holds Emoji, Clipboard, Snippets, Notes, Text editing, Trackpad, Numpad, Handwriting, Voice typing, Dictionary, Vocabulary, Learn from text, Find & replace and Grammar check, and **Connect and media** holds Camera, Gallery, App launcher, Media controls, Music ID, KDE Connect, Send files and Files. Each of the two remembers whether you left it open, separately from Panels. The switch only changes this screen: the tool pickers elsewhere in settings, such as the floating button's, keep the one Panels group.
 
 The two AI tools are also on the Home screen's **AI** row, next to the chat and the history. Their switches there and here are the same switch.
 
@@ -98,10 +98,12 @@ A handful of tools carry something bigger than a row of toggles: a model downloa
 | Snippets | Full add/edit/delete list, plus import and export | Stored as a JSON file the tool manages itself. See [Snippets & text expansion](/tools/snippets/). |
 | Weather | A location picker with Use my location, a Fahrenheit toggle (off by default), and Fetch the forecast as you type (on by default, off in the F-Droid edition) | See [Instruments](/tools/instruments/). |
 | Clock | An **Open the clock** row for the Clock screen, the grants an alarm still needs, the hour format, seconds, the default format, the alarm and timer sounds, vibration, snooze, fade in, when a ring stops, volume keys, the Pomodoro lengths, the planner's working hours and how long history is kept | See [Clock](/tools/clock/). |
-| Gallery | Photo access, what a tap does, columns, the camera tile, videos, fast scroll, the starting height, the last album, haptics, the picture size, how many can be picked, the caption, where a refused send goes, closing after a send, keeping edited photos, and the privacy switches (location, camera details, random names, the sent list) | The Play Store build has no grid, so it shows only the size, the limit, the fallback and the privacy rows. See [Gallery](/tools/gallery/). |
+| Gallery | Photo access, what a tap does, columns, the camera tile, videos, fast scroll, the starting height, the last album, haptics, the picture size, how many can be picked, the caption, where a refused send goes, closing after a send, keeping edited photos, the privacy switches (location, camera details, random names, the sent list), and the Immich server address, API key and connection check | The Play Store build has no grid, so it shows only the size, the limit, the fallback, the privacy rows and Immich. See [Gallery](/tools/gallery/). |
+| Document scanner | **Use the built-in scanner** (only where Google's scanner can run), **Save to the gallery**, and a **Paperless-ngx** group: the server address, the API token, a connection check, **After a scan**, the default tags, correspondent and document type, **One PDF per scan**, **Upload on Wi-Fi only**, and the scans waiting to upload | See [Sending scans to Paperless-ngx](/tools/scanner/#sending-scans-to-paperless-ngx). |
 | Location | The default format, the map a link opens, the precision, the address lookup, locate on open, a custom template with a live example, the saved places, and the permission | See [Location](/tools/location/). |
 | Music ID | The **Song recognisers** provider list (AudD, ACRCloud, AudioTag, Shazam via RapidAPI, your own server), what Insert types, the picture style, the store a link opens, how long it listens, the now-playing check, and the history | Every recogniser needs a key of yours; the tool stays off until one is set up. See [Music ID](/tools/music-id/). |
 | Send files | The Send instance (a list of public ones and your own), the default expiry, download count and password of a new link, what happens to the link once it is ready, the chip that offers to receive a pasted or copied link, opening a received file, Nearby and the direct link between two phones, the share sheet entry, and the history | See [Send files](/tools/send/). |
+| Files | **Two lists side by side**, the same switch as the panel's two-list button | See [File manager](/tools/files/). |
 | Typing speed test | The default test's mode and length, its Punctuation and Numbers switches, a Typing aids group (Glide typing, Suggestions), a Records group (tests completed, recent average, best score per test length and language, and a "Clear records" row once there's something to clear), then an Achievements group | See [Utility tools](/tools/utilities/). |
 | Internet speed test | The run (seconds per direction, connections at once, Measure upload, Unit), the Result card (Style, Size, Layout, how a sticker-sized card is sent, Save sent cards to the gallery, Show my IP address), then the Servers list | See [Internet speed test](/tools/speed-test/). |
 | Plugins | A "Manage plugins" row | **This one opens a separate screen.** <SettingsPath path="Tools / Plugins" /> is an entry point into [Plugins overview](/plugins/overview/), not an inline manager. |
@@ -131,6 +133,7 @@ Every tool is documented somewhere outside this reference page, so use this tabl
 | [KDE Connect](/tools/kde-connect/) | KDE Connect |
 | [Smart home](/tools/home-assistant/) | Home Assistant, Google Home, SmartThings, Hue, openHAB, Smart Life (Tuya), SwitchBot |
 | [Send files](/tools/send/) | Send files |
+| [File manager](/tools/files/) | Files |
 | [Handwriting](/tools/handwriting/) | Handwriting |
 | [Camera tool](/tools/camera/) | Camera |
 | [Voice typing](/tools/voice/) | Voice typing |
@@ -170,12 +173,13 @@ Every tool is documented somewhere outside this reference page, so use this tabl
 | [Grammar](/smart/grammar/) | Grammar check |
 | [Themes overview](/themes/overview/) | Themes |
 | [Incognito & secure fields](/privacy/incognito/) | Incognito |
+| [Privacy shade](/privacy/privacy-shade/) | Privacy shade |
 
 **Settings** (the shortcut tool) has no guide page of its own. It opens this settings app and does nothing else.
 
 ## Details & edge cases
 
-- **Setup decides what starts enabled, not the shipped default.** The shipped default is all 86 tools on, but you only ever see it after a settings reset. The [setup wizard](/start/setup/) overwrites it the moment you answer its "how much keyboard do you want" question: 8 tools for "keep it simple", 22 for the middle answer, 43 for "show me everything", or all 86 if you tap **Everything** on its Tools page. Answering "extra strict" on privacy adds Incognito. A set that loses tools this build or device can't run (grammar, handwriting, the scanners) gets Wikipedia and Power saving in their place, so the exact count moves a little. The wizard only writes over an untouched default, so a reinstall with your settings intact keeps your selection.
+- **Setup decides what starts enabled, not the shipped default.** The shipped default is all 87 tools on, but you only ever see it after a settings reset. The [setup wizard](/start/setup/) overwrites it the moment you answer its "how much keyboard do you want" question: 8 tools for "keep it simple", 22 for the middle answer, 43 for "show me everything", or all 87 if you tap **Everything** on its Tools page. Answering "extra strict" on privacy adds Incognito. A set that loses tools this build or device can't run (grammar, handwriting, the scanners) gets Wikipedia and Power saving in their place, so the exact count moves a little. The wizard only writes over an untouched default, so a reinstall with your settings intact keeps your selection.
 - **Disabling a tool is one switch, not three.** The tool disappears from the toolbar, the toolbox, and its hardware leader-key letter at the same moment. The one piece you can drop on its own is the toolbox: **Show in toolbox** on the tool's own screen takes it out of the grid and leaves it working everywhere else.
 - **Folders and the toolbox search live on the keyboard.** Neither has a switch here. You make a folder by dropping one tool on the middle of another in the toolbox, and the magnifier at the top of the toolbox searches it by name. See [Folders](/tools/overview/#folders) and [Searching the toolbox](/tools/overview/#searching-the-toolbox). Folders are part of a settings backup.
 - **A tool hidden from the toolbox can still be pinned.** If it is already on the toolbar it stays there. Drag it off the bar and it unpins without landing in the grid, since the grid no longer takes it; turn **Show in toolbox** back on to see it there again.

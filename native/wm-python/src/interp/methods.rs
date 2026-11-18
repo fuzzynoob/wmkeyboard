@@ -19,6 +19,49 @@ fn kwarg<'a>(kwargs: &'a [(Rc<str>, Value)], name: &str) -> Option<&'a Value> {
     kwargs.iter().find(|(k, _)| k.as_ref() == name).map(|(_, v)| v)
 }
 
+/// Method names per built-in type, for taking a method as a value
+/// (`on_submit=items.append`).
+pub(crate) const STR_METHODS: &[&str] = &[
+    "capitalize", "casefold", "center", "count", "encode", "endswith", "expandtabs", "find", "format", "index", "isalnum",
+    "isalpha", "isascii", "isdecimal", "isdigit", "isidentifier", "islower", "isnumeric", "isprintable", "isspace",
+    "istitle", "isupper", "join", "ljust", "lower", "lstrip", "partition", "removeprefix", "removesuffix", "replace",
+    "rfind", "rindex", "rjust", "rpartition", "rsplit", "rstrip", "split", "splitlines", "startswith", "strip",
+    "swapcase", "title", "translate", "upper", "zfill",
+];
+pub(crate) const LIST_METHODS: &[&str] = &["append", "extend", "insert", "remove", "pop", "clear", "index", "count", "sort", "reverse", "copy"];
+pub(crate) const TUPLE_METHODS: &[&str] = &["index", "count"];
+pub(crate) const SET_METHODS: &[&str] = &[
+    "add", "remove", "discard", "pop", "clear", "union", "intersection", "difference", "symmetric_difference", "update",
+    "issubset", "issuperset", "isdisjoint", "copy", "intersection_update", "difference_update",
+];
+pub(crate) const DICT_METHODS: &[&str] = &["keys", "values", "items", "get", "pop", "popitem", "setdefault", "update", "clear", "copy"];
+pub(crate) const BYTES_METHODS: &[&str] = &[
+    "decode", "hex", "find", "count", "startswith", "endswith", "split", "strip", "replace", "upper", "lower", "join", "index",
+];
+/// The builtin name a method taken as a value calls through.
+pub(crate) const METHOD_PREFIX: &str = "__method__:";
+
+/// Whether [obj] has a built-in method [name].
+pub(crate) fn has_builtin_method(obj: &Value, name: &str) -> bool {
+    let table = match obj {
+        Value::Str(_) => STR_METHODS,
+        Value::List(_) => LIST_METHODS,
+        Value::Tuple(_) => TUPLE_METHODS,
+        Value::Set(_) => SET_METHODS,
+        Value::Dict(_) => DICT_METHODS,
+        Value::Bytes(_) => BYTES_METHODS,
+        _ => return false,
+    };
+    table.contains(&name)
+}
+
+fn is_callable(v: &Value) -> bool {
+    matches!(
+        v,
+        Value::Function(_) | Value::Builtin(_) | Value::HostFunction(_) | Value::ModuleFunction(_) | Value::Class(_) | Value::Object(_) | Value::Instance(_)
+    )
+}
+
 fn normalise(i: i64, count: usize) -> usize {
     let v = if i < 0 { i + count as i64 } else { i };
     v.clamp(0, count as i64) as usize
@@ -36,10 +79,12 @@ impl Interp {
             Value::Dict(d) => {
                 // A dict answers its string keys first, so `wm.storage.get(...)`
                 // works on a hand-built stand-in and `e.type` on an event.
+                // A key holding data does not hide the method of the same name:
+                // `fields.items()` on a dict with an "items" key.
                 let entry = d.borrow().get(&HKey::str(name)).cloned();
                 match entry {
-                    Some(v) => self.call_value(&v, args, kwargs),
-                    None => self.dict_method(d, name, &args),
+                    Some(v) if !(DICT_METHODS.contains(&name) && !is_callable(&v)) => self.call_value(&v, args, kwargs),
+                    _ => self.dict_method(d, name, &args),
                 }
             }
             Value::Match(m) => self.match_method(m, name, &args),
@@ -55,7 +100,32 @@ impl Interp {
                     Err(e) => Err(self.byte_error(e)),
                 }
             }
-            Value::Exception(e) => Err(self.error(format!("'{}' object has no method '{name}'", e.kind), "AttributeError")),
+            Value::Instance(inst) => {
+                // The common case, `self.method(...)`, without making a bound method.
+                let own = inst.attrs.borrow().get(name).cloned();
+                if own.is_none() {
+                    if let Some(Value::Function(f)) = inst.class.lookup(name) {
+                        let mut all = Vec::with_capacity(args.len() + 1);
+                        all.push(obj.clone());
+                        all.extend(args);
+                        return self.call_function(&f, all, kwargs);
+                    }
+                }
+                let m = self.attribute(obj, name)?;
+                self.call_value(&m, args, kwargs)
+            }
+            Value::Class(_) | Value::Object(_) | Value::Function(_) => {
+                let m = self.attribute(obj, name)?;
+                self.call_value(&m, args, kwargs)
+            }
+            Value::Builtin(b) if b.as_ref() == "object" => {
+                let m = self.attribute(obj, name)?;
+                self.call_value(&m, args, kwargs)
+            }
+            Value::Exception(e) => match name {
+                "with_traceback" => Ok(obj.clone()),
+                _ => Err(self.error(format!("'{}' object has no method '{name}'", e.kind), "AttributeError")),
+            },
             _ => Err(self.error(format!("'{}' object has no method '{name}'", obj.type_name()), "AttributeError")),
         }
     }
@@ -794,7 +864,115 @@ impl Interp {
                     Err(e) => Err(self.byte_error(e)),
                 }
             }
+            "join" => {
+                let it = args.first().ok_or_else(|| self.error("join() needs an iterable", "TypeError"))?;
+                let mut out: Vec<u8> = Vec::new();
+                for (i, v) in self.iterate(it)?.into_iter().enumerate() {
+                    if i > 0 {
+                        out.extend_from_slice(b);
+                    }
+                    match v {
+                        Value::Bytes(p) => out.extend_from_slice(&p),
+                        other => {
+                            return Err(self.error(
+                                format!("join() requires bytes items, found '{}'", other.type_name()),
+                                "TypeError",
+                            ))
+                        }
+                    }
+                }
+                Ok(Value::Bytes(Rc::from(out)))
+            }
+            "startswith" | "endswith" => {
+                let sub = self.arg_bytes(args, 0, name)?;
+                Ok(Value::Bool(if name == "startswith" { b.starts_with(&sub) } else { b.ends_with(&sub) }))
+            }
+            "find" | "index" => {
+                let sub = self.arg_bytes(args, 0, name)?;
+                match find_bytes(b, &sub) {
+                    Some(i) => Ok(Value::Int(i as i64)),
+                    None if name == "find" => Ok(Value::Int(-1)),
+                    None => Err(self.error("subsection not found", "ValueError")),
+                }
+            }
+            "count" => {
+                let sub = self.arg_bytes(args, 0, name)?;
+                if sub.is_empty() {
+                    return Ok(Value::Int(b.len() as i64 + 1));
+                }
+                let (mut n, mut at) = (0i64, 0usize);
+                while let Some(i) = find_bytes(&b[at..], &sub) {
+                    n += 1;
+                    at += i + sub.len();
+                }
+                Ok(Value::Int(n))
+            }
+            "replace" => {
+                let old = self.arg_bytes(args, 0, name)?;
+                let new = self.arg_bytes(args, 1, name)?;
+                if old.is_empty() {
+                    return Ok(Value::Bytes(b.clone()));
+                }
+                let mut out = Vec::with_capacity(b.len());
+                let mut at = 0usize;
+                while let Some(i) = find_bytes(&b[at..], &old) {
+                    out.extend_from_slice(&b[at..at + i]);
+                    out.extend_from_slice(&new);
+                    at += i + old.len();
+                }
+                out.extend_from_slice(&b[at..]);
+                Ok(Value::Bytes(Rc::from(out)))
+            }
+            "split" => {
+                let pieces: Vec<Vec<u8>> = match args.first().or_else(|| kwarg(kwargs, "sep")) {
+                    None | Some(Value::None) => b.split(|c| c.is_ascii_whitespace()).filter(|p| !p.is_empty()).map(<[u8]>::to_vec).collect(),
+                    Some(_) => {
+                        let sep = self.arg_bytes(args, 0, name)?;
+                        if sep.is_empty() {
+                            return Err(self.error("empty separator", "ValueError"));
+                        }
+                        let (mut out, mut at) = (Vec::new(), 0usize);
+                        while let Some(i) = find_bytes(&b[at..], &sep) {
+                            out.push(b[at..at + i].to_vec());
+                            at += i + sep.len();
+                        }
+                        out.push(b[at..].to_vec());
+                        out
+                    }
+                };
+                Ok(Value::list(pieces.into_iter().map(|p| Value::Bytes(Rc::from(p))).collect()))
+            }
+            "strip" => {
+                let chars: Vec<u8> = match args.first() {
+                    None | Some(Value::None) => b" \t\n\r\x0b\x0c".to_vec(),
+                    Some(_) => self.arg_bytes(args, 0, name)?,
+                };
+                let start = b.iter().position(|c| !chars.contains(c)).unwrap_or(b.len());
+                let end = b.iter().rposition(|c| !chars.contains(c)).map_or(start, |i| i + 1);
+                Ok(Value::Bytes(Rc::from(&b[start..end.max(start)])))
+            }
+            "upper" => Ok(Value::Bytes(Rc::from(b.to_ascii_uppercase()))),
+            "lower" => Ok(Value::Bytes(Rc::from(b.to_ascii_lowercase()))),
             _ => Err(self.error(format!("'bytes' object has no method '{name}'"), "AttributeError")),
         }
     }
+
+    fn arg_bytes(&self, args: &[Value], i: usize, method: &str) -> R<Vec<u8>> {
+        match args.get(i) {
+            Some(Value::Bytes(x)) => Ok(x.to_vec()),
+            Some(other) => Err(self.error(format!("{method}() argument must be bytes, not '{}'", other.type_name()), "TypeError")),
+            None => Err(self.error(format!("{method}() is missing an argument"), "TypeError")),
+        }
+    }
+}
+
+/// Where [needle] first occurs in [hay].
+fn find_bytes(hay: &[u8], needle: &[u8]) -> Option<usize> {
+    if needle.is_empty() {
+        return Some(0);
+    }
+    if needle.len() > hay.len() {
+        return None;
+    }
+    hay.windows(needle.len()).position(|w| w == needle)
 }

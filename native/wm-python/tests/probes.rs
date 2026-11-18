@@ -8,8 +8,23 @@
 //! Left out on purpose: scripts on which PyMini itself crashes (runaway
 //! recursion, `int(1e19)`), and `random.seed(str)`, which PyMini seeds from
 //! Swift's per-process `hashValue`.
+//!
+//! [DIVERGES] lists the probes where this port parts from PyMini on purpose,
+//! with what it prints instead. Each one is CPython's behaviour: classes and
+//! `**kwargs` exist here, a keyword that repeats a positional argument is
+//! an error, not a silent overwrite, and a default is evaluated once, when
+//! the `def` or `lambda` runs, so `lambda i=i: ...` in a loop keeps each
+//! turn's value. The oracle's own `.out` stays as it was.
 
 use wm_python::interp::{Limits, Runtime, STANDARD_MODULES};
+
+const DIVERGES: &[(&str, &str)] = &[
+    ("120-syntax-class.py", "None\n"),
+    ("126-syntax-kwargs.py", "None\n"),
+    ("154-lambda-default-closure.py", "[10, 11, 12]\n"),
+    ("192-edge-default-eval-time.py", "1\n"),
+    ("193-edge-variadic-kw-collision.py", "ERROR: Line 3: TypeError: f() got multiple values for argument 'a'\n"),
+];
 
 fn run_like_the_oracle(src: String) -> String {
     std::thread::Builder::new()
@@ -44,7 +59,11 @@ fn probes_match_pymini() {
     let mut failures = Vec::new();
     for py in &names {
         let src = std::fs::read_to_string(py).unwrap();
-        let expected = std::fs::read_to_string(py.with_extension("out")).unwrap();
+        let file = py.file_name().unwrap().to_string_lossy().to_string();
+        let expected = match DIVERGES.iter().find(|(n, _)| *n == file) {
+            Some((_, ours)) => ours.to_string(),
+            None => std::fs::read_to_string(py.with_extension("out")).unwrap(),
+        };
         let actual = run_like_the_oracle(src);
         if actual != expected {
             failures.push(format!("{}\n--- expected\n{expected}--- actual\n{actual}", py.display()));

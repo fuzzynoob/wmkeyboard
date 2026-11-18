@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -62,6 +63,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.OpenInNew
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VerticalSplit
 import com.wasimaster.wmkeyboard.core.settings.AppletTools
 import com.wasimaster.wmkeyboard.core.settings.DefaultFloatingMenu
+import com.wasimaster.wmkeyboard.core.settings.DeviceControl
 import com.wasimaster.wmkeyboard.core.settings.FLOATING_CATEGORY_NAME_MAX
 import com.wasimaster.wmkeyboard.core.settings.FloatingAction
 import com.wasimaster.wmkeyboard.core.settings.FloatingButtonIdleRange
@@ -92,6 +94,8 @@ import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.pillTouchWidthDp
 import com.wasimaster.wmkeyboard.core.settings.readsScreen
 import com.wasimaster.wmkeyboard.core.settings.pressesSystemButtons
+import com.wasimaster.wmkeyboard.core.settings.cyclesRinger
+import com.wasimaster.wmkeyboard.ime.floating.DeviceControls
 import com.wasimaster.wmkeyboard.ime.AppCatalog
 import com.wasimaster.wmkeyboard.ime.KeyboardControls
 import com.wasimaster.wmkeyboard.ime.floating.FLOATING_MENU_ITEM_DP
@@ -106,6 +110,7 @@ import com.wasimaster.wmkeyboard.ime.floating.floatingRings
 import com.wasimaster.wmkeyboard.ime.floating.rememberFloatingAppIcon
 import com.wasimaster.wmkeyboard.ime.ui.ModeIcons
 import com.wasimaster.wmkeyboard.ime.ui.SlotIcon
+import com.wasimaster.wmkeyboard.ime.ui.toolColor
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -142,12 +147,20 @@ internal fun FloatingButtonSettingsScreen(
     val button = settings.watch { it.summonButton }
     // The app launcher's split pairs, which an action can open (#1140).
     val combos = settings.watch { it.launcher.combos }
+    // The user's own buttons, which an action can run (#1213, #1236): the
+    // pickers and the preview name and draw them from here.
+    val customButtons = settings.watch { it.toolbox.customButtons }
+    androidx.compose.runtime.SideEffect {
+        com.wasimaster.wmkeyboard.ime.ui.CustomButtonFaces.buttons = customButtons
+    }
     val overlayGranted = rememberGrantState { Settings.canDrawOverlays(it) }
     val askOverlay = rememberDisclosedSpecialAccess(SpecialAccess.OVERLAY)
     val screenReading = rememberGrantState { ScreenContextService.isEnabled(it) }
     val askScreenReading = rememberDisclosedSpecialAccess(SpecialAccess.SCREEN_CONTENT)
     val systemButtons = rememberGrantState { SystemButtonsService.isEnabled(it) }
     val askSystemButtons = rememberDisclosedSpecialAccess(SpecialAccess.SYSTEM_BUTTONS)
+    val doNotDisturb = rememberGrantState(::hasDoNotDisturbAccess)
+    val askDoNotDisturb = rememberDisclosedSpecialAccess(SpecialAccess.DO_NOT_DISTURB)
     // The keyboard only re-checks the grant when it next closes; coming back
     // from the system screen with it is worth showing the button at once.
     LaunchedEffect(button.enabled, overlayGranted) {
@@ -208,6 +221,13 @@ internal fun FloatingButtonSettingsScreen(
                 R.string.floating_button_system_buttons_title,
                 subtitle = stringResource(R.string.floating_button_system_buttons_subtitle),
             ) { askSystemButtons() }
+        }
+        // Ringer mode bound (#1326), Do Not Disturb access missing: no silent.
+        item(visible = button.enabled && overlayGranted && button.cyclesRinger() && !doNotDisturb) {
+            NavRow(
+                R.string.floating_button_do_not_disturb_title,
+                subtitle = stringResource(R.string.floating_button_do_not_disturb_subtitle),
+            ) { askDoNotDisturb() }
         }
     }
 
@@ -841,8 +861,15 @@ private fun FloatingActionGlyph(
     modifier: Modifier = Modifier,
     categories: List<FloatingCategory> = emptyList(),
 ) {
-    val app = rememberFloatingAppIcon(action as? FloatingAction.App, 24)
-    if (app != null) {
+    val app = rememberFloatingAppIcon(action as? FloatingAction.App, 24) ?: rememberCustomButtonIcon(action, 24)
+    // A plugin wears its own icon, read from its archive when it is a drawing.
+    val plugin = (action as? FloatingAction.Plugin)?.let { a ->
+        val context = androidx.compose.ui.platform.LocalContext.current
+        remember(a.id) { com.wasimaster.wmkeyboard.core.plugins.PluginStore.get(context).plugin(a.id) }
+    }
+    if (plugin != null) {
+        com.wasimaster.wmkeyboard.ime.ui.PluginIcon(plugin, modifier = modifier, tint = plugin.toolColor ?: MaterialTheme.colorScheme.onSurfaceVariant)
+    } else if (app != null) {
         androidx.compose.foundation.Image(app, contentDescription = null, modifier = modifier)
     } else {
         Icon(
@@ -871,6 +898,7 @@ private fun FloatingCategoryPage(
     var adding by remember { mutableStateOf(false) }
     var addingApp by remember { mutableStateOf(false) }
     var pickingIcon by remember { mutableStateOf(false) }
+    var pickingPackIcon by remember { mutableStateOf(false) }
     var addingPair by remember { mutableStateOf(false) }
     val fallback = stringResource(R.string.floating_button_category_default_name)
     fun commitName() {
@@ -914,6 +942,11 @@ private fun FloatingCategoryPage(
                         subtitle = stringResource(R.string.floating_button_category_icon_subtitle),
                         icon = ModeIcons.iconOrNull(category.icon) ?: Icons.Outlined.Folder,
                     ) { pickingIcon = true }
+                    // Or one out of an icon pack installed on the phone (#1275).
+                    NavRow(
+                        R.string.floating_button_category_pack_icon_title,
+                        subtitle = stringResource(R.string.floating_button_category_pack_icon_subtitle),
+                    ) { pickingPackIcon = true }
                     Text(
                         stringResource(R.string.floating_button_category_count, category.items.size, MAX_FLOATING_MENU_ITEMS),
                         style = MaterialTheme.typography.labelMedium,
@@ -976,6 +1009,29 @@ private fun FloatingCategoryPage(
             onDismiss = { pickingIcon = false },
             title = stringResource(R.string.floating_button_category_icon_picker_title),
             clearLabel = stringResource(R.string.floating_button_category_icon_none),
+        )
+    }
+    if (pickingPackIcon) {
+        val packs = rememberSystemIconPacks()
+        AlertDialog(
+            onDismissRequest = { pickingPackIcon = false },
+            title = { Text(stringResource(R.string.floating_button_category_icon_picker_title)) },
+            text = {
+                SystemPackIconGrid(
+                    packs = packs,
+                    selected = category.icon,
+                    onPick = { source ->
+                        pickingPackIcon = false
+                        onChange(category.copy(icon = source))
+                    },
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    pickingPackIcon = false
+                    onChange(category.copy(icon = null))
+                }) { Text(stringResource(R.string.floating_button_category_icon_none)) }
+            },
         )
     }
     if (addingPair) {
@@ -1242,6 +1298,58 @@ private fun FloatingActionPicker(
                 )
             }
     }
+    // The phone's own controls (#1326). Each says what it does on this phone:
+    // a switch the keyboard flips, or Android's page for it. Ringer mode asks
+    // for Do Not Disturb access as it is picked, since silent needs it.
+    val context = LocalContext.current
+    val dndOn = rememberGrantState(::hasDoNotDisturbAccess)
+    val askDnd = rememberDisclosedSpecialAccess(SpecialAccess.DO_NOT_DISTURB)
+    val deviceRows = DeviceControl.entries
+        .map { FloatingAction.Device(it) }
+        .filter { offered(it) }
+        .map { action ->
+            PickerRow(
+                key = action.token,
+                title = floatingActionLabel(action),
+                subtitle = remember(action) { DeviceControls.description(context, action.control) },
+                selected = current == action,
+                leading = { Icon(floatingActionIcon(action), contentDescription = null) },
+                onPick = {
+                    onPick(action)
+                    if (action.control == DeviceControl.RINGER && !dndOn) askDnd()
+                },
+            )
+        }
+    // The user's own buttons (#1213, #1236), made on Tools › Custom buttons.
+    val customRows = com.wasimaster.wmkeyboard.ime.ui.CustomButtonFaces.buttons
+        .filter { it.usable }
+        .map { FloatingAction.Custom(it.id) }
+        .filter { offered(it) }
+        .map { action ->
+            PickerRow(
+                key = action.token,
+                title = floatingActionLabel(action),
+                subtitle = stringResource(R.string.floating_button_pick_custom_subtitle),
+                selected = current == action,
+                leading = { FloatingActionGlyph(action, Modifier.size(24.dp)) },
+                onPick = { onPick(action) },
+            )
+        }
+    // Plugins, each opening its own panel, as its tool in the toolbox does.
+    val pluginNames = rememberPluginToolNames()
+    val pluginRows = pluginNames.keys
+        .map { FloatingAction.Plugin(it) }
+        .filter { offered(it) }
+        .map { action ->
+            PickerRow(
+                key = action.token,
+                title = pluginNames[action.id] ?: action.id,
+                subtitle = stringResource(R.string.floating_button_pick_plugin_subtitle),
+                selected = current == action,
+                leading = { FloatingActionGlyph(action, Modifier.size(24.dp)) },
+                onPick = { onPick(action) },
+            )
+        }
     // A tool straight into a floating box over the app (#1155).
     val appletRows = AppletTools
         .filter { isSupportedTool(it) && offered(FloatingAction.Applet(it)) }
@@ -1263,8 +1371,17 @@ private fun FloatingActionPicker(
         if (systemRows.isNotEmpty()) {
             add(PickerGroup("system", stringResource(R.string.floating_button_pick_group_system), systemRows))
         }
+        if (deviceRows.isNotEmpty()) {
+            add(PickerGroup("device", stringResource(R.string.floating_button_pick_group_device), deviceRows))
+        }
+        if (customRows.isNotEmpty()) {
+            add(PickerGroup("custom", stringResource(R.string.floating_button_pick_group_custom), customRows))
+        }
         if (appletRows.isNotEmpty()) {
             add(PickerGroup("applets", stringResource(R.string.floating_button_pick_group_applets), appletRows))
+        }
+        if (pluginRows.isNotEmpty()) {
+            add(PickerGroup("plugins", stringResource(R.string.tools_plugins_group_title), pluginRows))
         }
         for ((titleRes, tools) in grouped) {
             if (tools.isEmpty()) continue
@@ -1284,4 +1401,23 @@ private fun FloatingActionPicker(
         groups = groups,
         onDismiss = onDismiss,
     )
+}
+
+/** Whether the keyboard holds Do Not Disturb access, which the ringer action needs for silent (#1326). */
+private fun hasDoNotDisturbAccess(context: android.content.Context): Boolean =
+    context.getSystemService(android.app.NotificationManager::class.java)?.isNotificationPolicyAccessGranted == true
+
+/** A shortcut button's own picture for a list row (#1213), or null for anything else. */
+@Composable
+private fun rememberCustomButtonIcon(action: FloatingAction, sizeDp: Int): androidx.compose.ui.graphics.ImageBitmap? {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val id = (action as? FloatingAction.Custom)?.id ?: return null
+    val px = (sizeDp * context.resources.displayMetrics.density).toInt().coerceAtLeast(1)
+    val icon by produceState<androidx.compose.ui.graphics.ImageBitmap?>(null, id, px) {
+        value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            com.wasimaster.wmkeyboard.ime.ui.CustomButtonFaces.byId(id)
+                ?.let { com.wasimaster.wmkeyboard.ime.ui.CustomButtonFaces.icon(context, it, px) }
+        }
+    }
+    return icon
 }

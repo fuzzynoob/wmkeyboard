@@ -6,21 +6,23 @@
 import { signal, useSignal } from '@preact/signals';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'preact/hooks';
 import type { ComponentChildren } from 'preact';
-import { readPlugin } from '../../../lib/payloads';
+import { PLUGIN_ICON_PATTERN, readPlugin } from '../../../lib/payloads';
 import { writeZip } from '../../../lib/zip';
 import { CopyButton } from '../../common';
 import { fmtBytes } from '../../../lib/net';
 import { sha256Hex, slugify } from '../../../lib/util';
 import { saveBytes } from '../shared';
 import { PluginPreviewSession, renderOnce, type ConsoleEntry, type PluginEvent, type PluginTargets, type PluginWidget, type PreviewState, type RenderedUi, type Usage, PreviewStorage, Dates, targetsEmpty } from '../../../lib/plugin-runtime';
+import { settingValue } from '../../../lib/plugin-host';
 import * as Py from '../../../lib/python';
 import type { PyCompletionItem, PyCompletions, PyDiagnostic, PyHost, PyOutlineItem, RenameProblem } from '../../../lib/python';
 import { E, CodeSurface, SHORTCUT, type CodeDecorations, type CodeEditorController, type ScreenCommand, type Severity, NO_DECORATIONS } from './CodeSurface';
 import { CodeFindBar, initialFind, type CodeFindState } from './CodeFindBar';
 import { CodeAccessoryRow, PYTHON_ACCESSORY_KEYS, arrangeKeys } from './CodeAccessoryRow';
-import { ID_PATTERN, MAX_NAME, MAX_SCRIPT_BYTES, PERMISSIONS, REMINDERS_PERMISSION, STORAGE_PERMISSION, blankManifest, editorPrefs, fileNameOf, keyPrefs, sanitise, sanitised, takenIds, uniquePluginId, workspace, type PluginDraft, type PluginManifest, type PluginSnapshot, type SnapshotReason } from './ide-store';
+import { API4_PERMISSIONS, ID_PATTERN, MAX_HOSTS, MAX_NAME, MAX_SCRIPT_BYTES, PACKAGE_API, PERMISSIONS, REMINDERS_PERMISSION, RISKY_PERMISSIONS, STORAGE_PERMISSION, blankManifest, editorPrefs, fileNameOf, keyPrefs, sanitise, sanitised, takenIds, uniquePluginId, workspace, type PluginDraft, type PluginManifest, type PluginSnapshot, type SnapshotReason } from './ide-store';
 import { TEMPLATES, type PluginTemplate } from './templates';
 import { S, relativeTime } from './strings';
+import { V5Widget } from './V5Widgets';
 import './ide.css';
 
 const AUTOSAVE_MS = 400;
@@ -67,7 +69,105 @@ export function manifestProblems(m: PluginManifest): string[] {
 	const name = sanitise(m.name, 'NAME');
 	if (!name) out.push(S.rejectNoName);
 	if (!sanitise(m.pluginVersion, 'VERSION')) out.push(S.rejectNoVersion(name));
+	// PluginManifestCodec.packageProblems: the API 5 rules.
+	const api5 = m.apiVersion >= PACKAGE_API;
+	const needs5 = m.permissions.find((p) => !api5 && !API4_PERMISSIONS.includes(p) && PERMISSIONS.includes(p));
+	if (needs5) out.push(S.rejectNeedsApi5(needs5, name));
+	const hosts = (m.hosts ?? []).map(normaliseHost);
+	if (m.permissions.includes('network') && hosts.length === 0 && !(m.settings ?? []).some((s) => s.type?.trim() === 'host')) out.push(S.rejectNetworkWithoutHosts(name));
+	const badHost = hosts.find((h) => h.length > 253 || !HOST.test(h));
+	if (badHost !== undefined) out.push(S.rejectBadHost(badHost, name));
+	else if (hosts.length > MAX_HOSTS) out.push(S.rejectTooManyHosts(name));
+	const tool = m.tool ?? {};
+	if ((tool.keyword?.trim() && !/^[a-z0-9]{1,16}$/.test(tool.keyword.trim())) || !PLUGIN_ICON_PATTERN.test((tool.icon ?? '').trim())) out.push(S.rejectBadTool(name));
 	return out;
+}
+
+/** PluginManifestCodec.HOST and normaliseHost. */
+const HOST = /^(\*\.)?([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$/;
+const normaliseHost = (raw: string) => raw.trim().toLowerCase().replace(/^https:\/\//, '').replace(/[/.]+$/, '');
+const hostsOf = (text: string) => text.split(/[\s,]+/).map((h) => h.trim()).filter(Boolean);
+
+/**
+ * The API 5 switch, every permission and the hosts, as the phone's details
+ * dialog draws them (PluginIdeScreen's details sheet). Risky permissions are
+ * marked; API 4 shows only the three it knows. Unknown permissions a file
+ * brought in are kept, never dropped by an edit here.
+ */
+function PermissionFields({ manifest, onChange }: { manifest: PluginManifest; onChange: (m: PluginManifest) => void }) {
+	const api5 = manifest.apiVersion >= PACKAGE_API;
+	const [hostText, setHostText] = useState((manifest.hosts ?? []).join(', '));
+	useEffect(() => setHostText((manifest.hosts ?? []).join(', ')), [manifest.hosts?.join(',')]);
+	const shown = PERMISSIONS.filter((p) => api5 || API4_PERMISSIONS.includes(p) || manifest.permissions.includes(p));
+	const toggle = (p: string, on: boolean) => {
+		const rest = manifest.permissions.filter((x) => x !== p);
+		const next = on ? [...rest, p] : rest;
+		// Known ones in the app's order, then anything unknown as it came.
+		onChange({ ...manifest, permissions: [...PERMISSIONS.filter((x) => next.includes(x)), ...next.filter((x) => !PERMISSIONS.includes(x))] });
+	};
+	return (
+		<>
+			<label class="wm-w-toggle" title={S.detailsApi5Note}>
+				<input type="checkbox" checked={api5} onChange={(e) => onChange({ ...manifest, apiVersion: (e.target as HTMLInputElement).checked ? PACKAGE_API : 4 })} />
+				<span>{S.detailsApi5}</span>
+			</label>
+			<div class="wm-caption">{S.detailsPermissions}</div>
+			{shown.map((p) => (
+				<label key={p} class="wm-w-toggle" title={RISKY_PERMISSIONS.includes(p) ? S.permissionRiskyNote : undefined}>
+					<input type="checkbox" checked={manifest.permissions.includes(p)} onChange={(e) => toggle(p, (e.target as HTMLInputElement).checked)} />
+					<span>{RISKY_PERMISSIONS.includes(p) ? '⚠ ' : ''}{S.permissionLabels[p] ?? p} <code>{p}</code></span>
+				</label>
+			))}
+			{api5 && (
+				<label class="st-field">
+					<span>{S.detailsHosts}</span>
+					<input
+						class="st-input"
+						style="font-family:var(--wmc-mono)"
+						placeholder="api.example.com"
+						value={hostText}
+						onInput={(e) => setHostText((e.target as HTMLInputElement).value)}
+						onBlur={() => onChange({ ...manifest, hosts: hostsOf(hostText) })}
+					/>
+				</label>
+			)}
+		</>
+	);
+}
+
+/** The whole manifest as JSON, for the fields no form covers (tool, settings, actions). */
+function ManifestJson({ manifest, onChange }: { manifest: PluginManifest; onChange: (m: PluginManifest) => void }) {
+	const shown = JSON.stringify(sanitised(manifest), null, 2);
+	const [text, setText] = useState(shown);
+	const [error, setError] = useState<string | null>(null);
+	useEffect(() => {
+		setText(shown);
+		setError(null);
+	}, [shown]);
+	const apply = () => {
+		let parsed: unknown;
+		try {
+			parsed = JSON.parse(text);
+		} catch (e) {
+			return setError(S.detailsJsonBad((e as Error).message));
+		}
+		if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return setError(S.detailsJsonBad('not an object'));
+		const m = parsed as Partial<PluginManifest>;
+		if (!Array.isArray(m.permissions ?? [])) return setError(S.detailsJsonBad('permissions is not a list'));
+		setError(null);
+		onChange({ ...blankManifest(), ...m, permissions: (m.permissions ?? []).map(String) } as PluginManifest);
+	};
+	return (
+		<details class="wm-json">
+			<summary class="wm-caption">{S.detailsJson}</summary>
+			<div class="wm-caption">{S.detailsJsonNote}</div>
+			<textarea class="st-input" rows={14} spellcheck={false} style="font-family:var(--wmc-mono);width:100%" value={text} onInput={(e) => setText((e.target as HTMLTextAreaElement).value)} />
+			{error && <div class="wm-error-text">{error}</div>}
+			<div class="wm-w-row">
+				<button type="button" class="st-btn st-btn-sm" disabled={text === shown} onClick={apply}>{S.detailsJsonApply}</button>
+			</div>
+		</details>
+	);
 }
 
 const utf8 = new TextEncoder();
@@ -120,7 +220,12 @@ function ProjectsScreen({ onOpen }: { onOpen: (draftId: string) => void }) {
 
 	const create = (template: PluginTemplate, name: string) => {
 		setCreating(null);
-		const manifest: PluginManifest = { ...blankManifest(), id: uniquePluginId(name, takenIds()), name: sanitise(name, 'NAME'), pluginVersion: '0.1.0', permissions: [...template.permissions] };
+		const manifest: PluginManifest = {
+			...blankManifest(), id: uniquePluginId(name, takenIds()), name: sanitise(name, 'NAME'), pluginVersion: '0.1.0', permissions: [...template.permissions],
+			...(template.apiVersion ? { apiVersion: template.apiVersion } : {}),
+			...(template.hosts ? { hosts: [...template.hosts] } : {}),
+			...(template.settings ? { settings: template.settings.map((s) => ({ ...s })) } : {}),
+		};
 		const draft = workspace.create(manifest, template.script, `template:${template.id.toLowerCase()}`);
 		if (draft) onOpen(draft.draftId);
 		else showToast(S.newError);
@@ -213,7 +318,8 @@ function TemplateCard({ template, onClick }: { template: PluginTemplate; onClick
 		const idle = (cb: () => void) => ('requestIdleCallback' in window ? (window as Window & { requestIdleCallback: (cb: () => void) => number }).requestIdleCallback(cb) : setTimeout(cb, 0));
 		idle(() => {
 			if (!live) return;
-			setDrawn(renderOnce({ id: `template.${template.id.toLowerCase()}`, name: template.name, version: '0.1.0', storage: template.permissions.includes(STORAGE_PERMISSION), reminders: template.permissions.includes(REMINDERS_PERMISSION) }, template.script));
+			// A thumbnail never reaches the network: no bridge, so the Weather card draws its empty state.
+			setDrawn(renderOnce({ id: `template.${template.id.toLowerCase()}`, name: template.name, version: '0.1.0', storage: template.permissions.includes(STORAGE_PERMISSION), reminders: template.permissions.includes(REMINDERS_PERMISSION), apiVersion: template.apiVersion, permissions: template.permissions }, template.script));
 		});
 		return () => {
 			live = false;
@@ -340,7 +446,11 @@ function IdeBody({ draftId, onBack }: { draftId: string; onBack: () => void }) {
 		}, PERIODIC_VERSION_MS);
 		return () => clearInterval(t);
 	}, [draftId, save, controller]);
-	const identity = useCallback(() => ({ id: sanitise(manifest.id, 'ID') || draftId, name: manifest.name, version: manifest.pluginVersion, storage, reminders }), [manifest, draftId, storage, reminders]);
+	const identity = useCallback(() => ({
+		id: sanitise(manifest.id, 'ID') || draftId, name: manifest.name, version: manifest.pluginVersion, storage, reminders,
+		apiVersion: manifest.apiVersion, permissions: manifest.permissions, hosts: manifest.hosts ?? [], settings: settingDefaults(manifest),
+		settingSpecs: (manifest.settings ?? []).map((s) => ({ key: s.key, type: s.type?.trim() ?? 'text', default: s.default, options: s.options })),
+	}), [manifest, draftId, storage, reminders]);
 	const runPlugin = useCallback(() => {
 		const current = controller.value?.text ?? savedText.current;
 		lastRun.current = current;
@@ -744,6 +854,15 @@ function PreviewPane({ preview, state, autoRun, onAutoRun, history, onCopied }: 
 			{state.usage.RENDER && <BudgetMeter usage={state.usage.RENDER} history={history} />}
 			{state.failure && <div class="wm-error-text" style="display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden">{state.failure.text.split('\n')[0]}</div>}
 			{state.ui.root.length === 0 && <div class="wm-caption" style="padding-top:8px">{S.previewEmpty}</div>}
+			{state.host && (state.host.canBack || state.host.title || state.host.commands.length > 0) && (
+				<div class="wm-w-row wm-w5-header">
+					{state.host.canBack && <button type="button" class="wm-w-button" aria-label={S.back} onClick={() => preview.send({ type: 'back' })}>‹</button>}
+					<span class="wm-w-label-title" style="flex:1">{state.host.title ?? ''}</span>
+					{state.host.commands.slice(0, 3).map((c) => (
+						<button key={c.id} type="button" class="wm-w-button" onClick={() => preview.send({ type: 'command', id: c.id })}>{c.label}</button>
+					))}
+				</div>
+			)}
 			<div class="wm-plugin-panel" style="padding-top:6px">
 				<PluginPanel widgets={state.ui.root} inputs={state.inputs} onEvent={(e) => preview.send(e)} onInsert={copy} onCopy={copy} />
 			</div>
@@ -867,6 +986,7 @@ function eventLabel(item: Injectable): string {
 		case 'tab_selected': return S.eventTab(e.id, e.index + 1);
 		case 'input_changed': return e.id;
 		case 'date_changed': return e.value === null ? S.eventDateClear(e.id) : S.eventDate(e.id, new Date(e.value * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }));
+		default: return `${e.type}${e.id ? ` ${e.id}` : ''}`;
 	}
 }
 
@@ -991,29 +1111,26 @@ function DetailsPane({ manifest, script, onManifest, onExport }: { manifest: Plu
 				{field(S.detailsAuthor, 'author')}
 			</div>
 			<label class="st-field"><span>{S.detailsDescription}</span><textarea class="st-input" rows={2} value={draft.description} onInput={(e) => commit({ ...draft, description: (e.target as HTMLTextAreaElement).value })} /></label>
-			{PERMISSIONS.map((p) => (
-				<label key={p} class="wm-w-toggle">
-					<input
-						type="checkbox"
-						checked={draft.permissions.includes(p)}
-						onChange={(e) => {
-							const on = (e.target as HTMLInputElement).checked;
-							const next = new Set(draft.permissions.filter((x) => x !== p));
-							if (on) next.add(p);
-							commit({ ...draft, permissions: PERMISSIONS.filter((x) => next.has(x)) });
-						}}
-					/>
-					<span>{p === STORAGE_PERMISSION ? S.permissionStorage : S.permissionReminders}</span>
-				</label>
-			))}
+			<label class="st-field">
+				<span>{S.detailsIcon}</span>
+				<input class="st-input" style="font-family:var(--wmc-mono)" placeholder="extension" value={draft.tool?.icon ?? ''} onInput={(e) => {
+					const icon = (e.target as HTMLInputElement).value;
+					const { icon: _old, ...rest } = draft.tool ?? {};
+					const tool = icon.trim() ? { ...rest, icon } : rest;
+					commit({ ...draft, tool: Object.keys(tool).length ? tool : undefined });
+				}} />
+			</label>
+			<div class="wm-caption">{S.detailsIconHint} <a href={`https://fonts.google.com/icons${draft.tool?.icon?.trim() ? `?icon.query=${encodeURIComponent(draft.tool.icon.trim())}` : ''}`} target="_blank" rel="noopener noreferrer">Material Symbols</a></div>
+			<PermissionFields manifest={draft} onChange={commit} />
 			{problems.map((p, i) => <div key={i} class="wm-error-text">{p}</div>)}
+			<ManifestJson manifest={draft} onChange={commit} />
 			<hr class="wm-w-divider" />
 			<div class="wm-caption">{fmtBytes(zip.byteLength)} · 2 entries · Python {fmtBytes(scriptBytes)}{scriptBytes > MAX_SCRIPT_BYTES ? ` · ${S.rejectScriptTooLarge(draft.name, MAX_SCRIPT_BYTES / 1024)}` : ''}</div>
 			<div class="wm-w-row">
 				<button type="button" class="st-btn st-btn-sm st-btn-primary" disabled={problems.length > 0} onClick={onExport}>{S.exportAction}</button>
 				{sha && <CopyButton text={JSON.stringify({ id: slug, type: 'plugin', name: sanitise(draft.name, 'NAME'), version: sanitise(draft.pluginVersion, 'VERSION'), author: sanitise(draft.author, 'AUTHOR'), description: sanitise(draft.description, 'DESCRIPTION'), path: `plugins/${slug}.wmplugin`, sha256: sha, sizeBytes: zip.byteLength }, null, 2)} label="Copy repository entry (with sha256)" class="st-btn st-btn-sm" />}
 			</div>
-			<div class="wm-caption">A repository lists a plugin with its sha256, and the app refuses one without it. Full API reference: <a href="/plugins/api-reference/">/plugins/api-reference</a>.</div>
+			<div class="wm-caption">A repository lists a plugin with its sha256, and the app refuses one without it. Guides, examples and the API reference: <a href="/plugins/overview/">/plugins</a>.</div>
 		</div>
 	);
 }
@@ -1026,10 +1143,18 @@ export function PluginPanel({ widgets, inputs, onEvent, onInsert, onCopy, still 
 	return <>{widgets.map((w, i) => <Widget key={i} w={w} inputs={inputs} onEvent={onEvent} onInsert={onInsert} onCopy={onCopy} still={!!still} />)}</>;
 }
 
+/** The values a plugin's settings page starts with, typed the way the app hands them to the script. */
+function settingDefaults(m: PluginManifest): Record<string, unknown> {
+	const out: Record<string, unknown> = {};
+	for (const s of m.settings ?? []) out[s.key] = settingValue({ key: s.key, type: s.type?.trim() ?? 'text' }, s.default ?? '');
+	return out;
+}
+
 function Widget({ w, inputs, onEvent, onInsert, onCopy, still }: { w: PluginWidget; inputs: Record<string, string>; onEvent: (e: PluginEvent) => void; onInsert: (text: string) => void; onCopy: (text: string) => void; still: boolean }) {
 	const [tab, setTab] = useState(0);
 	const kids = (list: PluginWidget[]) => <PluginPanel widgets={list} inputs={inputs} onEvent={onEvent} onInsert={onInsert} onCopy={onCopy} still={still} />;
 	switch (w.kind) {
+		case 'v5': return <V5Widget w={w} inputs={inputs} onEvent={onEvent} onInsert={onInsert} onCopy={onCopy} still={still} />;
 		case 'column': return <div class="wm-w-column">{kids(w.children)}</div>;
 		case 'row': return <div class="wm-w-row">{kids(w.children)}</div>;
 		case 'label': return <div class={`wm-w-label ${w.style === 'TITLE' ? 'wm-w-label-title' : w.style === 'CAPTION' ? 'wm-w-label-caption' : ''}`}>{w.text}</div>;
@@ -1280,8 +1405,8 @@ function PluginDetailsDialog({ manifest, onDismiss, onSave }: { manifest: Plugin
 	const [version, setVersion] = useState(manifest.pluginVersion);
 	const [author, setAuthor] = useState(manifest.author);
 	const [description, setDescription] = useState(manifest.description);
-	const [storage, setStorage] = useState(manifest.permissions.includes(STORAGE_PERMISSION));
-	const edited: PluginManifest = { ...manifest, name, id, pluginVersion: version, author, description, permissions: storage ? [STORAGE_PERMISSION] : [] };
+	const [access, setAccess] = useState<PluginManifest>(manifest);
+	const edited: PluginManifest = { ...access, name, id, pluginVersion: version, author, description };
 	const problems = manifestProblems(edited);
 	const field = (label: string, value: string, set: (v: string) => void, mono = false) => (
 		<label class="st-field"><span>{label}</span><input class="st-input" style={mono ? 'font-family:var(--wmc-mono)' : undefined} value={value} onInput={(e) => set((e.target as HTMLInputElement).value)} /></label>
@@ -1293,7 +1418,7 @@ function PluginDetailsDialog({ manifest, onDismiss, onSave }: { manifest: Plugin
 			{field(S.detailsVersion, version, setVersion, true)}
 			{field(S.detailsAuthor, author, setAuthor)}
 			<label class="st-field"><span>{S.detailsDescription}</span><textarea class="st-input" rows={3} value={description} onInput={(e) => setDescription((e.target as HTMLTextAreaElement).value)} /></label>
-			<label class="wm-w-toggle"><input type="checkbox" checked={storage} onChange={(e) => setStorage((e.target as HTMLInputElement).checked)} /><span>{S.permissionStorage}</span></label>
+			<PermissionFields manifest={access} onChange={setAccess} />
 			{problems.map((p, i) => <div key={i} class="wm-error-text">{p}</div>)}
 		</Dialog>
 	);

@@ -119,10 +119,22 @@
     <string name="search_kw_keypress_haptics_hardware">vibration silent bypass</string>
     <string name="search_kw_keypress_shifted_popup">uppercase majuscule case layer page second</string>
     <string name="search_kw_keypress_long_press_delay">timeout duration</string>
+    <string name="search_kw_appearance_key_hint_corner">hint placement position bottom top left right middle corner long press label</string>
+    <string name="search_kw_appearance_key_label_case">uppercase lowercase capital small letters caps keycap label anysoftkeyboard</string>
+    <string name="search_kw_keypress_preview_width">bubble popup wide narrow size preview leantype</string>
+    <string name="search_kw_keypress_preview_radius">bubble popup rounded corners round preview leantype</string>
+    <string name="search_kw_keypress_pop_text">animation float rise fade word effect anysoftkeyboard</string>
+    <string name="search_kw_keypress_long_press_system">system accessibility touch and hold delay long press timeout motor</string>
+    <string name="search_kw_keypress_multitap_timeout">multitap multi tap cycle timeout cheonjiin t9 keypad feature phone</string>
     <string name="search_kw_keypress_long_press_hints">secondary labels marks</string>
     <string name="search_kw_keypress_popup">preview flyout magnifier</string>
     <string name="search_kw_keypress_symbols_numpad">numpad keypad dialpad</string>
+    <string name="search_kw_layout_symbols_page">swiftkey numpad keypad numbers digits symbols layout</string>
     <string name="search_kw_layout_symbols_numpad_key">numpad keypad dialpad gboard</string>
+    <string name="search_kw_layout_bottom_row_preset">preset iphone ios minimal classic emoji anysoftkeyboard spacebar</string>
+    <string name="search_kw_layout_hold_actions_key">fn florisboard futo enter comma globe menu popup</string>
+    <string name="search_kw_layout_hold_actions">fn florisboard futo menu undo redo clipboard tools shortcuts</string>
+    <string name="search_kw_layout_symbols_text_edit_key">dpad arrows cursor select copy paste heliboard</string>
     <string name="search_kw_keypress_enter_emoji">return smiley emoticon longpress</string>
     <string name="search_kw_langemoji_emoji_animated">gif live</string>
     <string name="search_kw_langemoji_emoji_font">noto twemoji blob style</string>
@@ -135,6 +147,7 @@
     <string name="search_kw_langemoji_emoji_continuous">continuous vertical sections pages headers</string>
     <string name="search_kw_langemoji_panel_height">size expand bigger grow</string>
     <string name="search_kw_langemoji_emoji_skin_tone">fitzpatrick diversity complexion</string>
+    <string name="search_kw_langemoji_emoji_gender">female male sex feminine masculine neutral</string>
     <string name="search_kw_langemoji_emoji_sticker">sticker png</string>
     <string name="search_kw_langemoji_lang_os_switcher">ime subtype</string>
     <string name="search_kw_languages_cjk_jianpin">mandarin abbreviated pinyin initials shorthand</string>
@@ -147,6 +160,7 @@
     <string name="search_kw_languages_cjk_lazy">cantonese jyutping</string>
     <string name="search_kw_languages_cjk_space_steps">japanese chinese select highlight arrow keys convert henkan fcitx mozc hardware physical keyboard</string>
     <string name="search_kw_languages_cjk_full_width_space">japanese chinese zenkaku ideographic double wide u3000</string>
+    <string name="search_kw_languages_cjk_flick_only">japanese flick toggle input keitai multitap repeated taps kana</string>
     <string name="search_kw_languages_cjk_loose_marks">japanese flick dakuten handakuten sokuon modifier insensitive</string>
     <string name="search_kw_languages_cjk_traditional">taiwan hong kong hanzi</string>
     <string name="search_kw_languages_rime_engine">librime trime weasel squirrel 中州韻 deploy</string>
@@ -200,6 +214,10 @@
     <string name="search_kw_typing_autocorrect_confidence">threshold aggressive aggressiveness modest</string>
     <string name="search_kw_typing_autocorrect">auto replace changing</string>
     <string name="search_kw_typing_blacklist">banned ignore blocklist forbidden</string>
+    <string name="search_kw_typing_pinch_gestures">zoom two finger gesture split merge spread anysoftkeyboard</string>
+    <string name="search_kw_typing_stretch_row">spread zoom out split keyboard apart</string>
+    <string name="search_kw_typing_pinch_row">squeeze zoom in merge join keyboard together</string>
+    <string name="search_kw_typing_one_finger_swipes">gesture map single finger swipe board shortcut action anysoftkeyboard leantype</string>
     <string name="search_kw_typing_block_offensive">swear curse cuss censor nsfw</string>
     <string name="search_kw_typing_contact_names">address book phonebook people</string>
     <string name="search_kw_typing_double_space">period full</string>
@@ -236,6 +254,8 @@
     <string name="search_kw_layout_extend_edge_keys">hitbox hit box touch area target gap margin</string>
     <string name="search_kw_typing_smart_hit_detection">hit detection hitbox proximity targeting</string>
     <string name="search_kw_typing_smart_contacts">phone dial sms message</string>
+    <string name="search_kw_typing_space_swipe_up">touchpad trackpad numpad number pad action tool gesture</string>
+    <string name="search_kw_typing_space_swipe_slot">gesture action tool shortcut text editing cursor language</string>
     <string name="search_kw_typing_smart_repeats">repeating spam duplicate again hahaha</string>
     <string name="search_kw_typing_smart_numbers">thousands separator comma</string>
     <string name="search_kw_typing_smart_replies">canned responses</string>
@@ -381,12 +401,15 @@
     <!-- Search words for removing tracking parameters from copied links. -->
     <string name="search_kw_clean_links">tracker, trackers, tracking, utm, fbclid, clean, url, link, privacy, remove, delete</string>
     <!-- Search words for removing EXIF, GPS and other metadata from pictures and videos. -->
+    <!-- The Backspace removes a paste row, by FUTO's name for it and the words people search with. -->
+    <string name="search_kw_backspace_paste">delete pasted text, delete inserted text, undo paste, remove paste, backspace, delete</string>
     <string name="search_kw_strip_media">exif gps geotag xmp iptc serial number privacy strip picture</string>
     <string name="search_kw_strip_location">exif geotag coordinates metadata privacy strip picture</string>
     <string name="search_kw_strip_camera">exif metadata xmp iptc privacy strip photo picture video</string>
     <string name="search_kw_phoneformats">phone number, dial code, country code, mobile number, clipboard chips</string>
     <string name="search_kw_codes">otp, one time password, 2fa, two factor, verification code, sms code, login code</string>
     <string name="search_kw_musicapps">music apps, spotify, player apps, now playing, podcast apps</string>
+    <string name="search_kw_launcherappicons">icon pack, icon packs, arcticons, nova, adw, themed icons, app icons</string>
     <string name="search_kw_launchercombos">split screen, multi window, two apps, side by side, app pairs</string>
     <string name="search_kw_kdeconnect_devices">pair computer, paired devices, pc, laptop, desktop, gsconnect, valent, unpair, add by ip address</string>
     <string name="search_kw_send_instances">server, host, self hosted, mirror, upload limit</string>

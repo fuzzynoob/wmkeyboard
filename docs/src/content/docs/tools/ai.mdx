@@ -171,16 +171,19 @@ Traffic to a self-hosted server is plain HTTP, and the app allows cleartext traf
 
 The **On your device** provider runs a model entirely on the phone, no network involved. It's the only provider that needs a download first, and the one that **Add a provider** doesn't offer at all in the F-Droid build.
 
+A small model tends to treat whatever it was handed last as a message to answer, so an action run on the phone repeats its task right above your text and marks the text off as material to work on. Without that, a model you imported could reply to your text instead of fixing or rewriting it. A cloud model gets the task once, in its instructions.
+
 <PhoneFrame side caption="The on-device model catalog, with tier badges and a params/size subtitle per model.">
   <Shot id="tools/ai-settings-local-catalog" alt="The on-device model catalog, with tier badges and a size/RAM subtitle per model." />
 </PhoneFrame>
 
-The catalog has two lists. The first is eight models in LiteRT-LM's format, the engine the keyboard has always used and still the default. They're ordered best-first rather than smallest-first:
+The catalog has two lists. The first is nine models in LiteRT-LM's format, the engine the keyboard has always used and still the default. They're ordered best-first rather than smallest-first:
 
 | Model | Params | Size | Tier | Gated |
 |---|---|---|---|---|
 | Gemma 4 E2B | 2B | 2.59 GB | Recommended | |
 | Gemma 4 E4B | 4B | 3.66 GB | Recommended | |
+| Nemotron 3.5 Bolt E4B | 4B | 4.40 GB | Standard | |
 | Gemma 3 1B | 1B | 584 MB | Untested | Yes |
 | Qwen 2.5 1.5B | 1.5B | 1.6 GB | Standard | |
 | Qwen 3 0.6B | 0.6B | 347 MB | Experimental | |
@@ -188,9 +191,9 @@ The catalog has two lists. The first is eight models in LiteRT-LM's format, the 
 | Gemma 3 270M | 270M | 304 MB | Untested | Yes |
 | SmolLM2 135M | 135M | 143 MB | Experimental | |
 
-Each row names the licence its weights are published under, and **Licence and model page** under an undownloaded row opens the repository where the text is. Gemma 3 comes under Google's Gemma Terms of Use; Gemma 4, Qwen and SmolLM2 are Apache-2.0. About, Licences lists the same under downloadable data packs.
+Each row names the licence its weights are published under, and **Licence and model page** under an undownloaded row opens the repository where the text is. Gemma 3 comes under Google's Gemma Terms of Use; Gemma 4, Qwen and SmolLM2 are Apache-2.0. Nemotron 3.5 Bolt E4B is NVIDIA's further training of Gemma 4 E4B for following instructions and calling tools, under the OpenMDW 1.1 licence, which allows commercial use; this conversion reads text only. About, Licences lists the same under downloadable data packs.
 
-Two of the eight are gated and need a Hugging Face account. Paste a token into the **Access token** field under **Hugging Face account**, above the catalog. Then accept the model's license on its Hugging Face page, once per model.
+Two of the nine are gated and need a Hugging Face account. Paste a token into the **Access token** field under **Hugging Face account**, above the catalog. Then accept the model's license on its Hugging Face page, once per model.
 
 #### GGUF models on llama.cpp
 
@@ -217,7 +220,6 @@ What's different about them:
 - **GPU.** With **Compute** on **GPU**, a GGUF model runs on the phone's GPU: on a Snapdragon chip (an Adreno GPU) through llama.cpp's OpenCL code, which Qualcomm wrote for these GPUs, and on a Mali, Xclipse or PowerVR GPU through llama.cpp's Vulkan code. A phone with neither runs it on the CPU's big cores, whatever that row says. See [Compute](#compute-and-gguf-models) below.
 - **Pictures, for the models that read them.** Qwen 2.5 VL and SmolVLM look at a picture themselves: a screenshot in the [reply tool](/tools/ai-reply/), and the pictures in the newest message of a [chat](/tools/ai-chat/#sending-pictures). For every other GGUF model, the reply tool reads a screenshot another way, as it does for any model that can't see.
 - **The model's own chat template.** llama.cpp formats each conversation with the template stored in the GGUF file, so a model you import is prompted the way its makers trained it. Text from your field is kept as text: it can't open a turn of its own, even if it contains the template's markers.
-- **Stop really stops.** A LiteRT-LM answer runs to its end in the background after you press Stop. A GGUF answer ends at the next word, and what it had written is what the model remembers.
 - **Memory is checked first.** Before a model loads, the keyboard compares what it needs (the file, plus room for the context) with the memory free on the phone. If it's short, the context shrinks first. If even that won't fit, you get a message with both figures instead of a crash. A loaded model is unloaded after three minutes with nothing to do, and the keyboard lets go of it earlier when it hides.
 
 llama.cpp itself is an extra part of a few megabytes. The Google Play edition downloads it from Play with the first GGUF model, and the GitHub edition fetches it from the project's own release. Until it's there, the GGUF list shows a banner with a **Download** button. Google Play sometimes wants your OK before it downloads a part like this, for example on mobile data. It can only ask inside the app, not over the keyboard, so the chat says so, and the question appears the next time you open WM Keyboard's settings.
@@ -238,7 +240,22 @@ A **Compute** row picks **CPU** or **GPU** for inference, and CPU is the default
 
 The GPU makes the biggest difference to reading a long prompt, such as a chat screenshot or a long text to rewrite. Writing the answer is limited by memory speed, so it gains less, and for the smallest models the CPU can be as fast. Qualcomm tuned models quantized as Q4_0 first. The catalog's Q4_K_M and Q8_0 files also run on the GPU, and with some Snapdragon 8 Gen 2 and Gen 3 drivers llama.cpp keeps the last layer of a K-quant model on the CPU, where those drivers compile it badly.
 
-On a phone with a Snapdragon 8 Elite (SM8750, the Galaxy S25 series) or 8 Elite Gen 5 (SM8850, the Galaxy S26 Ultra), running Android 12 or later, the row has a third choice, **NPU**, which runs a model on the phone's AI accelerator. The NPU needs a build of the model compiled for that chip, and only Gemma 3 1B and Gemma 3 270M have one. With **NPU** selected, **Download** on those two rows fetches the NPU build (689 MB and 461 MB on an SM8750) instead of the standard file. A model you already have gets a **Get the NPU build** button. Every other model runs as it does with **GPU**. So does a model whose NPU build fails to start, and the app keeps that model off the NPU until the next system or app update. A failure partway through an answer only moves the next try in that session to the GPU, because a prompt longer than the build's window fails the same way. The NPU build runs only on the NPU, so a model whose only file is its NPU build offers **Get the standard build** when Compute is CPU or GPU. The NPU runtime is Qualcomm's QNN. The Google Play edition downloads it from Play the first time you pick **NPU**. The GitHub edition first asks you to accept Qualcomm's licence, then fetches only your chip's files from Qualcomm's own package on Maven Central, about 30 MB. The F-Droid edition has no NPU at all.
+On a phone running Android 12 or later with one of these chips, the row has a third choice, **NPU**, which runs a model on the phone's AI accelerator. The NPU needs a build of the model compiled for that exact chip, so which models have one depends on the chip:
+
+| Chip | Phones, for example | Models with an NPU build |
+|---|---|---|
+| Snapdragon 8 Gen 2 (SM8550) | Galaxy S23 series | Gemma 3 1B, Gemma 3 270M |
+| Snapdragon 8 Gen 3 (SM8650) | Galaxy S24 series | Gemma 3 1B, Gemma 3 270M |
+| Snapdragon 8 Elite (SM8750) | Galaxy S25 series | Gemma 3 1B, Gemma 3 270M |
+| Snapdragon 8 Elite Gen 5 (SM8850) | Galaxy S26 Ultra | Gemma 3 1B, Gemma 3 270M, Nemotron 3.5 Bolt E4B |
+| Dimensity 9300 (MT6989) | vivo X100 Pro | Gemma 3 1B |
+| Dimensity 9400 and 9500 (MT6991, MT6993) | vivo X200 and X300 series | Gemma 3 1B, Gemma 3 270M |
+| Tensor G3 and G4 | Pixel 8 and Pixel 9 series | Gemma 3 1B |
+| Tensor G5 and G6 | Pixel 10 and Pixel 11 series | Gemma 3 1B, Gemma 4 E2B |
+
+The Tensor G3 and G4 builds of Gemma 3 1B come from a community repository on Hugging Face, the only place that compiles one for those chips; its page reports both working on a Pixel 8 Pro and a Pixel 9. Every other build is from the model's own repository. Gemma 4 E2B's Tensor build answers text only: with a picture, it runs its standard file as **GPU** would.
+
+With **NPU** selected, **Download** on a row with a build for your chip fetches that build (Gemma 3 1B is 689 MB on a Snapdragon 8 Elite, about 1 GB on a Dimensity and 2 GB on a Tensor G5) instead of the standard file. A model you already have gets a **Get the NPU build** button. Every other model runs as it does with **GPU**. So does a model whose NPU build fails to start, and the app keeps that model off the NPU until the next system or app update. A failure partway through an answer only moves the next try in that session to the GPU, because a prompt longer than the build's window fails the same way. The NPU build runs only on the NPU, so a model whose only file is its NPU build offers **Get the standard build** when Compute is CPU or GPU. On a Snapdragon the NPU runtime is Qualcomm's QNN. The Google Play edition downloads it from Play the first time you pick **NPU**. The GitHub edition first asks you to accept Qualcomm's licence, then fetches only your chip's files from Qualcomm's own package on Maven Central, about 30 MB. On a Dimensity or a Tensor the phone already has the NPU's drivers, and the keyboard adds only LiteRT's small bridge to them (under 1 MB, Apache-2.0, from Google's Maven repository), with no licence to accept. None of these NPU builds has been measured on a phone here yet: if one fails to start on yours, that model goes back to the GPU as described above. The F-Droid edition has no NPU at all.
 
 A **Context size** row sets how much text the model is loaded with, prompt and answer together, in tokens. It defaults to the model's own value, or 4,096 tokens for a GGUF model, whose own value is often far more than a phone can hold. This is the only length lever on-device. Unlike a cloud API there's no per-response ceiling to set, so the window is what bounds an answer. A larger window costs memory, and changing it reloads the model.
 
@@ -300,7 +317,20 @@ Most providers do tool calling properly, as part of their API: Claude, OpenAI, G
 - **Brave** takes a single message with no system prompt and has no tool field at all.
 - **On-device models** have no tool API in the local runtime.
 
-For those two the keyboard falls back to explaining the tools to the model in words and watching its answer for a reply in the agreed format. The reader is deliberately forgiving about that format, because local models mangle it: `tool_call` is a special token in several chat templates, so the template rewrites the very thing the keyboard asked for, and a marker can come back with its brackets moved, doubled, or missing altogether. All of those are read, and anything that looks like one is hidden from the answer whether or not it turns out to be a call, because machinery the model wrote for the keyboard is never yours to read.
+For those two the keyboard falls back to explaining the tools to the model in words and watching its answer for a reply in the agreed format. The reader is deliberately forgiving about that format, because local models mangle it: `tool_call` is a special token in several chat templates, so the template rewrites the very thing the keyboard asked for, and a marker can come back with its brackets moved, doubled, or missing altogether. Small models also write the call itself loosely. The keyboard reads all of these:
+
+- the marker in any bracket arrangement, or none, along with the spellings other model families use, such as `[TOOL_CALLS]` and `<function=web_search>`;
+- Gemma's own shape, `call:set_alarm{time:"05:00"}`, written with no marker at all;
+- a call inside a code block;
+- a bare `{"name": …, "arguments": …}` object, and the other wrappers models learnt, such as `"tool"` and `"args"`, or a list of calls;
+- a call written like a function, `web_search(query="rain")`, with the arguments named or in order;
+- JSON with single quotes, trailing commas or unquoted keys, and arguments written as a string instead of an object.
+
+A call with no marker counts only when it names a tool the model was offered, so JSON you asked the model to write stays in the answer. Anything that reads as a call is hidden from the answer whether or not it parses, because machinery the model wrote for the keyboard is never yours to read.
+
+A call that plainly was one but still can't be read doesn't run, and it doesn't disappear either. It shows as a step that says it wasn't run, and the model is told its call failed and how to write it, so it can try again if it has lookups left. A call written after the last allowed lookup is recorded the same way. Either way the answer can't claim a tool did something that never happened, and the model is told never to say it did unless the tool's result says so.
+
+The same safety net covers providers that do have real tool support. A small model on Ollama, LM Studio or another OpenAI-compatible server sometimes writes its call into the answer as text instead of using the API; when that text names a tool it was offered, the call runs as if it had come through the API.
 
 It works, and a capable local model will use it, but a small one still ignores the format sometimes, or asks you to narrow a request it could have searched as written. The settings group says so when you're on one of those providers. If lookups matter to you, a provider with real tool support is far more reliable.
 
@@ -472,7 +502,7 @@ What each request carries:
 - **Send only the last word**: sends that word and nothing else. Less goes out, and the suggestions get worse.
 - A short system prompt asking for a continuation in the same language, with no explanation and no quotes.
 
-No request is made at all in a password field, in a field that turns suggestions off, in [incognito](/privacy/incognito/), when no provider is set up, or while [Data saver](/privacy/data-saver/) holds cloud AI back. With an **On-device** model the text stays on the phone. A phone model can't be stopped part way, so no new request starts while one is still running, or while the AI panel is using the model. The first request also has to load the model, which can take longer than the 1.5 seconds.
+No request is made at all in a password field, in a field that turns suggestions off, in [incognito](/privacy/incognito/), when no provider is set up, or while [Data saver](/privacy/data-saver/) holds cloud AI back. With an **On-device** model the text stays on the phone. A phone model answers one request at a time, so no new request starts while one is still running, or while the AI panel is using the model. The first request also has to load the model, which can take longer than the 1.5 seconds.
 
 ## Chatting instead of transforming
 
@@ -593,6 +623,8 @@ The panel itself sends nothing until you actually tap an action chip: opening th
 - **The Writing keyboard mode pins AI first** on its toolbar for apps it recognizes as writing-heavy (see [Keyboard modes](/typing/modes/)). The pin shows in every build, same as the tool itself. Only the On-device provider is missing from the F-Droid build.
 - **A reasoning model's guess is a substring match** against the model ID, on strings like "thinking", "-r1", "qwen3", "gpt-5", "gpt-6", "grok-4", "deepseek-v4". It can be wrong in either direction. A false positive only costs a larger token ceiling. A false negative risks a response cut off mid-thought.
 - **Custom has no stored default prompt.** Every other action's prompt can be edited and still has a built-in fallback. Custom's instruction only ever exists for the run you type it for.
+- **Closing the keyboard stops an answer after 30 seconds.** If the keyboard stays closed that long while the panel is still waiting for an answer, the request is stopped, whichever provider it went to. An on-device model would otherwise keep the phone's fastest cores busy until it finished, with nobody there to read the result. When you come back, the panel keeps any part of the answer that had already arrived, or says the run was stopped and offers **Retry**. A quick switch to another app and back doesn't trip it.
+- **Stop works on every local model.** Running another action, or retrying, ends the answer still being written at its next word, LiteRT-LM and GGUF models alike, and a request that was waiting behind it doesn't run at all.
 - **On-device answers never claim to have been cut off.** The local engine reports no stop reason, so there's nothing to read, and the app says nothing rather than guessing. Every other provider does report it.
 - **The changes view can't spot moved text.** A paragraph the model relocated reads as a deletion where it was and an insertion where it went. Detecting moves properly needs a second pass that git only does on request. The actions that move text, Summarize and Rewrite, reword it at the same time, so that pass would fire rarely and mislead when it did.
 - **Comparisons drop to whole characters for scripts without spaces** (Chinese, Japanese, Thai, and others). Word-sized pieces would make an entire sentence a single highlight there. Mixed text uses characters throughout, which is noisier but never wrong.

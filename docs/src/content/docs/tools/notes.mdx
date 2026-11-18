@@ -26,6 +26,8 @@ In the settings app the notebook is one tap from the tool's own page:
 
 The panel opens on the list by default. <SettingsPath path="Tools / Notes / The keyboard panel opens on" /> can make it open on the note you edited last instead, which suits a running diary or a list you add to all day.
 
+The panel takes the whole keyboard, the toolbar's row included, so the notes get as much room as there is. To keep your tools in reach while a note is open, turn on <SettingsPath path="Tools / Notes / Keep the toolbar" />: the panel then opens under the toolbar, one row shorter. The back arrow in the panel's own header still goes back a step at a time, out of the note and then to the list, while the toolbar's back arrow closes Notes in one tap.
+
 ### Quick note
 
 The **Quick note** action opens the panel straight on a new note, with the keys already typing into its body, so a thought goes down in one press. Bind it to a flick, a key's long press, a toolbar button's hold or the floating button. It's an action rather than a tool, so it never shows on the toolbar or in the toolbox: you'll find it under **Other** in those pickers. Fire it again while the note is up to close the panel.
@@ -52,7 +54,7 @@ A **Jot something…** pill floats along the bottom of the shelf. Tap it, or its
 
 A new note opens its editor with the title line focused: type a title, press <KeyCap>Enter</KeyCap>, and you are in the body. A title is optional. A note with none is named after its first line, with the Markdown taken off, so `# Shopping` on the first line is a note called Shopping.
 
-The editor collapses the panel so the key rows come back underneath it, the way the clipboard's clip editor does. Enter is a line break. Inside a list it carries the list on: `- ` after a bullet, `3. ` after `2. `, a fresh `- [ ] ` after a task box, and Enter on an empty item ends the list. A row of chips above the keys inserts the Markdown you reach for most: bold, italic, a bullet or a numbered list, a task box, a heading, a quote and code. Each one wraps whatever is selected, or toggles its prefix on the lines you selected. The row's end counts your words and characters.
+The editor collapses the panel so the key rows come back underneath it, the way the clipboard's clip editor does. Enter is a line break. Inside a list it carries the list on: `- ` after a bullet, `3. ` after `2. `, a fresh `- [ ] ` after a task box, and Enter on an empty item ends the list. The editor has no long-press menu of its own, so the row of chips above the keys opens with **Paste**, which types what you last copied into the note at the caret (over any selection), the same text a paste key on the layout would. After it, the chips insert the Markdown you reach for most: bold, italic, a bullet or a numbered list, a task box, a heading, a quote and code. Each one wraps whatever is selected, or toggles its prefix on the lines you selected. The row's end counts your words and characters.
 
 Everything you type is saved as you go. There is no Save button and nothing to lose when the keyboard closes or another app takes the field: the draft is written first. **Done** keeps the note and goes back to reading it; **Cancel** puts the note back the way it was when you started, and throws away a new note altogether. A new note left blank is not kept.
 
@@ -67,6 +69,10 @@ The reading view draws the note as Markdown: headings (including the `===` and `
 A long note shows its first part and a **Show more** chip. A very long one, past twenty thousand characters, still reads here but edits in the settings app, where the Edit chip takes you.
 
 <SettingsPath path="Tools / Notes / Format Markdown" /> turns the formatting off, for anyone who would rather see exactly what they typed.
+
+## The notes assistant
+
+Turn on <SettingsPath path="Tools / Notes / Notes assistant" /> and an open note also shows a suggested heading when it has none, a summary when it is long, its deadlines, dates, amounts and numbers as chips, a **Remind me** for each deadline or birthday, the notes and pinned clips related to it, and **Make a study deck**. It all runs on the phone, and it is off until you turn it on. [Notes assistant](/tools/notes-assistant/) has the details.
 
 ## Pin, archive, trash
 

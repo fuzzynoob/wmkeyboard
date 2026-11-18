@@ -96,7 +96,7 @@ codes! {
     UnknownMember = "unknown_member", Warning, "“{0}” does not exist.";
     MemberTypo = "member_typo", Warning, "“{0}” does not exist. Did you mean “{1}”?";
     UseInstead = "use_instead", Warning, "“{0}” does not exist here. Use “{1}”.";
-    NeverInApi = "never_in_api", Error, "“{0}” does not exist: plugins cannot read typed text, the clipboard, files or the network.";
+    NeverInApi = "never_in_api", Error, "“{0}” does not exist: plugins cannot see keystrokes or the file system.";
     StorageNotDeclared = "storage_not_declared", Warning, "wm.storage needs the storage permission in plugin.json.";
     RemindersNotDeclared = "reminders_not_declared", Warning, "wm.reminders needs the reminders permission in plugin.json.";
     SelectionNotDeclared = "selection_not_declared", Warning, "transform() runs selection actions, which need the selection permission in plugin.json.";
@@ -207,10 +207,10 @@ fn lexical(doc: &Document, out: &mut Vec<Diagnostic>) {
                     let code = if t.has(i, TRIPLE) { Code::UnclosedTripleString } else { Code::UnclosedString };
                     out.push(Diagnostic::new(code, span, &[]));
                 }
-                if t.has(i, FOREIGN_PREFIX) {
-                    let first = t.units()[start as usize] as u8;
-                    let what = if first == b'u' || first == b'U' { "u\"\" strings" } else { "b\"\" bytes literals" };
-                    out.push(Diagnostic::new(Code::Unsupported, Span::new(start, start + 1), &[what]));
+                // Bytes literals run; only u"" strings are refused.
+                let first = t.units()[start as usize] as u8;
+                if t.has(i, FOREIGN_PREFIX) && (first == b'u' || first == b'U') {
+                    out.push(Diagnostic::new(Code::Unsupported, Span::new(start, start + 1), &["u\"\" strings"]));
                 }
             }
             TokenKind::Number => {

@@ -9,7 +9,7 @@ import PhoneFrame from '@components/PhoneFrame.astro';
 import SettingsPath from '@components/SettingsPath.astro';
 import Shot from '@components/Shot.astro';
 
-The Appearance screen is where the keyboard's look comes together. It's the hub for the theme, font, and icon pickers, and it holds the sliders that shape the keys themselves and the toolbar above them.
+The Appearance screen is where the keyboard's look comes together. It's the hub for the theme, font and icon pickers, and for three pages of its own: Keys, which shapes the keys themselves, Toolbar, the bar above them, and Toolbox.
 
 <PhoneFrame caption="The Appearance settings screen, showing Style, Keys, and Toolbar.">
 <Shot id="reference/settings/appearance-overview" alt="The Appearance settings screen, showing Style, Keys, and Toolbar." />
@@ -31,13 +31,15 @@ Reference pages for each of these three screens: [Keyboard themes](/reference/se
 
 <SettingsPath path="Appearance / Keys" />
 
-Three sliders that apply to every key, whatever layout is active. All three are the global value, and a theme may override any of them:
+Settings that apply to every key, whatever layout is active. They are on a page of their own, opened from the **Keys** row beside Toolbar and Toolbox, rather than laid out on Appearance itself. The sliders are the global value, and a theme may override any of them:
 
 | Setting | Range | Default |
 |---|---|---|
 | Key corner radius | 0–28 dp | 8 dp |
 | Key label font size | ×0.7–×2.0 | ×1.00 |
+| Letter case on keys | Follow Shift, Lowercase, Capitals | Follow Shift |
 | Key hint font size | ×0.5–×3.0 | ×1.00 |
+| Key hint corner | Top left, top middle, top right, bottom left, bottom middle, bottom right | Top right |
 | Key hint position | −6–16 dp | 1 dp |
 | Key hint side position | −6–16 dp | 0 dp |
 | Key label across | −12–12 dp | 0 dp |
@@ -47,9 +49,11 @@ Three sliders that apply to every key, whatever layout is active. All three are 
 
 **Key label font size** scales every printed letter on the keys themselves. It's separate from the popup bubble that appears on a key press, which has its own size under [Key press](/reference/settings/keypress/) → Key popup.
 
+**Letter case on keys** changes how the letters on the keys are drawn, and nothing else. **Follow Shift** is the usual look: small letters, and capitals while Shift or Caps Lock is on. **Lowercase** always draws small letters, and **Capitals** always draws capitals, like the keycaps of a physical keyboard. What a key types still follows Shift either way. Letters with no capitals, and the keys of a phonetic layout such as Avro, where `t` and `T` type different letters, keep following Shift so the key still shows what it will type.
+
 **Key hint font size** scales the small corner hint on a key: the character or symbol a long-press on that key types. This slider only controls their size once they're showing. The "Press and hold hints" toggle that turns the hints on or off in the first place lives on the [Key press](/reference/settings/keypress/) screen, not here. See [Key basics](/typing/basics/) for how long-press hints work.
 
-**Key hint position** moves that corner hint up or down. At 0 the hint touches the top edge of the key. Raise it to bring the hint down toward the letter, or go below 0 to push it up into the key's own margin. **Key hint side position** does the same sideways: higher numbers move the hint in from the key's side, and below 0 moves it out to the edge.
+**Key hint position** moves that corner hint up or down. At 0 the hint touches the top edge of the key. Raise it to bring the hint down toward the letter, or go below 0 to push it up into the key's own margin. **Key hint side position** does the same sideways: higher numbers move the hint in from the key's side, and below 0 moves it out to the edge. **Key hint corner** picks which corner the hint sits in, top or bottom, left, middle or right, and the two sliders then measure from that corner: from the bottom edge for a bottom corner, and from the left for a left one. On a middle corner the side slider nudges the hint left or right. In a right-to-left language left and right swap, as the hint's usual corner does.
 
 **Key label across** and **Key label up or down** move the main letter on every key off its centre, so a corner hint made large enough to read, an Arabic haraka at ×2.5 for example, no longer sits under the letter. A layout can also make one key's hint larger than the rest with its **Hint size**, in the [layout editor](/languages/custom-layouts/).
 
@@ -70,10 +74,11 @@ The toolbar is the strip above the keys that carries word suggestions while you 
 | Setting | Type | Default | Notes |
 |---|---|---|---|
 | Show the toolbar | Toggle | On | Turning it off reclaims its height for the keys, but also hides suggestions and every pinned tool. You're asked to confirm before it disables. |
-| Where the tools go | The strip / A button / Always / On a swipe | The strip | The strip is the original arrangement: tools and suggestions share one row and the arrow flips between them, so the tools are only in reach when nothing is being suggested. A button and Always give the tools a row of their own above the suggestions. A button opens and closes that row from the same arrow. Always leaves it open instead. Either way, having the row up costs one row's worth of keyboard height. On a swipe shares the strip again, but the strip rests on the suggestions: the tools come up only when you swipe up on the strip's [toolbox button](/reference/settings/emoji/) and go when you swipe down on either toolbox button, and there is no arrow. Without that button on the strip, the arrow stays as the way in. Only shown while the toolbar is on. |
+| Where the tools go | The strip / A button / Always / On a swipe | The strip | The strip is the original arrangement: tools and suggestions share one row and the arrow flips between them, so the tools are only in reach when nothing is being suggested. A button and Always give the tools a row of their own above the suggestions. A button opens and closes that row from the same arrow. Always leaves it open instead. Either way, having the row up costs one row's worth of keyboard height. On a swipe shares the strip again, but the strip rests on the suggestions: the tools come up only when you swipe up anywhere on the strip and go when you swipe down on them, and there is no arrow. Only shown while the toolbar is on. |
 | Suggestion strip | Toggle | On | Keeps the suggestion row above the tools row. Turn it off to keep only the tools row and give the suggestion row's height back to the keys, for example if you've turned suggestions off and the row sits empty. It also removes everything else that appears in that row: the paste chip for your last copy, one-time codes, snippet offers and other chips. Voice typing's compact bar still takes the row while you dictate. Only shown while **Where the tools go** is set to Always, because with A button the arrow on the suggestion strip is how you open the tools. |
-| Toolbox button before the tools | Toggle | On | The toolbox launcher at the head of the pinned tools. Turn it off to leave the toolbox to the button beside the suggestions. With a tool open, the bar covers the strip, so the button is back for as long as the tool is. Needs **Toolbox button** under [Emoji](/reference/settings/emoji/); without it the toolbar keeps its own. A swipe down on this button puts the tools away under The strip, A button and On a swipe. |
-| Arrow to the tools | Toggle | On | The arrow on the suggestion strip that opens and closes the tools. Turn it off to do that with a swipe on a toolbox button instead: up on the strip's to bring the tools, down on the toolbar's to put them away. The arrow comes back while the toolbox button it would need is hidden. Needs **Toolbox button** under [Emoji](/reference/settings/emoji/). Shown under The strip and A button. |
+| Hide the strip until there are words | Toggle | Off | The other way round from The strip: the tools row stays, and the suggestion row folds away while it has nothing to show, before you start typing, in a field with no suggestions, or with a tool open. The first word to suggest, or a chip such as a one-time code or the paste chip, brings it back. The keyboard is one row taller while the strip shows. Only shown while **Where the tools go** is Always and **Suggestion strip** is on. |
+| Toolbox button before the tools | Toggle | On | The toolbox launcher at the head of the pinned tools. Turn it off to leave the toolbox to the button beside the suggestions. With a tool open, the bar covers the strip, so the button is back for as long as the tool is. Needs **Toolbox button** under [Beside the suggestions](#beside-the-suggestions); without it the toolbar keeps its own. A swipe down on this button puts the tools away under The strip, A button and On a swipe. |
+| Arrow to the tools | Toggle | On | The arrow on the suggestion strip that opens and closes the tools. Turn it off to do that with a swipe instead: up anywhere on the strip brings the tools, down anywhere on them puts them away. The words then have the whole strip, so the middle one sits in the middle. **Swipe up for more suggestions** keeps the upward swipe while the strip has words, and **Swipe down to hide** keeps the downward one; the toolbar's toolbox button still takes a swipe down either way. Shown under The strip and A button. |
 | Tools in landscape | Along the top / Left column / Right column | Along the top | With the phone on its side, takes the tools off the top of the keyboard and stands them in a column down the left or right edge, beside the suggestions and the keys, so they're always in reach. If **Where the tools go** gave them a row of their own, that row's height goes back to the keys. On the strip, the strip keeps only the suggestions and loses its arrow. The column follows the rest of the toolbar settings: your pinned tools and folders in their order, their colors and labels, the hold actions, **Rearrange by dragging** (drag up and down the column), and **Tool layout**, which spreads them down the column, packs them at the top, or lets them scroll. While a panel is open, the way back to the keys sits at the top of the column. A tool that takes the whole keyboard hides the column along with the rest of the bar, as does the toolbar-only view for a hardware keyboard. Portrait is unchanged. Only shown while the toolbar is on. |
 | Swipe down to hide | Toggle | Off | A downward flick anywhere on the toolbar dismisses the keyboard. Only shown while the toolbar is on. |
 | Press and hold delay | Slider, System or 100–1500 ms | System | How long you press a tool on the toolbar or in the toolbox before it counts as a hold: the hold action, the settings page, or picking the tool up. System follows the touch and hold delay in your phone's accessibility settings. Only shown while the toolbar is on. |
@@ -85,6 +90,8 @@ The toolbar is the strip above the keys that carries word suggestions while you 
 | Toolbar top padding | Slider, −12–24 dp | 4 dp | Space between the top edge of the keyboard and the toolbar. The strip carries both suggestions and the toolbar, so the suggestions move with it, and the keyboard gets taller by the same amount. Below 0 the strip gets shorter instead, down to 24 dp in all. |
 | Toolbar bottom padding | Slider, −12–24 dp | 0 dp | Space between the toolbar and the first row of keys. The keyboard gets taller by the same amount. Below 0 the strip gets shorter instead, down to 24 dp in all. |
 | Hide the toolbar and the clipboard on the lock screen | Toggle | Off | Hides the whole top strip and blocks the clipboard panel while the phone is locked, so nothing like a copied one-time code sits on a screen anyone can wake. See [Tools](/tools/overview/#which-tools-work-before-you-unlock-your-phone) for how this differs from the tools that work before first unlock. |
+| Keep a tool open when you switch apps | Toggle | On | A tool left open in an app is open again when you come back to that app in time, with what you were doing in it. See [Coming back to a tool](/tools/overview/#coming-back-to-a-tool). Off, every new text box opens on the keys. |
+| How long a tool stays open | Slider, 1–60 min | 3 min | How long a tool left open in an app waits for you to come back to that app. Only shown while **Keep a tool open when you switch apps** is on. |
 | Tool labels | Toggle | Off | Draws a caption under each pinned tool's icon, the toolbox button at the head of the bar included (it reads **Toolbox**). Only shown while the toolbar is on. |
 | Label text size | Slider, 7–14 sp | 10 sp | Only shown once Tool labels is on. |
 | Keep labelled tools one width | Toggle | Off | Every labelled button keeps the tool width, and a longer name is cut short with an ellipsis instead of widening its button. Only shown once Tool labels is on. |
@@ -96,11 +103,50 @@ The toolbar is the strip above the keys that carries word suggestions while you 
 | Reset pinned tools | Button (confirms first) | n/a | Restores the global toolbar to Emoji, Clipboard, and Settings. It resets the global row even while a [mode](/typing/modes/) with its own pinned toolbar is active. To change what a mode pins, edit that mode instead. |
 | Tool circle radius | Slider, 0–20 dp | 20 dp | 20 draws a full circle behind each tool icon, Gboard style. Smaller values give a rounded square. 0 removes the background, leaving bare icons. Has its own per-theme override in the [theme editor](/themes/editor/#corners). |
 | Tool background shape | Row → picker dialog, the same twelve shapes as Key shape | Rounded | The outline of that background. Only Rounded and Cut read the radius above, and the rest size themselves off the button. Hidden while the radius is 0, since there is no background to shape. Has its own per-theme override in the [theme editor](/themes/editor/#toolbar-strip-and-popups). |
-| Tool background width | Slider, 38–64 dp | 38 dp | How wide each tool's slot is once the bar stops spreading them, so it decides how many fit before the row scrolls or shrinks. Only shown while the toolbar is on. |
+| Use my button size, not the theme's | Toggle | Off | Lets the two sizes below win over the tool width your theme sets under Layout for this theme. Off, a theme with its own width keeps it and the width slider is greyed out. Only shown while the active theme sets a width, or once this is on. |
+| Tool button width | Slider, 38–96 dp | 38 dp | How wide each button on the toolbar is: 38 is the circle, wider stretches it into a pill. It also decides how many tools fit before the row scrolls or shrinks. Only shown while the toolbar is on. |
+| Tool button height | Slider, 28–64 dp | 38 dp | How tall each button on the toolbar is. A button never grows taller than the toolbar, so past about 40 dp raise **Toolbar height** under [Layout & size](/typing/size-position/) too, or drag the toolbar taller with the [Resize tool](/tools/resize/); the row says when the toolbar is capping it. Only shown while the toolbar is on. |
 | Tool icon size | Slider, 14–30 dp | 22 dp | The icon inside each tool button, on the toolbar and in the toolbox grid. The button itself keeps its size, so the same number of tools fit either way. With Tool labels on, the icon draws 2 dp smaller (at most 26 dp) to leave room for the caption. |
 | Reset toolbar *(shown only once something on this screen has moved)* | Button (confirms first) | n/a | Puts every slider and switch on this screen back to its default. Which tools are pinned is not affected. |
 
 For the toolbox itself (pinning, reordering, and which tools work before you unlock your phone), see [Tools](/tools/overview/).
+
+### Beside the suggestions
+
+<SettingsPath path="Appearance / Toolbar / Beside the suggestions" />
+
+Tools that stay on the suggestion strip while the words show, so you don't have to flip back to the toolbar for them. Emoji is the only one to begin with. Each button sits at the left end of the strip, before the words, or at the right end, after them, and you pick the end per button: emoji on the left and the clipboard on the right, for example. These buttons don't depend on the toolbar and stay with it switched off.
+
+| Setting | Type | Default | Notes |
+|---|---|---|---|
+| Buttons beside the suggestions | Toggle | On | Shows the buttons below on the strip. Off leaves the strip to the words. |
+| Add a button | Add, then drag to reorder | Emoji | Tap **Add** to pick any tool, such as Clipboard or Voice input. In the list under it, drag a button's handle to change the order, tap its bin to take it off, and tap **Left** or **Right** to send it to the other end of the strip. A new button starts on the left. A tool must be turned on under Tools to show. Only shown while the buttons are on. |
+| Toolbox button | Off / Left / Right | Off | A toolbox launcher among these buttons, at the end you pick, so the toolbox is one tap away while the suggestions show. A swipe up on it brings the pinned tools and a swipe down puts them away. With it on, the toolbar can drop its own toolbox button (see [Toolbar](#toolbar) above). Only shown while the buttons are on. |
+| Own size for these buttons | Toggle | Off | Sizes these buttons apart from the toolbar's tools, with the two sliders below. Off, they take **Tool button width** and **Tool icon size**, so a tool in both places looks the same in each. On also brings a phonetic layout's English words switch up to the same size, instead of the smaller button it otherwise uses. |
+| Button width | Slider, 20–64 dp | 38 dp | Only shown while **Own size for these buttons** is on. |
+| Button icon size | Slider, 14–30 dp | 22 dp | Same condition. |
+
+A tool that is also pinned on the toolbar slides between its two places when the bar changes between the suggestions and the tools. With the tools on a row of their own, a button already on that open row is left off the strip. A phonetic layout's English words switch, which comes by itself, sits on the left.
+
+On a right-to-left layout (Arabic, Hebrew, Urdu) the words run from the right, but each button keeps the side and the order you set, as the toolbar's tools do. Turn on **Reverse the order for right-to-left languages** under [Toolbar](#toolbar) to have both follow the script instead: left and right then swap.
+
+Before 0.6.7 one switch, **Buttons on the right**, moved every button at once, and these settings were under Emoji. A phone with that switch on keeps every button on the right until you move one.
+
+### Second toolbar
+
+<SettingsPath path="Appearance / Toolbar / Second toolbar" />
+
+A second row of tools, picked apart from the ones pinned on the toolbar. The toolbar trades places with the suggestions in **The strip** arrangement, and tools pinned to it go out of reach while you type. This row doesn't: it stays on screen while the strip shows words, with the toolbar switched off, and under every choice of **Where the tools go**. It suits the tools you reach for in the middle of a sentence, such as cut, copy, paste and the cursor moves.
+
+| Setting | Type | Default | Notes |
+|---|---|---|---|
+| Second toolbar | Toggle | Off | Adds the row. The keyboard gets taller by one toolbar's height, padding included, and the row follows **Toolbar height** and the resize tool's toolbar handle. A tool that takes the whole keyboard hides it along with the other bars, and so does **Hide the toolbar and the clipboard on the lock screen** while the phone is locked. |
+| Where it goes | Link | Below the suggestions | Opens [Rows & bars](/reference/settings/rows/#row-order), where the row is an entry in the row order like the others. Drag it above or below any other row, below the keys included. Only shown while the row is on. |
+| Tools on the second toolbar | Add, then drag to reorder | Select all, Cut, Copy, Paste, Line start, Line end, Undo, Redo | Tap **Add** to pick a tool from the same list the toolbar pins from. Drag a tool in the list to move it along the row, and tap its bin to take it off. You can do all of this on the keyboard too; see below. Adding a tool that's switched off under <SettingsPath path="Tools" /> switches it on, and so does turning the row on for the tools already in it. Switch one off there later and the row leaves it out. Only shown while the row is on. |
+
+The row's buttons look and behave like the toolbar's. They take **Tool layout** (spread out, or packed and scrolling once they outgrow the width), **Tool labels**, **Color the pinned tools**, the tool sizes and your theme's toolbar color. The row stays while you search emoji or the clipboard. A hold works the same too: the cursor moves repeat, Selection mode holds, and a [press and hold action](/tools/overview/#hold-a-tool-for-a-second-action) you bound to a tool runs it. The row has no toolbox button and no back arrow, which stay on the toolbar. **Reset toolbar** leaves the second toolbar as it is.
+
+You arrange the row on the keyboard the way you [arrange the toolbar](/tools/overview/#pinning-and-reordering). Hold a tool on the row and drag it along the row to move it, or up or down onto the toolbar to move it there. With the toolbox open, drag a tool from the toolbox or the toolbar onto the row to add it, plugins included, and drag one off the row into the toolbox to take it off. While the row is on, its tools aren't in the toolbox, the same as pinned tools. Turn the row off and they go back to the toolbox. A row with no tools left stays on screen with a line saying to drag one there, so there is always somewhere to drop the first one. **Rearrange by dragging** switches the row's drag off along with the toolbar's.
 
 ## Toolbox
 

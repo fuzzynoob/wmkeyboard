@@ -3,6 +3,7 @@ package com.wasimaster.wmkeyboard.core.snippets.espanso
 import com.wasimaster.wmkeyboard.core.content.ContentText
 import com.wasimaster.wmkeyboard.core.snippets.Snippet
 import com.wasimaster.wmkeyboard.core.snippets.SnippetFolder
+import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.snippets.SnippetVariable
 import com.wasimaster.wmkeyboard.core.snippets.UppercaseStyle
 import java.io.ByteArrayOutputStream
@@ -169,6 +170,7 @@ object EspansoWriter {
         notes.addIf(choices == null && expansions.size > 1, EspansoNote.ALTERNATES)
         notes.addIf(snippet.children.isNotEmpty(), EspansoNote.LINKS)
         notes.addIf(snippet.confirm, EspansoNote.CONFIRM)
+        notes.addIf(snippet.image != null, EspansoNote.PICTURE_EXPORT)
 
         out.append("  - ")
         when {
@@ -276,6 +278,9 @@ object EspansoWriter {
         SnippetVariable.APP,
         SnippetVariable.PACKAGE,
         SnippetVariable.SELECTION,
+        SnippetVariable.GREETING,
+        SnippetVariable.BATTERY,
+        SnippetVariable.LANGUAGE,
     )
 
     private val CUSTOM_DATE = Regex("""\{date([+-]\d{1,9})?(?::([^}\n]{1,40}))?\}""")
@@ -286,7 +291,7 @@ object EspansoWriter {
      * Snippet text as an Espanso replacement, and the variables it needs.
      *
      * Every `{token}` this app knows becomes a `{{name}}` reference plus a `vars`
-     * entry, except the four that describe the phone rather than the moment:
+     * entry, except the ones that describe the phone rather than the moment:
      * there is no Espanso equivalent for the app being typed into, so those are
      * written out literally and noted.
      */
@@ -317,6 +322,7 @@ object EspansoWriter {
             if (!out.contains(variable.token)) continue
             when {
                 variable == SnippetVariable.CURSOR -> out = out.replace(variable.token, "\$|\$")
+                variable == SnippetVariable.TAB -> out = out.replace(variable.token, "\t")
                 variable == SnippetVariable.CLIP -> {
                     val name = nextName()
                     vars += variable(name, "clipboard")
@@ -329,6 +335,20 @@ object EspansoWriter {
                     out = out.replace(variable.token, "{{$name}}")
                 }
             }
+        }
+
+        // Fill-in fields become one Espanso form, which asks for all of them
+        // in one window: `{ask:Name}` reads `{{wmform.Name}}`, and the form's
+        // layout lists each field once with its default.
+        val asks = SnippetStore.asks(out)
+        if (asks.isNotEmpty()) {
+            val fields = LinkedHashMap<String, Pair<String, String>>()
+            for (ask in asks) fields[ask.name.lowercase()] = formFieldName(ask.name, fields.size) to ask.default
+            out = ASK.replace(out) { match ->
+                val field = fields[match.groupValues[1].trim().lowercase()] ?: return@replace match.value
+                "{{$FORM_VAR.${field.first}}}"
+            }
+            vars += formVariable(asks.map { it.name to fields.getValue(it.name.lowercase()) })
         }
 
         val groups = LinkedHashMap<Int, String>()
@@ -369,6 +389,36 @@ object EspansoWriter {
         }
         parts.add(current.toString())
         return parts
+    }
+
+    /** `{ask:Name}` or `{ask:Name:default}`, as [SnippetStore.asks] reads them. */
+    private val ASK = Regex("""\{(?i:ask):([^}:\n]{1,40})(?::([^}\n]{0,200}))?\}""")
+
+    /** The name the form an exported snippet's fill-in fields share goes under. */
+    private const val FORM_VAR = "wmform"
+
+    /**
+     * [name] as an Espanso form field, which takes letters, digits and
+     * underscores only; `f` and its position when nothing of it survives.
+     */
+    private fun formFieldName(name: String, index: Int): String =
+        name.trim().replace(Regex("[^A-Za-z0-9_]+"), "_").trim('_').take(64).ifEmpty { "f${index + 1}" }
+
+    /** The `form` variable for [fields]: label, then Espanso field name and default. */
+    private fun formVariable(fields: List<Pair<String, Pair<String, String>>>): String = buildString {
+        append("      - name: ").append(FORM_VAR).append('\n')
+        append("        type: form\n")
+        append("        params:\n")
+        val layout = fields.joinToString("\n") { (label, field) -> "$label: [[${field.first}]]" }
+        append("          layout: ").append(scalar(layout)).append('\n')
+        val defaults = fields.filter { it.second.second.isNotEmpty() }
+        if (defaults.isNotEmpty()) {
+            append("          fields:\n")
+            for ((_, field) in defaults) {
+                append("            ").append(field.first).append(":\n")
+                append("              default: ").append(scalar(field.second)).append('\n')
+            }
+        }
     }
 
     private fun variable(name: String, type: String): String =

@@ -61,6 +61,15 @@
         <item quantity="one">The file has %1$d layout. The app adds it as a layout of yours, in the language its letters suggest. It stays off. To type with it, turn it on in Languages.</item>
         <item quantity="other">The file has %1$d layouts. The app adds them as layouts of yours, each in the language its letters suggest. They stay off. To type with one, turn it on in Languages.</item>
     </plurals>
+    <!-- CLDR keyboard3 is the Unicode Consortium's keyboard file format
+         (LDML); FlorisBoard is the name of another keyboard app. Leave both
+         as they are. Languages is the name of a screen in the settings app. -->
+    <string name="import_keyboard3_body">This is a CLDR keyboard3 layout, the Unicode keyboard format that FlorisBoard also uses. The app adds its keys and pages as a layout of yours, with its swipes and press-and-hold letters. Rules that change text as you type become dead keys or press-and-hold letters where they can; the list below says what did not come across. The layout stays off. To type with it, turn it on in Languages.</string>
+    <string name="import_keyboard3_title">From a FlorisBoard keyboard extension</string>
+    <plurals name="import_keyboard3_layouts_body">
+        <item quantity="one">The extension has %1$d layout. The app adds it as a layout of yours, in the language it states. It stays off. To type with it, turn it on in Languages.</item>
+        <item quantity="other">The extension has %1$d layouts. The app adds them as layouts of yours, each in the language it states. They stay off. To type with one, turn it on in Languages.</item>
+    </plurals>
     <string name="import_unexpected_body">This is an Unexpected Keyboard or CleverKeys layout. The app adds it as a layout of yours. The swipes to the corners of each key stay swipes; the symbol keys stay the ones you have. The layout stays off. To type with it, turn it on in Languages.</string>
 
     <!-- ==== Backup files. ==== -->
@@ -145,6 +154,8 @@
     <!-- Stands in for the folder name when the file has no name to use. It
          goes into import_csv_body. -->
     <string name="import_csv_folder_fallback">Imported</string>
+    <string name="import_snippet_text_body">This is a text file of snippets. The app adds them to yours, each in the folder its block names, and the rest in a folder called <xliff:g id="folder_name" example="Replies">%1$s</xliff:g>.</string>
+    <string name="import_text_none">This is a text file of snippets, but no block could be read.</string>
     <string name="import_csv_none">This is a table, but no row has text for a snippet.</string>
 
     <!-- ==== Gboard dictionary files. Gboard is Google's keyboard; do not
@@ -169,6 +180,18 @@
     <plurals name="import_gboard_dictionary_words_done">
         <item quantity="one">The app added %1$d word to your personal dictionary.</item>
         <item quantity="other">The app added %1$d words to your personal dictionary.</item>
+    </plurals>
+    <!-- %1$d is how many Japanese words, each filed under a reading in kana,
+         go into a Japanese word list. Typing a reading offers its word as a
+         Japanese conversion candidate, with either Japanese engine. -->
+    <plurals name="import_gboard_dictionary_readings">
+        <item quantity="one">The app adds %1$d Japanese word to a Japanese word list. When you type its reading, the word appears among the conversion candidates, as Gboard does.</item>
+        <item quantity="other">The app adds %1$d Japanese words to a Japanese word list. When you type a reading, its word appears among the conversion candidates, as Gboard does.</item>
+    </plurals>
+    <!-- %1$d is how many Japanese words the app added to the Japanese word list. -->
+    <plurals name="import_gboard_dictionary_readings_done">
+        <item quantity="one">The app added %1$d Japanese word to your Japanese conversion candidates.</item>
+        <item quantity="other">The app added %1$d Japanese words to your Japanese conversion candidates.</item>
     </plurals>
 
     <!-- ==== Sticker pack files. ==== -->
@@ -220,15 +243,18 @@
          config.json in it. ==== -->
 
     <string name="import_futo_theme_title">Theme from FUTO Keyboard</string>
-    <string name="import_futo_theme_body">The app converts the colours of this FUTO Keyboard theme, and its background picture and font if it has them. The app saves the theme but does not turn it on, so that you can look at it first.</string>
+    <string name="import_futo_theme_body">The app converts the colours of this FUTO Keyboard theme, its key pictures and icons, and its background picture and font if it has them. The app saves the theme but does not turn it on, so that you can look at it first.</string>
     <!-- %1$s is who made the theme. -->
     <string name="import_futo_theme_credit">Made by <xliff:g id="author" example="Someone">%1$s</xliff:g>.</string>
     <!-- %1$s is the name of the theme. -->
     <string name="import_futo_theme_done">The app saved <xliff:g id="theme_name" example="Midnight">%1$s</xliff:g>. Open Themes to look at it.</string>
     <string name="import_futo_theme_unreadable_body">The app cannot read that as a FUTO Keyboard theme. Pick the theme\'s .zip file, the one with theme.txt or config.json in it.</string>
     <!-- Lines in the "what the app changed" list of a FUTO theme import. -->
-    <string name="import_futo_theme_dropped_pictures">The theme draws some keys with pictures of their own. This app draws those keys in the theme\'s colours.</string>
-    <string name="import_futo_theme_dropped_wallpaper">The theme takes some colours from the wallpaper. This app cannot read those, so it works out its own colours for those parts.</string>
+    <string name="import_futo_theme_dropped_pictures">Some key pictures are not in the file, or are for keys that have no picture slot in this app. This app draws those keys in the theme\'s colours.</string>
+    <string name="import_futo_theme_dropped_wallpaper">The theme takes some colours from the wallpaper under names that this app does not know. This app works out its own colours for those parts.</string>
+    <string name="import_futo_theme_dropped_wallpaper_stand_in">The theme takes some colours from the wallpaper. This phone has no wallpaper colours, so the app uses the standard Material colours for those parts.</string>
+    <string name="import_futo_theme_dropped_positions">The theme picks some key pictures by row and column. The rows of this app\'s layouts are not the same, so those keys show the picture of their key type.</string>
+    <string name="import_futo_theme_dropped_states">The theme has pictures for states that this app does not draw with a picture: a shift key that is on, a held icon, or the long-press popup. Those states use the theme\'s colours.</string>
     <string name="import_futo_theme_dropped_shader">The theme draws an animated pattern behind the keys, which this app does not draw.</string>
 
     <!-- ==== HeliBoard and LeanType colour themes. Those keyboards share a
@@ -373,6 +399,9 @@
     <string name="import_emoji_keywords_title">Import emoji keywords?</string>
     <string name="import_emoji_keywords_body">This file names emoji and the words that find them. The app adds it to emoji search for the language below.</string>
     <string name="import_anki_title">Import flashcards?</string>
+    <string name="import_language_model_body">This is a word language model, the kind of file the keyboard downloads as a language\'s context model. Pick the language it predicts: it replaces that language\'s context model, and the language\'s screen shows it as your own. It is used while Context model is on, under Typing, Automatic corrections.</string>
+    <string name="import_language_model_done">Context model for <xliff:g id="language" example="German">%1$s</xliff:g> imported</string>
+    <string name="import_language_model_error">The keyboard can\'t read this model. It may be from a newer version of the keyboard, or damaged.</string>
     <string name="import_anki_body">This is an Anki deck. The app turns it into a vocabulary pack.</string>
 
     <!-- ==== The preview above the confirm dialog. ==== -->

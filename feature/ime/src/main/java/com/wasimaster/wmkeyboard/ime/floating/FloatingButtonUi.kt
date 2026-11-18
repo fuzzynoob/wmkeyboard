@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.ime.floating
 
+import com.wasimaster.wmkeyboard.core.plugins.displayName
 import android.content.Context
 import android.os.Build
 import androidx.compose.animation.core.Animatable
@@ -31,6 +32,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -60,6 +62,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowB
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Apps
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Block
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Bluetooth
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Folder
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Keyboard
@@ -67,11 +70,18 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardHide
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.OpenInNew
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.GridView
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Notifications
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.NotificationsActive
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SignalCellularAlt
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ToggleOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VerticalSplit
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ViewCarousel
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VisibilityOff
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VolumeUp
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Wifi
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.WifiTethering
+import com.wasimaster.wmkeyboard.core.settings.DeviceControl
 import com.wasimaster.wmkeyboard.core.settings.FloatingAction
+import com.wasimaster.wmkeyboard.core.settings.FlickDirection
 import com.wasimaster.wmkeyboard.core.settings.FloatingButtonShape
 import com.wasimaster.wmkeyboard.core.settings.FloatingButtonStyle
 import com.wasimaster.wmkeyboard.core.settings.FloatingCategory
@@ -151,7 +161,17 @@ fun floatingActionIcon(
     is FloatingAction.AppPair -> Icons.Outlined.VerticalSplit
     is FloatingAction.Applet -> IconDefaults.forTool(action.tool)
     is FloatingAction.System -> systemButtonIcon(action.button)
+    is FloatingAction.Device -> deviceControlIcon(action.control)
+    // Its own glyph; a shortcut draws its picture where it has one.
+    is FloatingAction.Custom -> com.wasimaster.wmkeyboard.ime.ui.CustomButtonFaces.byId(action.id)
+        ?.let { com.wasimaster.wmkeyboard.ime.ui.IconDefaults.forSlot(com.wasimaster.wmkeyboard.ime.ui.customButtonSlot(it)) }
+        ?: com.wasimaster.wmkeyboard.ime.ui.IconDefaults.forSlot(com.wasimaster.wmkeyboard.ime.ui.CUSTOM_SHORTCUT_SLOT)
+        ?: Icons.Outlined.OpenInNew
     is FloatingAction.Category -> ModeIcons.iconOrNull(categories.categoryById(action.id)?.icon) ?: Icons.Outlined.Folder
+    // The plugin's own icon, once the keyboard has read it; the jigsaw until then.
+    is FloatingAction.Plugin -> com.wasimaster.wmkeyboard.ime.ui.PluginToolIcons.forSlot(
+        com.wasimaster.wmkeyboard.ime.ui.PluginToolIcons.slot(action.id),
+    ) ?: Icons.Outlined.OpenInNew
 }
 
 /** The glyph of one of Android's system buttons (#1170). */
@@ -161,6 +181,16 @@ fun systemButtonIcon(button: SystemButton): ImageVector = when (button) {
     SystemButton.APP_DRAWER -> Icons.Outlined.GridView
     SystemButton.NOTIFICATIONS -> Icons.Outlined.Notifications
     SystemButton.QUICK_SETTINGS -> Icons.Outlined.ToggleOn
+}
+
+/** The glyph of one of the phone's controls (#1326). */
+fun deviceControlIcon(control: DeviceControl): ImageVector = when (control) {
+    DeviceControl.RINGER -> Icons.Outlined.NotificationsActive
+    DeviceControl.VOLUME_PANEL -> Icons.Outlined.VolumeUp
+    DeviceControl.WIFI -> Icons.Outlined.Wifi
+    DeviceControl.MOBILE_DATA -> Icons.Outlined.SignalCellularAlt
+    DeviceControl.BLUETOOTH -> Icons.Outlined.Bluetooth
+    DeviceControl.HOTSPOT -> Icons.Outlined.WifiTethering
 }
 
 /** What one of Android's system buttons is called (#1170). */
@@ -209,6 +239,10 @@ fun floatingActionName(
         FloatingAppIcons.label(context, action.second) ?: action.second,
     )
     is FloatingAction.Category -> categories.categoryById(action.id)?.name?.takeIf { it.isNotBlank() }
+    is FloatingAction.Custom -> com.wasimaster.wmkeyboard.ime.ui.CustomButtonFaces.byId(action.id)
+        ?.let { com.wasimaster.wmkeyboard.ime.ui.CustomButtonFaces.name(context, it) }
+    is FloatingAction.Plugin -> com.wasimaster.wmkeyboard.core.plugins.PluginStore.get(context).plugin(action.id)
+        ?.displayName
     else -> null
 } ?: context.getString(floatingActionLabelRes(action, keyboardUp))
 
@@ -224,7 +258,10 @@ internal fun floatingActionLabelRes(action: FloatingAction, keyboardUp: Boolean)
     is FloatingAction.AppPair -> R.string.ime_floating_pair_label
     is FloatingAction.Applet -> toolLabelRes(action.tool)
     is FloatingAction.System -> systemButtonLabelRes(action.button)
+    is FloatingAction.Device -> DeviceControls.labelRes(action.control)
     is FloatingAction.Category -> R.string.ime_floating_category_label
+    is FloatingAction.Custom -> R.string.ime_custom_button_label
+    is FloatingAction.Plugin -> R.string.ime_floating_plugin_label
 }
 
 /**
@@ -635,6 +672,105 @@ internal fun FloatingPickHint(label: String) {
         )
     }
 }
+
+/**
+ * What a swipe from the fixed button is about to run (#1270): each bound
+ * direction's action round the button, where its swipe points, and the one
+ * the finger points at now grown, ringed and named in a pill clear of the
+ * finger: above the ring, or below it for a swipe upward. Up from the moment
+ * the finger leaves the button until it lets go, in a window that takes no
+ * touches. [FloatingFlickGuideState.anchor] and the slots' centres are in
+ * screen pixels, drawn less the window's own corner.
+ */
+@Composable
+internal fun FloatingFlickGuide(state: FloatingFlickGuideState) {
+    val density = LocalDensity.current
+    val shown by animateFloatAsState(if (state.shown) 1f else 0f, tween(140), label = "flick-guide")
+    Box(Modifier.fillMaxSize()) {
+        val origin = state.windowOrigin
+        val labelHalf = with(density) { (FLOATING_MENU_LABEL_DP.dp / 2).toPx() }
+        val itemHalf = with(density) { (FLOATING_MENU_ITEM_DP.dp / 2).toPx() }
+        val hovered = state.hovered
+        state.slots.forEach { slot ->
+            key(slot.direction) {
+                val on = hovered == slot.direction
+                val dim by animateFloatAsState(if (hovered == null || on) 1f else 0.5f, tween(120), label = "flick-dim")
+                val at = slot.center - origin
+                FloatingMenuItem(
+                    icon = slot.icon,
+                    image = slot.image,
+                    label = slot.label,
+                    style = state.style,
+                    shape = state.shape,
+                    showLabel = false,
+                    hovered = on,
+                    modifier = Modifier
+                        .offset { IntOffset((at.x - labelHalf).roundToInt(), (at.y - itemHalf).roundToInt()) }
+                        .graphicsLayer {
+                            alpha = shown * dim
+                            val grow = 0.7f + 0.3f * shown
+                            scaleX = grow
+                            scaleY = grow
+                        },
+                )
+            }
+        }
+        val named = state.slots.firstOrNull { it.direction == hovered }
+        if (named != null) {
+            val palette = floatingPalette(state.style)
+            val anchor = state.anchor - origin
+            // Clear of the finger: a swipe upward has it above the button.
+            val upward = kotlin.math.sin(Math.toRadians(named.direction.degrees.toDouble())) < -0.3
+            val gap = with(density) { (FLOATING_MENU_ITEM_DP.dp + 30.dp).toPx() } + state.radius
+            val pillHalfW = with(density) { 90.dp.toPx() }
+            val pillH = with(density) { 30.dp.toPx() }
+            Text(
+                named.label,
+                color = palette.content,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .offset {
+                        val y = if (upward) anchor.y + gap - pillH / 2 else anchor.y - gap - pillH / 2
+                        IntOffset((anchor.x - pillHalfW).roundToInt(), y.roundToInt())
+                    }
+                    .width(180.dp)
+                    .wrapContentSize()
+                    .graphicsLayer { alpha = shown }
+                    .shadow(4.dp, RoundedCornerShape(50))
+                    .background(palette.container, RoundedCornerShape(50))
+                    .border(1.dp, palette.accent, RoundedCornerShape(50))
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+            )
+        }
+    }
+}
+
+/** What the swipe guide shows (#1270); written by [FloatingButton], read by [FloatingFlickGuide]. */
+internal class FloatingFlickGuideState {
+    var slots by mutableStateOf(emptyList<FloatingFlickSlot>())
+    var hovered by mutableStateOf<FlickDirection?>(null)
+
+    /** The button's middle on screen, which the slots ring at [radius]. */
+    var anchor by mutableStateOf(Offset.Zero)
+    var radius by mutableStateOf(0f)
+    var windowOrigin by mutableStateOf(Offset.Zero)
+    var shown by mutableStateOf(false)
+    var style by mutableStateOf(FloatingButtonStyle.AUTO)
+    var shape by mutableStateOf(FloatingButtonShape.CIRCLE)
+}
+
+@Immutable
+internal class FloatingFlickSlot(
+    val direction: FlickDirection,
+    val center: Offset,
+    val icon: ImageVector,
+    val label: String,
+    val image: ImageBitmap? = null,
+)
 
 /** What the open menu shows; written by [FloatingButton], read by [FloatingMenuContent]. */
 internal class FloatingMenuState {

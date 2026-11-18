@@ -23,7 +23,9 @@ WM Keyboard's look is driven by a theme: a full set of colors, gradients, key sh
   <Shot id="themes/gallery-grid" alt="The theme gallery: custom themes on top, built-in themes below." />
 </PhoneFrame>
 
-The theme gallery is a two-column grid: the **Default (system)** card first, then your saved custom themes (if you have any), then every built-in theme below them. Tapping a card applies it to the keyboard immediately.
+The theme gallery is a two-column grid: the **Default (system)** card first, then your saved custom themes (if you have any), then every built-in theme below them. Tapping a card applies it to the keyboard immediately. With [Auto theme](#switching-automatically) on, the card goes into whichever half of the pair, light or dark, is due right now, and the selection ring sits on the theme the keyboard is showing; a half set to Random takes no single card, so the tap changes nothing there.
+
+Each card is drawn once and then kept as a picture, so a gallery full of photo, glass and moving themes scrolls as lightly as a gallery of plain ones, in settings and in the keyboard's **Appearance** tool alike. The picture is redrawn whenever anything it shows changes: the theme itself, a picture it uses, the wallpaper a glass theme samples, or the app being updated.
 
 A layout, one of its pages or a panel can keep a [theme of its own](/languages/custom-layouts/#a-theme-of-its-own), and that grid then ignores the card you tap here. When one of the layouts you type with does, a notice above the gallery names each place and the theme it uses, for example "the Numpad tab of QWERTY uses Default (system)". **Clear** takes those themes off, so the whole keyboard follows your pick again.
 
@@ -114,7 +116,7 @@ A **Change the theme** row appears once either half is random, and it decides ho
 - **Material You colors** (default off). Wallpaper-based dynamic color for the Default theme and the settings app, in place of the app's own indigo palette. It does nothing below Android 12, and nothing to built-in or custom themes. Those have their own **Follow wallpaper colors** switch in the theme editor.
 - **Mode** (default System). System, Light, Dark, or AMOLED, applied to the settings app and the Default theme.
 - **Auto theme** (default off). Once on, pick a light theme, a dark theme, and a trigger (System light or dark, Time of day, or Sunrise and sunset). The time-of-day picker starts at 7:00 AM for the light theme and 7:00 PM for the dark theme.
-- **Light theme** and **Dark theme** (default One theme, Default (system) in both). Each row opens a picker that holds one theme or a set to select from at random.
+- **Light theme** and **Dark theme** (default One theme, Default (system) in both). Each row opens a picker that holds one theme or a set to select from at random, with a small preview of each theme beside its name. While Auto theme is on, picking a theme in the gallery below sets whichever half is showing now: the dark theme at night, the light one in the day. A half set to random keeps its set, and the pick goes to the ordinary theme setting instead.
 - **Change the theme** (default Every time the keyboard opens). Only shows while a half is random. Every time the keyboard opens, every hour, every 6 hours, every day, every week, or only when you press Change.
 - **Change the theme now**. Selects a new theme for every random half straight away. This is the only way a new theme comes up under the Change-only setting.
 

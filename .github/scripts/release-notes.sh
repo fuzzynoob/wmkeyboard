@@ -115,7 +115,6 @@ cat <<EOF
 |:---|:---|:---|
 | Almost every phone (arm64-v8a) | $(cell "${prefix}-full-en-arm64-v8a.apk") | $(cell "${prefix}-full-intl-arm64-v8a.apk") |
 | Older 32-bit phone or watch (armeabi-v7a) | $(cell "${prefix}-full-en-armeabi-v7a.apk") | $(cell "${prefix}-full-intl-armeabi-v7a.apk") |
-| Chromebook, emulator, x86 tablet (x86_64) | $(cell "${prefix}-full-en-x86_64.apk") | $(cell "${prefix}-full-intl-x86_64.apk") |
 | Not sure, just make it work (universal) | $(cell "${prefix}-full-en-universal.apk") | $(cell "${prefix}-full-intl-universal.apk") |
 
 **All languages** is the same app with all 48 interface languages built in
@@ -133,7 +132,6 @@ cat <<EOF
 | Your device | Download |
 |:---|:---|
 | Older 32-bit phone or watch | armeabi-v7a, $(cell "${prefix}-full-en-armeabi-v7a.apk") |
-| Chromebook, emulator, x86 tablet | x86_64, $(cell "${prefix}-full-en-x86_64.apk") |
 | Not sure, just make it work | universal, $(cell "${prefix}-full-en-universal.apk") |
 
 </details>
@@ -198,6 +196,35 @@ on another device can be imported instead
 | | arm64-v8a | universal |
 |:---|:---|:---|
 | **Offline** | $(cell "${prefix}-full-intl-nointernet-arm64-v8a.apk") | $(cell "${prefix}-full-intl-nointernet-universal.apk") |
+
+</details>
+
+EOF
+fi
+
+# The English-only F-Droid build (#1290), from the `fdroid` job's arm64 run.
+# Only when this release has it: its build is allowed to fail on its own.
+fdroid_en="wmkeyboard-${version}-vc$((code * 10 + 2))-fdroid-en.apk"
+fdroid_all="wmkeyboard-${version}-vc$((code * 10 + 2))-fdroid.apk"
+if [ -f "$dist/$fdroid_en" ]; then
+cat <<EOF
+<details>
+<summary><b>No Google libraries</b> (the F-Droid build, in English only)</summary>
+
+Every download above links Google's ML Kit and LiteRT for handwriting,
+on-device translation, language detection and photo cut-outs. The F-Droid build
+leaves them out and uses open replacements where there are any. It is built
+from source with every interface language, so it is large; the English-only one
+is the same build without them. Both are signed with the same key as every
+other download here, so any of them installs over another without losing a
+setting. Their update check asks F-Droid, so the English-only one gets its
+next version from this page, not from the F-Droid app (which would replace it
+with the all-languages build).
+
+| | arm64-v8a |
+|:---|:---|
+| **English only** | $(cell "$fdroid_en") |
+| **All languages** | $(cell "$fdroid_all") |
 
 </details>
 

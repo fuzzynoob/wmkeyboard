@@ -25,6 +25,8 @@ import com.wasimaster.wmkeyboard.core.voice.VoiceDenoise
 import com.wasimaster.wmkeyboard.core.voice.VoiceInputEngine
 import com.wasimaster.wmkeyboard.core.voice.VoiceMics
 import com.wasimaster.wmkeyboard.core.voice.VoicePunctuation
+import com.wasimaster.wmkeyboard.core.voice.VoiceSymbols
+import com.wasimaster.wmkeyboard.core.voice.VoiceSwearing
 import com.wasimaster.wmkeyboard.core.voice.VoiceStream
 import com.wasimaster.wmkeyboard.core.voice.WhisperRecorder
 import com.wasimaster.wmkeyboard.core.voice.asr4all.Asr4AllEngine
@@ -455,7 +457,8 @@ class AppDictation(
                     val text = stream.text().trim()
                     if (text != shown) {
                         shown = text
-                        withContext(Dispatchers.Main) { if (!done && recorder === rec) listener.onPartial(text) }
+                        val partial = masked(text)
+                        withContext(Dispatchers.Main) { if (!done && recorder === rec) listener.onPartial(partial) }
                     }
                     if (stream.endpoint) {
                         withContext(Dispatchers.Main) { if (recorder === rec) endPhrase() }
@@ -468,7 +471,10 @@ class AppDictation(
     }
 
     private fun newLiveStream(model: EtModel, words: List<String>): VoiceStream {
-        val vad = VoiceVad.Setup(settings.whisper.vad, settings.whisper.vadThreshold, settings.whisper.smartTurn)
+        val vad = VoiceVad.Setup(
+            settings.whisper.vad, settings.whisper.vadThreshold, settings.whisper.smartTurn,
+            conservative = settings.whisper.smartTurnConservative, graceMs = settings.whisper.vadGraceMs,
+        )
         return when (model.engine) {
             EtEngine.SHERPA -> SherpaEngine.newStream(filesDir, model, pauseMs, words, vad)
             EtEngine.OMNILINGUAL -> OmnilingualEngine.newStream(filesDir, model, pauseMs, languageIds, vad)
@@ -481,7 +487,7 @@ class AppDictation(
                 VoiceVad.phraseEnd(filesDir, vad, null, pauseMs),
             )
             else -> VoiceVad.endpointed(
-                Asr4AllEngine.newStream(filesDir, model),
+                Asr4AllEngine.newStream(filesDir, model, settings.whisper.asr4allTier),
                 VoiceVad.phraseEnd(filesDir, vad, null, pauseMs),
             )
         }
@@ -562,7 +568,7 @@ class AppDictation(
                 pcm,
                 codes,
                 translate,
-                WhisperCppPlan.prompt(biasWords(VoiceBias.RECOGNIZER_LIMIT)),
+                WhisperCppPlan.prompt(model, biasWords(VoiceBias.RECOGNIZER_LIMIT)),
                 WhisperCppPlan.beamSize(model),
                 WhisperCppPlan.wantsGpu(model, settings.whisper.compute),
             ) ?: return ""
@@ -602,7 +608,11 @@ class AppDictation(
      */
     private suspend fun punctuated(model: EtModel, text: String): String {
         if (text.isBlank() || plain || !DictationPunctuation.needed(model) || !settings.whisper.punctuate) return text
-        val spoken = if (settings.voiceSpokenPunctuation) VoicePunctuation.apply(text, tag) else text
+        // The recognizer's own symbols first, so the said ones stay; the
+        // ending then leaves this phrase's alone.
+        val heard = withoutSymbols(text)
+        symbolsSettled = true
+        val spoken = if (settings.voiceSpokenPunctuation) VoicePunctuation.apply(heard, tag) else heard
         val choice = settings.whisper.punctuationModel
         return withContext(SherpaNative.dispatcher) {
             runCatching { DictationPunctuation.punctuate(filesDir, spoken, languageIds, choice) }.getOrDefault(spoken)
@@ -645,6 +655,7 @@ class AppDictation(
             formatting = !plain,
             bias = VoiceBiasRequest(biasWords(VoiceBias.RECOGNIZER_LIMIT), deviceContext = settings.whisper.biasPersonalWords),
             alsoListenFor = languageIds.drop(1).map(::tagOf),
+            maskOffensive = settings.voiceBar.maskSwearing,
             listener = object : VoiceInputEngine.Listener {
                 override fun onListening() {
                     if (forward === engine && !done) listener.onReady()
@@ -660,7 +671,7 @@ class AppDictation(
                         spoke = true
                         listener.onSpeechStart()
                     }
-                    listener.onPartial(text)
+                    listener.onPartial(masked(text))
                 }
 
                 override fun onEndOfSpeech() {
@@ -699,10 +710,26 @@ class AppDictation(
         // Said punctuation ("comma") as the keyboard types it. An engine that
         // went through [punctuated] has had it already; a second pass finds
         // nothing left to turn into a mark.
-        val out = if (settings.voiceSpokenPunctuation && !plain) VoicePunctuation.apply(text, tag) else text
-        listener.onResult(out)
+        // "Suppress symbols" on what the recognizer wrote, before the said
+        // symbols are made.
+        val heard = if (symbolsSettled) text else withoutSymbols(text)
+        val spoken = if (settings.voiceSpokenPunctuation && !plain) VoicePunctuation.apply(heard, tag) else heard
+        // "Mask swear words": the engines with no filter of their own get one.
+        listener.onResult(masked(spoken))
         scope.cancel()
     }
+
+    /** Set once [punctuated] has taken the recognizer's symbols out and made the said ones. */
+    @Volatile
+    private var symbolsSettled = false
+
+    /** [text] without the recognizer's symbols when "Suppress symbols" is on. */
+    private fun withoutSymbols(text: String): String =
+        if (settings.voiceBar.suppressSymbols) VoiceSymbols.strip(text) else text
+
+    /** [text] with its swear words masked when "Mask swear words" is on. */
+    private fun masked(text: String): String =
+        if (settings.voiceBar.maskSwearing) VoiceSwearing.mask(app, text, languageIds) else text
 
     private fun fail(error: Error) {
         if (done) return

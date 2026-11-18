@@ -41,15 +41,89 @@ data class InstalledPlugin(
      * their chips on every selection change without reading `plugin.json`.
      */
     val actions: List<PluginActionSpec> = emptyList(),
+    /**
+     * The [PluginPermission.Tier.RISKY] permissions the user turned on, a
+     * subset of [permissions]. Empty on install: each one is granted on the
+     * plugin's page, after its warning.
+     */
+    val granted: List<String> = emptyList(),
+    /** The hosts the manifest listed, normalised. */
+    val hosts: List<String> = emptyList(),
+    val tool: PluginToolSpec = PluginToolSpec(),
+    val settings: List<PluginSettingSpec> = emptyList(),
+    /** What the user set on the plugin's settings page, by key, as text. */
+    val settingValues: Map<String, String> = emptyMap(),
+    /**
+     * Risky permissions or hosts the last update added, which the update left
+     * ungranted. The plugin's page says so until the user looks.
+     */
+    val newSinceUpdate: List<String> = emptyList(),
+    /**
+     * The `@` keys of each `locales/<tag>.json`, by tag: the name, description,
+     * action and setting labels the app shows in the user's language without
+     * reading the files. The script's own strings stay on disk ([PluginStore.strings]).
+     */
+    val labels: Map<String, Map<String, String>> = emptyMap(),
 ) {
     val isPython: Boolean
         get() = language == PluginManifestCodec.LANGUAGE_PYTHON
 
+    /** Whether it runs against the `wm` package (API 5). */
+    val isPackage: Boolean
+        get() = apiVersion >= PluginManifestCodec.PACKAGE_API
+
     /** The declared permissions this build understands; unknown ones never survive install. */
-    val grantedPermissions: List<PluginPermission>
+    val declaredPermissions: List<PluginPermission>
         get() = permissions.mapNotNull { PluginPermission.parse(it) }
 
-    fun grants(permission: PluginPermission): Boolean = permission.wire in permissions
+    /** The declared permissions in force: every listed one, and the risky ones the user granted. */
+    val grantedPermissions: List<PluginPermission>
+        get() = declaredPermissions.filter { grants(it) }
+
+    fun declares(permission: PluginPermission): Boolean = permission.wire in permissions
+
+    /**
+     * Whether [permission] applies: declared, and granted when it is risky.
+     * [PluginStore.allowRisky] is checked on top of this where calls are made.
+     */
+    fun grants(permission: PluginPermission): Boolean =
+        declares(permission) && (!permission.isRisky || permission.wire in granted)
+
+    /** The hosts of the server addresses the user typed into host settings. */
+    private val typedHosts: List<String>
+        get() = settings.filter { it.type == PluginSettingSpec.TYPE_HOST }
+            .mapNotNull { setting -> settingValues[setting.key]?.let(PluginManifestCodec::serverHost) }
+
+    /**
+     * The hosts `wm.http` may reach over https: the manifest's, and any public
+     * one the user typed into a host setting.
+     */
+    val allowedHosts: List<String>
+        get() = (hosts + typedHosts.filterNot(PluginManifestCodec::isLocalHost)).distinct()
+
+    /**
+     * Servers on the local network the user typed into host settings, which
+     * `wm.http` reaches (over http too) only with `network.local` granted.
+     */
+    val localHosts: List<String>
+        get() = typedHosts.filter(PluginManifestCodec::isLocalHost).distinct()
+
+    /** The value of every setting, the user's or the default, typed as JSON for the session. */
+    fun settingsJson(): kotlinx.serialization.json.JsonObject = kotlinx.serialization.json.buildJsonObject {
+        for (setting in settings) {
+            val raw = settingValues[setting.key] ?: setting.default
+            val value: kotlinx.serialization.json.JsonElement = when (setting.type) {
+                PluginSettingSpec.TYPE_SWITCH -> kotlinx.serialization.json.JsonPrimitive(raw.trim() == "true")
+                PluginSettingSpec.TYPE_NUMBER -> raw.trim().toDoubleOrNull()?.let { n ->
+                    if (n == Math.floor(n) && kotlin.math.abs(n) < 1e15) kotlinx.serialization.json.JsonPrimitive(n.toLong()) else kotlinx.serialization.json.JsonPrimitive(n)
+                } ?: kotlinx.serialization.json.JsonNull
+                // Never in the session config: the prelude asks secrets.get for it when read.
+                PluginSettingSpec.TYPE_SECRET -> PluginSettingSpec.SECRET_MARKER
+                else -> kotlinx.serialization.json.JsonPrimitive(raw)
+            }
+            put(setting.key, value)
+        }
+    }
 }
 
 /** One selection action, with the plugin that declared it. */
@@ -109,6 +183,8 @@ sealed interface PluginAdoptResult {
  * ├── <pluginId>/
  * │   ├── plugin.json             the manifest as accepted
  * │   ├── main.py                 the script as imported
+ * │   ├── modules.json            its other modules, API 5
+ * │   ├── assets/                 its pictures and data, API 5
  * │   ├── storage.json            wm.storage, if the plugin declared it
  * │   ├── reminders.json          wm.reminders still to show, if it declared that
  * │   └── log.txt                 print() output and script errors
@@ -147,6 +223,8 @@ class PluginStore(
         val parked: List<ParkedPlugin> = emptyList(),
         /** Names of plugins retired since the user last saw the notice. */
         val retired: List<String> = emptyList(),
+        /** The global switch every risky grant also needs. Off until the user turns it on. */
+        val allowRisky: Boolean = false,
     )
 
     private val pluginList = ArrayList<InstalledPlugin>()
@@ -161,6 +239,7 @@ class PluginStore(
     val revision: StateFlow<Int> = _revision.asStateFlow()
 
     private var autoDisable = true
+    private var risky = false
 
     init {
         reload()
@@ -188,13 +267,19 @@ class PluginStore(
                 null
             }
 
-        /** 2: plugins are Python only; Lua ones are retired on read. */
-        private const val FORMAT_VERSION = 2
+        /**
+         * 2: plugins are Python only; Lua ones are retired on read.
+         * 3: API 5 fields (grants, hosts, tool, settings) and [allowRisky];
+         * every field defaults, so a version 2 index reads as is.
+         */
+        private const val FORMAT_VERSION = 3
 
         const val DIR_NAME = "plugins"
 
         /** Well past any real collection; a list this long is a mistake, not a use case. */
         const val MAX_PLUGINS = 50
+
+        private const val MAX_SETTING_VALUE = 1024
 
         /** Runaway abandonments before a plugin is disabled for the user. */
         const val MAX_ABANDONS = 2
@@ -202,6 +287,12 @@ class PluginStore(
         const val MANIFEST_FILE = "plugin.json"
         const val SCRIPT_FILE = "main.py"
         const val STORAGE_FILE = "storage.json"
+
+        /** The plugin's other modules, `{"helpers.py": source}`: one file, so no entry name becomes a path. */
+        const val MODULES_FILE = "modules.json"
+
+        /** Bundled pictures and data, under names [PluginFile] already checked. */
+        const val ASSETS_DIR = "assets"
 
         /** What a plugin's script was called while plugins were Lua. */
         private const val LUA_SCRIPT_FILE = "main.lua"
@@ -270,6 +361,105 @@ class PluginStore(
         save()
     }
 
+    /**
+     * Whether any plugin may use a [PluginPermission.Tier.RISKY] permission at
+     * all. **Off until the user turns it on**: a grant on one plugin's page
+     * does nothing while this is off, and turning it off revokes nothing but
+     * stops every risky call at once.
+     */
+    @Synchronized
+    fun allowRisky(): Boolean = risky
+
+    @Synchronized
+    fun setAllowRisky(enabled: Boolean) {
+        if (risky == enabled) return
+        risky = enabled
+        save()
+    }
+
+    /** Turns [permission] on or off for [id]. Only a declared, risky permission can be granted. */
+    @Synchronized
+    fun setGranted(id: String, permission: PluginPermission, granted: Boolean) {
+        val index = pluginList.indexOfFirst { it.id == id }
+        if (index < 0) return
+        val plugin = pluginList[index]
+        if (!permission.isRisky || !plugin.declares(permission)) return
+        val now = if (granted) (plugin.granted + permission.wire).distinct() else plugin.granted - permission.wire
+        if (now == plugin.granted) return
+        pluginList[index] = plugin.copy(granted = now, newSinceUpdate = plugin.newSinceUpdate - permission.wire)
+        save()
+    }
+
+    /** Told `(pluginId, key)` after the user changes a setting, so an open panel hears it. */
+    private val settingListeners = java.util.concurrent.CopyOnWriteArrayList<(String, String) -> Unit>()
+
+    fun addSettingListener(listener: (String, String) -> Unit) {
+        settingListeners.addIfAbsent(listener)
+    }
+
+    fun removeSettingListener(listener: (String, String) -> Unit) {
+        settingListeners.remove(listener)
+    }
+
+    /**
+     * Stores the value for setting [key] of [id]; null puts the default back.
+     * A secret row is not stored here: it goes to [secrets] instead, so the
+     * value never sits in `plugins.json` or a backup of it.
+     *
+     * [fromPlugin] is true for the plugin's own `plugin.settings.set`, which
+     * its `@plugin.setting_changed` hooks do not hear. The listeners are told
+     * outside the store's lock: they reach the runtime, which takes its own.
+     */
+    fun setSettingValue(id: String, key: String, value: String?, fromPlugin: Boolean = false) {
+        if (storeSettingValue(id, key, value) && !fromPlugin) settingListeners.forEach { it(id, key) }
+    }
+
+    /** Whether anything changed. */
+    @Synchronized
+    private fun storeSettingValue(id: String, key: String, value: String?): Boolean {
+        val index = pluginList.indexOfFirst { it.id == id }
+        if (index < 0) return false
+        val plugin = pluginList[index]
+        val spec = plugin.settings.firstOrNull { it.key == key } ?: return false
+        if (spec.type == PluginSettingSpec.TYPE_SECRET) {
+            val secrets = secrets(id) ?: return false
+            if (value.isNullOrEmpty()) secrets.remove(key) else secrets.set(key, value)
+            _revision.value++
+            return true
+        }
+        val values = if (value == null) plugin.settingValues - key else plugin.settingValues + (key to value.take(MAX_SETTING_VALUE))
+        if (values == plugin.settingValues) return false
+        pluginList[index] = plugin.copy(settingValues = values)
+        save()
+        return true
+    }
+
+    /** The plugin's page has shown what the last update added. */
+    @Synchronized
+    fun dismissNewSinceUpdate(id: String) {
+        val index = pluginList.indexOfFirst { it.id == id }
+        if (index < 0 || pluginList[index].newSinceUpdate.isEmpty()) return
+        pluginList[index] = pluginList[index].copy(newSinceUpdate = emptyList())
+        save()
+    }
+
+    /** Runnable plugins that offer a tile for the toolbar, toolbox and floating button. */
+    @Synchronized
+    fun toolPlugins(): List<InstalledPlugin> =
+        if (!subsystem) emptyList() else pluginList.filter { it.enabled && it.panel && it.tool.tile }
+
+    /** Runnable plugins with a keyword, by keyword. The first install wins a clash. */
+    @Synchronized
+    fun keywordPlugins(): Map<String, InstalledPlugin> {
+        if (!subsystem) return emptyMap()
+        val out = LinkedHashMap<String, InstalledPlugin>()
+        for (plugin in pluginList) {
+            val word = plugin.tool.keyword
+            if (plugin.enabled && word.isNotEmpty() && word !in out) out[word] = plugin
+        }
+        return out
+    }
+
     // ---- reading -------------------------------------------------------
 
     @Synchronized
@@ -323,6 +513,20 @@ class PluginStore(
         val file = scriptFile(id) ?: return null
         if (!file.isFile) return null
         return runCatching { file.readText() }.getOrNull()
+    }
+
+    /** The plugin's other modules, `{"helpers.py": source}`; empty for a one-file plugin. */
+    fun modules(id: String): Map<String, String> {
+        val file = dirFor(id)?.let { File(it, MODULES_FILE) } ?: return emptyMap()
+        if (!file.isFile) return emptyMap()
+        return runCatching { json.decodeFromString<Map<String, String>>(file.readText()) }.getOrDefault(emptyMap())
+    }
+
+    /** One bundled asset's bytes, or null. [name] is the part after `assets/`. */
+    fun asset(id: String, name: String): ByteArray? {
+        if (!PluginFile.isAssetName(name)) return null
+        val file = dirFor(id)?.let { File(File(it, ASSETS_DIR), name) } ?: return null
+        return if (file.isFile) runCatching { file.readBytes() }.getOrNull() else null
     }
 
     // ---- retired Lua plugins -------------------------------------------
@@ -400,6 +604,9 @@ class PluginStore(
         script: String,
         now: Long = System.currentTimeMillis(),
         keepState: Boolean = false,
+        modules: Map<String, String> = emptyMap(),
+        assets: Map<String, ByteArray> = emptyMap(),
+        locales: Map<String, String> = emptyMap(),
     ): PluginAdoptResult {
         if (baseDir == null) return PluginAdoptResult.Failed
         val dir = dirFor(manifest.id) ?: return PluginAdoptResult.Failed
@@ -407,10 +614,14 @@ class PluginStore(
         if (existing == null && pluginList.size >= MAX_PLUGINS) return PluginAdoptResult.TooManyPlugins
 
         val written = writeAtomically(File(dir, MANIFEST_FILE), PluginManifestCodec.encode(manifest)) &&
-            writeAtomically(File(dir, SCRIPT_FILE), script)
+            writeAtomically(File(dir, SCRIPT_FILE), script) &&
+            writeModules(dir, modules) &&
+            writeAssets(dir, assets) &&
+            writeLocales(dir, locales)
         if (!written) return PluginAdoptResult.Failed
         val carried = existing?.takeIf { keepState }
         unpark(manifest.id, dir)
+        val (granted, added) = carryGrants(existing, manifest)
 
         val record = InstalledPlugin(
             id = manifest.id,
@@ -426,6 +637,15 @@ class PluginStore(
             language = manifest.language,
             panel = manifest.panel,
             actions = manifest.actions,
+            granted = granted,
+            hosts = manifest.hosts,
+            tool = manifest.tool,
+            settings = manifest.settings,
+            settingValues = existing?.settingValues.orEmpty().filterKeys { key -> manifest.settings.any { it.key == key } },
+            newSinceUpdate = added,
+            labels = locales.mapNotNull { (tag, text) ->
+                PluginLocales.parse(text)?.let { tag to PluginLocales.labels(it) }?.takeIf { it.second.isNotEmpty() }
+            }.toMap(),
         )
         // A permission the new version dropped must stop applying, which happens
         // for free: the record is rebuilt from the new manifest rather than
@@ -435,6 +655,81 @@ class PluginStore(
         save()
         return PluginAdoptResult.Adopted(record, replaced = existing != null)
     }
+
+    /**
+     * Which risky grants an update keeps, and what it newly asks for. A grant
+     * survives only for a permission the new version still declares, and the
+     * network grant only when the new version lists no host the old one did
+     * not: a grant was given for those websites, not for whatever the update
+     * names next.
+     */
+    private fun carryGrants(existing: InstalledPlugin?, manifest: PluginManifest): Pair<List<String>, List<String>> {
+        val risky = manifest.permissions.mapNotNull { PluginPermission.parse(it) }.filter { it.isRisky }.map { it.wire }
+        if (existing == null) return emptyList<String>() to emptyList()
+        val newHosts = manifest.hosts.filter { it !in existing.hosts }
+        val kept = existing.granted.filter { wire ->
+            wire in risky && !(wire == PluginPermission.Network.wire && newHosts.isNotEmpty())
+        }
+        val added = risky.filter { it !in existing.permissions || (it == PluginPermission.Network.wire && newHosts.isNotEmpty()) } +
+            newHosts
+        return kept to added.distinct()
+    }
+
+    /** `modules.json`, or none for a one-file plugin. */
+    private fun writeModules(dir: File, modules: Map<String, String>): Boolean {
+        val file = File(dir, MODULES_FILE)
+        if (modules.isEmpty()) {
+            runCatching { file.delete() }
+            return true
+        }
+        return writeAtomically(file, json.encodeToString(modules))
+    }
+
+    /** Replaces the translations folder with [locales], by tag, which [PluginFile] checked. */
+    private fun writeLocales(dir: File, locales: Map<String, String>): Boolean = runCatching {
+        val folder = File(dir, PluginLocales.DIR)
+        folder.deleteRecursively()
+        if (locales.isEmpty()) return@runCatching true
+        folder.mkdirs()
+        for ((tag, text) in locales) {
+            if (!PluginLocales.isTag(tag)) continue
+            File(folder, tag + PluginLocales.SUFFIX).writeText(text)
+        }
+        true
+    }.getOrDefault(false)
+
+    /** The languages the plugin is translated into, by tag. */
+    fun localeTags(id: String): List<String> {
+        val folder = dirFor(id)?.let { File(it, PluginLocales.DIR) } ?: return emptyList()
+        return folder.list().orEmpty().filter { it.endsWith(PluginLocales.SUFFIX) }
+            .map { it.removeSuffix(PluginLocales.SUFFIX) }.filter(PluginLocales::isTag).sorted()
+    }
+
+    /**
+     * The script's strings for the user's language: the file [PluginLocales.pick]
+     * chooses, whole, or an empty object when there is none and English stands.
+     */
+    fun strings(id: String, preferred: List<java.util.Locale> = PluginLocales.preferred()): kotlinx.serialization.json.JsonObject {
+        val tag = PluginLocales.pick(localeTags(id), preferred) ?: return kotlinx.serialization.json.JsonObject(emptyMap())
+        val file = dirFor(id)?.let { File(File(it, PluginLocales.DIR), tag + PluginLocales.SUFFIX) }
+        val text = file?.takeIf { it.isFile }?.let { runCatching { it.readText() }.getOrNull() }
+        val parsed = text?.let(PluginLocales::parse) ?: return kotlinx.serialization.json.JsonObject(emptyMap())
+        // Which file it is, so ngettext picks the plural rules of that language.
+        return kotlinx.serialization.json.JsonObject(parsed + ("@lang" to kotlinx.serialization.json.JsonPrimitive(tag)))
+    }
+
+    /** Replaces the assets folder with [assets], whose names [PluginFile] checked. */
+    private fun writeAssets(dir: File, assets: Map<String, ByteArray>): Boolean = runCatching {
+        val folder = File(dir, ASSETS_DIR)
+        folder.deleteRecursively()
+        if (assets.isEmpty()) return@runCatching true
+        folder.mkdirs()
+        for ((name, bytes) in assets) {
+            if (!PluginFile.isAssetName(name)) continue
+            File(folder, name).writeBytes(bytes)
+        }
+        true
+    }.getOrDefault(false)
 
     /**
      * Moves parked data for [id] into [dir]. A plugin that already keeps data
@@ -456,11 +751,16 @@ class PluginStore(
         parkedList.removeAll { it.id == id }
     }
 
-    /** Removes the plugin and everything it owns, including its storage and log. */
+    /** Plugin [id]'s secrets, `wm.secrets` and its secret settings rows; null without a folder. */
+    fun secrets(id: String): PluginSecrets? =
+        baseDir?.parentFile?.let { files -> PluginSecrets(File(files, PluginSecrets.DIR_NAME), id) }
+
+    /** Removes the plugin and everything it owns, including its storage, log and secrets. */
     @Synchronized
     fun delete(id: String) {
         val removed = pluginList.removeAll { it.id == id }
         dirFor(id)?.let { dir -> runCatching { dir.deleteRecursively() } }
+        secrets(id)?.forget()
         if (removed) save()
     }
 
@@ -533,6 +833,7 @@ class PluginStore(
                         autoDisableOnAbandon = autoDisable,
                         parked = parkedList.toList(),
                         retired = retiredNames.toList(),
+                        allowRisky = risky,
                     ),
                 ),
             )
@@ -566,6 +867,7 @@ class PluginStore(
         retiredNames.clear()
         subsystem = false
         autoDisable = true
+        risky = false
         val dir = baseDir ?: run { _revision.value++; return }
         val index = File(dir, INDEX_FILE)
         var version = FORMAT_VERSION
@@ -575,6 +877,7 @@ class PluginStore(
                 version = snapshot.version
                 subsystem = snapshot.subsystemEnabled
                 autoDisable = snapshot.autoDisableOnAbandon
+                risky = snapshot.allowRisky
                 pluginList.addAll(
                     snapshot.plugins
                         .filter { SAFE_ID.matches(it.id) }

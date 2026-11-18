@@ -96,6 +96,24 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_STATE" />
     <uses-permission android:name="android.permission.CHANGE_NETWORK_STATE" />
 
+    <!-- The floating button's phone controls (#1326). CHANGE_WIFI_STATE above
+         also lets its Wi-Fi action switch Wi-Fi itself, which Android allows
+         an app up to Android 9. The two Bluetooth ones let its Bluetooth action
+         do the same up to Android 11; from 12 that would take the Nearby
+         devices prompt, so they stop there and the action goes through
+         Shizuku or root, or opens Android's Bluetooth page. All three are
+         normal permissions, granted at install. ACCESS_NOTIFICATION_POLICY
+         puts the keyboard on Android's Do Not Disturb access list, which the
+         ringer action needs to set silent; the access itself is a switch the
+         user turns on there. -->
+    <uses-permission
+        android:name="android.permission.BLUETOOTH"
+        android:maxSdkVersion="30" />
+    <uses-permission
+        android:name="android.permission.BLUETOOTH_ADMIN"
+        android:maxSdkVersion="30" />
+    <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
+
     <!-- Used by the optional calendar tool to list the day's events while it
          is open, and by the AI's calendar tool (#698) when the user allows it. -->
     <uses-permission android:name="android.permission.READ_CALENDAR" />
@@ -170,6 +188,10 @@
          asked for at the moment one of those would first have been useful
          rather than on launch. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Android 14+: told that a screenshot was taken of the settings app, nothing
+         more, so "Screenshot to send feedback" can open the feedback form (#1242).
+         A normal permission, granted at install. -->
+    <uses-permission android:name="android.permission.DETECT_SCREEN_CAPTURE" />
 
     <!-- "Display over other apps", for one optional feature: the floating
          keyboard button (issue #374), a small button drawn over other apps
@@ -294,6 +316,45 @@
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
         </intent>
+        <!-- Launcher icon packs (Arcticons and the rest), for app icons drawn
+             from a pack installed on the phone (#1275). Each declares itself
+             with one of these launchers' actions; SystemIconPacks.ACTIONS
+             is the same list. -->
+        <intent>
+            <action android:name="org.adw.launcher.THEMES" />
+        </intent>
+        <intent>
+            <action android:name="org.adw.ActivityStarter.THEMES" />
+        </intent>
+        <intent>
+            <action android:name="com.novalauncher.THEME" />
+        </intent>
+        <intent>
+            <action android:name="com.teslacoilsw.launcher.THEME" />
+        </intent>
+        <intent>
+            <action android:name="com.gau.go.launcherex.theme" />
+        </intent>
+        <intent>
+            <action android:name="com.anddoes.launcher.THEME" />
+        </intent>
+        <intent>
+            <action android:name="com.fede.launcher.THEME_ICONPACK" />
+        </intent>
+        <intent>
+            <action android:name="com.dlto.atom.launcher.THEME" />
+        </intent>
+        <intent>
+            <action android:name="ginlemon.smartlauncher.THEMES" />
+        </intent>
+        <intent>
+            <action android:name="com.lge.launcher2.THEME" />
+        </intent>
+        <!-- The apps' "create shortcut" screens, for a custom button that
+             opens another app's shortcut (#1213). -->
+        <intent>
+            <action android:name="android.intent.action.CREATE_SHORTCUT" />
+        </intent>
         <!-- Apps that look a word up, for the Dictionary and Wikipedia tools'
              "Open in" chip (#970): Aard 2's own lookup, the ColorDict intent
              most offline dictionaries answer, and the selection menu's
@@ -379,6 +440,7 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
+        android:enableOnBackInvokedCallback="true"
         android:theme="@style/Theme.WMKeyboard">
 
         <!--
@@ -441,6 +503,16 @@
             android:enableOnBackInvokedCallback="true"
             android:exported="true"
             android:launchMode="singleTop">
+            <!--
+                 The gear on the system's App info page for WM Keyboard
+                 (competitor gap list item 41). Android shows it for any app
+                 with an activity answering APPLICATION_PREFERENCES; it opens
+                 settings at their home screen.
+            -->
+            <intent-filter>
+                <action android:name="android.intent.action.APPLICATION_PREFERENCES" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
             <!--
                  Addon deep links: wmkeyboard://addons, wmkeyboard://repo?url=…
                  and wmkeyboard://addon?repo=…&id=…. A custom scheme rather than
@@ -873,10 +945,12 @@
                  chat app or a file manager. The file arrives as EXTRA_STREAM,
                  which ImportFileActivity reads when the intent carries no data
                  URI of its own. No scheme is declared because a share sheet
-                 matches on the type alone.
+                 matches on the type alone. SEND_MULTIPLE brings several, which
+                 the activity takes one confirm after another.
             -->
             <intent-filter android:label="@string/import_file_label">
                 <action android:name="android.intent.action.SEND" />
+                <action android:name="android.intent.action.SEND_MULTIPLE" />
                 <category android:name="android.intent.category.DEFAULT" />
                 <data android:mimeType="application/json" />
                 <data android:mimeType="application/octet-stream" />
@@ -1449,6 +1523,18 @@
             android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
+        <!-- The file manager's "Add a folder" (#1267): Android's folder picker,
+             the same shape. In every build, Play's included: a picked folder
+             needs no All files access. -->
+        <activity
+            android:name="com.wasimaster.wmkeyboard.app.FileTreePickActivity"
+            android:enableOnBackInvokedCallback="true"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+
         <!-- The gallery editor's "Replace the original" (#708): Android's consent
              dialog for changing a photo another app made, which only an
              activity can ask for. -->
@@ -1990,6 +2076,15 @@
              reason as the backup job above. -->
         <service
             android:name="com.wasimaster.wmkeyboard.app.SyncJobService"
+            android:exported="false"
+            android:permission="android.permission.BIND_JOB_SERVICE" />
+
+        <!-- Uploads the scans waiting for the user's Paperless-ngx server
+             (#1198), once the network the queue asked for is there.
+             Scheduled by PaperlessQueue in :feature:ime; not persisted, so
+             WMApplication schedules it again after a reboot. -->
+        <service
+            android:name="com.wasimaster.wmkeyboard.app.PaperlessUploadJob"
             android:exported="false"
             android:permission="android.permission.BIND_JOB_SERVICE" />
 

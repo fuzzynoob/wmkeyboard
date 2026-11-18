@@ -10,6 +10,8 @@
     <string name="layout_number_row_height_title">Number row height</string>
     <string name="layout_number_row_height_subtitle">The height of the digit row, separate from the letter keys</string>
     <string name="layout_number_row_height_info">A short digit row keeps fast access to the numbers. It adds less height to the keyboard than a full row.</string>
+    <string name="layout_number_row_hints_title">Hints on the number row</string>
+    <string name="layout_number_row_hints_subtitle">The small symbols in the corners of the digit keys. Off hides them on that row only</string>
     <string name="layout_number_row_shift_symbols_title">Symbols on shift</string>
     <string name="layout_number_row_shift_symbols_subtitle">Press and hold shift to change the digit row to symbols</string>
     <!-- The characters in brackets are the symbols themselves. Do not translate them. -->
@@ -112,6 +114,9 @@
     <string name="layout_extend_edge_keys_info">Some rows are shorter than the keyboard, for example the A to L row of QWERTY. They have blank space at the left and right ends. With this setting on, a tap in that space types the key at that end of the row, so a tap to the left of A types A. Also, a tap in the space below the bottom row types the key above it, so a tap below the space bar types a space. The keys do not change size or position. Only the area that you can tap gets larger. This setting is off by default.</string>
     <string name="layout_bottom_padding_title">Bottom padding</string>
     <string name="layout_bottom_padding_subtitle">More space below the keys, above the navigation bar</string>
+    <string name="layout_full_height_window_title">Full-height keyboard window</string>
+    <string name="layout_full_height_window_subtitle">Changes of keyboard height redraw without a flicker. Turn off if the keyboard jumps when it hides</string>
+    <string name="layout_full_height_window_info">The keyboard\'s window covers the whole screen, with the keys at its bottom and the rest see-through, so a taller or shorter keyboard (selection mode\'s row, a panel\'s height bar, a tool opening) redraws in place instead of resizing the window, which on some phones showed a stale frame or the app\'s own toolbar for a moment.\n\nSome phones animate that whole window when the keyboard hides, so the keys jump up, stop halfway down and then vanish. Turn this off there and the window is as tall as the keyboard again. Off by default on Huawei phones.</string>
     <string name="layout_hide_system_keyboard_bar_title">Hide the system keyboard bar</string>
     <string name="layout_hide_system_keyboard_bar_subtitle">Remove the bar with the hide and switch keyboard buttons below the keys</string>
     <string name="layout_hide_system_keyboard_bar_unsupported">Needs Android 16 or later</string>
@@ -125,8 +130,13 @@
     <string name="layout_board_corner_info">The corners are cut out of the whole keyboard, and the app shows through them. Set the top and the bottom separately, and choose the corners under Which corners. Round bottom corners suit gesture navigation and a phone with round screen corners. This does not change the floating keyboard, which has round corners of its own. Both are square by default.</string>
     <!-- Slider readout when a corner radius is zero. -->
     <string name="layout_board_corner_square">Square</string>
+    <string name="layout_board_inverse_corner_title">Inverse top corners</string>
+    <string name="layout_board_inverse_corner_subtitle">Curve the bottom of the app into the keyboard</string>
+    <string name="layout_board_inverse_corner_info">Draws two small curves in the keyboard\'s colour just above its top corners, so the app above it looks rounded at the bottom, like the corners of a card sitting on the keyboard. The curves cover only a thin strip of the app, and a tap on them still goes to the app. While they are on, the keyboard\'s own top corners stay square, whatever Round top corners says. Which corners picks the side, left or right or both. The floating keyboard and resize mode do not draw them, and neither does a glass theme that blurs the app. Off by default.</string>
+    <!-- Slider readout when the inverse corner radius is zero. -->
+    <string name="layout_board_inverse_corner_off">Off</string>
     <string name="layout_board_corners_title">Which corners</string>
-    <string name="layout_board_corners_subtitle">The corners that the two settings above make round</string>
+    <string name="layout_board_corners_subtitle">The corners that the settings above make round</string>
     <string name="layout_keyboard_width_title">Keyboard width</string>
     <string name="layout_keyboard_width_subtitle">Make the keyboard narrower</string>
     <string name="layout_keyboard_width_info">Below 100 percent the keyboard does not fill the whole screen. Select the edge that it sits at below. This helps on very wide screens. One-handed mode below is a quick preset, and it replaces this value while it is on.</string>
@@ -171,6 +181,11 @@
     <string name="layout_one_handed_title">One-handed mode</string>
     <string name="layout_one_handed_subtitle">Make the keyboard smaller at one edge of the screen</string>
     <string name="layout_one_handed_caption">You can set one-handed mode for each orientation. In the keyboard, the arrow on the rail changes the side and saves it here for that orientation.</string>
+    <string name="layout_one_handed_layout_title">Layout in one-handed mode</string>
+    <string name="layout_one_handed_layout_subtitle">The layout to use while one-handed mode is on</string>
+    <string name="layout_one_handed_layout_info">Use a different layout of the same language while the keyboard is one-handed, such as QWERTY one-handed and One-row QWERTY otherwise. Turn one-handed mode off and the keyboard goes back to the layout you normally type on.\n\nThe list only shows enabled layouts that share a language with another enabled layout, since the choice applies only while you type in its language. In any other language, the keyboard keeps its normal layout. A layout set by a Keyboard Mode still comes first. The default is Same as normal.</string>
+    <string name="layout_one_handed_layout_same">Same as normal</string>
+    <string name="layout_one_handed_layout_none_subtitle">Enable two layouts of one language to pick one here</string>
     <string name="layout_one_handed_portrait_only_title">Portrait only</string>
     <string name="layout_one_handed_portrait_only_subtitle">Use the whole width when the phone is sideways</string>
     <string name="layout_one_handed_portrait_only_info">One-handed mode is one setting for both orientations, so a keyboard made small for a thumb in portrait stays small after you turn the phone, where you may want a split keyboard instead. Turn this on to keep one-handed mode in portrait and switch it off in landscape. Turn the phone back and it comes back. This setting is off by default.</string>
@@ -203,6 +218,9 @@
     <string name="layout_floating_landscape_subtitle">Float the keyboard while the phone is sideways</string>
     <string name="layout_landscape_fullscreen_title">Full-screen typing in landscape</string>
     <string name="layout_landscape_fullscreen_subtitle">Type into a text box that covers the app</string>
+    <string name="layout_portrait_fullscreen_title">Full-screen typing upright</string>
+    <string name="layout_portrait_fullscreen_subtitle">Use the same text box with the phone upright</string>
+    <string name="layout_portrait_fullscreen_info">Android only uses the large text box with a Done button when the phone is sideways. Turn this on to type into it with the phone upright too, which shows what you write in big, plain text away from the app. Floating, handwriting and tablets never use it. This setting is off by default.</string>
     <string name="layout_landscape_fullscreen_info">When you hold the phone sideways, Android normally replaces the app with a large text box and a Done button while you type, because the keyboard leaves little room. Turn this off to keep the app in view above the keyboard, as in portrait. Some apps turn the text box off on their own. Tablets and unfolded phones never use it. This setting is on by default.</string>
     <string name="layout_floating_landscape_info">Turn this on and off on its own to float the keyboard sideways and keep it docked upright, or the other way round. The keyboard changes as soon as you turn the phone. Until you change one of the two, landscape follows the portrait switch.</string>
     <string name="layout_floating_handle_title">Handle bar position</string>
@@ -223,9 +241,19 @@
     <string name="layout_bottom_row_keys_title">Bottom row keys</string>
     <string name="layout_comma_emoji_title">Comma key opens emoji</string>
     <string name="layout_comma_emoji_subtitle">Replace the comma key with an emoji key</string>
+    <!-- ?123 is the key that opens the symbols page; {&= is a key label on
+         that page. Keep both as they are. -->
+    <string name="layout_symbols_page_title">Symbols page</string>
+    <string name="layout_symbols_page_subtitle">The page the ?123 key opens</string>
+    <string name="layout_symbols_page_standard_label">Standard</string>
+    <string name="layout_symbols_page_number_pad_label">Number pad</string>
+    <string name="layout_symbols_page_info">Standard puts a row of digits over two rows of symbols. Number pad puts the digits on the right like a phone keypad, with the common symbols in narrow columns beside them, the way SwiftKey arranges its symbols page. On the number pad page, the {&amp;= key opens the second symbols page. A layout that has its own symbols page keeps it. The number row and the 1234 key do not appear over the number pad page, because it already has every digit.</string>
     <string name="layout_symbols_numpad_key_title">1234 key on the symbol pages</string>
     <string name="layout_symbols_numpad_key_subtitle">A key after ABC that opens the number pad</string>
     <string name="layout_symbols_numpad_key_info">The symbol pages get a 1234 key directly after the ABC key, as in Gboard. Press it to open the number pad panel over the current field. The spacebar gets narrower by one key to make room. A layout that already has a number pad key, or a symbol page you arranged by hand in the layout editor, does not change.</string>
+    <string name="layout_symbols_text_edit_key_title">Text editing key on the symbol pages</string>
+    <string name="layout_symbols_text_edit_key_subtitle">A key after ABC, or after 1234, that opens the text editing panel</string>
+    <string name="layout_symbols_text_edit_key_info">The symbol pages get a key that opens the text editing panel: arrows, select, copy, cut, paste, undo and redo. It sits after the 1234 key when that key is on, otherwise directly after the ABC key. The spacebar gets narrower by one key to make room. This setting is off by default, because a new key on the bottom row is easy to press by accident. A layout that already has a text editing key, or a symbol page you arranged by hand in the layout editor, does not change.</string>
     <string name="layout_comma_emoji_info">The comma key on the bottom row becomes an emoji key, and the comma moves into the press and hold alternates. This also deletes the emoji tool from the toolbar, because the key replaces it. Drag the tool out of the toolbox again if you want both.</string>
     <!-- 🌐 is the globe key that changes the language. Keep the emoji. -->
     <string name="layout_globe_emoji_title">Emoji key instead of 🌐</string>
@@ -234,6 +262,32 @@
          same way as that action. -->
     <string name="layout_globe_emoji_info">The 🌐 key on the bottom row opens the emoji panel and does not change the language. You can still change the language from the spacebar. Set a swipe to \"Language\" under Typing → Gestures. A short swipe does this by default. Turn this off to get the 🌐 key back.</string>
     <!-- 🌐 is the globe key that changes the language. Keep the emoji. -->
+    <string name="layout_bottom_row_preset_title">Bottom row</string>
+    <string name="layout_bottom_row_preset_subtitle">One bottom row for every layout</string>
+    <string name="layout_bottom_row_preset_info">Draws the same bottom row on the letters page of every layout, instead of the row each layout comes with. The settings below still apply to it: the 🌐 key can be hidden, turned into the emoji key or swapped with the comma. Layouts with a bottom row of their own, such as 12-key pads and kana boards, keep it, and so does a layout whose bottom row you arranged by hand in the layout editor.</string>
+    <string name="layout_bottom_row_preset_as_laid_out">As laid out</string>
+    <string name="layout_bottom_row_preset_as_laid_out_desc">Each layout keeps its own bottom row</string>
+    <string name="layout_bottom_row_preset_classic">Classic</string>
+    <string name="layout_bottom_row_preset_classic_desc">\?123 · , · space · . · enter. Languages change on the spacebar</string>
+    <string name="layout_bottom_row_preset_iphone">iPhone-like</string>
+    <string name="layout_bottom_row_preset_iphone_desc">\?123 · 🌐 · space · enter</string>
+    <string name="layout_bottom_row_preset_minimal">Minimal</string>
+    <string name="layout_bottom_row_preset_minimal_desc">\?123 · space · enter. Punctuation is on the symbols page</string>
+    <string name="layout_bottom_row_preset_with_emoji">With emoji</string>
+    <string name="layout_bottom_row_preset_with_emoji_desc">\?123 · emoji · , · 🌐 · space · . · enter. The 🌐 key stays a language key</string>
+    <string name="layout_hold_actions_key_title">Key with your hold actions</string>
+    <string name="layout_hold_actions_key_subtitle">Its long press shows the actions below</string>
+    <string name="layout_hold_actions_key_info">The actions you add below go at the end of this key\'s long-press popup, after anything it already offers, on every layout. Enter keeps its line break first in fields that send or search. On the 🌐 key the popup takes the place of the language picker; holding the spacebar opens it unless you gave the spacebar characters to hold.</string>
+    <string name="layout_hold_actions_key_enter">Enter</string>
+    <string name="layout_hold_actions_key_comma">Comma</string>
+    <string name="layout_hold_actions_key_globe">🌐</string>
+    <string name="layout_hold_actions_title">Hold actions</string>
+    <string name="layout_hold_actions_subtitle">Added to that key\'s long-press popup</string>
+    <string name="layout_hold_actions_none">None</string>
+    <string name="layout_hold_actions_add">Add an action</string>
+    <string name="layout_hold_actions_empty">No actions yet. Each one you add shows after what the key already offers.</string>
+    <string name="layout_hold_actions_move_up">Move up</string>
+    <string name="layout_hold_actions_move_down">Move down</string>
     <string name="layout_globe_tool_title">Key in place of 🌐</string>
     <string name="layout_globe_tool_subtitle">What the key in the 🌐 key\'s place opens</string>
     <string name="layout_globe_tool_emoji_value">Emoji</string>
@@ -265,6 +319,9 @@
     <string name="layout_split_large_only_subtitle">Stay whole on a portrait phone, split when there is room</string>
     <string name="layout_split_spacebar_title">Split the spacebar</string>
     <string name="layout_split_spacebar_subtitle">Divide the spacebar too, or keep it as one key across the gap</string>
+    <string name="layout_split_see_through_title">See-through gap</string>
+    <string name="layout_split_see_through_subtitle">Show the app between the halves, and let taps there reach it</string>
+    <string name="layout_split_see_through_info">When this is on, the gap between the two halves of a split keyboard is see-through: you see the app behind it, and a tap in the gap goes to the app, as it does above the keyboard. The suggestion strip, the toolbar and the other rows over the keys split around the gap too, so it runs from the top of the keyboard down. An open panel still takes the whole width. A spacebar that is kept as one key across the gap stays solid. It works for the docked keyboard only, not the floating one. This setting is off by default.</string>
     <string name="layout_split_spacebar_info">When this is on, the spacebar is divided between the two halves like every other row, and the centre of the bottom row is empty. When this is off, the spacebar stays as one key and fills the gap, so both thumbs can press it where they meet. The other keys on the bottom row stay in their halves. This setting is on by default.</string>
     <string name="layout_split_large_only_info">Split is one setting for every screen shape, so turning it on in landscape leaves the keyboard split after you rotate back, where a split layout is hard to use. Turn this on to split only in landscape or on an unfolded screen. This setting is off by default.</string>
 

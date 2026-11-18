@@ -68,6 +68,10 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringArrayResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -91,6 +95,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.LocationOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Notes
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Notifications
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.OpenInNew
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Public
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
 import com.wasimaster.wmkeyboard.core.theme.FrostSurface
 import com.wasimaster.wmkeyboard.core.tools.AltCalendar
@@ -114,6 +119,8 @@ import com.wasimaster.wmkeyboard.ime.calendar.CalendarTextField
 import com.wasimaster.wmkeyboard.ime.calendar.CalendarUi
 import com.wasimaster.wmkeyboard.ime.calendar.CalendarUndo
 import com.wasimaster.wmkeyboard.ime.calendar.CalendarView
+import com.wasimaster.wmkeyboard.ime.calendar.EventWeatherChip
+import com.wasimaster.wmkeyboard.ime.calendar.weatherKey
 import com.wasimaster.wmkeyboard.ime.calendar.ScopePrompt
 import com.wasimaster.wmkeyboard.ime.ui.FullBleedTool
 import com.wasimaster.wmkeyboard.ime.ui.LocalKbTheme
@@ -177,12 +184,12 @@ internal fun CalendarPanel(
     val face = when {
         ui.view == CalendarView.COMPOSE -> Face.COMPOSE
         ui.view == CalendarView.DETAIL -> Face.DETAIL
-        local.agenda -> Face.AGENDA
-        else -> Face.MONTH
+        ui.view == CalendarView.INVITE -> Face.INVITE
+        else -> local.face
     }
     // The month and agenda faces publish the ring's targets; anywhere else
     // they are published empty, so a count left from the grid never steers it.
-    if (typing != null || face == Face.COMPOSE || face == Face.DETAIL) {
+    if (typing != null || face == Face.COMPOSE || face == Face.DETAIL || face == Face.INVITE) {
         PanelFocusTarget(panel = PanelMode.CALENDAR, region = FocusRegion.ACTIONS, count = 0, columns = 3) {}
         PanelFocusTarget(panel = PanelMode.CALENDAR, region = FocusRegion.RESULTS, count = 0, columns = 7) {}
     }
@@ -200,6 +207,7 @@ internal fun CalendarPanel(
                 typing != null -> TypingHeader(typing, act)
                 face == Face.COMPOSE -> ComposeHeader(ui, act)
                 face == Face.DETAIL -> DetailHeader(ui, act)
+                face == Face.INVITE -> InviteHeader(act)
                 else -> MonthHeader(state, ui, local, act)
             }
         },
@@ -218,12 +226,14 @@ internal fun CalendarPanel(
                         when (shown) {
                             Face.MONTH -> MonthFace(state, ui, animate, act)
                             Face.AGENDA -> AgendaFace(state, ui, animate, act)
+                            Face.DAY -> DayFace(state, ui, act)
                             Face.DETAIL -> ui.detail?.let { EventSheet(it, ui, animate, act) }
                             Face.COMPOSE -> ui.draft?.let { CalendarComposer(it, ui, act) }
+                            Face.INVITE -> ui.invite?.let { InviteFace(it, ui, animate, act) }
                         }
                     }
                 }
-                if (local.monthPicker && (face == Face.MONTH || face == Face.AGENDA)) {
+                if (local.monthPicker && (face == Face.MONTH || face == Face.AGENDA || face == Face.DAY)) {
                     MonthPicker(ui, animate, onPick = { act(CalendarAction.Month(it)) }) { local.monthPicker = false }
                 }
             }
@@ -245,12 +255,15 @@ internal fun CalendarPanel(
 }
 
 /** What the panel shows: the controller's view, split where the panel adds a face of its own. */
-private enum class Face { MONTH, AGENDA, DETAIL, COMPOSE }
+private enum class Face { MONTH, DAY, AGENDA, DETAIL, COMPOSE, INVITE }
+
+/** The faces the header's pill picks between, in its order. */
+private val PICKED_FACES = listOf(Face.MONTH, Face.DAY, Face.AGENDA)
 
 /** The panel's own state, which the controller has no reason to carry. */
 private class CalendarPanelLocal {
-    /** The month shown as a list down a day rail rather than a grid. */
-    var agenda by mutableStateOf(false)
+    /** The month as a grid, the selected day as a timeline (#1210), or the month as a list down a day rail. */
+    var face by mutableStateOf(Face.MONTH)
 
     /** The month picker dropped from the header's title. */
     var monthPicker by mutableStateOf(false)
@@ -331,9 +344,13 @@ private fun RowScope.MonthHeader(state: KeyboardUiState, ui: CalendarUi, local: 
     }
     Spacer(Modifier.width(6.dp))
     SegmentedPill(
-        labels = listOf(stringResource(R.string.ime_calendar_view_month), stringResource(R.string.ime_calendar_view_agenda)),
-        selected = if (local.agenda) 1 else 0,
-        onSelect = { local.agenda = it == 1 },
+        labels = listOf(
+            stringResource(R.string.ime_calendar_view_month),
+            stringResource(R.string.ime_calendar_view_day),
+            stringResource(R.string.ime_calendar_view_agenda),
+        ),
+        selected = PICKED_FACES.indexOf(local.face).coerceAtLeast(0),
+        onSelect = { local.face = PICKED_FACES[it] },
         segmentWidth = VIEW_SEGMENT,
         height = 28.dp,
     )
@@ -399,7 +416,7 @@ private fun RowScope.TypingHeader(entry: CalendarTextEntry, act: (CalendarAction
         when (entry.field) {
             CalendarTextField.TITLE -> R.string.ime_calendar_title_hint
             CalendarTextField.LOCATION -> R.string.ime_calendar_location_hint
-            CalendarTextField.NOTES -> R.string.ime_calendar_notes_hint
+            CalendarTextField.NOTES -> if (entry.invite) R.string.ime_invite_about_hint else R.string.ime_calendar_notes_hint
             CalendarTextField.GUEST -> R.string.ime_calendar_guest_hint
         },
     )
@@ -445,6 +462,10 @@ private fun fieldIcon(field: CalendarTextField): ImageVector = when (field) {
 @Composable
 private fun TypingBody(ui: CalendarUi, entry: CalendarTextEntry, act: (CalendarAction) -> Unit) {
     val kb = LocalKbTheme.current
+    if (entry.invite) {
+        ui.invite?.let { InviteTypingPreview(it, ui.hour24) }
+        return
+    }
     val draft = ui.draft ?: return
     if (entry.field == CalendarTextField.GUEST) {
         LazyColumn(
@@ -823,7 +844,7 @@ private fun RowScope.DayCell(
 
 /** The selected day in words: its date and how far off on one line, the alternate calendars under. */
 @Composable
-private fun DaySummary(ui: CalendarUi, altCalendars: List<AltCalendar>, hijriAdjust: Int) {
+internal fun DaySummary(ui: CalendarUi, altCalendars: List<AltCalendar>, hijriAdjust: Int) {
     val kb = LocalKbTheme.current
     val selected = ui.selected
     val dateText = remember(selected) { CalendarText.longDate(selected) }
@@ -911,6 +932,8 @@ private fun DayCards(ui: CalendarUi, animate: Boolean, act: (CalendarAction) -> 
                         modifier = Modifier
                             .width(CARD_WIDTH)
                             .popIn(i.coerceAtMost(MAX_STAGGER), animate, key = ui.selected),
+                        weather = ui.weather[weatherKey(event)],
+                        onWeather = { act(CalendarAction.OpenWeather(event)) },
                     ) { act(CalendarAction.OpenEvent(event)) }
                 }
             }
@@ -920,8 +943,8 @@ private fun DayCards(ui: CalendarUi, animate: Boolean, act: (CalendarAction) -> 
 
 /**
  * One event as a card tinted with its calendar's colour: the time (or an
- * all-day badge) with the repeat mark, the title, and the place. Squashes
- * while pressed.
+ * all-day badge) with the weather and the repeat mark, the title, and the
+ * place. Squashes while pressed.
  */
 @Composable
 internal fun EventCard(
@@ -929,6 +952,9 @@ internal fun EventCard(
     hour24: Boolean,
     animate: Boolean,
     modifier: Modifier = Modifier,
+    /** The forecast for the event's hour and place (#1212); null draws none. */
+    weather: EventWeatherChip? = null,
+    onWeather: () -> Unit = {},
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
@@ -968,6 +994,7 @@ internal fun EventCard(
                 )
             }
             Spacer(Modifier.weight(1f))
+            if (weather != null) EventWeatherBadge(weather, onWeather)
             if (event.recurring) {
                 Icon(Icons.Outlined.EventRepeat, contentDescription = null, tint = kb.secondaryText, modifier = Modifier.size(12.dp))
             }
@@ -984,6 +1011,49 @@ internal fun EventCard(
         if (place != null) {
             Text(place, color = kb.secondaryText, fontSize = 11.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+    }
+}
+
+/**
+ * "⛅ 21°" on an event card: the forecast for the event's hour where it is
+ * (#1212). A tap opens the Weather panel on that day's hours.
+ */
+@Composable
+private fun EventWeatherBadge(weather: EventWeatherChip, onClick: () -> Unit) {
+    val kb = LocalKbTheme.current
+    val feedback = LocalKeyPressFeedback.current
+    val conditions = stringResource(com.wasimaster.wmkeyboard.core.tools.WeatherClient.describeRes(weather.weatherCode))
+    val unit = if (weather.fahrenheit) "°F" else "°C"
+    val description = stringResource(
+        R.string.ime_calendar_weather_desc,
+        conditions,
+        "${weather.temperature}$unit",
+        com.wasimaster.wmkeyboard.ime.ui.forecastPlaceLabel(weather.place),
+    )
+    Row(
+        Modifier
+            .padding(end = 4.dp)
+            .clip(CircleShape)
+            .semantics(mergeDescendants = true) {
+                contentDescription = description
+                role = Role.Button
+            }
+            .clickable {
+                feedback()
+                onClick()
+            }
+            .padding(horizontal = 4.dp, vertical = 1.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(weather.emoji, fontSize = 11.sp, maxLines = 1)
+        Spacer(Modifier.width(2.dp))
+        Text(
+            "${weather.temperature}°",
+            color = kb.secondaryText,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+        )
     }
 }
 
@@ -1242,6 +1312,8 @@ private fun AgendaFace(state: KeyboardUiState, ui: CalendarUi, animate: Boolean,
                                         modifier = Modifier
                                             .fillMaxWidth()
                                             .popIn(i.coerceAtMost(MAX_STAGGER), animate, key = day),
+                                        weather = ui.weather[weatherKey(e)],
+                                        onWeather = { act(CalendarAction.OpenWeather(e)) },
                                     ) { act(CalendarAction.OpenEvent(e)) }
                                 }
                             }
@@ -1440,6 +1512,8 @@ private fun EventSheet(event: StoredEvent, ui: CalendarUi, animate: Boolean, act
                     add(KitAction(stringResource(R.string.ime_calendar_insert), Icons.Outlined.EditNote, primary = true) { act(CalendarAction.InsertEvent) })
                 }
                 add(KitAction(stringResource(R.string.ime_calendar_open_app), Icons.Outlined.OpenInNew) { act(CalendarAction.OpenInApp) })
+                // #1274: the event as a Mobilizon or Pretix page people sign up on.
+                add(KitAction(stringResource(R.string.ime_invite_action), Icons.Outlined.Public) { act(CalendarAction.InviteOpen) })
                 if (event.canModify) {
                     add(KitAction(stringResource(R.string.ime_calendar_delete), Icons.Outlined.Delete, enabled = !ui.busy) { act(CalendarAction.DeleteEvent) })
                 }

@@ -17,15 +17,23 @@ Past tapping and long-pressing single keys, WM Keyboard has a few drag gestures 
 
 <SettingsPath path="Typing / Gestures" />
 
-The spacebar has two independent swipe slots: **Quick swipe on the spacebar** (default **Language**) and **Press and hold, then swipe** (default **Cursor**). Which one a drag resolves to depends on *when* it starts relative to the long-press delay, not on how far it travels. If a quick swipe sometimes counts as a hold, raise **Hold delay** on the same page: it gives the spacebar a delay of its own, from 50 to 1500 ms. The full timing engine, the language-switch behavior and the hold-drag picker list all live on [Switching languages](/languages/switching/). This page covers the other two things a slot can be set to: **Cursor** and **Numpad**.
+The spacebar has two independent swipe slots: **Quick swipe on the spacebar** (default **Language**) and **Press and hold, then swipe** (default **Cursor**). Which one a drag resolves to depends on *when* it starts relative to the long-press delay, not on how far it travels. If a quick swipe sometimes counts as a hold, raise **Hold delay** on the same page: it gives the spacebar a delay of its own, from 50 to 1500 ms. The full timing engine, the language-switch behavior and the hold-drag picker list all live on [Switching languages](/languages/switching/). This page covers three more things a slot can be set to: **Cursor**, **Numpad** and **Another action**.
 
 <GestureDemo type="space-swipe" caption="A spacebar swipe resolves to whichever action its slot is set to." />
 
-Each slot's options are **Nothing**, **Language**, **Cursor**, **Numpad** or **Keyboards**. Keyboards opens Android's own "Choose input method" list, for changing to a different keyboard app. On **Press and hold, then swipe** it needs no swipe: holding the spacebar past the hold delay opens the list. On the quick swipe it opens as soon as the drag starts. A tap with no movement always types a space, whatever either slot is set to.
+Each slot's options are **Nothing**, **Language**, **Cursor**, **Numpad**, **Keyboards**, **Secondary layout** or **Another action**. Keyboards opens Android's own "Choose input method" list, for changing to a different keyboard app. On **Press and hold, then swipe** it needs no swipe: holding the spacebar past the hold delay opens the list. On the quick swipe it opens as soon as the drag starts. **Secondary layout** works the same way and does what a press on the [Secondary layout tool](/languages/custom-layouts/#secondary-layouts) does: it switches to the layout pinned there, and the next swipe or hold switches back. It toggles once per gesture, so a drag after the hold changes nothing more, and it does nothing until the tool has a layout to show. A tap with no movement always types a space, whatever either slot is set to.
 
 **Space swipe distance** sets how far your finger has to move sideways before a press on the spacebar counts as a swipe: 12&nbsp;dp by default, from 6 to 60&nbsp;dp. Raise it if your thumb slides a little on its way to a space and switches the language or moves the cursor.
 
 Setting **Press and hold, then swipe** to Cursor or Numpad costs one thing: holding the spacebar no longer opens the [hold-drag language picker](/languages/switching/#holding-to-drag-through-the-list). A hold can only mean one thing, and that slot is where you said what it means. The picker is still on the <KeyCap>🌐</KeyCap> key's long press and on a quick swipe set to Language.
+
+### Running any action from a spacebar swipe
+
+<SettingsPath path="Typing / Gestures / Spacebar" />
+
+Set a slot to **Another action** and the app asks what the swipe should do, with the same list a [multi-finger swipe](#swiping-with-several-fingers) uses: a piece of text, a tool or panel such as **Text editing** or the clipboard, a text-editing step such as select all or paste, a layer, a layout, another keyboard app, Tab or an arrow, or a broadcast for an automation app. A row under the slot names the action; tap it to pick another. The swipe up from the spacebar has the same option.
+
+The action runs once, when you lift your finger, and the swipe types no space. Nothing else happens while the finger is still down, so a panel the action opens never appears under a finger that is still on the spacebar. A slot set to Another action with nothing picked does nothing, like Nothing. Cursor and Language keep their drag: they still move and preview while the finger is down.
 
 ## Moving the cursor with a spacebar swipe
 
@@ -45,19 +53,23 @@ Set a slot to **Cursor** and the drag moves the text cursor instead of typing. T
 
 Once the cursor is going by itself, the drag works like a joystick. Draw your finger back towards where the swipe began and the cursor slows down instead of stepping back, down to about a sixth of its speed close to the start; move out again and it speeds back up. It stops while your finger is back over the starting point, and turns round only once you cross it and go out on the other side.
 
-**Whole keyboard as touchpad** (off by default) hands the drag the whole key area once a swipe has turned into a cursor drag, the way SwiftKey's does. The keys dim, and a second finger landing on them types nothing until you lift. Your finger could always wander off the spacebar mid-drag; what changes is that the edges Keep moving while held uses are the sides of the keyboard instead of the ends of the spacebar, and its hold-still reach is a fifth of the keyboard's width. When the drag also moves up and down (the 2-D cursor touchpad, or Swipe up for the touchpad), the keyboard's top and bottom edges keep the cursor moving between lines the same way.
+**Whole keyboard as touchpad** (off by default) hands the drag the whole key area once a swipe has turned into a cursor drag, the way SwiftKey's does. The keys dim, and a second finger landing on them types nothing until you lift. Your finger could always wander off the spacebar mid-drag; what changes is that the edges Keep moving while held uses are the sides of the keyboard instead of the ends of the spacebar, and its hold-still reach is a fifth of the keyboard's width. When the drag also moves up and down (the 2-D cursor touchpad, or Swipe up on the spacebar set to Touchpad), the keyboard's top and bottom edges keep the cursor moving between lines the same way.
 
 <SettingsPath path="Typing / Gestures / 2-D cursor touchpad" />
 
-**2-D cursor touchpad** (off by default) turns the same drag into a touchpad. A vertical component now steps the cursor up and down through the text too, on the same Cursor speed distance. Both axes send real arrow-key events rather than computing a raw text offset, so vertical movement follows whatever line-wrapping the app is doing instead of guessing at it. Move the cursor directly changes that in one-line fields, where up and down go to the start and end of the text. Only movement that is mostly up or down counts toward a line step: the small wobble of a sideways drag drains away instead of adding up into a jump to another line. The toggle only appears once one of the two swipe slots above is set to Cursor, or Swipe up for the touchpad is on, and Cursor speed appears beside it.
+**2-D cursor touchpad** (off by default) turns the same drag into a touchpad. A vertical component now steps the cursor up and down through the text too, on the same Cursor speed distance. Both axes send real arrow-key events rather than computing a raw text offset, so vertical movement follows whatever line-wrapping the app is doing instead of guessing at it. Move the cursor directly changes that in one-line fields, where up and down go to the start and end of the text. Only movement that is mostly up or down counts toward a line step: the small wobble of a sideways drag drains away instead of adding up into a jump to another line. The toggle only appears once one of the two swipe slots above is set to Cursor, or Swipe up on the spacebar is set to Touchpad, and Cursor speed appears beside it.
 
-<SettingsPath path="Typing / Gestures / Swipe up for the touchpad" />
+<SettingsPath path="Typing / Gestures / Swipe up on the spacebar" />
 
-**Swipe up for the touchpad** (off by default) opens the 2-D touchpad from a swipe up, with no hold first. Swipe up from the spacebar, keep your finger down, and the cursor follows it left, right, up and down until you lift. The finger has to travel 80&nbsp;dp up, and more up than sideways, before the touchpad opens, so a tap that rolls a little still types a space and there is room left below to move the cursor down. You feel a tick when it opens. For the length of your long-press delay after that, the cursor stays put, so the swipe that opened the touchpad doesn't move it. After that, the rest of the upward swipe still doesn't move the cursor a line up: pause for a moment or move down first, and from then on up and down move the cursor too. Sideways swipes are untouched: they still run the two slots above, so the default quick swipe keeps switching the language. This works whatever the slots are set to and whether the 2-D cursor touchpad switch is on, and every cursor setting on this page applies to the drag. With **Keep moving while held** and **Whole keyboard as touchpad** both on, the touchpad scrolls by itself at every edge of the keyboard: the sides keep the cursor moving along the line, and the top and bottom 24&nbsp;dp keep it moving up or down, about five lines a second, until you move back or lift. The band the drag started in doesn't count, so starting on a spacebar near the bottom edge never sets it off.
+**Swipe up on the spacebar** (default **Nothing**) gives the spacebar a third swipe, beside the two sideways slots. Its options are **Nothing**, **Touchpad**, **Number pad** and **Another action**. Whatever you pick, the finger has to travel 80&nbsp;dp up, and more up than sideways, before the swipe counts, so a tap that rolls a little still types a space. Sideways swipes are untouched: they still run the two slots above, so the default quick swipe keeps switching the language.
 
-<SettingsPath path="Typing / Gestures / Swipe up for the number pad" />
+**Touchpad** opens the 2-D touchpad with no hold first. Swipe up from the spacebar, keep your finger down, and the cursor follows it left, right, up and down until you lift. You feel a tick when it opens. For the length of your long-press delay after that, the cursor stays put, so the swipe that opened the touchpad doesn't move it. After that, the rest of the upward swipe still doesn't move the cursor a line up: pause for a moment or move down first, and from then on up and down move the cursor too. This works whatever the slots are set to and whether the 2-D cursor touchpad switch is on, and every cursor setting on this page applies to the drag. With **Keep moving while held** and **Whole keyboard as touchpad** both on, the touchpad scrolls by itself at every edge of the keyboard: the sides keep the cursor moving along the line, and the top and bottom 24&nbsp;dp keep it moving up or down, about five lines a second, until you move back or lift. The band the drag started in doesn't count, so starting on a spacebar near the bottom edge never sets it off.
 
-**Swipe up for the number pad** (off by default) opens the number pad from a swipe up the spacebar, at any speed, the way SwiftKey does. Like the touchpad it waits for a short way up, so a tap that slides still types a space, and sideways swipes keep their own actions. With both swipe-up switches on, the touchpad wins.
+**Number pad** opens the number pad as soon as the swipe goes far enough, at any speed, the way SwiftKey does.
+
+**Another action** runs an action you pick, the same way the sideways slots do (see [Running any action from a spacebar swipe](#running-any-action-from-a-spacebar-swipe)).
+
+Before this was one setting it was two switches, Swipe up for the touchpad and Swipe up for the number pad. Whichever you had on carries over; with both on, you keep the touchpad, which is what won before.
 
 <SettingsPath path="Typing / Gestures / Cursor magnifier" />
 
@@ -125,7 +137,7 @@ With glide typing on, a letter with flick arms shares each swipe with the glide.
 
 Flicks belong to keys, not to the edges of the keyboard. A swipe down off the bottom row, up off the top row or outward off the first or last key in a row is that key's arm in that direction, so it does something only where you have given the key an arm in the [layout editor](/languages/custom-layouts/#editing-a-key). Nothing is reserved for an edge on its own.
 
-The special keys take arms too: <KeyCap>Enter</KeyCap>, <KeyCap>Shift</KeyCap>, <KeyCap>?123</KeyCap>, <KeyCap>ABC</KeyCap>, the globe, the emoji key, the space bar and the rest, keys set to repeat while held included. An arm on one of them types text or runs an action, and the tap is still the key's own. <KeyCap>Enter</KeyCap> with `?` on its flick up types one `?`, without sending and without a new line. <KeyCap>⌫</KeyCap> takes arms and keeps its swipe and its repeat: forward delete on its flick up is the usual one, and it repeats while your finger stays out on the arm. A direction with an arm belongs to the arm, the delete swipe keeps the others, and a press held still until the repeat starts is a hold, not a flick. The arrow keys work the same way: word left and right on the side flicks of <KeyCap>←</KeyCap> and <KeyCap>→</KeyCap>, page up and down on <KeyCap>↑</KeyCap> and <KeyCap>↓</KeyCap>, and a still hold still moves the cursor over and over. That goes for the keys of the arrow keys row too, and for any key you set to repeat while held. The space bar takes arms on the same terms: put [No space](/typing/glide-typing/#the-space-after-a-glided-word) on its flick up and it sits under your thumb, while the directions without an arm keep the spacebar's swipes. With an arm on one side, a swipe the other way still moves the cursor or switches language, and the hold is unchanged. A down arm takes the place of **Swipe down to hide**, and an up arm the place of **Swipe up for the touchpad**. A swipe waits for the flick distance before it starts, so it never runs off with a flick.
+The special keys take arms too: <KeyCap>Enter</KeyCap>, <KeyCap>Shift</KeyCap>, <KeyCap>?123</KeyCap>, <KeyCap>ABC</KeyCap>, the globe, the emoji key, the space bar and the rest, keys set to repeat while held included. An arm on one of them types text or runs an action, and the tap is still the key's own. <KeyCap>Enter</KeyCap> with `?` on its flick up types one `?`, without sending and without a new line. <KeyCap>⌫</KeyCap> takes arms and keeps its swipe and its repeat: forward delete on its flick up is the usual one, and it repeats while your finger stays out on the arm. A direction with an arm belongs to the arm, the delete swipe keeps the others, and a press held still until the repeat starts is a hold, not a flick. The arrow keys work the same way: word left and right on the side flicks of <KeyCap>←</KeyCap> and <KeyCap>→</KeyCap>, page up and down on <KeyCap>↑</KeyCap> and <KeyCap>↓</KeyCap>, and a still hold still moves the cursor over and over. That goes for the keys of the arrow keys row too, and for any key you set to repeat while held. The space bar takes arms on the same terms: put [No space](/typing/glide-typing/#the-space-after-a-glided-word) on its flick up and it sits under your thumb, while the directions without an arm keep the spacebar's swipes. With an arm on one side, a swipe the other way still moves the cursor or switches language, and the hold is unchanged. A down arm takes the place of **Swipe down to hide**, and an up arm the place of **Swipe up on the spacebar**. A swipe waits for the flick distance before it starts, so it never runs off with a flick.
 
 Changing a key's action in the layout editor clears its text arms, so a letter turned into <KeyCap>Shift</KeyCap> doesn't keep typing the letter's arms. Flicks off the edges stay a key's own.
 
@@ -181,6 +193,16 @@ Once the spacebar carries keys, it draws the first one small in its top right co
 
 A layout can carry its own set instead. Open a layout in the [layout editor](/languages/custom-layouts/), tap the spacebar, and the alternates fields are there like on any other key. The setting comes first in the popup, and the layout's own keys follow it.
 
+## Your own actions on a long press
+
+<SettingsPath path="Layout & size / Bottom-row keys / Hold actions" />
+
+**Hold actions** is a list of actions that you build once and that shows up in the long-press popup of one bottom-row key on every layout, without opening the layout editor. **Key with your hold actions** picks the key: <KeyCap>⏎</KeyCap> (the default), the comma, or the <KeyCap>🌐</KeyCap> key. FlorisBoard calls this an Fn key, and FUTO puts a menu like it on Enter.
+
+Tap **Hold actions** to edit the list. **Add an action** opens the same picker a [multi-finger swipe](#swiping-with-several-fingers) uses: a piece of text, a tool or panel such as the clipboard or **Text editing**, a text-editing step such as undo or select all, a layer, a layout, a keyboard mode, another keyboard app, Tab or an arrow, or a broadcast for an automation app. The arrows beside each action move it up or down, and the cross removes it. The popup shows the actions in the same order.
+
+Your actions go at the end of the popup, after whatever the key already offers there. The comma keeps its marks first, and in a field that sends or searches, Enter keeps its line break first. That order matters with **Hold to select** on, because a plain hold and release picks the first entry. The list also follows the key onto the symbols pages, and when <KeyCap>🌐</KeyCap> is the chosen key it stays on that spot after **Emoji key instead of 🌐** turns it into the emoji key. A popup on <KeyCap>🌐</KeyCap> takes over that key's hold, so the language picker no longer opens there. Holding the spacebar still opens it, unless you gave the spacebar its own keys.
+
 ## Deleting more than a character with backspace
 
 <SettingsPath path="Key press / Delete keys" />
@@ -204,6 +226,8 @@ Each step costs a certain amount of leftward travel. In Words mode the cost shri
 
 While the highlight is up the swipe is still undoable: dragging back to the right shrinks it a step at a time, and dragging all the way back to where the swipe started leaves the text alone entirely. The gesture retraces its own steps, so a word that cost a short pull on the shrinking curve gives itself back for the same short pull.
 
+The same goes for <KeyCap>⌦</KeyCap>'s swipe, which before 0.6.7 deleted as it went in an app's text field whatever this setting said.
+
 Turn the setting off to get the older behaviour, where each word or character goes the moment the swipe passes it. Deleted text cannot be given back, so dragging right only re-anchors the gesture, and the next word costs the full first-word distance again instead of picking up where the shrinking curve left off. A few editors cannot hold a selection while the keyboard drives it, and a search box drawn by the keyboard itself (emoji search, for one) has no cursor to select with. The swipe falls back to deleting as it goes in both cases, with no setting to change. It does the same over a word that is still being converted, such as pinyin or Vietnamese Telex, so what is left of the word is still read as one.
 
 ### Swiping up to clear everything
@@ -214,7 +238,7 @@ The swipe has to be steeper than it is wide, so a leftward word swipe that drift
 
 ### Swiping up or down to delete lines
 
-**Swipe up or down to delete lines** (off by default) turns the two vertical swipes on <KeyCap>⌫</KeyCap> into line deletes. A swipe up deletes back to the start of the line the cursor is on. With the cursor already at the start of a line, it deletes the whole line above, so each swipe up takes one more line. A swipe down deletes to the end of the line, then the line below. Keep your finger out after the swipe and it goes on a line at a time, the way holding delete repeats. With **Swipe up to clear all** on as well, the swipe up still clears everything and only the swipe down deletes lines. A delete key your layout already gave an up or down swipe keeps its own. The same two steps are **Delete line** and **Delete line forward** in the layout editor's actions, for any key or swipe.
+**Swipe up or down to delete lines** (off by default) turns the two vertical swipes on <KeyCap>⌫</KeyCap> into line deletes. A swipe up deletes back to the start of the line the cursor is on. With the cursor already at the start of a line, it deletes the whole line above, so each swipe up takes one more line. A swipe down deletes to the end of the line, then the line below. Keep your finger out after the swipe and it goes on a line at a time, the way holding delete repeats. Since 0.6.7, with **Show what you will delete** on, the lines are selected rather than deleted while your finger is out: the highlight grows a line at a time as you hold, the lift deletes it, and bringing your finger back to the key before you lift leaves the text alone. In a text box of the keyboard's own, or with text already selected, the swipe deletes straight away as before. On Android 14 and later, while the lines are shown this way, a long message the app wraps onto several lines is taken a drawn line at a time, not as one line up to its break. The keyboard asks the app where it drew each line, so this works in apps that answer: most do, and in one that doesn't, a line runs to the next line break as before. Since 0.6.7 each direction has a row of its own under the setting, **Swipe up deletes lines** and **Swipe down deletes lines**, both on, so you can keep one swipe without the other. With **Swipe up to clear all** on as well, the swipe up still clears everything and only the swipe down deletes lines. A delete key your layout already gave an up or down swipe keeps its own. The same two steps are **Delete line before the cursor** and **Delete line after the cursor** in the layout editor's actions (called Delete line and Delete line forward before 0.6.7), for any key or swipe.
 
 ### Holding delete to clear words
 
@@ -238,6 +262,8 @@ Where you put a delete key does not change what it is. The text-editing pad's ow
 
 One step deletes any trailing whitespace plus the run of same-kind characters behind the cursor, where letters and digits count as one kind and punctuation as another. That's what stops a step from stalling on a run like `...` or a string of dashes. It also means a word glued to punctuation (a contraction, a trailing comma) can take more than one step to clear, since the letters and the punctuation are different kinds and each gets its own step.
 
+A web or email address is the exception: it goes in one step, marks and all. `https://example.com/path?q=1`, `example.com/path` and `test@pm.me` each count as a single word, so a step doesn't stop at every dot and slash. The same rule covers the swipe, the word-clearing hold, <KeyCap>⌦</KeyCap> and the word-delete keys on the [text-editing pad](/tools/text-editing/). A run counts as an address when it starts with `http://`, `https://`, `ftp://` or `www.`, has the shape of an email address, or ends its host in a domain ending such as `.com`, `.org` or `.dev`. Endings that are also words, such as `.it`, `.me` and `.in`, count only with a path after them (`t.me/name`). Prose is left alone: `end.Then`, typed without the space after the full stop, is still two words, and so are `e.g.`, `U.S.` and `3.14`. A full stop after an address ends the sentence, so `Visit example.com.` takes the full stop first and the address on the next step. With **Words stop at punctuation** off, everything up to the last space was one word already.
+
 A few things a word-delete step does specially, rather than falling back to plain character deletion:
 
 - If there's an active text selection, one step clears the whole selection instead of doing word math.
@@ -248,11 +274,13 @@ See [Sound & vibration](/typing/feedback/) for the **Vibrate on delete swipe** h
 
 ## Dragging from a modifier key
 
-Drag from <KeyCap>Shift</KeyCap> onto a letter and lift, and you get the capital: one movement instead of a shift tap and then the letter. A band stretches from the key you started on to your fingertip while you drag, drawn in the [glide typing](/typing/glide-typing/) trail's colour and width. It stays a straight line rather than tracing the path your finger took, because the chord is the two keys at its ends and the route between them means nothing. While you drag from Shift the letters turn to capitals, and the key under your finger lights up the way a pressed key does, so you can see which capital the lift will type. The same light follows your finger from Ctrl, Alt and Meta, on any key that has a combination to send.
+Drag from <KeyCap>Shift</KeyCap> onto a letter and lift, and you get the capital: one movement instead of a shift tap and then the letter. A band stretches from the key you started on to your fingertip while you drag, drawn in the [glide typing](/typing/glide-typing/) trail's colour and width. Since 0.6.7 the band is drawn only while glide typing is on; with it off, the lit key alone shows where the drag will land. It stays a straight line rather than tracing the path your finger took, because the chord is the two keys at its ends and the route between them means nothing. While you drag from Shift the letters turn to capitals, and the key under your finger lights up the way a pressed key does, so you can see which capital the lift will type. The same light follows your finger from Ctrl, Alt and Meta, on any key that has a combination to send.
 
 <KeyCap>Ctrl</KeyCap>, <KeyCap>Alt</KeyCap> and <KeyCap>Meta</KeyCap> keys work the same way, and send the combination to the app: Ctrl to <KeyCap>C</KeyCap> copies, Ctrl to <KeyCap>Z</KeyCap> undoes, Ctrl to <KeyCap>Enter</KeyCap> sends the message in the apps that bind it. Shift does that too on any key that isn't a letter, so Shift to <KeyCap>Enter</KeyCap> is a real Shift+Enter and Shift to <KeyCap>Tab</KeyCap> tabs backwards.
 
 A capital dragged out of Shift is typed, not sent as a key press, so the word still gets its suggestions, its autocorrect and its spot in the learned words. Shift's own tap, double-tap for caps lock, and press-and-hold all still work exactly as they did.
+
+**Drag from Shift and Ctrl** (on by default, under <SettingsPath path="Key press" />) turns these drags off when they get in the way of your own gestures. Off, a drag from a modifier does nothing. A tap, a double tap for caps lock, and holding <KeyCap>Shift</KeyCap> to type capitals with another finger keep working.
 
 Every layout has a <KeyCap>Shift</KeyCap> key. None of the shipped ones have a Ctrl, Alt or Meta key, so add one from the [layout editor](/languages/custom-layouts/#editing-a-key), or import a layout that already carries a modifier row.
 
@@ -271,7 +299,7 @@ Drag off <KeyCap>?123</KeyCap> and the symbols come up under your finger. Lift o
 
 The drag works from a panel too. Put <KeyCap>?123</KeyCap> or <KeyCap>ABC</KeyCap> on the text editing pad, the Numpad or any other [panel layout](/languages/custom-layouts/#panel-layouts), drag off it, and that layer shows over the panel for as long as you hold. Lift and the panel is back, with the emoji or clipboard list still where you left it. A panel isn't one of the keyboard's layers, so <KeyCap>ABC</KeyCap> on a panel always shows the letters.
 
-While you drag, the key under your finger lights up the way a pressed key does, and a straight band stretches from the key you started on to your fingertip, the same one the [modifier drag](#dragging-from-a-modifier-key) draws.
+While you drag, the key under your finger lights up the way a pressed key does, and a straight band stretches from the key you started on to your fingertip, the same one the [modifier drag](#dragging-from-a-modifier-key) draws, and like it only while glide typing is on.
 
 Hold still over a key and its press-and-hold popup opens. Slide onto the character you want, lift, and that's what you get. This popup always follows your finger, whatever **Choose without lifting** is set to, because lifting is what ends the gesture: a popup waiting for a separate tap could never be answered here.
 
@@ -306,6 +334,58 @@ A line follows each finger while the swipe is on, in the [glide typing](/typing/
 The swipes also work on the keys under a tool that types into a box of its own, such as [Translate](/tools/translate/), a search box or a note. There select all, copy, cut, paste and undo act on that box's text, the way its own selection bar does, and not on the app behind the keyboard. Redo has nothing to undo back in those boxes, so it does nothing there.
 
 Fast typing is never mistaken for a swipe. Nothing is decided until every finger on the keys has travelled about 28&nbsp;dp, all of them the same way. A typist rolling from one key to the next lifts long before that, and the keys type as they always did. Lifting any finger before the swipe is recognised hands the whole touch back to the keys.
+
+## Pinch and stretch
+
+<SettingsPath path="Typing / Gestures / Pinch and stretch" />
+
+Put two fingers on the keys at the same time and spread them apart to split the keyboard in two, or pinch them together to put it back. The split is the same one the **Split** tool and the [split keyboard](/typing/size-position/#splitting-the-keyboard-in-half) setting give you. A stretch on a board that is already split does nothing, and so does a pinch on one that is whole, so a stray gesture never undoes the last one.
+
+| Gesture | Does out of the box |
+| --- | --- |
+| Stretch (two fingers apart) | Splits the keyboard |
+| Pinch (two fingers together) | Merges the keyboard |
+
+Tap **Stretch** or **Pinch** to bind it to something else from the same list a [multi-finger swipe](#swiping-with-several-fingers) uses: one-handed mode, a tool, a text-editing step, a layer, another keyboard app, a piece of text. **No action** turns that gesture off and leaves the other one working. **Reset pinch actions** puts both back to split and merge.
+
+The action runs when both fingers have lifted, so the keyboard never changes shape under them. Nothing is drawn while you pinch.
+
+A pinch has to be clearly a pinch before it takes the touch, so typing with two thumbs, gliding and multi-finger swipes work as before:
+
+- Both fingers land within about 0.3&nbsp;s of each other, before the first has moved. A thumb already holding a key, gliding or moving the cursor on the spacebar is doing something else.
+- The gap between them grows or shrinks by at least 40&nbsp;dp and by at least a quarter.
+- Each finger travels at least 14&nbsp;dp, heading roughly toward the other (pinch) or away from it (stretch). One still finger and one moving finger is a held key and a glide, not a stretch.
+- The two fingers do not drift together as a pair. Two thumbs tracing two words wander; a pinch stays roughly where it began.
+- No third finger, no finger lifted first, and no key typed since the first finger landed.
+
+It stands aside on the [floating keyboard](/typing/size-position/#floating-the-keyboard), whose own pinch resizes it, and while [two-thumb typing](/typing/glide-typing/) is on, where two thumbs moving apart are two words.
+
+## Swiping one finger across the letters
+
+<SettingsPath path="Typing / Gestures / One-finger swipes" />
+
+If you never glide type, one finger swiped across the letters can run an action instead. Turn on **One-finger swipes** and swipe up, down, left or right from any letter.
+
+| Swipe | Does out of the box |
+| --- | --- |
+| Up | Shift |
+| Down | Hides the keyboard |
+| Left | Deletes a word |
+| Right | Moves to your next language |
+
+Tap a direction to bind it to anything from the list a [multi-finger swipe](#swiping-with-several-fingers) uses: a piece of text, a tool or panel, a text-editing step, a layer, a layout, another keyboard app, Tab or an arrow. **No action** turns that direction off. **Reset one-finger swipes** puts all four back.
+
+It is off out of the box, and it only works while [glide typing](/typing/glide-typing/) is off. With glide typing on, a finger moving across the letters writes a word, so the switch then says it has nothing to do. Power saving that turns glide typing off for a while does not wake these swipes either.
+
+A swipe has to be clearly a swipe before it takes the touch, so ordinary typing is left alone:
+
+- It starts on a letter key. Keys that type nothing, the number row and the space bar keep their own swipes.
+- It travels about 64&nbsp;dp, well past the key it started on, within about a third of a second of touching down. A press and hold that drifts later is still a press and hold, and its alternates still open.
+- It heads straight up, down, left or right, within about 35°.
+- Only one finger is down. A second finger makes it typing, or a [multi-finger swipe](#swiping-with-several-fingers).
+- A key with [flick arms](#flick-keys) or [swipes of its own](#swipes-on-keys) keeps them; a swipe off it is never a board swipe.
+
+The action runs when the finger lifts, and the key it started on types nothing. Nothing is drawn. It only works on the letters, never inside a typing test, and over a panel only where the panel hands you the keys.
 
 ## Chords with ?123
 
@@ -342,6 +422,7 @@ Chords suit [two-thumb typing](/typing/glide-typing/#typing-with-both-thumbs) in
 | Numbers | 1 to 0 up and to the right on the top row |
 | Symbols | `! @ # $ % ^ & * ( )` up and to the left on the top row |
 | Editing shortcuts | Select all, copy, paste, cut, undo and redo down and to the left on <KeyCap>A</KeyCap> <KeyCap>C</KeyCap> <KeyCap>V</KeyCap> <KeyCap>X</KeyCap> <KeyCap>Z</KeyCap> <KeyCap>Y</KeyCap> |
+| Quick punctuation | On <KeyCap>.</KeyCap>: a comma to the left, a question mark up and an exclamation mark to the right, with a tap still typing the period |
 
 A preset replaces only the directions it fills, so your other swipes on those keys stay. **Remove all key swipes** takes every one off, and turning **Swipes on keys** off keeps them stored but off the keys.
 
@@ -387,8 +468,7 @@ A printable table of every gesture on one page lives at [Gesture cheat sheet](/r
 | Move the cursor directly | Off |
 | Keep moving while held | Off |
 | Whole keyboard as touchpad | Off |
-| Swipe up for the touchpad | Off |
-| Swipe up for the number pad | Off |
+| Swipe up on the spacebar | Nothing |
 | Top cursor speed | 4× (2–16×) |
 | Cursor magnifier | On |
 | Swipe in from the edge to go back | Off |
@@ -419,9 +499,15 @@ A printable table of every gesture on one page lives at [Gesture cheat sheet](/r
 | Multi-finger swipes | On |
 | Two fingers up / left / right / down | Select all / Undo / Redo / Paste |
 | Three and four fingers, any direction | Nothing |
+| Pinch and stretch | On |
+| Stretch / Pinch | Split the keyboard / Merge the keyboard |
+| One-finger swipes *(glide typing off only)* | Off |
+| Swipe up / down / left / right | Shift / Hide the keyboard / Delete a word / Next language |
 | Chords with ?123 | On |
 | ?123 + L | Next language |
 | Swipes on keys | On, with no keys set |
+| Key with your hold actions *(Layout & size)* | Enter |
+| Hold actions *(Layout & size)* | None |
 
 Open the **Typing** tile in settings, or search "Gestures", "Delete keys" or "Volume keys". The last two rows live under Typing / Key press rather than Delete keys, and Word delete interval only appears while Holding delete clears words is on. Cursor speed and Cursor magnifier only appear while a swipe slot is set to Cursor. Swipe deletes, Show what you will delete and the two step distances only appear while Swipe to delete is on, and the two distances are one setting each: Words mode shows Word delete distance, Characters mode shows Character delete distance. The Gestures group's language-switching settings (Arrows on the spacebar, The spacebar shows, Spacebar text, Typing speed on the spacebar) are covered on [Switching languages](/languages/switching/#swiping-the-spacebar) instead of here. For the field-by-field breakdown see [Typing settings](/reference/settings/typing/).
 
@@ -439,7 +525,9 @@ Open the **Typing** tile in settings, or search "Gestures", "Delete keys" or "Vo
 - **A multi-finger swipe takes the whole touch once it is recognised.** A word you had started gliding with the first finger is dropped, a key press under any of the fingers types nothing, and a chord or layer drag fires nothing at the lift. The swipe is counted by the most fingers that were down at once, so a third finger that lands a moment late still makes it a three-finger swipe.
 - **Not inside a typing test, and not over a panel without typing keys.** The test counts every keystroke in order, so it keeps the keys to itself; a panel such as emoji or the numpad has no letters to swipe on.
 - **Two-finger swipes stand aside while [two-thumb typing](/typing/glide-typing/) is on.** There two thumbs moving together are two halves of a word, so only three and four finger swipes run. The two-finger rows say so.
-- **A swipe that leans more than about 35° off straight up, down, left or right is no swipe at all**, and neither is one where the fingers head different ways, such as a pinch. Those fall through to the keys.
+- **A swipe that leans more than about 35° off straight up, down, left or right is no swipe at all**, and neither is one where the fingers head different ways. Two fingers moving apart or together along the line between them are a [pinch or stretch](#pinch-and-stretch) instead; anything else falls through to the keys.
+- **A one-finger swipe never runs with glide typing on**, in any of its forms: the swipe as handwriting and as slide-to-select both need glide typing on, so they and the one-finger swipes never meet. Once a one-finger swipe is recognised it takes the touch, and the letter it started on types nothing.
+- **A pinch or stretch takes the whole touch once it is recognised**, the same way a multi-finger swipe does: neither finger's key types, and a glide either finger had begun is dropped. A third finger before then makes it a multi-finger swipe, never a pinch.
 - **Volume-key cursor control re-checks "is audio playing" on every key press**, not once at the start of the drag, so control passes back and forth live as playback starts and stops.
 - **A drag off <KeyCap>?123</KeyCap> or <KeyCap>ABC</KeyCap> is never read as a word either**, for the same reason as a modifier drag: <KeyCap>?123</KeyCap> sits against the bottom row beside the spacebar, and a touch that starts there belongs to the layer drag.
 - **A drag off a modifier or Shift key is never read as a word.** Glide typing and handwriting both measure where your finger landed, and a touch that started on one of those keys belongs to the chord drag. Shift is the one you may notice: it sits against the bottom letter row, so a glide that used to be startable from its inner edge now capitalizes instead. Start the word one key further in.

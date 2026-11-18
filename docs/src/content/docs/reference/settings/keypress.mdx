@@ -20,7 +20,7 @@ The Key press screen collects everything about the physical act of pressing a ke
 
 <SettingsPath path="Key press" />
 
-The Key press screen is a hub. Haptics and sound, Key popup and Press and hold shortcuts are pages of their own; Alternate keys and Timing stay on the hub.
+The Key press screen is a hub of six rows, each opening a page of its own: Haptics and sound, Key popup, Press and hold shortcuts, Delete keys, Alternate keys and Timing. Delete keys, Alternate keys and Timing used to be laid out on the hub itself, under the three rows; they moved behind rows of their own so the hub fits on one screen. Alternate keys is shown from the Everything depth, like its rows were before.
 
 ### Haptics and sound
 
@@ -100,6 +100,8 @@ A theme can carry a key sound of its own, and where it does, it wins over everyt
 | Popup sideways shift *(same)* | Slider | −64–64 dp | 0 dp |
 | Popup shape | Nav row (shape picker) | the twelve key shapes | Rounded |
 | Popup corner radius | Slider | 0–40 dp | 12 dp |
+| Preview bubble width *(shown only while Key popup is on)* | Slider | ×0.60–×2.00 | ×1.00 |
+| Preview bubble corner radius *(same)* | Slider | Same as popups, or 0–40 dp | Same as popups |
 | Popup color *(shown only while Key popup is on)* | Color picker | any color, or Automatic | Automatic |
 | Popup text color *(same)* | Color picker | any color, or Automatic | Automatic |
 
@@ -114,6 +116,18 @@ A theme can carry a key sound of its own, and where it does, it wins over everyt
 **Popup color** and **Popup text color** are the bubble's background and the character inside it. Both read **Automatic** until you pick one, which means the bubble follows the keyboard theme. A color picked here wins over the theme, and the reset control on the row puts it back to Automatic. Unlike the shape and the radius, these two stop at the preview bubble: press-and-hold alternates, the language picker and the panel menus stay on the theme's popup color. A per-key style from a layout still overrides both.
 
 **Popup shape** and **Popup corner radius** reach past the preview bubble. They set the outline of every popup surface the keyboard draws, press-and-hold alternates, the language picker and the panel menus included. The radius applies only to the rounded and cut shapes. The rest size their corners off the popup itself. A theme can override either one.
+
+**Preview bubble width** and **Preview bubble corner radius** stop at the character bubble. At ×1.00 the width is what the bubble has always drawn: a little wider than the key in the on-key style, and when it floats, wide enough for an n (an N for a capital), so an i, a q and an n all get the same size of bubble. The wide letters, m and w, and longer labels such as a word or a ligature, still widen it. Above that the bubble grows in proportion to the key under it, in either style. Below it the bubble narrows by giving up the space on each side of the character first, and the shared letter width shrinks with it. The corner radius starts at **Same as popups**, which follows **Popup corner radius** (or the theme's popup radius); move it up and the bubble keeps a radius of its own while the alternates and menus keep the shared one. Like the shared radius, it only changes the rounded and cut shapes.
+
+### Pop text
+
+<SettingsPath path="Key press / Key popup / Pop text" />
+
+| Setting | Control | Options | Default |
+|---|---|---|---|
+| Pop text | Segmented choice | Never, Corrections, Words, Every key | Never |
+
+A decoration: what you type floats up out of the keyboard and fades. **Corrections** shows only a word that autocorrect changed, rising from the space bar. **Words** shows every word as you finish it. **Every key** also floats each character up from the key you pressed. Nothing shows while Reduce motion is on, or while [power saving](/typing/power-saving/) stops animations, whatever this is set to; the row says so then.
 
 <PhoneFrame side caption="Key popup and Timing groups, mid-screen.">
   <Shot id="reference/settings/keypress-popup-timing" alt="Key popup and Timing groups, mid-screen." />
@@ -132,18 +146,23 @@ A theme can carry a key sound of its own, and where it does, it wins over everyt
 | Character delete distance | Slider, 8–48 dp | 20 dp | Swipe deletes = Characters |
 | Swipe up to clear all | Toggle | Off | always |
 | Swipe up or down to delete lines | Toggle | Off | always |
+| Swipe up deletes lines | Toggle | On | Swipe up or down to delete lines on |
+| Swipe down deletes lines | Toggle | On | Swipe up or down to delete lines on |
 | Swipe on forward delete | Toggle | On | always |
+| Drag from Shift and Ctrl | Toggle | On | always |
 | Backspace as a key press on web pages | Toggle | On | always |
 
 A leftward drag on <KeyCap>⌫</KeyCap> deletes more than the one character a press does, and **Swipe deletes** sets what one step of it takes off. **Word delete distance** is how far you drag before the first word goes, with later words coming off faster on a fixed curve, so that one number tunes the whole gesture; **Character delete distance** is the flat cost of one character, with no curve. **Show what you will delete** makes the swipe select the text and delete it when you lift your finger, so a swipe that went too far can be dragged back.
 
 **Swipe up to clear all** selects everything in the text box when you swipe straight up on <KeyCap>⌫</KeyCap>, and deletes it when you lift. Bring your finger back down first and nothing is deleted. See [Swiping up to clear everything](/typing/gestures/#swiping-up-to-clear-everything).
 
-**Swipe up or down to delete lines** makes a swipe up on <KeyCap>⌫</KeyCap> delete back to the start of the line, or the whole line above when the cursor is at a line's start, and a swipe down delete to the end of the line, then the line below. Held out, it repeats a line at a time. **Swipe up to clear all** keeps the swipe up when both are on.
+**Swipe up or down to delete lines** makes a swipe up on <KeyCap>⌫</KeyCap> delete back to the start of the line, or the whole line above when the cursor is at a line's start, and a swipe down delete to the end of the line, then the line below. Held out, it repeats a line at a time. **Swipe up deletes lines** and **Swipe down deletes lines** turn either direction off on its own. **Swipe up to clear all** keeps the swipe up when both are on.
 
 **Swipe on forward delete** gives <KeyCap>⌦</KeyCap> the same drag pointed the other way: rightward, over the text after the cursor. It has its own on/off switch and then borrows every other row above, so the two delete keys cannot end up tuned differently. No built-in layout carries a <KeyCap>⌦</KeyCap> key; add one in the [layout editor](/languages/custom-layouts/). Full writeup: [Gestures](/typing/gestures/#deleting-more-than-a-character-with-backspace). This group moved here from the [Typing](/reference/settings/typing/) screen: what a key does under a swipe is a key-press matter.
 
 **Backspace as a key press on web pages** sends <KeyCap>⌫</KeyCap> to a text box on a web page, in a browser or inside an app, the way a physical keyboard sends it instead of deleting the text directly. Code editors on a page, such as Violentmonkey's script editor, only delete when they see that key press and put back text deleted any other way. The browser then decides how much one press removes. A language set to delete whole conjuncts keeps the direct delete. Turn it off if backspace misbehaves on a site.
+
+What the first press after a paste deletes is set on the Clipboard screen, not here: **Backspace removes a paste**, on by default, makes it take the whole paste. See the [Clipboard options](/tools/clipboard/#options).
 
 ### Alternate keys
 
@@ -191,7 +210,9 @@ With **Choose without lifting** on, a slide steers the highlight from where your
 
 | Setting | Control | Options / range | Default |
 |---|---|---|---|
+| Use Android's hold delay | Switch | On / off | Off |
 | Press and hold delay | Slider | 100–3000 ms | 300 ms |
+| Multi-tap pause | Slider | 300–3000 ms | 1000 ms |
 | Time before a key repeats | Slider | 150–3000 ms | 300 ms |
 | Delete repeat interval | Slider | 20–200 ms | 50 ms |
 | Holding delete clears words | Toggle | On / Off | Off |
@@ -204,13 +225,13 @@ With **Choose without lifting** on, a slide steers the highlight from where your
 | Hold a flick to repeat it | Toggle | On / Off | Off |
 | Caps lock double press | Slider | 150–600 ms | 350 ms |
 
-**Press and hold delay** is how long you hold a key before its alternates popup (accents, digits, symbols) appears. Below the default, the popup also grows out of its key faster. For a key's hint with no wait at all, turn on [Swipe down to type the hint](/typing/gestures/). **Time before a key repeats** is the separate wait before a held <KeyCap>⌫</KeyCap> or <KeyCap>Space</KeyCap> starts repeating. The two used to share one number, so slowing down accent popups for a tremor slowed down backspace with it. The same wait covers any key you turned **Repeat while held** on in the [key layout editor](/reference/settings/keymaps/#a-keys-settings).
+**Press and hold delay** is how long you hold a key before its alternates popup (accents, digits, symbols) appears. **Use Android's hold delay** makes holds wait as long as Android's own touch and hold delay (Settings → Accessibility) instead, and the slider then shows that value and stays put. A change made in Android's settings reaches the keyboard the next time any setting changes or the keyboard restarts. **Multi-tap pause** is how long a key that cycles on repeated taps, such as the 천지인 consonants, the T9 keypads and the <KeyCap>.,?!</KeyCap> key, waits for the next tap. Within it a tap swaps the letter; after it the tap starts afresh. Below the default, the popup also grows out of its key faster. For a key's hint with no wait at all, turn on [Swipe down to type the hint](/typing/gestures/). **Time before a key repeats** is the separate wait before a held <KeyCap>⌫</KeyCap> or <KeyCap>Space</KeyCap> starts repeating. The two used to share one number, so slowing down accent popups for a tremor slowed down backspace with it. The same wait covers any key you turned **Repeat while held** on in the [key layout editor](/reference/settings/keymaps/#a-keys-settings).
 
 The repeat interval is two sliders, because delete and space are held for opposite reasons. **Delete repeat interval** sets how fast a held <KeyCap>⌫</KeyCap> clears text, and faster is usually better. **Space repeat interval** does the same for a held <KeyCap>Space</KeyCap>. A runaway row of spaces has to be undone afterwards, so that one is worth setting slower, and it ships slower: delete at 50 ms, space at 100 ms.
 
 **Holding delete clears words** changes what the repeat takes: one whole word per tick instead of one letter, on <KeyCap>⌫</KeyCap> and <KeyCap>⌦</KeyCap> alike, each clearing the way its own key points. A single press is untouched and still deletes one character. Word clearing runs on **Word delete interval** rather than the letter one, and ships slower on purpose: at 50 ms a word a held key empties a paragraph before you can lift your finger. The words come off the way a delete swipe takes them, so the whitespace beside the cursor goes with the word beyond it. Both settings are off and hidden respectively out of the box; the swipe gestures are separate, under [Delete keys](#delete-keys) above. Once a held delete key has started to repeat, it stays a hold: a thumb that rolls sideways on the key no longer turns it into a swipe, which used to stop the delete with your finger still down.
 
-**Words stop at punctuation**, **Words stop at capitals** and **Words stop at numbers** say what one word is, for the held delete key and for a backspace swipe set to words. With punctuation on, as it ships, `wmkeyboard.pages.dev` goes as `dev`, `.`, `pages` and so on, and an underscore counts as punctuation too, while an apostrophe inside a word does not, so `don't` goes whole; off, all of it goes in one step, up to the last space. With capitals on, `GrapheneOS` goes as `OS` and then `Graphene`. With numbers on, `word1` goes as `1` and then `word`. The word cursor tools have their own settings for this, under [Where a word ends](/tools/text-editing/#where-a-word-ends).
+**Words stop at punctuation**, **Words stop at capitals** and **Words stop at numbers** say what one word is, for the held delete key and for a backspace swipe set to words. With punctuation on, as it ships, `end.Then` goes as `Then`, `.` and `end`, and an underscore counts as punctuation too, while an apostrophe inside a word does not, so `don't` goes whole; off, all of it goes in one step, up to the last space. A web or email address, such as `wmkeyboard.pages.dev/typing/` or `test@pm.me`, goes in one step either way ([which runs count](/typing/gestures/)). With capitals on, `GrapheneOS` goes as `OS` and then `Graphene`. With numbers on, `word1` goes as `1` and then `word`. The word cursor tools have their own settings for this, under [Where a word ends](/tools/text-editing/#where-a-word-ends).
 
 **Repeating key interval** is the third of those speeds, and it belongs to the keys you set to repeat yourself, and a row of arrow keys is the usual one. It ships at delete's 50 ms, because an arrow key and a backspace are held for the same reason: keep going until the cursor is where you want it. Delete and space keep their own numbers, so changing this one leaves them alone.
 

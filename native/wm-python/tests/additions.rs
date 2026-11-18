@@ -101,6 +101,18 @@ fn bytes_behave_like_a_sequence_of_ints() {
     assert_eq!("2", evaluate("len({'a'.encode(): 1, bytes([97]): 2, bytes(): 3})"));
 }
 
+#[test]
+fn bytes_methods_match_python() {
+    assert_eq!(
+        "[[b'a', b'b', b'', b'c'], b'x-y', 3, -1, 3, b'a;b;;c', b'hi', b'hi', [b'a', b'b'], True, True, b'AB', b'ab']",
+        evaluate(
+            "b = b'a,b,,c'\n[b.split(b','), b'-'.join([b'x', b'y']), b.find(b',,'), b.find(b'z'), b.count(b','), b.replace(b',', b';'), b'  hi \\n'.strip(), b'xxhixx'.strip(b'x'), b' a  b '.split(), b.startswith(b'a,'), b.endswith(b'c'), b'Ab'.upper(), b'Ab'.lower()]"
+        )
+    );
+    assert!(failure("b'ab'.index(b'z')").contains("ValueError"));
+    assert!(failure("b''.join(['x'])").contains("TypeError"));
+}
+
 // MARK: - time
 
 #[test]
@@ -140,7 +152,7 @@ fn bad_date_patterns_are_value_errors() {
 #[test]
 fn check_reports_what_load_would() {
     assert!(check("def f(x):\n    return x\n").is_ok());
-    for source in ["x = (1,\ny = 2", "class A:\n    pass", "if True:\nx = 1", "x = 1 $ 2", "f\"{}\""] {
+    for source in ["x = (1,\ny = 2", "def g():\n    yield 1", "if True:\nx = 1", "x = 1 $ 2", "f\"{}\""] {
         let c = check(source).unwrap_err();
         let l = Runtime::default().load(source).unwrap_err();
         assert_eq!((c.message.clone(), c.kind.clone(), c.line), (l.message, l.kind, l.line), "{source}");
@@ -161,4 +173,27 @@ fn deep_nesting_is_refused_by_the_parser_not_the_stack() {
 #[test]
 fn a_list_that_holds_itself_still_prints() {
     assert_eq!("True", big_stack(|| evaluate("a = [1]\na.append(a)\ns = repr(a)\ns.startswith('[1, [1, [1,')")));
+}
+
+// MARK: - methods as values
+
+#[test]
+fn built_in_methods_can_be_passed_around() {
+    assert_eq!("[1, 2]", evaluate("xs = []\nadd = xs.append\nadd(1)\nlist(map(add, [2]))\nxs"));
+    assert_eq!("['A', 'B']", evaluate("list(map(str.upper, ['a', 'b'])) if False else list(map('{}'.format, ['A', 'B']))"));
+    assert_eq!("True", evaluate("callable([].append)"));
+    assert_eq!("a-b", evaluate("j = '-'.join\nj(['a', 'b'])"));
+}
+
+#[test]
+fn a_data_key_does_not_hide_a_dict_method() {
+    assert_eq!("[('items', [1])]", evaluate("d = {'items': [1]}\nd.items()"));
+    assert_eq!("[1]", evaluate("d = {'items': [1]}\nd.items if False else d['items']"));
+    // A key holding a function still answers first, as wm.storage stand-ins need.
+    assert_eq!("7", evaluate("d = {'get': lambda k: 7}\nd.get('x')"));
+}
+
+#[test]
+fn type_names_read_back_through_dunder_name() {
+    assert_eq!("int", evaluate("type(3).__name__"));
 }

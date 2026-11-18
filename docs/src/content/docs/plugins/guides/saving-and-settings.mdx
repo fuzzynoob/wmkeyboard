@@ -1,0 +1,205 @@
+---
+title: "Saving data and settings"
+description: "Keep data between sessions with storage, give your plugin a settings page, and set reminders."
+sidebar:
+  label: "Saving data and settings"
+  order: 5.06
+---
+
+import SettingsPath from '@components/SettingsPath.astro';
+
+A plugin starts fresh each time its panel opens. To keep anything longer, save
+it. This page covers the three ways to keep things on the phone, plus a
+settings page the app draws for you.
+
+## Three ways to keep things
+
+| | Use it for | Needs |
+|---|---|---|
+| `plugin.state(..., persist=True)` | the values your panel works with | `storage` |
+| `storage` | anything else, by key | `storage` |
+| `secrets` | API keys and tokens | `storage` |
+
+All three stay on the phone, belong to your plugin only, and are deleted when
+the user uninstalls it. An update leaves them alone.
+
+## Saved state
+
+The easiest way. Values in a saved state come back the next time the panel
+opens:
+
+```python
+from wm import plugin
+
+saved = plugin.state(notes=[], sort="newest", persist=True)
+```
+
+Change `saved.notes` like any value, and it is saved after the event.
+[State and events](/plugins/guides/state-and-events/#saving-state) has the
+details.
+
+## storage
+
+`storage` works like a dict whose values are kept on the phone:
+
+```python
+from wm import storage
+
+storage["notes"] = ["milk", "eggs"]
+notes = storage.get("notes", [])
+if "draft" in storage:
+    del storage["draft"]
+for key in storage:
+    print(key, storage[key])
+```
+
+It has the dict methods you expect: `get`, `setdefault`, `pop`, `update`,
+`keys`, `values`, `items`, `clear` and `len(storage)`. Values are anything
+JSON holds.
+
+| Limit | |
+|---|---|
+| Keys | 512 |
+| One value | 64 KB |
+| Everything | 1 MB |
+
+`storage.used()` gives the bytes in use and `storage.quota` the most you may
+use. A write that goes over raises `ValueError`. Catch it and tell the user,
+so they do not lose what they typed:
+
+```python
+try:
+    storage["notes"] = notes
+except ValueError:
+    ui.toast("Storage is full. Delete some notes first.")
+```
+
+The user can see and clear your plugin's storage on its page:
+
+<SettingsPath path="Tools / Plugins / Manage plugins" />
+
+In the web editor, the **Storage** tab shows the same, and you can edit
+values there while you test.
+
+## secrets
+
+For keys and tokens: `secrets.get(name, default)`, `secrets.set(name, value)`
+and `secrets.remove(name)`. Values are text, kept apart from `storage` in the
+keyboard's private files, where other apps cannot read them. They never appear
+in a backup or the storage inspector, and uninstalling the plugin deletes
+them. They are not encrypted on the phone. See
+[API keys](/plugins/guides/internet-and-ai/#api-keys).
+
+## A settings page
+
+List settings in the manifest and the app draws them on your plugin's page.
+You never draw a settings screen yourself:
+
+```json title="plugin.json (excerpt)"
+"settings": [
+  {"key": "units", "type": "choice", "label": "Units", "default": "metric",
+   "options": ["metric", "imperial"]},
+  {"key": "examples", "type": "switch", "label": "Show examples", "default": "true"},
+  {"key": "count", "type": "number", "label": "How many results", "default": "5"},
+  {"key": "greeting", "type": "text", "label": "Greeting", "summary": "Said when the panel opens"},
+  {"key": "server", "type": "host", "label": "Your server"},
+  {"key": "token", "type": "secret", "label": "API token"}
+]
+```
+
+| Field | |
+|---|---|
+| `key` | The name you read it by: lowercase letters, digits and `_`, starting with a letter or `_`, up to 32 characters. |
+| `type` | `switch`, `text`, `number`, `choice`, `host` or `secret`. |
+| `label` | The row's title. |
+| `summary` | One line under the title. Optional. |
+| `default` | The starting value, always written as text: `"true"`, `"5"`, `"metric"`. A `secret` has none. |
+| `options` | For `choice`: the values to pick from. |
+
+Up to 24 settings. A `host` setting adds the website the user types to your
+`hosts`; see [the user's own server](/plugins/guides/internet-and-ai/#the-users-own-server).
+
+A `secret` setting is for an API key or token. The page shows only whether
+one is saved, never the key itself, and the box the user types it into hides
+what they type. The value is kept in your plugin's [`secrets`](#secrets) under
+the setting's key, so `plugin.settings.token` and `secrets.get("token")` read
+the same thing, and `secrets.set("token", ...)` from your panel changes what
+the page shows. It needs the `storage` permission. While no key is saved it
+reads as `None`.
+
+Read the values in code as attributes. A switch reads as `True` or `False`
+and a number as a number:
+
+```python
+from wm import plugin
+
+if plugin.settings.examples:
+    ...
+limit = plugin.settings.get("count", 5)
+```
+
+Reading a key the manifest does not declare raises `AttributeError`;
+`plugin.settings.get(key, default)` does not.
+
+Your plugin can change its own settings too, for a "Remember this" button or
+a choice made in the panel:
+
+```python
+plugin.settings.set("units", "imperial")
+plugin.settings.reset("units")   # back to the manifest's default
+```
+
+The value has to fit the row: `True` or `False` for a switch, a number for a
+number, one of the options for a choice, and text for `text` and `secret`.
+Anything else raises `ValueError`. The change is saved at once and the
+settings page shows it. Resetting a `secret` forgets the key.
+
+A `host` setting is the one your plugin cannot write. Setting it raises
+`PermissionError`: the server a plugin may reach is the user's to type, and a
+plugin that could write it would widen its own access to the internet.
+`@plugin.setting_changed` hooks do not run for your own changes.
+
+To react when the user changes a setting while the panel is open:
+
+```python
+@plugin.setting_changed("units")
+def units_changed(value):
+    look_up()
+```
+
+When the panel cannot work until a setting is filled in, such as the address
+of the user's server, send them to the page with a button.
+`plugin.open_settings()` opens your plugin's page in Settings. It works only
+in answer to something the user did in the panel, such as a tap, so a plugin
+cannot pull the user out of what they were typing:
+
+```python
+def render():
+    if not plugin.settings.server:
+        ui.empty("Type your server's address first.", icon="dns",
+                 action="Open settings", on_click=plugin.open_settings)
+        return
+    ...
+```
+
+The web editor uses each setting's `default` while you test. Settings can be
+[translated](/plugins/guides/translations/) like the rest of your plugin.
+
+## Reminders
+
+A reminder is a notification at a time you choose. The app shows it, even
+after the keyboard closes. Your code does not run when it fires. It needs the
+`reminders` permission:
+
+```python
+import time
+from wm import reminders
+
+reminders.set("tea", time.time() + 4 * 60, "Tea is ready")
+reminders.cancel("tea")
+reminders.list()
+```
+
+The notification is titled with your plugin's name. Up to 64 at a time, 200
+characters of text each, up to ten years ahead. Setting the same id again
+moves that reminder.

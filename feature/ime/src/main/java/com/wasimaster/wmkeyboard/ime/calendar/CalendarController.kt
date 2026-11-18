@@ -11,10 +11,12 @@ import android.text.format.DateUtils
 import androidx.core.content.ContextCompat
 import com.wasimaster.wmkeyboard.core.settings.CalendarSaveMode
 import com.wasimaster.wmkeyboard.core.settings.CalendarToolSettings
+import com.wasimaster.wmkeyboard.core.settings.InviteSettings
 import com.wasimaster.wmkeyboard.core.tools.DeviceCalendar
 import com.wasimaster.wmkeyboard.core.tools.DeviceCalendarEvent
 import com.wasimaster.wmkeyboard.core.tools.DeviceCalendarInfo
 import com.wasimaster.wmkeyboard.core.tools.DeviceCalendarWrite
+import com.wasimaster.wmkeyboard.core.tools.EventWeatherRules
 import com.wasimaster.wmkeyboard.core.tools.StoredEvent
 import com.wasimaster.wmkeyboard.core.tools.ToolPrefill
 import com.wasimaster.wmkeyboard.core.tools.calendar.CalendarOp
@@ -25,8 +27,11 @@ import com.wasimaster.wmkeyboard.core.tools.calendar.EventTimes
 import com.wasimaster.wmkeyboard.core.tools.calendar.EventWrites
 import com.wasimaster.wmkeyboard.core.tools.calendar.Guest
 import com.wasimaster.wmkeyboard.core.tools.calendar.RRule
+import com.wasimaster.wmkeyboard.core.tools.calendar.Recurrence
 import com.wasimaster.wmkeyboard.core.tools.calendar.SeriesInfo
 import com.wasimaster.wmkeyboard.ime.R
+import com.wasimaster.wmkeyboard.ime.calendar.invite.InviteFlow
+import com.wasimaster.wmkeyboard.ime.calendar.invite.InviteNet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -66,13 +71,42 @@ internal class CalendarController(
     private val endText: () -> Unit,
     /** What is in the composer's box right now; it lives in the keyboard's state. */
     private val currentText: () -> CalendarTextEntry?,
+    /** What the weather on event cards may do right now (#1212). */
+    private val weatherConfig: () -> EventWeatherConfig = { EventWeatherConfig() },
+    /** Switches the keyboard to the Weather panel, which draws [forecast]. */
+    private val openWeather: () -> Unit = {},
+    /** Switches back to this panel, on the given day. */
+    private val openCalendarDay: (EventDate) -> Unit = {},
+    /** Writes one change to the invitation accounts (#1274): renewed Mobilizon tokens, the last service used. */
+    private val saveInvites: ((InviteSettings) -> InviteSettings) -> Unit = {},
+    /** Whether an invitation may reach the network now: online, and data saving's state. */
+    private val inviteNet: () -> InviteNet = { InviteNet() },
 ) {
 
     private val app = context.applicationContext
     private val _state = MutableStateFlow(CalendarUi(today = today()))
     val state: StateFlow<CalendarUi> = _state
 
-    val callbacks = CalendarCallbacks(state = state, onAction = ::dispatch)
+    /** The hourly forecast the Weather panel shows for one event; null when it shows its own. */
+    private val _forecast = MutableStateFlow<EventForecastUi?>(null)
+    val forecast: StateFlow<EventForecastUi?> = _forecast
+
+    val callbacks = CalendarCallbacks(state = state, forecast = forecast, onAction = ::dispatch)
+
+    /** The "Invite online" card (#1274). */
+    private val invites = InviteFlow(
+        state = _state,
+        scope = scope,
+        settings = { settings().invites },
+        saveSettings = { change -> saveInvites(change) },
+        net = { inviteNet() },
+        describe = { d -> line(d.title, d.begin, d.end, d.allDay, d.place, TimeZone.getTimeZone(d.zoneId)) },
+        ticketName = { app.getString(R.string.ime_invite_ticket_name) },
+    )
+
+    private val weatherSource = EventWeatherSource()
+    private var weatherJob: Job? = null
+    private var forecastJob: Job? = null
 
     private var open = false
     private var monthJob: Job? = null
@@ -87,7 +121,11 @@ internal class CalendarController(
     private sealed interface Pending {
         data object Save : Pending
         data class Delete(val scope: EditScope?) : Pending
+        data class Move(val event: DeviceCalendarEvent, val minutes: Int) : Pending
     }
+
+    /** The draft in hand is a day-view drag, not the composer's: a cancelled scope drops it. */
+    private var moving = false
 
     // ---- Lifecycle -------------------------------------------------------
 
@@ -103,6 +141,7 @@ internal class CalendarController(
                 detail = null,
                 scopePrompt = null,
                 undo = null,
+                invite = null,
             )
         }
         refreshGrants()
@@ -161,6 +200,7 @@ internal class CalendarController(
         when (waiting) {
             Pending.Save -> save()
             is Pending.Delete -> delete(waiting.scope)
+            is Pending.Move -> moveEvent(waiting.event, waiting.minutes)
         }
     }
 
@@ -212,8 +252,18 @@ internal class CalendarController(
         }
     }
 
+    /** Hands the keys to one of the invitation card's boxes (#1274). */
+    private fun startInviteText(field: CalendarTextField) {
+        textField = field
+        beginText(CalendarTextEntry(field, invites.textOf(field), invite = true))
+    }
+
     /** Called by the service as the box is typed into. */
     fun onText(entry: CalendarTextEntry) {
+        if (entry.invite) {
+            invites.onText(entry)
+            return
+        }
         when (entry.field) {
             CalendarTextField.TITLE -> updateDraft { it.copy(title = entry.text.take(TITLE_MAX)) }
             CalendarTextField.LOCATION -> updateDraft { it.copy(location = entry.text.take(TITLE_MAX)) }
@@ -227,6 +277,13 @@ internal class CalendarController(
      * added and the box stays open for the next; the rest are kept.
      */
     fun onTextEnter(entry: CalendarTextEntry) {
+        if (entry.invite) {
+            // A title moves on to the place, as in the composer; the rest are kept.
+            invites.onText(entry)
+            endTextIfAny()
+            if (entry.field == CalendarTextField.TITLE) startInviteText(CalendarTextField.LOCATION)
+            return
+        }
         when (entry.field) {
             CalendarTextField.TITLE -> {
                 onText(entry)
@@ -282,11 +339,20 @@ internal class CalendarController(
             is CalendarAction.NewEvent -> {
                 val day = action.date ?: _state.value.selected
                 if (action.date != null) showDay(day)
-                startDraft(newDraft(day))
+                val draft = newDraft(day)
+                startDraft(action.minute?.let { draft.withStart(day, it) } ?: draft)
             }
+            is CalendarAction.MoveEvent -> moveEvent(action.event, action.minutes)
             CalendarAction.ResumeDraft -> _state.update { it.copy(view = CalendarView.COMPOSE, resumable = false) }
             CalendarAction.DiscardDraft -> _state.update { it.copy(draft = null, draftBase = null, resumable = false, series = null) }
             is CalendarAction.OpenEvent -> openEvent(action.event)
+            is CalendarAction.OpenWeather -> openForecast(action.event)
+            CalendarAction.ForecastRefresh -> fetchForecast(force = true)
+            CalendarAction.ForecastBack -> {
+                val day = _forecast.value?.day
+                closeForecast()
+                day?.let(openCalendarDay)
+            }
             CalendarAction.AskRead -> launch(trampoline(com.wasimaster.wmkeyboard.app.CalendarPermissionActivity::class.java))
             CalendarAction.OpenSettings -> openToolSettings()
 
@@ -308,6 +374,31 @@ internal class CalendarController(
             }
             CalendarAction.InsertEvent -> _state.value.detail?.let { insertText(describe(it)) }
             CalendarAction.OpenInApp -> _state.value.detail?.let { openInApp(it) }
+
+            CalendarAction.InviteOpen -> _state.value.detail?.let { invites.open(it) }
+            CalendarAction.InviteBack -> {
+                endTextIfAny()
+                invites.close()
+            }
+            is CalendarAction.InvitePick -> invites.pick(action.service)
+            is CalendarAction.InviteType -> {
+                endTextIfAny()
+                startInviteText(action.field)
+            }
+            is CalendarAction.InvitePlaces -> invites.places(action.places)
+            is CalendarAction.InviteListed -> invites.listed(action.listed)
+            CalendarAction.InviteLoadOrganizers -> invites.loadOrganizers()
+            is CalendarAction.InviteOrganizer -> invites.organizer(action.organizer)
+            CalendarAction.InvitePublish -> {
+                endTextIfAny()
+                invites.publish()
+            }
+            CalendarAction.InviteAllowData -> invites.allowData()
+            CalendarAction.InviteInsertLink -> _state.value.invite?.published?.url?.let(insertText)
+            CalendarAction.InviteInsertMessage -> invites.message()?.let(insertText)
+            CalendarAction.InviteOpenLink -> _state.value.invite?.published?.url?.let(::openLink)
+            CalendarAction.InviteOpenAdmin -> _state.value.invite?.published?.adminUrl?.let(::openLink)
+            CalendarAction.InviteErrorDismiss -> invites.dismissError()
 
             is CalendarAction.Draft -> updateDraft { action.draft }
             is CalendarAction.Sheet -> {
@@ -356,11 +447,21 @@ internal class CalendarController(
                 _state.update { it.copy(scopePrompt = null) }
                 if (prompt.delete) delete(action.scope) else write(action.scope)
             }
-            CalendarAction.CancelScope -> _state.update { it.copy(scopePrompt = null) }
+            CalendarAction.CancelScope -> {
+                _state.update { it.copy(scopePrompt = null) }
+                if (moving) {
+                    // The drag is put back: the block returns to where the event still is.
+                    moving = false
+                    _state.update { it.copy(draft = null, draftBase = null, detail = null, series = null) }
+                    reloadDay()
+                }
+            }
 
             CalendarAction.TextDone -> {
                 currentText()?.let { entry ->
-                    if (entry.field == CalendarTextField.GUEST) {
+                    if (entry.invite) {
+                        invites.onText(entry)
+                    } else if (entry.field == CalendarTextField.GUEST) {
                         entry.text.trim().takeIf { looksLikeEmail(it) }?.let { addGuest(Guest(it)) }
                     } else {
                         onText(entry)
@@ -414,8 +515,127 @@ internal class CalendarController(
         dayJob?.cancel()
         dayJob = scope.launch {
             val events = withContext(Dispatchers.IO) { DeviceCalendar.eventsForDay(app, day.year, day.month, day.day) }
-            if (_state.value.selected == day) _state.update { it.copy(dayEvents = events) }
+            if (_state.value.selected == day) {
+                _state.update { it.copy(dayEvents = events) }
+                loadWeather(events)
+            }
         }
+    }
+
+    // ---- Weather on events (#1212) ------------------------------------
+
+    /**
+     * The weather beside each of [events] that is still to come and inside
+     * the forecast. Kept forecasts are used while fresh; a stale or missing one
+     * is fetched only while the network is up and data saving is not holding
+     * it back, so the cards never reach the network on a metered connection by
+     * themselves.
+     */
+    private fun loadWeather(events: List<DeviceCalendarEvent>) {
+        weatherJob?.cancel()
+        val cfg = weatherConfig()
+        if (!cfg.enabled) {
+            if (_state.value.weather.isNotEmpty()) _state.update { it.copy(weather = emptyMap()) }
+            return
+        }
+        val now = System.currentTimeMillis()
+        val wanted = events.mapNotNull { e -> EventWeatherRules.targetMillis(e.begin, e.end, e.allDay, now)?.let { e to it } }
+        if (wanted.isEmpty()) return
+        weatherJob = scope.launch {
+            for ((event, at) in wanted) {
+                val chip = chipFor(event, at, cfg) ?: continue
+                _state.update { s ->
+                    val next = s.weather + (weatherKey(event) to chip)
+                    s.copy(weather = if (next.size > MAX_WEATHER_CHIPS) next.entries.drop(next.size - MAX_WEATHER_CHIPS).associate { it.key to it.value } else next)
+                }
+            }
+        }
+    }
+
+    /**
+     * Where to forecast [event]: the place its location searches to, the
+     * user's weather location when it has none (or one no search finds), and
+     * nothing when its place has not been searched yet.
+     */
+    private suspend fun placeFor(event: DeviceCalendarEvent, cfg: EventWeatherConfig): ForecastPlace? {
+        val text = event.location?.trim().orEmpty()
+        if (text.isEmpty()) return cfg.home
+        return when (val hit = weatherSource.place(text, cfg.mayFetchUnasked)) {
+            is EventWeatherSource.PlaceHit.Found -> ForecastPlace(hit.place.name, hit.place.latitude, hit.place.longitude, fromEvent = true)
+            EventWeatherSource.PlaceHit.NotFound -> cfg.home
+            EventWeatherSource.PlaceHit.Unknown -> null
+        }
+    }
+
+    private suspend fun chipFor(event: DeviceCalendarEvent, at: Long, cfg: EventWeatherConfig): EventWeatherChip? {
+        val place = placeFor(event, cfg) ?: return null
+        val forecast = weatherSource.forecast(place.latitude, place.longitude, cfg.staleAfterMs, cfg.mayFetchUnasked) ?: return null
+        val hour = forecast.hourAt(at) ?: return null
+        return EventWeatherChip(
+            weatherCode = hour.weatherCode,
+            isDay = hour.isDay,
+            temperatureC = hour.temperatureC,
+            precipProbabilityPercent = hour.precipProbabilityPercent,
+            place = place,
+            focusMillis = at,
+            fahrenheit = cfg.fahrenheit,
+        )
+    }
+
+    /** The weather on [event]'s card was tapped: the Weather panel opens on that day, at that hour. */
+    private fun openForecast(event: DeviceCalendarEvent) {
+        val chip = _state.value.weather[weatherKey(event)] ?: return
+        val cfg = weatherConfig()
+        val zone = TimeZone.getDefault()
+        val at = chip.focusMillis
+        val day = EventDate.of(at, zone)
+        haptic()
+        forecastJob?.cancel()
+        _forecast.value = EventForecastUi(
+            title = event.title,
+            place = chip.place,
+            day = day,
+            dayStart = EventTimes.millis(day, 0, zone),
+            dayEnd = EventTimes.millis(day.plusDays(1), 0, zone),
+            focusMillis = at,
+            fahrenheit = cfg.fahrenheit,
+            hour24 = _state.value.hour24,
+        )
+        openWeather()
+        fetchForecast(force = false)
+    }
+
+    /**
+     * The forecast for the open hourly view. The user asked for it, so data
+     * saving does not hold it back (the Weather panel's own fetch does not
+     * wait on it either); only being offline does.
+     */
+    private fun fetchForecast(force: Boolean) {
+        val shown = _forecast.value ?: return
+        val cfg = weatherConfig()
+        forecastJob?.cancel()
+        _forecast.update { it?.copy(loading = true, failed = false) }
+        forecastJob = scope.launch {
+            val got = weatherSource.forecast(
+                shown.place.latitude,
+                shown.place.longitude,
+                staleAfterMs = if (force) 0L else cfg.staleAfterMs,
+                mayFetch = cfg.online,
+            )
+            _forecast.update { cur ->
+                if (cur == null || cur.place != shown.place || cur.focusMillis != shown.focusMillis) {
+                    cur
+                } else {
+                    cur.copy(forecast = got ?: cur.forecast, loading = false, failed = got == null)
+                }
+            }
+        }
+    }
+
+    /** The Weather panel goes back to its own place: opened from the toolbar, or left by its back arrow. */
+    fun closeForecast() {
+        forecastJob?.cancel()
+        _forecast.value = null
     }
 
     private fun loadCalendars() {
@@ -458,7 +678,11 @@ internal class CalendarController(
 
     private fun draftFromPrefill(p: ToolPrefill.CalendarEvent): EventDraft {
         val zone = TimeZone.getTimeZone(p.zoneId)
-        val base = newDraft(EventDate.of(p.start, zone)).copy(title = p.title.take(TITLE_MAX), zoneId = zone.id)
+        val base = newDraft(EventDate.of(p.start, zone)).copy(
+            title = p.title.take(TITLE_MAX),
+            zoneId = zone.id,
+            recurrence = if (p.yearly) Recurrence.yearly() else null,
+        )
         return if (p.allDay) {
             val last = EventDate.of(p.end - 1, zone)
             base.withAllDay(true).copy(endDate = if (last < base.startDate) base.startDate else last)
@@ -563,6 +787,36 @@ internal class CalendarController(
         write(null)
     }
 
+    /**
+     * A day-view drag (#1210): [event] moved by [minutes], saved as an edit of
+     * its times alone through the composer's own write, so a repeating event
+     * asks which occurrences first and the move can be undone.
+     */
+    private fun moveEvent(event: DeviceCalendarEvent, minutes: Int) {
+        if (minutes == 0 || event.allDay || !event.canModify) return
+        if (!DeviceCalendar.canWrite(app)) {
+            pending = Pending.Move(event, minutes)
+            launch(trampoline(com.wasimaster.wmkeyboard.app.CalendarWritePermissionActivity::class.java))
+            return
+        }
+        scope.launch {
+            val stored = withContext(Dispatchers.IO) { DeviceCalendarWrite.load(app, event.id, event.begin, event.end) } ?: return@launch
+            if (!stored.canModify) return@launch
+            val series = withContext(Dispatchers.IO) { DeviceCalendarWrite.series(app, stored) }
+            val base = DeviceCalendarWrite.draftOf(stored, series)
+            val total = base.startDate.jdn * EventDraft.MINUTES_PER_DAY + base.startMinute + minutes
+            val day = EventDate.ofJdn(Math.floorDiv(total, EventDraft.MINUTES_PER_DAY.toLong()))
+            val moved = base.withStart(day, Math.floorMod(total, EventDraft.MINUTES_PER_DAY.toLong()).toInt())
+            moving = true
+            _state.update { it.copy(detail = stored, series = series, draft = moved, draftBase = base, sheet = null, error = null) }
+            if (series != null) {
+                _state.update { it.copy(scopePrompt = ScopePrompt(delete = false, scopes = EditScope.entries)) }
+            } else {
+                write(null)
+            }
+        }
+    }
+
     private fun write(editScope: EditScope?) {
         val d = _state.value.draft ?: return
         val series = _state.value.series
@@ -585,6 +839,8 @@ internal class CalendarController(
                 result to undoFor(d, base, series, editScope, ops, result.insertedId)
             }
             haptic()
+            val wasMove = moving
+            moving = false
             if (result.ok) {
                 _state.update {
                     it.copy(
@@ -602,7 +858,15 @@ internal class CalendarController(
                 showDay(d.startDate)
                 reloadMonth()
             } else {
-                _state.update { it.copy(busy = false, error = CalendarError.WRITE_FAILED) }
+                _state.update {
+                    // A failed drag leaves nothing half done behind: the block goes back.
+                    if (wasMove) {
+                        it.copy(busy = false, error = CalendarError.WRITE_FAILED, draft = null, draftBase = null, detail = null, series = null)
+                    } else {
+                        it.copy(busy = false, error = CalendarError.WRITE_FAILED)
+                    }
+                }
+                if (wasMove) reloadDay()
             }
         }
     }
@@ -719,6 +983,11 @@ internal class CalendarController(
         return ok
     }
 
+    /** A published invitation's page, or Pretix's page for what it still needs, in the browser. */
+    private fun openLink(url: String) {
+        launch(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+    }
+
     private fun trampoline(activity: Class<*>): Intent = Intent(app, activity).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
     // ---- Text the tool types ---------------------------------------------
@@ -765,6 +1034,7 @@ internal class CalendarController(
         private const val HOUR_MS = 3_600_000L
         private const val CONFLICT_DEBOUNCE_MS = 250L
         private const val GUEST_DEBOUNCE_MS = 150L
+        private const val MAX_WEATHER_CHIPS = 200
 
         fun today(): EventDate = EventDate.of(System.currentTimeMillis(), TimeZone.getDefault())
 
@@ -780,5 +1050,7 @@ internal class CalendarController(
 /** What the Calendar panel hands back; one bundle, see `ToolHoldCallbacks.calendar`. */
 data class CalendarCallbacks(
     val state: StateFlow<CalendarUi> = MutableStateFlow(CalendarUi(today = CalendarController.today())),
+    /** The hourly forecast for one event, which the Weather panel draws in place of its own (#1212). */
+    val forecast: StateFlow<EventForecastUi?> = MutableStateFlow(null),
     val onAction: (CalendarAction) -> Unit = {},
 )

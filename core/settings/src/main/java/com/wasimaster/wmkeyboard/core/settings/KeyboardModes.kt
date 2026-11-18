@@ -27,11 +27,16 @@ import kotlinx.serialization.json.jsonArray
  * same way: it opens when the text before the cursor asks for a sticker, and
  * has a slot only while that feature is switched on.
  *
+ * [SECOND_TOOLBAR] (#1217) is a second row of tools the user picks apart from
+ * the toolbar's pinned ones, drawn while `ToolbarBehavior.secondRow` is on.
+ * Unlike [TOOLS] it does not hang off the toolbar: it stays with the toolbar
+ * switched off, and whatever the strip is showing.
+ *
  * Stored by name. The reader drops a name it does not know and
  * [sanitizeBarOrder] fills the gap, so a build that predates a constant
  * still decodes an order written by a newer one.
  */
-enum class BarRow { TOPBAR, EMOJI, SYMBOL, FANCY, TOOLS, DICTIONARY, MACROS, STICKERS, RECENT, KEYBOARD }
+enum class BarRow { TOPBAR, EMOJI, SYMBOL, FANCY, TOOLS, DICTIONARY, MACROS, STICKERS, RECENT, SECOND_TOOLBAR, KEYBOARD }
 
 /**
  * The shipped stacking: emoji on top because it is reached for most, the
@@ -52,13 +57,16 @@ enum class BarRow { TOPBAR, EMOJI, SYMBOL, FANCY, TOOLS, DICTIONARY, MACROS, STI
  * they were a row of their own; [sanitizeBarOrder] puts them there for an
  * order stored before they were.
  *
+ * The second toolbar (#1217) goes directly under the strip, between it and
+ * the keys; [sanitizeBarOrder] puts it there for an order stored before it.
+ *
  * The keys come last, so every row sits above them — which is also where
  * [sanitizeBarOrder] puts the keys for an order stored before they were an
  * entry, keeping that user's keyboard exactly as it was.
  */
 val DefaultBarOrder: List<BarRow> = listOf(
-    BarRow.STICKERS, BarRow.EMOJI, BarRow.TOOLS, BarRow.MACROS, BarRow.RECENT, BarRow.TOPBAR, BarRow.SYMBOL,
-    BarRow.DICTIONARY, BarRow.FANCY, BarRow.KEYBOARD,
+    BarRow.STICKERS, BarRow.EMOJI, BarRow.TOOLS, BarRow.MACROS, BarRow.RECENT, BarRow.TOPBAR,
+    BarRow.SECOND_TOOLBAR, BarRow.SYMBOL, BarRow.DICTIONARY, BarRow.FANCY, BarRow.KEYBOARD,
 )
 
 /**
@@ -178,6 +186,8 @@ data class ModeContext(
     val appGroups: Set<AppGroup> = emptySet(),
     val tablet: Boolean = false,
     val oneHanded: Boolean = false,
+    /** Whether the phone is in dark mode: the night bit of the configuration's uiMode. */
+    val darkMode: Boolean = false,
     /** The Bluetooth audio outputs connected, by name; empty when no mode asks. */
     val bluetoothNames: List<String> = emptyList(),
     val fieldName: String? = null,
@@ -267,9 +277,11 @@ data class KeyboardMode(
     val themeId: String? = null,
     /**
      * Pinned toolbar tools while active; null inherits the user's toolbar.
-     * Replaces the toolbar unless [toolbarToolsAppend] is on.
+     * Replaces the toolbar unless [toolbarToolsAppend] is on. Plugins shown
+     * as tools are entries like any other ([ToolKey]).
      */
-    val toolbarTools: List<ToolbarTool>? = null,
+    @Serializable(with = ToolKeyListSerializer::class)
+    val toolbarTools: List<ToolKey>? = null,
     /**
      * When true, [toolbarTools] are added after the user's own pinned tools
      * instead of replacing them — the mode contributes its specialty tools
@@ -281,7 +293,8 @@ data class KeyboardMode(
      * inherits the user's order. A partial list is enough — anything not
      * named keeps its global rank behind these.
      */
-    val toolboxOrder: List<ToolbarTool>? = null,
+    @Serializable(with = ToolKeyListSerializer::class)
+    val toolboxOrder: List<ToolKey>? = null,
     /** Symbol row on/off while active; null inherits. */
     val symbolRowEnabled: Boolean? = null,
     /**
@@ -340,6 +353,17 @@ data class KeyboardMode(
      */
     val commitAsTyped: Boolean? = null,
     /**
+     * Extra characters that stay inside the composing word while active, as
+     * typed in the editor; empty adds none. `%_` keeps Tasker's `%output_var`
+     * one word instead of three pieces that commit apart and that the app's
+     * input filter rejects (competitor gap list item 34, LeanType's "allow
+     * symbol composing"). A word holding one goes in exactly as typed: it is a
+     * name the app defines, not a word to complete, correct or learn.
+     * Read through [modeWordChars], which drops what is already a word
+     * character or never could be one.
+     */
+    val wordChars: String = "",
+    /**
      * Incognito while active (#1025): no learning and whatever else incognito
      * pauses, for a mode bound to a work app or a shared device's browser. It can
      * only add: a mode that could switch off the incognito the user turned on by
@@ -356,6 +380,14 @@ data class KeyboardMode(
      * field's action stays on the key's hold.
      */
     val enterNewline: Boolean = false,
+    /**
+     * The action Enter fires while active, by [ModeEnterAction.id], whatever
+     * the field declares: Send in a chat app whose box never shows it, Search
+     * in a search box labelled Done (competitor gap list item 9, LeanType's
+     * per-app Enter). Null leaves it to the field; [enterNewline] wins when
+     * both are set. Shift+Enter still types a line break.
+     */
+    val enterAction: String? = null,
     /** The number row while active; null inherits (#1025). */
     val numberRow: Boolean? = null,
     /**
@@ -418,6 +450,14 @@ data class KeyboardMode(
     val screenSize: ModeScreenSize? = null,
     /** Only with one-handed mode on, or only with it off; null either way (#1025). */
     val oneHanded: Boolean? = null,
+    /**
+     * Only while the phone is in dark mode, or only while it is not; null
+     * either way. What the system's dark theme says, however it got there: by
+     * hand, on a schedule or at sunset. With [keySound] and [keyHaptics] off,
+     * this is a mode that keeps the keyboard quiet at night (competitor gap
+     * list item 22, AnySoftKeyboard's night mode) and needs no app or field.
+     */
+    val darkMode: Boolean? = null,
     /** Only with Bluetooth audio connected, or only without; null either way (#1025). */
     val bluetoothAudio: Boolean? = null,
     /**
@@ -486,8 +526,8 @@ data class KeyboardMode(
     /** Whether the device's state, the time or more of the field decides this mode. */
     val hasDeviceCondition: Boolean
         get() = orientation != null || hardwareKeyboard != null || (timeFrom != null && timeTo != null) ||
-            screenSize != null || oneHanded != null || readsBluetooth || fieldNames.isNotEmpty() ||
-            fieldLanguages.isNotEmpty() || readsFieldText
+            screenSize != null || oneHanded != null || darkMode != null || readsBluetooth ||
+            fieldNames.isNotEmpty() || fieldLanguages.isNotEmpty() || readsFieldText
 }
 
 private val modeJson = Json {
@@ -632,14 +672,18 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
         emojiBarMode = EmojiBarMode.OFF,
         // The one mode that deliberately *replaces* the toolbar: nothing
         // that opens a network panel belongs next to a password box.
-        toolbarTools = listOf(
+        toolbarTools = toolKeysOf(
             ToolbarTool.PASSWORD_GEN, ToolbarTool.CLIPBOARD, ToolbarTool.SETTINGS,
         ),
-        toolboxOrder = listOf(
+        toolboxOrder = toolKeysOf(
             ToolbarTool.PASSWORD_GEN, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
             ToolbarTool.NUMPAD, ToolbarTool.SYMBOLS, ToolbarTool.SETTINGS,
         ),
         symbolRowEnabled = false,
+        // Passwords mix digits in far more often than prose does, so the
+        // digits sit on the board even for someone who keeps the number row
+        // off everywhere else (FUTO and AnySoftKeyboard do the same).
+        numberRow = true,
         fieldKinds = listOf(ModeField.PASSWORD),
     ),
     // Field-bound only: an email box is an email box in any app. The mail
@@ -648,7 +692,7 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
         id = "mode_email",
         icon = "mail",
         name = "Email",
-        toolboxOrder = listOf(
+        toolboxOrder = toolKeysOf(
             ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS, ToolbarTool.TEXT_EDIT,
             ToolbarTool.VOICE, ToolbarTool.SYMBOLS,
         ),
@@ -663,7 +707,7 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
         id = "mode_browser",
         icon = "web",
         name = "Browser",
-        toolboxOrder = listOf(
+        toolboxOrder = toolKeysOf(
             ToolbarTool.CLIPBOARD, ToolbarTool.WEB_SEARCH, ToolbarTool.SNIPPETS,
             ToolbarTool.QR_SCAN, ToolbarTool.VOICE, ToolbarTool.INCOGNITO,
         ),
@@ -679,11 +723,11 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
         emojiBarMode = EmojiBarMode.ALWAYS,
         // What you reach for mid-sentence. Grammar is a once-per-message
         // check, so it leads the toolbox instead of taking toolbar space.
-        toolbarTools = listOf(
+        toolbarTools = toolKeysOf(
             ToolbarTool.EMOJI, ToolbarTool.GIF, ToolbarTool.STICKER, ToolbarTool.VOICE,
         ),
         toolbarToolsAppend = true,
-        toolboxOrder = listOf(
+        toolboxOrder = toolKeysOf(
             ToolbarTool.GRAMMAR, ToolbarTool.TRANSLATE, ToolbarTool.CAMERA,
             ToolbarTool.IMAGE_SEARCH, ToolbarTool.CLIPBOARD, ToolbarTool.SNIPPETS,
             // The pinned four, ranked in case the user unpins one — the
@@ -707,12 +751,12 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
         // and edit with AI, the caret tools, dictation), then the everyday
         // paste-and-insert pins. AI drops out on its own in a build without
         // it (see isSupportedTool), leaving the rest of the bar untouched.
-        toolbarTools = listOf(
+        toolbarTools = toolKeysOf(
             ToolbarTool.AI, ToolbarTool.TEXT_EDIT, ToolbarTool.VOICE,
             ToolbarTool.CLIPBOARD, ToolbarTool.EMOJI,
         ),
         toolbarToolsAppend = false,
-        toolboxOrder = listOf(
+        toolboxOrder = toolKeysOf(
             // Polish the draft, then pull material into it, then the
             // reference and history tools.
             ToolbarTool.GRAMMAR, ToolbarTool.DICTIONARY, ToolbarTool.VOCABULARY,
@@ -732,7 +776,7 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
         id = "mode_coding",
         icon = "code",
         name = "Coding",
-        toolboxOrder = listOf(
+        toolboxOrder = toolKeysOf(
             ToolbarTool.SNIPPETS, ToolbarTool.CLIPBOARD, ToolbarTool.TEXT_EDIT,
             ToolbarTool.TRACKPAD, ToolbarTool.SYMBOLS, ToolbarTool.CALCULATOR, ToolbarTool.NUMPAD,
             ToolbarTool.UNDO, ToolbarTool.REDO,
@@ -756,7 +800,29 @@ val DefaultKeyboardModes: List<KeyboardMode> = listOf(
  * so upgrades pick the new modes up — see
  * `SettingsRepository.seedNewDefaultModes`.
  */
-const val CurrentModeSeedVersion: Int = 3
+/** The editor actions a mode can make Enter fire ([KeyboardMode.enterAction]). */
+enum class ModeEnterAction(val id: String, val editorAction: Int) {
+    SEND("send", EditorInfo.IME_ACTION_SEND),
+    SEARCH("search", EditorInfo.IME_ACTION_SEARCH),
+    GO("go", EditorInfo.IME_ACTION_GO),
+    NEXT("next", EditorInfo.IME_ACTION_NEXT),
+    DONE("done", EditorInfo.IME_ACTION_DONE),
+    ;
+
+    companion object {
+        fun of(id: String?): ModeEnterAction? = entries.firstOrNull { it.id == id }
+    }
+}
+
+const val CurrentModeSeedVersion: Int = 4
+
+/**
+ * Stored default modes that get `numberRow = true` in seed version 4, when
+ * the Passwords mode started showing the number row. Only a mode that still
+ * leaves the number row to the global setting (`null`) is touched, so a user
+ * who set it either way in the mode editor keeps their choice.
+ */
+val ModesNumberRowInSeedVersion4: Set<String> = setOf("mode_password")
 
 /** Default modes added in seed version 2 (chat and writing). */
 val ModesAddedInSeedVersion2: Set<String> = setOf("mode_chat", "mode_writing")
@@ -861,6 +927,7 @@ private fun KeyboardMode.matchesDevice(context: ModeContext): Boolean {
     if (hardwareKeyboard != null && hardwareKeyboard != context.hardwareKeyboard) return false
     if (screenSize != null && (screenSize == ModeScreenSize.TABLET) != context.tablet) return false
     if (oneHanded != null && oneHanded != context.oneHanded) return false
+    if (darkMode != null && darkMode != context.darkMode) return false
     if (bluetoothAudio != null && bluetoothAudio != context.bluetoothNames.isNotEmpty()) return false
     if (bluetoothNames.isNotEmpty() && context.bluetoothNames.none { device -> bluetoothNames.any { device.contains(it.trim(), ignoreCase = true) } }) {
         return false
@@ -909,7 +976,7 @@ fun KeyboardSettings.withoutModes(): KeyboardSettings =
     } else {
         copy(
             keyboardModes = emptyList(),
-            toolbarTools = toolbarTools - ToolbarTool.MODES,
+            toolbarTools = toolbarTools - ToolbarTool.MODES.key,
             enabledTools = enabledTools - ToolbarTool.MODES,
         )
     }
@@ -936,6 +1003,16 @@ fun KeyboardSettings.modesOverridingRow(row: BarRow): List<KeyboardMode> {
         else -> emptyList()
     }
 }
+
+/**
+ * [raw], a mode's [KeyboardMode.wordChars] as typed, reduced to the characters
+ * it can add: each once, in the order typed, with letters, digits and
+ * whitespace dropped. Letters and digits already belong to a word, and a space
+ * that joined words would leave nothing to end one.
+ */
+fun modeWordChars(raw: String): String =
+    raw.filterNot { it.isLetterOrDigit() || it.isWhitespace() || it.isISOControl() }
+        .toList().distinct().joinToString("")
 
 /**
  * Manual pick meaning "no mode at all": the Modes tool's None row. Unlike a
@@ -978,8 +1055,8 @@ fun resolveKeyboardMode(
  * inheriting it untouched. Appending keeps the user's own pins first and
  * drops duplicates so a tool never shows up twice.
  */
-private fun KeyboardMode.pinnedOver(base: List<ToolbarTool>): List<ToolbarTool> {
-    val tools = toolbarTools?.filter(::isSupportedTool) ?: return base
+private fun KeyboardMode.pinnedOver(base: List<ToolKey>): List<ToolKey> {
+    val tools = toolbarTools?.filter { it.isSupported() } ?: return base
     return if (toolbarToolsAppend) base + (tools - base.toSet()) else tools
 }
 
@@ -992,7 +1069,7 @@ fun KeyboardSettings.applyMode(mode: KeyboardMode?): KeyboardSettings {
     // list would switch every tool they had turned off back on for as long as
     // any mode was active — a tool stays pinned when it is disabled, so Voice
     // came back in every chat app the moment the chat mode matched.
-    val modePinned = mode.toolbarTools?.filter(::isSupportedTool).orEmpty()
+    val modePinned = mode.toolbarTools?.builtinTools()?.filter(::isSupportedTool).orEmpty()
     return copy(
         emojiBarMode = mode.emojiBarMode ?: emojiBarMode,
         keyboardThemeId = mode.themeId ?: keyboardThemeId,
@@ -1019,12 +1096,17 @@ fun KeyboardSettings.applyMode(mode: KeyboardMode?): KeyboardSettings {
         autoText = autoText
             .let { t -> mode.autoCapitalize?.let { t.copy(capitalize = it) } ?: t }
             .let { t -> mode.autoSpace?.let { t.copy(spaceAfterPunctuation = it) } ?: t }
-            .let { t -> mode.commitAsTyped?.let { t.copy(commitAsTyped = it) } ?: t },
+            .let { t -> mode.commitAsTyped?.let { t.copy(commitAsTyped = it) } ?: t }
+            .let { t -> modeWordChars(mode.wordChars).takeIf { it.isNotEmpty() }?.let { t.copy(wordChars = it) } ?: t },
         suggestions = mode.suggestions ?: suggestions,
         incognito = incognito || mode.incognito,
         sound = mode.keySound?.let { sound.copy(enabled = it) } ?: sound,
         haptics = mode.keyHaptics?.let { haptics.copy(enabled = it) } ?: haptics,
-        layoutBehavior = if (mode.enterNewline) layoutBehavior.copy(enterAlwaysNewline = true) else layoutBehavior,
+        layoutBehavior = when {
+            mode.enterNewline -> layoutBehavior.copy(enterAlwaysNewline = true)
+            else -> ModeEnterAction.of(mode.enterAction)
+                ?.let { layoutBehavior.copy(enterForcedAction = it.editorAction) } ?: layoutBehavior
+        },
         numberRow = mode.numberRow ?: numberRow,
         oneHandedMode = mode.oneHandedOverride ?: oneHandedMode,
         keyHeightDp = mode.keyHeightPercent?.let { keyHeightDp * it / 100 } ?: keyHeightDp,
@@ -1054,4 +1136,25 @@ fun KeyboardSettings.applyMode(mode: KeyboardMode?): KeyboardSettings {
         // keyboard to something that cannot be drawn.
         activeLayoutId = mode.layoutId?.takeIf { it in enabledLayoutIds } ?: activeLayoutId,
     )
+}
+
+/** This mode with plugin [pluginId] out of its own bar and order; see [SettingsRepository.removePluginTool]. */
+fun KeyboardMode.withoutPlugin(pluginId: String): KeyboardMode = copy(
+    toolbarTools = toolbarTools?.withoutPlugin(pluginId),
+    toolboxOrder = toolboxOrder?.withoutPlugin(pluginId),
+)
+
+/**
+ * A mode's tool list as the tokens [ToolKey] stores: enum names and
+ * `plugin:<id>`. Unknown entries are dropped one by one on the way in, where
+ * the enum's own serializer failed the whole mode over one name a later
+ * build retired.
+ */
+object ToolKeyListSerializer : kotlinx.serialization.KSerializer<List<ToolKey>> {
+    private val strings = kotlinx.serialization.builtins.ListSerializer(kotlinx.serialization.serializer<String>())
+    override val descriptor: kotlinx.serialization.descriptors.SerialDescriptor = strings.descriptor
+    override fun serialize(encoder: kotlinx.serialization.encoding.Encoder, value: List<ToolKey>) =
+        strings.serialize(encoder, value.map { it.token })
+    override fun deserialize(decoder: kotlinx.serialization.encoding.Decoder): List<ToolKey> =
+        strings.deserialize(decoder).mapNotNull { ToolKey.of(it) }.distinct()
 }

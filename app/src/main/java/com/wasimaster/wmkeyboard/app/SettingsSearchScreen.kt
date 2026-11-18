@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.BugReport
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Share
 import com.wasimaster.wmkeyboard.app.share.ShareSheetRoute
 import androidx.annotation.StringRes
@@ -145,6 +146,8 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.pointer.PointerEventPass
@@ -195,6 +198,11 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FormatSize
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.GridView
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Interests
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Apps
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.MoreHoriz
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Dashboard
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.RoundedCorner
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Timer
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Backspace
 import androidx.compose.foundation.lazy.rememberLazyListState
 import com.wasimaster.wmkeyboard.core.ui.DisabledReason
 import com.wasimaster.wmkeyboard.core.ui.RailBucket
@@ -460,6 +468,23 @@ internal fun HighlightableRow(
         val depthReveal = LocalDepthReveal.current
         SideEffect { depthReveal?.landedOn = revealedAt }
     }
+    // A row greyed out by another setting (a switch it waits on, a theme
+    // layout that pins it: a reason that names a setting) is not drawn at
+    // all unless Show switched-off settings is on, the same choice as for a row whose switch is off. A row
+    // the user was sent to is drawn regardless, so a search or a link still
+    // lands somewhere. Each named row tells its group whether it is drawn, so
+    // an entry left with nothing in it leaves no card or gap ([RowSlot]).
+    val depthControl = LocalSettingsDepth.current
+    val hides = !coarse && !disabledReason?.setting.isNullOrEmpty() && !requested &&
+        !depthControl.switchedOffRows && !(LocalDepthReveal.current?.arrived ?: SettingsHighlight.pending)
+    val slot = if (coarse) null else LocalRowSlot.current
+    if (slot != null) {
+        DisposableEffect(slot, hides) {
+            slot.enter(hides)
+            onDispose { slot.leave(hides) }
+        }
+    }
+    if (hides) return
     // The same two names are what a row's link is made of (#646), so the row
     // publishes them for its link button, and a plain row takes the long
     // press here: its link and its place in favourites (#898). A group's
@@ -473,7 +498,7 @@ internal fun HighlightableRow(
         LocalRowLinkKey provides RowLinkKey(title, highlightKey),
         LocalRowTouch provides touch,
     ) {
-        val bare = LocalSettingsDepth.current.depth == SettingsDepth.SIMPLE
+        val bare = depthControl.depth == SettingsDepth.SIMPLE
         val whatIsThis = if (info != null && bare) remember(title, info) { RowInfo(title.orEmpty(), info) } else null
         val hold = if (coarse) null else rememberRowHold(disabledReason, whatIsThis)
         // A row an update brought wears a gold border until the user puts the
@@ -513,27 +538,37 @@ private fun Modifier.armRowTouch(touch: RowTouch): Modifier = pointerInput(touch
 
 /**
  * A row drawn only because the new settings walk pointed at it: the setting
- * that would show it is off. Dimmed like a disabled row, and every touch on
- * it stops here, since its switch or slider would change something that has
- * no effect until that other setting allows it. The gold border stays at full
- * strength around it.
+ * that would show it is off. Dimmed like a disabled row, and its controls are
+ * out of reach behind a [RowShield], since its switch or slider would change
+ * something that has no effect until that other setting allows it. The gold
+ * border stays at full strength around it.
  */
 @Composable
 private fun PeekedContent(content: @Composable () -> Unit) {
     Box(Modifier.semantics { disabled() }) {
         Box(Modifier.alpha(0.38f)) { content() }
-        Box(
-            Modifier
-                .matchParentSize()
-                .pointerInput(Unit) {
-                    awaitPointerEventScope {
-                        while (true) {
-                            awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() }
-                        }
-                    }
-                },
-        )
+        RowShield()
     }
+}
+
+/**
+ * Laid over a greyed-out row as the last child of a [Box] around it, so the
+ * controls underneath never see a touch: a pointer goes to the topmost sibling
+ * it lands on, not to the ones beneath. Nothing is consumed, so the list the
+ * row sits in still scrolls with a drag that starts on it, and a long press
+ * watched by a wrapper outside the Box (a peeked row's hold menu) still fires.
+ */
+@Composable
+internal fun BoxScope.RowShield() {
+    Box(
+        Modifier
+            .matchParentSize()
+            .pointerInput(Unit) {
+                awaitPointerEventScope {
+                    while (true) awaitPointerEvent()
+                }
+            },
+    )
 }
 
 /**
@@ -780,8 +815,12 @@ internal object SettingsRouteIcons {
         "keypress/haptics" to { Icons.Outlined.Vibration },
         "keypress/popup" to { Icons.Outlined.Preview },
         "keypress/shortcuts" to { Icons.Outlined.Shortcut },
+        "keypress/delete" to { Icons.AutoMirrored.Outlined.Backspace },
+        "keypress/alternates" to { Icons.Outlined.MoreHoriz },
+        "keypress/timing" to { Icons.Outlined.Timer },
         "languages" to { Icons.Outlined.Language },
         "appearance" to { Icons.Outlined.Palette },
+        "appearance/keys" to { Icons.Outlined.RoundedCorner },
         "appearance/toolbar" to { Icons.Outlined.ViewDay },
         "appearance/toolbox" to { Icons.Outlined.Apps },
         "themes" to { Icons.Outlined.Palette },
@@ -794,6 +833,7 @@ internal object SettingsRouteIcons {
         "layout" to { Icons.Outlined.AspectRatio },
         "layout/size" to { Icons.Outlined.FormatSize },
         "layout/onehanded" to { SymbolIcons.MobileHandLeft },
+        "layout/panels" to { Icons.Outlined.Dashboard },
         "keymaps" to { Icons.Outlined.GridOn },
         "rows" to { Icons.Outlined.ViewAgenda },
         "rows/symbol" to { Icons.Outlined.Tag },
@@ -858,12 +898,14 @@ internal object SettingsRouteIcons {
         "backup" to { Icons.Outlined.Save },
         "backup/auto" to { Icons.Outlined.Schedule },
         "backup/sync" to { Icons.Outlined.Sync },
+        "backup/history" to { Icons.Outlined.History },
         "backup/contents" to { Icons.Outlined.Checklist },
         "about" to { Icons.Outlined.Info },
         "supporters" to { Icons.Outlined.VolunteerActivism },
         "import_hub" to { Icons.Outlined.FileOpen },
         "storage" to { Icons.Outlined.PieChart },
         "resources" to { Icons.Outlined.Memory },
+        "debug_info" to { Icons.Outlined.BugReport },
         "feature_libraries" to { Icons.Outlined.Extension },
         "statistics" to { Icons.Outlined.QueryStats },
         "licenses" to { Icons.Outlined.Gavel },
@@ -877,6 +919,7 @@ internal object SettingsRouteIcons {
         "hwshortcuts" to { SymbolIcons.KeyboardExternalInput },
         "musicapps" to { Icons.Outlined.MusicNote },
         "launchercombos" to { Icons.Outlined.VerticalSplit },
+        "launcherappicons" to { Icons.Outlined.Interests },
         "kdeconnect/devices" to { Icons.Outlined.Devices },
         "send/instances" to { Icons.Outlined.Dns },
         "send/history" to { Icons.Outlined.History },
@@ -1018,6 +1061,20 @@ internal fun SettingsSearchScreen(
         history.recent(RECENT_PICKS_SHOWN).mapNotNull(searchByKey::get)
             .filter { assistant || !SettingsAssistantGate.opensAssistant(it) }
     }
+    // The pages visited lately (#1317), each as the index's own entry for
+    // that screen, so it draws and opens like any result. A page the index
+    // has no destination for (a language's page, say) is left out.
+    val visitedPages = rememberRecentPages()
+    val recentPages = remember(visitedPages, searchIndex, corpus, extensions) {
+        val index = (searchIndex ?: corpus?.index)?.withExtensions(extensions) ?: return@remember emptyList()
+        val screens = index.filter { it.weight == EntryWeight.SECTION || it.weight == EntryWeight.TOOL }
+        val byRoute = screens.groupBy { it.route }.mapValues { (_, entries) ->
+            entries.firstOrNull { it.weight == EntryWeight.SECTION } ?: entries.first()
+        }
+        visitedPages.mapNotNull { page ->
+            SettingsDeepLink.parse(page.link)?.route?.let { byRoute[it] }
+        }.distinctBy { it.route }.take(RecentPages.SHOWN)
+    }
     // Whether this is the screen being come back to from a result rather than
     // opened. A plain array rather than state: it is read once, here, and its
     // only job is to be `true` in the bundle the screen is saved into.
@@ -1042,6 +1099,14 @@ internal fun SettingsSearchScreen(
     fun open(entry: SettingsSearchEntry) {
         keyboard?.hide()
         picks.record(query, entry.key)
+        (searchIndex ?: corpus?.index)?.let { trail?.seed(settingsCrumbSeed(entry, it, homeTitle)) }
+        onOpen(entry)
+    }
+
+    // A recent page opens like a result, but is not a pick: nothing was
+    // searched for, so there is nothing for the ranking to learn.
+    fun openPage(entry: SettingsSearchEntry) {
+        keyboard?.hide()
         (searchIndex ?: corpus?.index)?.let { trail?.seed(settingsCrumbSeed(entry, it, homeTitle)) }
         onOpen(entry)
     }
@@ -1141,14 +1206,17 @@ internal fun SettingsSearchScreen(
             when (shown) {
                 SearchStage.PICKS -> RecentPicks(
                     recent = recent,
+                    pages = recentPages,
                     settings = settings,
                     reduceMotion = reduceMotion,
                     arrive = arrive,
                     onOpen = ::open,
+                    onOpenPage = ::openPage,
                     onClear = {
                         picks.clear()
                         historyText = picks.history.encode()
                     },
+                    onClearPages = { RecentPagesStore.get(context).clear() },
                 )
                 SearchStage.LOADING -> GroupSkeleton(
                     rowCount = SEARCH_SKELETON_ROWS,
@@ -1286,37 +1354,68 @@ private const val SEARCH_SKELETON_ROWS = 6
 @Composable
 private fun RecentPicks(
     recent: List<SettingsSearchEntry>,
+    pages: List<SettingsSearchEntry>,
     settings: LiveSettings,
     reduceMotion: Boolean,
     arrive: Boolean,
     onOpen: (SettingsSearchEntry) -> Unit,
+    onOpenPage: (SettingsSearchEntry) -> Unit,
     onClear: () -> Unit,
+    onClearPages: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val reveal = rememberSearchReveal(reduceMotion || !arrive)
+    // A page opened from search is a pick as well as a visit: listed once,
+    // with the pages, since two rows of one result would also share the
+    // result's flight key.
+    val picked = remember(recent, pages) { recent.filterNot { pick -> pages.any { it.key == pick.key } } }
     LazyColumn(
         modifier = modifier.fillMaxSize(),
         contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),
     ) {
-        if (recent.isEmpty()) return@LazyColumn
+        // The pages visited lately (#1317), over the settings searched for.
+        if (pages.isNotEmpty()) {
+            item(key = "pages") {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = searchItemMotion(reduceMotion)
+                        .searchReveal(reveal, 0)
+                        .fillMaxWidth(),
+                ) {
+                    ResultsHeading(stringResource(R.string.shell_search_recent_pages_title), Modifier.weight(1f))
+                    TextButton(onClick = onClearPages) { Text(stringResource(CommonR.string.common_clear)) }
+                }
+            }
+            itemsIndexed(pages, key = { _, it -> "page:" + it.key }) { index, entry ->
+                ResultRow(
+                    entry,
+                    settings,
+                    emptyList(),
+                    modifier = searchItemMotion(reduceMotion).searchReveal(reveal, index + 1),
+                ) { onOpenPage(entry) }
+            }
+        }
+        if (picked.isEmpty()) return@LazyColumn
+        // The wave carries on from the pages above, rather than starting over.
+        val after = if (pages.isEmpty()) 0 else pages.size + 1
         item(key = "recent") {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 modifier = searchItemMotion(reduceMotion)
-                    .searchReveal(reveal, 0)
+                    .searchReveal(reveal, after)
                     .fillMaxWidth(),
             ) {
                 ResultsHeading(stringResource(R.string.shell_search_recent_title), Modifier.weight(1f))
                 TextButton(onClick = onClear) { Text(stringResource(CommonR.string.common_clear)) }
             }
         }
-        itemsIndexed(recent, key = { _, it -> it.key }) { index, entry ->
+        itemsIndexed(picked, key = { _, it -> it.key }) { index, entry ->
             ResultRow(
                 entry,
                 settings,
                 emptyList(),
-                modifier = searchItemMotion(reduceMotion).searchReveal(reveal, index + 1),
+                modifier = searchItemMotion(reduceMotion).searchReveal(reveal, after + index + 1),
             ) { onOpen(entry) }
         }
     }

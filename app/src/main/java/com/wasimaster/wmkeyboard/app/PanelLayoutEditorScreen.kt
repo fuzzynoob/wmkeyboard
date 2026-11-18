@@ -94,6 +94,20 @@ import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
  */
 internal fun panelEditRoute(kind: PanelKind): String = "panel_edit/${kind.name}"
 
+/** The Panel layouts page under Layout & size (#1318). */
+internal const val PANEL_LAYOUTS_ROUTE = "layout/panels"
+
+/**
+ * Layout & size › Panel layouts: one row per panel, opening its editor. The
+ * group sat at the foot of Key layouts until #1318, under every grid of the
+ * user's own, where a panel was the last thing anyone looked for.
+ */
+@Composable
+internal fun PanelLayoutsScreen(repository: SettingsRepository, onNavigate: (String) -> Unit) {
+    val customPanels by repository.customPanelLayouts.collectAsStateWithLifecycle(emptyList())
+    PanelLayoutsGroup(customPanels, onNavigate)
+}
+
 /**
  * The panel layouts (issue #63): the emoji, clipboard and text-editing panels
  * as grids the user rearranges in the key layout editor's own controls.
@@ -172,6 +186,10 @@ internal fun textEditActionTitle(op: TextEditAction): Int = when (op) {
     TextEditAction.DELETE_WORD_FORWARD -> R.string.textedit_action_delete_word_forward
     TextEditAction.DELETE_LINE -> R.string.textedit_action_delete_line
     TextEditAction.DELETE_LINE_FORWARD -> R.string.textedit_action_delete_line_forward
+    TextEditAction.CLEAR_FIELD -> R.string.textedit_action_clear_field
+    TextEditAction.DELETE_TO_START -> R.string.textedit_action_delete_to_start
+    TextEditAction.DELETE_TO_END -> R.string.textedit_action_delete_to_end
+    TextEditAction.TYPE_CLIPBOARD -> R.string.textedit_action_type_clipboard
 }
 
 /** The components a layout of [kind] may place; empty for the keys-only pad. */
@@ -231,6 +249,7 @@ internal fun PanelLayoutEditorScreen(
     kind: PanelKind,
     onNavigate: (String) -> Unit,
 ) {
+    RegisterHidingHeader()
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     // Null until the store answers, so the first frame does not flash the

@@ -29,7 +29,7 @@ import java.nio.channels.FileChannel
  */
 class MappedTrie private constructor(
     private val buf: ByteBuffer,
-    val wordCount: Int,
+    override val wordCount: Int,
     /** Nodes in the file, so a whole-trie pass knows where to stop. */
     private val nodeCount: Int,
     /**
@@ -161,6 +161,8 @@ class MappedTrie private constructor(
     override fun rankOfFrequency(frequency: Int): Int = rankFloors.rankOfFrequency(frequency)
 
     override fun vocabularySize(): Int = rankFloors.vocabularySize()
+
+    override fun countAtRank(rank: Int): Int = rankFloors.countAtRank(rank)
 
     /** Edge index of [node]'s child labelled [ch], or -1. Binary search — the
      * edges of a node are contiguous and sorted by label. */

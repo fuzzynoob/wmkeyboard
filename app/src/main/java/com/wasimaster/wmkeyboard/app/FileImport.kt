@@ -26,6 +26,8 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -77,11 +79,13 @@ import com.wasimaster.wmkeyboard.core.keyman.KeymanTouchLayoutReader
 import com.wasimaster.wmkeyboard.core.keyman.TouchLayoutConverter
 import com.wasimaster.wmkeyboard.core.layout.KeymanBinding
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
+import com.wasimaster.wmkeyboard.core.dictionaries.ContextModelDownloadManager
 import com.wasimaster.wmkeyboard.core.keyman.KeymanPackage
 import com.wasimaster.wmkeyboard.core.layout.ConvertedLayout
 import com.wasimaster.wmkeyboard.core.layout.DesktopLayouts
 import com.wasimaster.wmkeyboard.core.layout.FutoLayouts
 import com.wasimaster.wmkeyboard.core.layout.ImportedLayout
+import com.wasimaster.wmkeyboard.core.layout.Keyboard3Layouts
 import com.wasimaster.wmkeyboard.core.layout.KeysCafeLayouts
 import com.wasimaster.wmkeyboard.core.layout.LayoutFile
 import com.wasimaster.wmkeyboard.core.layout.MultilingLayouts
@@ -114,6 +118,8 @@ import com.wasimaster.wmkeyboard.core.theme.FlexTheme
 import com.wasimaster.wmkeyboard.core.theme.FutoTheme
 import com.wasimaster.wmkeyboard.core.theme.FutoThemeResult
 import com.wasimaster.wmkeyboard.core.theme.FutoThemeUnsupported
+import com.wasimaster.wmkeyboard.core.theme.LooseTheme
+import com.wasimaster.wmkeyboard.core.theme.deviceWallpaperPalette
 import com.wasimaster.wmkeyboard.core.theme.dynamicSnyggPalette
 import com.wasimaster.wmkeyboard.core.fonts.FontFile
 import com.wasimaster.wmkeyboard.core.fonts.FontImportResult
@@ -243,6 +249,29 @@ object WMFileTypes {
      */
     const val KEYMAN_PACKAGE_EXTENSION = "kmp"
 
+    /** First four bytes of every `.wmlm` word language model (`lm.rs`'s `MAGIC`). */
+    private val WMLM_MAGIC = "WMLM".toByteArray(Charsets.US_ASCII)
+
+    /**
+     * The language a model's file name starts with (`de_context.wmlm`,
+     * `bn-rom.wmlm`) when this build knows it, else English: only a seed for
+     * the language row the dialog draws.
+     */
+    internal fun languageGuessFromName(name: String): String {
+        val parts = name.substringBefore('.').split('_', '-', ' ').filter { it.isNotEmpty() }
+        for (n in parts.size downTo 1) {
+            for (sep in listOf("_", "-")) {
+                val spelled = parts.take(n).joinToString(sep)
+                // As written ("pt_BR"), then with the language part in lower
+                // case ("DE_context" names German).
+                for (id in listOf(spelled, spelled.replaceFirst(parts[0], parts[0].lowercase())).distinct()) {
+                    if (LanguageRegistry.byId(id).id == id) return id
+                }
+            }
+        }
+        return "en"
+    }
+
     /** First four bytes of every ZIP local file header. */
     private val ZIP_MAGIC = byteArrayOf(0x50, 0x4B, 0x03, 0x04)
     private const val GZIP_MAGIC_1: Byte = 0x1f
@@ -294,6 +323,14 @@ object WMFileTypes {
          * a list because of the XKB variants.
          */
         data class DesktopLayoutFile(val layouts: List<ConvertedLayout>) : Opened
+
+        /**
+         * CLDR keyboard3 (LDML) layouts, already converted: one XML file of
+         * CLDR's or FlorisBoard's, or every layout in a FlorisBoard keyboard
+         * extension (`.flex`). Its own case for the reason [FutoLayout] is,
+         * and a list because of the extensions.
+         */
+        data class Keyboard3LayoutFile(val layouts: List<ConvertedLayout>) : Opened
 
         /**
          * Text from Multiling O Keyboard, already converted: one layout, or a
@@ -476,6 +513,15 @@ object WMFileTypes {
         /** An Anki deck or collection (`.apkg`, `.colpkg`), for the vocabulary tool. */
         data object AnkiDeck : Opened
 
+        /**
+         * A word language model (`.wmlm`) that is not one of the catalogue's
+         * (those arrive as [OfflineFiles], checked against their digest): a
+         * model the user trained or fetched elsewhere. Becomes the context
+         * model of the language they pick; [guessedLangId] seeds that choice
+         * from the file name.
+         */
+        data class LanguageModel(val guessedLangId: String) : Opened
+
         /** Not one of ours, and not something worth showing either. */
         data object Unrecognized : Opened
 
@@ -506,6 +552,11 @@ object WMFileTypes {
         }
         if (head.size >= ZIP_MAGIC.size && head.copyOf(ZIP_MAGIC.size).contentEquals(ZIP_MAGIC)) {
             return identifyArchive(context, uri)
+        }
+        // A word language model of the user's own: a catalogued one was
+        // claimed by its published name above.
+        if (head.size >= WMLM_MAGIC.size && head.copyOf(WMLM_MAGIC.size).contentEquals(WMLM_MAGIC)) {
+            return Opened.LanguageModel(languageGuessFromName(name))
         }
         // Before the text read below, which on a large encrypted bundle would
         // decode megabytes of ciphertext as UTF-8 to produce a string that
@@ -758,6 +809,14 @@ object WMFileTypes {
             if (layouts.isNotEmpty() || theme != null) return Opened.MultilingFile(layouts, theme)
         }
 
+        // A CLDR keyboard3 (LDML) layout: CLDR's own keyboards, and
+        // FlorisBoard's since it dropped its JSON layouts. XML whose root is
+        // `<keyboard3>`, which no other format here writes. Ahead of the two
+        // XML readers below, which look for elements of their own.
+        if (Keyboard3Layouts.looksLikeKeyboard3(text)) {
+            Keyboard3Layouts.convert(text, name)?.let { return Opened.Keyboard3LayoutFile(listOf(it)) }
+        }
+
         // A computer keyboard's layout. A `.klc` is told by its section
         // words, a `.keylayout` by its `<keyMapSet>`, an XKB file by its
         // `xkb_symbols "name" {` blocks; no other format here has any of them.
@@ -802,6 +861,13 @@ object WMFileTypes {
         SnippetPayload.readText(text, name)
             ?.takeIf { it.isForeign }
             ?.let { return Opened.ForeignSnippets(it) }
+        // Last of all, a theme in no format at all: the JSON a chat assistant
+        // writes when asked for a keyboard theme, or another keyboard's one-off
+        // schema. Every real format has turned the text down by now, and the
+        // reader still wants a board colour and a key colour by name, so a JSON
+        // file of some other kind comes back unrecognised as before.
+        LooseTheme.read(text, name.substringBefore('.').ifBlank { LooseTheme.FALLBACK_NAME })
+            ?.let { return Opened.Theme(it) }
         return Opened.Unrecognized
     }
 
@@ -867,6 +933,14 @@ object WMFileTypes {
             }.getOrNull()
             return if (contents != null) Opened.KeymanPackageFile(contents) else Opened.Unrecognized
         }
+        // A FlorisBoard keyboard extension: its layouts are keyboard3 XML
+        // under `keyboard/`, and may import files from elsewhere in it.
+        if (Keyboard3Layouts.isExtensionManifest(manifest)) {
+            val layouts = runCatching {
+                context.contentResolver.requireInputStream(uri).use { Keyboard3Layouts.convertArchive(it) }
+            }.getOrDefault(emptyList())
+            return if (layouts.isNotEmpty()) Opened.Keyboard3LayoutFile(layouts) else Opened.Unrecognized
+        }
         if (manifest.contains("\"${FlexLanguagePack.FORMAT}\"")) {
             val schemas = runCatching {
                 context.contentResolver.requireInputStream(uri).use { FlexLanguagePack.schemas(it, context.cacheDir) }
@@ -907,7 +981,7 @@ object WMFileTypes {
         // FUTO's colours before the file counts as one.
         if (FutoTheme.looksLikeFutoTheme(names)) {
             val result = runCatching {
-                context.contentResolver.requireInputStream(uri).use { FutoTheme.read(it) }
+                context.contentResolver.requireInputStream(uri).use { FutoTheme.read(it, deviceWallpaperPalette(context)) }
             }.getOrNull()
             if (result is FutoThemeResult.Converted) return Opened.FutoThemeFile(result)
         }
@@ -915,7 +989,7 @@ object WMFileTypes {
         // first: its settings, or its export's version stamp.
         if (ForeignBackups.looksLikeBackup(names)) {
             val backup = runCatching {
-                context.contentResolver.requireInputStream(uri).use { ForeignBackups.read(it) }
+                context.contentResolver.requireInputStream(uri).use { ForeignBackups.read(it, deviceWallpaperPalette(context)) }
             }.getOrNull()
             return if (backup != null) Opened.ForeignBackupFile(backup) else Opened.Unrecognized
         }
@@ -978,8 +1052,9 @@ object WMFileTypes {
      * Whether a manifest is a FlorisBoard theme extension's.
      *
      * The tag, never the file name: `extension.json` is a name plenty of things
-     * use, and FlorisBoard has other extension kinds — language packs, keyboard
-     * extensions — that carry the same manifest and nothing this app can read.
+     * use, and FlorisBoard has other extension kinds that carry the same
+     * manifest: language packs and keyboard extensions, each read by its own
+     * branch in [identifyArchive].
      */
     internal fun isFlexManifest(manifest: String): Boolean =
         manifest.contains("\"${FlexTheme.FORMAT}\"")
@@ -1051,8 +1126,8 @@ class ImportFileActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val uri = intent?.let(::sourceUri)
-        if (uri == null) {
+        val uris = intent?.let(::sourceUris).orEmpty()
+        if (uris.isEmpty()) {
             finish()
             return
         }
@@ -1066,11 +1141,22 @@ class ImportFileActivity : ComponentActivity() {
             val deviceForm = DeviceForm.of(LocalConfiguration.current.smallestScreenWidthDp)
             val settings = rememberLiveSettings(stored, deviceForm) ?: return@setContent
             AppTheme(settings) {
-                ImportFileDialog(repository, uri) { finish() }
+                // Several files shared at once (a batch of themes from a file
+                // manager, say) come one dialog after another, each read and
+                // confirmed as it would be alone.
+                var at by remember { mutableIntStateOf(0) }
+                key(at) {
+                    ImportFileDialog(repository, uris[at]) {
+                        if (at + 1 < uris.size) at++ else finish()
+                    }
+                }
             }
         }
     }
 }
+
+/** The most files one share brings in; the rest are left, as a pick of a whole folder would be a mistake. */
+private const val MAX_SHARED_FILES = 50
 
 /**
  * The file an intent points at.
@@ -1078,14 +1164,21 @@ class ImportFileActivity : ComponentActivity() {
  * An "open with" carries it as the data URI. A share sheet carries it as
  * `EXTRA_STREAM` instead, with no data URI at all, which is why the manifest's
  * `ACTION_SEND` filter would otherwise reach an activity that finishes on
- * arrival.
+ * arrival. `ACTION_SEND_MULTIPLE` carries a list of them, read up to
+ * [MAX_SHARED_FILES].
  */
-private fun sourceUri(intent: Intent): Uri? = intent.data
-    ?: if (intent.action == Intent.ACTION_SEND) {
-        IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
-    } else {
-        null
+private fun sourceUris(intent: Intent): List<Uri> {
+    intent.data?.let { return listOf(it) }
+    return when (intent.action) {
+        Intent.ACTION_SEND ->
+            listOfNotNull(IntentCompat.getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java))
+        Intent.ACTION_SEND_MULTIPLE ->
+            IntentCompat.getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java).orEmpty()
+                .distinct()
+                .take(MAX_SHARED_FILES)
+        else -> emptyList()
     }
+}
 
 /**
  * The pending import, once the file has been read and named.
@@ -1608,6 +1701,54 @@ private fun desktopProposal(
 }
 
 /**
+ * What a CLDR keyboard3 file or a FlorisBoard keyboard extension offers.
+ *
+ * One layout goes through the language step like every other foreign layout;
+ * the picker starts from the language the file states. An extension holding
+ * several adds them all at once, each in its own stated or guessed language,
+ * the way an XKB file's variants are. Nothing is turned on.
+ */
+private fun keyboard3Proposal(
+    layouts: List<ConvertedLayout>,
+    repository: SettingsRepository,
+    context: android.content.Context,
+): ImportProposal {
+    val single = layouts.singleOrNull()
+    if (single != null) {
+        return ImportProposal(
+            titleRes = R.string.import_name_title,
+            titleArg = single.layout.name,
+            body = context.getString(R.string.import_keyboard3_body),
+            repairs = single.notes.map { it.format(context.resources) },
+            language = single.guessedLangId,
+            applyWithLanguage = { langId ->
+                repository.upsertCustomLayout(
+                    single.withLanguage(langId).copy(id = "custom_${System.currentTimeMillis()}"),
+                )
+                context.getString(R.string.import_done_name, single.layout.name)
+            },
+        )
+    }
+    val count = layouts.size
+    return ImportProposal(
+        titleRes = R.string.import_keyboard3_title,
+        body = context.resources.getQuantityString(R.plurals.import_keyboard3_layouts_body, count, count) +
+            layouts.joinToString(separator = "\n", prefix = "\n\n") { "• ${it.layout.name}" },
+        apply = {
+            // One stamp for the batch with the position after it: the loop is
+            // faster than the clock.
+            val stamp = System.currentTimeMillis()
+            layouts.forEachIndexed { index, converted ->
+                repository.upsertCustomLayout(
+                    converted.withLanguage(converted.guessedLangId).copy(id = "custom_${stamp}_$index"),
+                )
+            }
+            context.resources.getQuantityString(R.plurals.import_multiling_layouts_done, count, count)
+        },
+    )
+}
+
+/**
  * A font opened from outside the app. An emoji font is switched on at once,
  * as the emoji screen's own import does; any other font is added to the list
  * the font pickers offer, since which script it should draw is the user's
@@ -1847,6 +1988,8 @@ private fun rememberProposal(
 
         is WMFileTypes.Opened.DesktopLayoutFile -> desktopProposal(state.layouts, repository, context)
 
+        is WMFileTypes.Opened.Keyboard3LayoutFile -> keyboard3Proposal(state.layouts, repository, context)
+
         // Drawn by ForeignBackupDialog before this is reached; here only so the
         // list stays exhaustive.
         is WMFileTypes.Opened.ForeignBackupFile -> ImportProposal(
@@ -2051,6 +2194,35 @@ private fun rememberProposal(
             },
         )
 
+        is WMFileTypes.Opened.LanguageModel -> ImportProposal(
+            titleRes = R.string.import_name_title,
+            titleArg = WMFileTypes.displayName(context, uri),
+            body = context.getString(R.string.import_language_model_body),
+            language = state.guessedLangId,
+            applyWithLanguage = { langId ->
+                val name = LanguageRegistry.byId(langId).displayName
+                val copied = withContext(Dispatchers.IO) {
+                    val staging = File(context.cacheDir, "import-${System.currentTimeMillis()}.wmlm")
+                    try {
+                        context.contentResolver.requireInputStream(uri).use { input ->
+                            staging.outputStream().use { input.copyTo(it) }
+                        }
+                        ContextModelDownloadManager.install(context.filesDir, langId, staging, imported = true)
+                        true
+                    } catch (e: java.io.IOException) {
+                        false
+                    } finally {
+                        staging.delete()
+                    }
+                }
+                if (copied) {
+                    context.getString(R.string.import_language_model_done, name)
+                } else {
+                    context.getString(R.string.import_language_model_error)
+                }
+            },
+        )
+
         // Drawn by OfflineFilesDialog instead; never reaches here.
         is WMFileTypes.Opened.OfflineFiles -> ImportProposal(
             titleRes = state.kind.titleRes,
@@ -2192,7 +2364,7 @@ private fun rememberProposal(
                 // how a file's patterns, its ask-first flag and its folders get
                 // dropped on the floor with nothing to say so.
                 withContext(Dispatchers.IO) {
-                    store.addAll(state.snippets.snippets, state.snippets.folders)
+                    store.addAll(state.snippets.snippets, state.snippets.folders, images = state.snippets.images)
                     // The adds are in-memory only; save() is what writes the file.
                     store.save()
                 }
@@ -2326,11 +2498,18 @@ private fun foreignSnippetsProposal(
     context: android.content.Context,
 ): ImportProposal {
     val table = parsed.source == SnippetPayload.Source.CSV
+    val plain = parsed.source == SnippetPayload.Source.TEXT
     val folderName = parsed.suggestedName.trim()
     if (parsed.snippets.isEmpty()) {
         return ImportProposal(
             titleRes = R.string.import_espanso_title,
-            body = context.getString(if (table) R.string.import_csv_none else R.string.import_espanso_none),
+            body = context.getString(
+                when {
+                    plain -> R.string.import_text_none
+                    table -> R.string.import_csv_none
+                    else -> R.string.import_espanso_none
+                },
+            ),
             repairs = parsed.notes.map { it.resolve(context) },
             apply = null,
         )
@@ -2339,9 +2518,13 @@ private fun foreignSnippetsProposal(
         titlePluralRes = R.plurals.import_snippets_title,
         titleQuantity = parsed.snippets.size,
         body = context.getString(
-            if (table) R.string.import_csv_body else R.string.import_espanso_body,
+            when {
+                plain -> R.string.import_snippet_text_body
+                table -> R.string.import_csv_body
+                else -> R.string.import_espanso_body
+            },
             folderName.ifEmpty {
-                context.getString(if (table) R.string.import_csv_folder_fallback else R.string.import_espanso_folder_fallback)
+                context.getString(if (table || plain) R.string.import_csv_folder_fallback else R.string.import_espanso_folder_fallback)
             },
         ),
         repairs = parsed.notes.map { it.resolve(context) },
@@ -2354,7 +2537,8 @@ private fun foreignSnippetsProposal(
                 // Whole snippets, not a handful of named fields, and fresh ids
                 // from the store: importing the same pack twice gives two
                 // independent sets rather than silently overwriting the first.
-                store.addAll(parsed.snippets, parsed.folders, fallbackFolderId = target)
+                // An Espanso package's pictures come too (its image matches).
+                store.addAll(parsed.snippets, parsed.folders, fallbackFolderId = target, images = parsed.images)
                 // The adds are in-memory only; save() is what writes the file.
                 store.save()
             }
@@ -2370,11 +2554,13 @@ private fun foreignSnippetsProposal(
 /**
  * The confirmation for Gboard's personal dictionary export.
  *
- * Both halves go in on one press, because both are what the file is: the words
- * with no shortcut join the personal dictionary as words added by hand, and the
- * shortcuts become snippets in a folder of their own, which gives the set one
- * off switch. Each half is counted in the body, so a file that holds only one
- * of them says so.
+ * Every part goes in on one press, because all of it is what the file is: the
+ * words with no shortcut join the personal dictionary as words added by hand,
+ * the shortcuts become snippets in a folder of their own, which gives the set
+ * one off switch, and the Japanese words filed under a kana reading become a
+ * Japanese word list, which the built-in engine and Mozc both offer as
+ * conversion candidates, as Gboard does (#1254). Each part is counted in the
+ * body, so a file that holds only one of them says so.
  */
 private fun gboardDictionaryProposal(
     contents: GboardDictionary.Contents,
@@ -2384,7 +2570,8 @@ private fun gboardDictionaryProposal(
     val words = contents.words
     val converted = GboardDictionary.toSnippets(contents)
     val snippets = converted.snippets
-    if (words.isEmpty() && snippets.isEmpty()) {
+    val readings = contents.readings
+    if (words.isEmpty() && snippets.isEmpty() && readings.isEmpty()) {
         return ImportProposal(
             titleRes = R.string.import_gboard_dictionary_title,
             body = context.getString(R.string.import_gboard_dictionary_empty),
@@ -2407,6 +2594,10 @@ private fun gboardDictionaryProposal(
                         GboardDictionary.FOLDER_NAME,
                     ),
                 )
+            }
+            if (readings.isNotEmpty()) {
+                if (isNotEmpty()) append("\n\n")
+                append(res.getQuantityString(R.plurals.import_gboard_dictionary_readings, readings.size, readings.size))
             }
         },
         repairs = converted.notes.map { it.resolve(context) },
@@ -2434,6 +2625,25 @@ private fun gboardDictionaryProposal(
                     store.save()
                 }
             }
+            // The readings join the Japanese word list this file made last
+            // time, if there is one, so a second import adds only what is new.
+            val readingsAdded = if (readings.isEmpty()) {
+                0
+            } else {
+                withContext(Dispatchers.IO) {
+                    val dir = CustomDictionaries.languageDir(context.filesDir, GboardDictionary.READINGS_LANGUAGE)
+                    dir.mkdirs()
+                    val list = File(dir, GboardDictionary.READINGS_LIST)
+                    val existing = if (list.isFile) list.readLines() else emptyList()
+                    val lines = GboardDictionary.readingList(contents, existing)
+                    if (lines.isNotEmpty()) {
+                        val head = if (existing.isEmpty()) "# Gboard personal dictionary: reading<TAB>word\n" else ""
+                        val gap = if (existing.isNotEmpty() && list.length() > 0 && !list.readText().endsWith("\n")) "\n" else ""
+                        list.appendText(head + gap + lines.joinToString("\n", postfix = "\n"))
+                    }
+                    lines.size
+                }
+            }
             buildString {
                 if (words.isNotEmpty()) {
                     append(res.getQuantityString(R.plurals.import_gboard_dictionary_words_done, words.size, words.size))
@@ -2441,6 +2651,10 @@ private fun gboardDictionaryProposal(
                 if (snippets.isNotEmpty()) {
                     if (isNotEmpty()) append("\n\n")
                     append(res.getQuantityString(R.plurals.import_snippets_done, snippets.size, snippets.size))
+                }
+                if (readings.isNotEmpty()) {
+                    if (isNotEmpty()) append("\n\n")
+                    append(res.getQuantityString(R.plurals.import_gboard_dictionary_readings_done, readingsAdded, readingsAdded))
                 }
             }
         },
@@ -2587,7 +2801,10 @@ internal fun futoThemeDroppedLine(context: android.content.Context, dropped: Fut
         when (dropped) {
             FutoThemeUnsupported.KEY_PICTURES -> R.string.import_futo_theme_dropped_pictures
             FutoThemeUnsupported.WALLPAPER_COLOURS -> R.string.import_futo_theme_dropped_wallpaper
+            FutoThemeUnsupported.WALLPAPER_STAND_IN -> R.string.import_futo_theme_dropped_wallpaper_stand_in
             FutoThemeUnsupported.SHADER -> R.string.import_futo_theme_dropped_shader
+            FutoThemeUnsupported.KEY_POSITIONS -> R.string.import_futo_theme_dropped_positions
+            FutoThemeUnsupported.KEY_STATES -> R.string.import_futo_theme_dropped_states
         },
     )
 
@@ -2871,6 +3088,9 @@ private fun pluginProposal(context: android.content.Context, uri: Uri): ImportPr
                     context.contentResolver.requireInputStream(uri)
                         .use { PluginFile.import(it, store) }
                 }.getOrDefault(PluginImportResult.Failed)
+            }
+            if (result is PluginImportResult.Imported && !result.replaced && result.plugin.panel && result.plugin.tool.tile) {
+                SettingsRepository(context).offerPluginTool(result.plugin.id)
             }
             when (result) {
                 is PluginImportResult.Imported ->

@@ -18,7 +18,11 @@ import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
 import com.wasimaster.wmkeyboard.core.addons.AddonType
 import com.wasimaster.wmkeyboard.core.settings.AlternateGroup
+import com.wasimaster.wmkeyboard.core.settings.KeyPreviewRadiusRange
+import com.wasimaster.wmkeyboard.core.settings.KeyPreviewWidthScaleRange
+import com.wasimaster.wmkeyboard.core.settings.PopTextMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
+import com.wasimaster.wmkeyboard.core.ui.DisabledReason
 import com.wasimaster.wmkeyboard.core.settings.GboardHoldSymbols
 import com.wasimaster.wmkeyboard.core.settings.GboardNumberRowHoldSymbols
 import com.wasimaster.wmkeyboard.core.settings.SamsungHoldSymbols
@@ -838,12 +842,9 @@ internal fun KeyPressSettings(
     settings: LiveSettings,
     onNavigate: (String) -> Unit,
 ) {
-    val scope = rememberCoroutineScope()
-    val context = LocalContext.current
-    // What decides which rows the groups hold; each row reads its own value.
-    val swipeDelete = settings.watch { it.backspaceSwipeDelete }
-    val swipeUnit = settings.watch { it.textEditing.backspaceSwipeUnit }
-    val holdDeletesWords = settings.watch { it.textEditing.deleteHoldDeletesWords }
+    // A hub of pages, like Appearance (#1318): the delete keys, the alternates
+    // and the timing used to be laid out under these three rows, and reaching
+    // the last of them was a long scroll past everything else.
     SettingsGroup {
         item {
             NavRow(
@@ -872,10 +873,49 @@ internal fun KeyPressSettings(
                 onNavigate("keypress/shortcuts")
             }
         }
+        item {
+            NavRow(
+                R.string.typing_group_backspace_title,
+                stringResource(R.string.keypress_delete_page_subtitle),
+                route = "keypress/delete",
+            ) {
+                onNavigate("keypress/delete")
+            }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            NavRow(
+                R.string.keypress_alternates_group_title,
+                stringResource(R.string.keypress_alternates_page_subtitle),
+                route = "keypress/alternates",
+            ) {
+                onNavigate("keypress/alternates")
+            }
+        }
+        item {
+            NavRow(
+                R.string.keypress_timing_group_title,
+                stringResource(R.string.keypress_timing_page_subtitle),
+                route = "keypress/timing",
+            ) {
+                onNavigate("keypress/timing")
+            }
+        }
     }
+}
 
-
-
+/** Key press › Delete keys: what a swipe or a hold on the delete key does. */
+@Composable
+internal fun KeyPressDeleteSettings(
+    repository: SettingsRepository,
+    settings: LiveSettings,
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    // What decides which rows the group holds; each row reads its own value.
+    val swipeDelete = settings.watch { it.backspaceSwipeDelete }
+    val lineSwipes = settings.watch { it.textEditing.deleteLineSwipes }
+    val upClears = settings.watch { it.textEditing.backspaceSwipeUpClears }
+    val swipeUnit = settings.watch { it.textEditing.backspaceSwipeUnit }
     // Moved here from Typing (#136): a swipe on the backspace key is a thing a
     // key does, and this is the screen for what keys do. The string names
     // keep their typing_ prefix so nothing that links to them by name breaks.
@@ -964,10 +1004,33 @@ internal fun KeyPressSettings(
             ToggleSetting(
                 R.string.typing_backspace_lines_title,
                 stringResource(R.string.typing_backspace_lines_subtitle),
-                settings.watch { it.textEditing.deleteLineSwipes },
+                lineSwipes,
                 info = stringResource(R.string.typing_backspace_lines_info),
                 default = SettingsDefaults.textEditing.deleteLineSwipes,
             ) { scope.launch { repository.setDeleteLineSwipes(it) } }
+        }
+        // Each direction on its own (#1269), so one can be kept without the
+        // other. While Swipe up to clear all is on, it has the swipe up.
+        if (lineSwipes) {
+            item(level = SettingLevel.STANDARD) {
+                ToggleSetting(
+                    R.string.typing_backspace_lines_up_title,
+                    stringResource(
+                        if (upClears) R.string.typing_backspace_lines_up_cleared_subtitle
+                        else R.string.typing_backspace_lines_up_subtitle,
+                    ),
+                    settings.watch { it.textEditing.deleteLineSwipeUp },
+                    default = SettingsDefaults.textEditing.deleteLineSwipeUp,
+                ) { scope.launch { repository.setDeleteLineSwipeUp(it) } }
+            }
+            item(level = SettingLevel.STANDARD) {
+                ToggleSetting(
+                    R.string.typing_backspace_lines_down_title,
+                    stringResource(R.string.typing_backspace_lines_down_subtitle),
+                    settings.watch { it.textEditing.deleteLineSwipeDown },
+                    default = SettingsDefaults.textEditing.deleteLineSwipeDown,
+                ) { scope.launch { repository.setDeleteLineSwipeDown(it) } }
+            }
         }
         item(level = SettingLevel.ADVANCED) {
             ToggleSetting(
@@ -980,6 +1043,15 @@ internal fun KeyPressSettings(
         }
         item(level = SettingLevel.ADVANCED) {
             ToggleSetting(
+                R.string.typing_modifier_drag_title,
+                stringResource(R.string.typing_modifier_drag_subtitle),
+                settings.watch { it.layoutBehavior.modifierDrag },
+                info = stringResource(R.string.typing_modifier_drag_info),
+                default = SettingsDefaults.layoutBehavior.modifierDrag,
+            ) { scope.launch { repository.setModifierDrag(it) } }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ToggleSetting(
                 R.string.typing_web_backspace_key_title,
                 stringResource(R.string.typing_web_backspace_key_subtitle),
                 settings.watch { it.textEditing.webBackspaceKeyEvents },
@@ -988,12 +1060,21 @@ internal fun KeyPressSettings(
             ) { scope.launch { repository.setWebBackspaceKeyEvents(it) } }
         }
     }
+}
 
+/** Key press › Alternate keys: the popup a long press opens. */
+@Composable
+internal fun KeyPressAlternatesSettings(
+    repository: SettingsRepository,
+    settings: LiveSettings,
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     // The alternates ("more keys") get their own group rather than joining the
     // bubble's: they are a different popup, sized against a grid instead of a
     // fixed box, and sharing the bubble's font slider was what kept them small
     // (issue #64).
-    SettingsGroup(stringResource(R.string.keypress_alternates_group_title), level = SettingLevel.ADVANCED) {
+    SettingsGroup(stringResource(R.string.keypress_alternates_group_title)) {
         item {
             SliderSetting(
                 R.string.keypress_alternates_size_title,
@@ -1102,12 +1183,45 @@ internal fun KeyPressSettings(
             ) { scope.launch { repository.setAlternatesHoldToSelect(it) } }
         }
     }
+}
 
+/** Key press › Timing: how long a press is held, and how fast keys repeat. */
+@Composable
+internal fun KeyPressTimingSettings(
+    repository: SettingsRepository,
+    settings: LiveSettings,
+) {
+    val scope = rememberCoroutineScope()
+    val context = LocalContext.current
+    // The word-stop rows serve the backspace swipe too (#662), so they read
+    // the Delete keys page's two switches.
+    val swipeDelete = settings.watch { it.backspaceSwipeDelete }
+    val swipeUnit = settings.watch { it.textEditing.backspaceSwipeUnit }
+    val holdDeletesWords = settings.watch { it.textEditing.deleteHoldDeletesWords }
     SettingsGroup(stringResource(R.string.keypress_timing_group_title)) {
         item {
+            ToggleSetting(
+                R.string.keypress_long_press_system_title,
+                stringResource(R.string.keypress_long_press_system_subtitle),
+                settings.watch { it.layoutBehavior.longPressFollowsSystem },
+                info = stringResource(R.string.keypress_long_press_system_info),
+                default = SettingsDefaults.layoutBehavior.longPressFollowsSystem,
+            ) { scope.launch { repository.setLongPressFollowsSystem(it) } }
+        }
+        item {
+            // While the system's delay is followed, the slider shows that
+            // value and stays put; the user's own number is kept for when the
+            // switch goes off again.
+            val followsSystem = settings.watch { it.layoutBehavior.longPressFollowsSystem }
             SliderSetting(
                 R.string.keypress_long_press_delay_title,
                 subtitle = stringResource(R.string.keypress_long_press_delay_subtitle),
+                enabled = !followsSystem,
+                disabledReason = if (followsSystem) {
+                    DisabledReason(stringResource(R.string.keypress_long_press_system_reason))
+                } else {
+                    null
+                },
                 value = settings.watch { it.longPressDelayMs }.toFloat(),
                 // To 3 s: a screen reader's double tap and hold reaches the
                 // key as a held press, and 800 ms ran out before a TalkBack
@@ -1117,6 +1231,17 @@ internal fun KeyPressSettings(
                 info = stringResource(R.string.keypress_long_press_delay_info),
                 default = SettingsDefaults.longPressDelayMs.toFloat(),
             ) { scope.launch { repository.setLongPressDelayMs(it.toInt()) } }
+        }
+        item {
+            SliderSetting(
+                R.string.keypress_multitap_timeout_title,
+                subtitle = stringResource(R.string.keypress_multitap_timeout_subtitle),
+                value = settings.watch { it.layoutBehavior.multitapTimeoutMs }.toFloat(),
+                range = 300f..3000f,
+                display = { context.getString(R.string.keypress_value_ms, it.toInt()) },
+                info = stringResource(R.string.keypress_multitap_timeout_info),
+                default = SettingsDefaults.layoutBehavior.multitapTimeoutMs.toFloat(),
+            ) { scope.launch { repository.setMultitapTimeoutMs(it.toInt()) } }
         }
         item(level = SettingLevel.ADVANCED) {
             SliderSetting(
@@ -1229,7 +1354,6 @@ internal fun KeyPressSettings(
             ) { scope.launch { repository.setShiftCapsLockMs(it.toInt()) } }
         }
     }
-
 }
 
 @Composable
@@ -1626,6 +1750,37 @@ internal fun KeyPressPopupSettings(
                 default = SettingsDefaults.popup.cornerRadiusDp.toFloat(),
             ) { scope.launch { repository.setKeyPopupCornerRadiusDp(it.toInt()) } }
         }
+        // Gap list item 30: the preview bubble's own width and corners, beside
+        // its height. These two stop at the bubble; the radius above is every
+        // popup's, and the bubble follows it until its own is set.
+        item(visible = popupOn, level = SettingLevel.ADVANCED) {
+            SliderSetting(
+                R.string.keypress_preview_width_title,
+                subtitle = stringResource(R.string.keypress_preview_width_subtitle),
+                value = settings.watch { it.popup.previewWidthScale },
+                range = KeyPreviewWidthScaleRange,
+                display = { context.getString(R.string.keypress_value_multiplier, it) },
+                info = stringResource(R.string.keypress_preview_width_info),
+                default = SettingsDefaults.popup.previewWidthScale,
+            ) { scope.launch { repository.setKeyPreviewWidthScale(it) } }
+        }
+        item(visible = popupOn, level = SettingLevel.ADVANCED) {
+            SliderSetting(
+                R.string.keypress_preview_radius_title,
+                subtitle = stringResource(R.string.keypress_preview_radius_subtitle),
+                value = settings.watch { it.popup.previewCornerRadiusDp }.toFloat(),
+                range = KeyPreviewRadiusRange.first.toFloat()..KeyPreviewRadiusRange.last.toFloat(),
+                display = {
+                    if (it < 0f) {
+                        context.getString(R.string.keypress_preview_radius_follow)
+                    } else {
+                        context.getString(R.string.keypress_value_dp, it.toInt())
+                    }
+                },
+                info = stringResource(R.string.keypress_preview_radius_info),
+                default = SettingsDefaults.popup.previewCornerRadiusDp.toFloat(),
+            ) { scope.launch { repository.setKeyPreviewCornerRadiusDp(it.toInt()) } }
+        }
         // Unlike shape and radius, these two stop at the preview bubble: the
         // alternates, the language picker and the panel menus keep the theme's
         // popup colour. Seeded from the settings app's own surface, which is
@@ -1648,6 +1803,28 @@ internal fun KeyPressPopupSettings(
                 fallback = MaterialTheme.colorScheme.onSurfaceVariant.argbLong(),
                 info = stringResource(R.string.keypress_popup_text_color_info),
             ) { scope.launch { repository.setKeyPopupTextColor(it) } }
+        }
+    }
+    // Gap list item 45: text floating up off the keys. Its own group, since
+    // it has nothing to do with the bubble and shows with the bubble off too.
+    SettingsGroup(stringResource(R.string.keypress_pop_text_group_title), level = SettingLevel.ADVANCED) {
+        item {
+            val still = settings.watch { it.reduceMotion }
+            ChoiceSetting(
+                R.string.keypress_pop_text_title,
+                subtitle = stringResource(
+                    if (still) R.string.keypress_pop_text_still_subtitle else R.string.keypress_pop_text_subtitle,
+                ),
+                info = stringResource(R.string.keypress_pop_text_info),
+                options = listOf(
+                    PopTextMode.NEVER to stringResource(R.string.keypress_pop_text_never),
+                    PopTextMode.CORRECTIONS to stringResource(R.string.keypress_pop_text_corrections),
+                    PopTextMode.WORDS to stringResource(R.string.keypress_pop_text_words),
+                    PopTextMode.EVERY_KEY to stringResource(R.string.keypress_pop_text_every_key),
+                ),
+                selected = settings.watch { it.popup.popText },
+                default = SettingsDefaults.popup.popText,
+            ) { scope.launch { repository.setPopText(it) } }
         }
     }
 }

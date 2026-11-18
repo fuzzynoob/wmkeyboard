@@ -9,7 +9,13 @@ import android.view.View
 import android.view.WindowManager
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.config.BuildConfig
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterExitState
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.core.Animatable
@@ -109,6 +115,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Article
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PictureInPictureAlt
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowLeft
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.ArrowRight
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Refresh
@@ -165,6 +172,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.StarBorder
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Block
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ArrowDropDown
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Share
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Visibility
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.TextFields
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Translate
@@ -184,6 +192,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.ProvideTextStyle
 import androidx.compose.material3.VerticalDivider
+import com.wasimaster.wmkeyboard.core.plugins.displayName
 import com.wasimaster.wmkeyboard.core.tools.PhotoBackgroundManager
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
@@ -265,6 +274,7 @@ import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -397,6 +407,8 @@ import com.wasimaster.wmkeyboard.core.clipboard.ClipLinks
 import com.wasimaster.wmkeyboard.core.clipboard.PhoneFormats
 import com.wasimaster.wmkeyboard.core.clipboard.ClipSensitivity
 import com.wasimaster.wmkeyboard.core.otp.NotificationOtp
+import com.wasimaster.wmkeyboard.core.emoji.EmojiDefaultFace
+import com.wasimaster.wmkeyboard.core.emoji.EmojiEntry
 import com.wasimaster.wmkeyboard.core.emoji.EmojiNames
 import com.wasimaster.wmkeyboard.core.emoji.EmojiVariantIndex
 import com.wasimaster.wmkeyboard.core.emoji.KaomojiLibrary
@@ -408,6 +420,10 @@ import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.graphics.luminance
 import com.wasimaster.wmkeyboard.core.theme.KEY_OVERRIDE_LABEL_SCALE_RANGE
+import com.wasimaster.wmkeyboard.core.theme.DEFAULT_KEY_GLOW_DP
+import com.wasimaster.wmkeyboard.core.theme.GradientSpec
+import com.wasimaster.wmkeyboard.core.theme.KEY_GLOW_RANGE
+import com.wasimaster.wmkeyboard.core.theme.KEY_OVERRIDE_RADIUS_RANGE
 import com.wasimaster.wmkeyboard.core.theme.KeyOverride
 import com.wasimaster.wmkeyboard.core.theme.FrostSurface
 import com.wasimaster.wmkeyboard.core.theme.KeyShapeKind
@@ -416,12 +432,17 @@ import com.wasimaster.wmkeyboard.ime.AppColors
 import com.wasimaster.wmkeyboard.core.theme.keyShapeFor
 import com.wasimaster.wmkeyboard.core.theme.brush
 import com.wasimaster.wmkeyboard.core.theme.keyShapeKindOrNull
+import com.wasimaster.wmkeyboard.core.ui.FitWordsText
+import com.wasimaster.wmkeyboard.core.ui.LocalTextFitting
+import com.wasimaster.wmkeyboard.core.ui.TextFitting
 import com.wasimaster.wmkeyboard.core.ui.ToolPaint
+import com.wasimaster.wmkeyboard.core.ui.fitTextWidth
 import com.wasimaster.wmkeyboard.core.ui.toolAccentPaint
 import com.wasimaster.wmkeyboard.core.gesture.KeyCenter
 import com.wasimaster.wmkeyboard.core.handwriting.HwPoint
 import com.wasimaster.wmkeyboard.core.handwriting.HwStroke
 import com.wasimaster.wmkeyboard.core.script.ComposerType
+import com.wasimaster.wmkeyboard.core.script.FancyAssembly
 import com.wasimaster.wmkeyboard.core.script.FancyStyle
 import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.script.FancyStyles
@@ -440,6 +461,8 @@ import com.wasimaster.wmkeyboard.core.settings.RecentWordPlacement
 import com.wasimaster.wmkeyboard.core.settings.RetypeButtonPlace
 import com.wasimaster.wmkeyboard.core.settings.SelectionMacroPlacement
 import com.wasimaster.wmkeyboard.core.settings.LatinAccents
+import com.wasimaster.wmkeyboard.core.settings.EmojiDefaultGender
+import com.wasimaster.wmkeyboard.core.settings.EmojiSettings
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarContent
 import com.wasimaster.wmkeyboard.core.settings.EmojiBarCountRange
 import com.wasimaster.wmkeyboard.core.script.ScriptId
@@ -462,6 +485,7 @@ import com.wasimaster.wmkeyboard.core.settings.TextEditingSettings
 import com.wasimaster.wmkeyboard.core.prediction.OctopusWord
 import com.wasimaster.wmkeyboard.core.prediction.PhoneticCandidateList
 import com.wasimaster.wmkeyboard.core.settings.ArrowKey
+import com.wasimaster.wmkeyboard.core.settings.HintCorner
 import com.wasimaster.wmkeyboard.core.settings.KeyboardSettings
 import com.wasimaster.wmkeyboard.core.settings.OctopusPlacement
 import com.wasimaster.wmkeyboard.core.settings.MeteredDecision
@@ -472,6 +496,7 @@ import com.wasimaster.wmkeyboard.core.settings.OneHandedMode
 import com.wasimaster.wmkeyboard.core.settings.AlternateGroup
 import com.wasimaster.wmkeyboard.core.settings.DefaultAlternatesOrder
 import com.wasimaster.wmkeyboard.core.settings.oneHandedModeFor
+import com.wasimaster.wmkeyboard.core.settings.pinnedBoardId
 import com.wasimaster.wmkeyboard.core.settings.floatingFor
 import com.wasimaster.wmkeyboard.core.settings.FloatingHandlePosition
 import com.wasimaster.wmkeyboard.core.settings.BoardCorner
@@ -480,7 +505,15 @@ import com.wasimaster.wmkeyboard.core.settings.LayoutBehaviorSettings
 import com.wasimaster.wmkeyboard.core.settings.TopRowHolds
 import com.wasimaster.wmkeyboard.core.settings.OneHandedSide
 import com.wasimaster.wmkeyboard.core.settings.LetterSwipeAction
+import com.wasimaster.wmkeyboard.core.settings.KeyLabelCase
+import com.wasimaster.wmkeyboard.core.settings.KeyPreviewRadiusRange
+import com.wasimaster.wmkeyboard.core.settings.KeyPreviewWidthScaleRange
+import com.wasimaster.wmkeyboard.core.settings.PopTextMode
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
+import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeUp
+import com.wasimaster.wmkeyboard.core.settings.pressedAction
+import com.wasimaster.wmkeyboard.core.settings.spaceSwipeBinding
+import com.wasimaster.wmkeyboard.core.layout.SpaceSwipeSlot
 import com.wasimaster.wmkeyboard.core.settings.switchLayoutIds
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.SwitcherExtraStop
@@ -493,6 +526,12 @@ import com.wasimaster.wmkeyboard.core.settings.ToolbarColumn
 import com.wasimaster.wmkeyboard.core.settings.ToolHoldAction
 import com.wasimaster.wmkeyboard.core.settings.holdActionOf
 import com.wasimaster.wmkeyboard.core.settings.ToolbarTool
+import com.wasimaster.wmkeyboard.core.settings.ToolKey
+import com.wasimaster.wmkeyboard.core.settings.builtinTools
+import com.wasimaster.wmkeyboard.core.settings.contains
+import com.wasimaster.wmkeyboard.core.settings.isSupported
+import com.wasimaster.wmkeyboard.core.settings.key
+import com.wasimaster.wmkeyboard.core.settings.shownWith
 import com.wasimaster.wmkeyboard.core.settings.ClipRecentChipsMax
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.History
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Sell
@@ -596,12 +635,17 @@ import com.wasimaster.wmkeyboard.ime.SizingAction
 import com.wasimaster.wmkeyboard.ime.SoundHapticAction
 import com.wasimaster.wmkeyboard.core.settings.TextEditAction
 import com.wasimaster.wmkeyboard.ime.ShiftState
+import com.wasimaster.wmkeyboard.ime.cycleCaseForShift
 import com.wasimaster.wmkeyboard.ime.displayCaseForShift
+import com.wasimaster.wmkeyboard.ime.shiftCyclesCase
 import com.wasimaster.wmkeyboard.ime.shiftForGlide
+import com.wasimaster.wmkeyboard.core.layout.BottomRowPreset
 import com.wasimaster.wmkeyboard.core.layout.BottomRowRules
 import com.wasimaster.wmkeyboard.core.layout.BuiltInLayouts
 import com.wasimaster.wmkeyboard.core.layout.FingerSwipeCounts
 import com.wasimaster.wmkeyboard.core.layout.actionOf
+import com.wasimaster.wmkeyboard.core.layout.PinchGesture
+import com.wasimaster.wmkeyboard.core.layout.oneFingerActionOf
 import com.wasimaster.wmkeyboard.core.layout.effectiveChords
 import com.wasimaster.wmkeyboard.core.layout.PAD_SPACE_LABEL
 import com.wasimaster.wmkeyboard.core.layout.FlickArm
@@ -612,6 +656,8 @@ import com.wasimaster.wmkeyboard.core.layout.holdActionKey
 import com.wasimaster.wmkeyboard.core.layout.hasFlicks
 import com.wasimaster.wmkeyboard.core.layout.SymbolChord
 import com.wasimaster.wmkeyboard.core.layout.withSwipeArms
+import com.wasimaster.wmkeyboard.core.layout.withHoldActions
+import com.wasimaster.wmkeyboard.core.layout.owns
 import com.wasimaster.wmkeyboard.core.layout.isSwipeOnly
 import com.wasimaster.wmkeyboard.core.layout.takesFlickActions
 import com.wasimaster.wmkeyboard.core.layout.arrangedBy
@@ -637,6 +683,7 @@ import com.wasimaster.wmkeyboard.core.layout.withModeNames
 import com.wasimaster.wmkeyboard.core.layout.clipboardAlternate
 import com.wasimaster.wmkeyboard.core.layout.FlickDirection
 import com.wasimaster.wmkeyboard.core.layout.Key
+import com.wasimaster.wmkeyboard.core.layout.keyUppercase
 import com.wasimaster.wmkeyboard.core.theme.slotFor
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundPhase
 import com.wasimaster.wmkeyboard.core.feedback.KeySoundRole
@@ -662,6 +709,8 @@ import com.wasimaster.wmkeyboard.core.layout.opensAlternatesPopup
 import com.wasimaster.wmkeyboard.core.layout.expandNumberRowForTablet
 import com.wasimaster.wmkeyboard.core.layout.gridWeightOf
 import com.wasimaster.wmkeyboard.core.layout.hasRowSpans
+import com.wasimaster.wmkeyboard.core.layout.HexBoard
+import com.wasimaster.wmkeyboard.core.layout.hexBoard
 import com.wasimaster.wmkeyboard.core.layout.KeySlot
 import com.wasimaster.wmkeyboard.core.layout.roleIn
 import com.wasimaster.wmkeyboard.core.layout.rowScaledKeyHeight
@@ -696,6 +745,14 @@ import com.wasimaster.wmkeyboard.core.ui.rememberScrollRailState
  * not on release when the key's action commits.
  */
 internal val LocalKeyPressFeedback = staticCompositionLocalOf<() -> Unit> { {} }
+
+/**
+ * Where a language swipe or the language list starts when the layout on screen
+ * is not in the cycle: the layout the pinned Secondary layout board
+ * interrupted (#1230). Held in a [State] read only when a swipe starts, so a
+ * board toggle recomposes nothing.
+ */
+internal val LocalLanguageAnchor = staticCompositionLocalOf<State<String?>> { mutableStateOf(null) }
 
 /**
  * The bottom padding under the key rows (see `bottomRoom` in
@@ -1459,8 +1516,8 @@ fun KeyboardScreen(
      * not keyboard height.
      */
     onWindowHeadroom: (Int) -> Unit = {},
-    onToolbarToolsChange: (List<ToolbarTool>) -> Unit = {},
-    onToolboxOrderChange: (List<ToolbarTool>) -> Unit = {},
+    onToolbarToolsChange: (List<ToolKey>) -> Unit = {},
+    onToolboxOrderChange: (List<ToolKey>) -> Unit = {},
     toolHold: ToolHoldCallbacks = ToolHoldCallbacks(),
     onToolboxHintDismiss: () -> Unit = {},
     onWeatherRefresh: () -> Unit = {},
@@ -1607,6 +1664,9 @@ fun KeyboardScreen(
         // rest is provided once, around [KeyboardScreenFrame] below.
         CompositionLocalProvider(
             LocalIconSet provides iconSet,
+            // How a word too long for its space fits (Appearance › Toolbar ›
+            // Long words): the strip's words and plugin button labels alike.
+            LocalTextFitting provides bodyState.settings.suggestionStrip.fitting,
             LocalPhoneticIndic provides phoneticIsIndic(bodyState.composer.phoneticLanguage),
             // Where the caret sits in the keyboard's own focused field, for the
             // nine panels that draw one (#161).
@@ -1623,7 +1683,8 @@ fun KeyboardScreen(
                 },
             ),
             LocalSelectionTools provides selectionTools(bodyState, capture.onAiChat),
-            LocalOctopusWords provides rememberUpdatedState(bodyState.octopus),
+            LocalOctopusWords provides rememberLiveOctopus(bodyState),
+            LocalLanguageAnchor provides rememberUpdatedState(bodyState.languageAnchorId),
             LocalLiveWpmPrivate provides rememberLiveWpmPrivate(bodyState),
             // Only while something is composing, so a list the service has not
             // cleared yet never outlives the reading it was for.
@@ -1811,6 +1872,7 @@ fun KeyboardScreen(
     // content and resolves them from wherever it lands, all of which are
     // inside this.
     CompositionLocalProvider(
+        LocalToolFloat provides toolHold.onFloat,
         LocalKeyPreviewState provides keyPreview,
         LocalKeyPressFeedback provides remember(onKeyPressed) {
             { onKeyPressed(KeySoundTarget.DEFAULT) }
@@ -1901,14 +1963,20 @@ internal val LocalLiveUiState = staticCompositionLocalOf<State<KeyboardUiState>?
 /**
  * This state with the fields that change on almost every keystroke cleared:
  * the strip's words and emoji, the composing preview, the next-letter bias and
- * the word a space would commit. Measured on device, these were the only
- * fields that differ between frames while typing a word, and every one of
- * those frames recomposed the whole keyboard. Readers of them go through
- * [withLiveTyping]. The same instance when there is nothing to clear.
+ * the word a space would commit, the typed word the strip leads with, the
+ * strip's between-words lists (openers, punctuation, Avro's candidate bar)
+ * and the octopus words over the keys. Each of these differs between frames
+ * while typing, and every one of those frames recomposed the whole keyboard:
+ * the typed word, missing from the first set, alone recomposed it on every
+ * letter. Readers of them go through [withLiveTyping] (or, for the octopus
+ * words, [rememberLiveOctopus]). The same instance when there is nothing to
+ * clear.
  */
 internal fun KeyboardUiState.withoutTypingFields(): KeyboardUiState =
     if (suggestions.isEmpty() && emojiSuggestions.isEmpty() && composingPreview.isEmpty() &&
-        nextLetterBias.isEmpty() && autocorrectWord == null && newWords.isEmpty()
+        nextLetterBias.isEmpty() && autocorrectWord == null && newWords.isEmpty() &&
+        stripTyped == null && sentenceOpeners.isEmpty() && punctuationSuggestions.isEmpty() &&
+        phoneticCandidates.isEmpty() && octopus.isEmpty() && octopusGlide.isEmpty()
     ) {
         this
     } else {
@@ -1919,6 +1987,12 @@ internal fun KeyboardUiState.withoutTypingFields(): KeyboardUiState =
             nextLetterBias = emptyMap(),
             autocorrectWord = null,
             newWords = emptySet(),
+            stripTyped = null,
+            sentenceOpeners = emptyList(),
+            punctuationSuggestions = emptyList(),
+            phoneticCandidates = emptyList(),
+            octopus = emptyMap(),
+            octopusGlide = emptyMap(),
         )
     }
 
@@ -1931,6 +2005,12 @@ private fun KeyboardUiState.withTypingFrom(live: KeyboardUiState): KeyboardUiSta
         nextLetterBias = live.nextLetterBias,
         autocorrectWord = live.autocorrectWord,
         newWords = live.newWords,
+        stripTyped = live.stripTyped,
+        sentenceOpeners = live.sentenceOpeners,
+        punctuationSuggestions = live.punctuationSuggestions,
+        phoneticCandidates = live.phoneticCandidates,
+        octopus = live.octopus,
+        octopusGlide = live.octopusGlide,
     )
 
 /**
@@ -1948,15 +2028,36 @@ internal fun withLiveTyping(state: KeyboardUiState): KeyboardUiState {
     return remember(
         state, now.suggestions, now.emojiSuggestions, now.composingPreview,
         now.nextLetterBias, now.autocorrectWord, now.newWords,
+        now.stripTyped, now.sentenceOpeners, now.punctuationSuggestions, now.phoneticCandidates,
+        now.octopus, now.octopusGlide,
     ) {
         val same = state.suggestions === now.suggestions &&
             state.emojiSuggestions === now.emojiSuggestions &&
             state.composingPreview == now.composingPreview &&
             state.nextLetterBias === now.nextLetterBias &&
             state.autocorrectWord == now.autocorrectWord &&
-            state.newWords === now.newWords
+            state.newWords === now.newWords &&
+            state.stripTyped == now.stripTyped &&
+            state.sentenceOpeners === now.sentenceOpeners &&
+            state.punctuationSuggestions === now.punctuationSuggestions &&
+            state.phoneticCandidates === now.phoneticCandidates &&
+            state.octopus === now.octopus &&
+            state.octopusGlide === now.octopusGlide
         if (same) state else state.withTypingFrom(now)
     }
+}
+
+/**
+ * The octopus words, read from the live state: they are cleared from the
+ * state the frame reads ([withoutTypingFields]), and they change on every
+ * letter. Read through the [State], so only what draws or hit-tests them
+ * sees the change.
+ */
+@Composable
+private fun rememberLiveOctopus(state: KeyboardUiState): State<OctopusBoard> {
+    val live = LocalLiveUiState.current
+    if (live == null || LocalKeyboardPreviewHost.current) return rememberUpdatedState(state.octopus)
+    return remember(live) { derivedStateOf { live.value.octopus } }
 }
 
 /** [LocalConversionReadings]'s value, read from the live state; see [withLiveTyping]. */
@@ -2126,6 +2227,9 @@ private fun KeyboardScreenFrame(
                     ?: rawState.settings.layoutBehavior.sidePadRightScale,
                 fullWidthBars = values.fullWidthBars
                     ?: rawState.settings.layoutBehavior.fullWidthBars,
+                // The height the bar is drawn at, theme and screen shape folded
+                // in, so the first drag starts from what is on screen (#1261).
+                toolbarHeightDp = settings.toolbarHeightDp,
             )
             // How much taller the keyboard could get from here: the frame
             // reserves this on entry so nothing under the finger moves during
@@ -2144,9 +2248,25 @@ private fun KeyboardScreenFrame(
                 keyHeightDp = SettingsRepository.KEY_HEIGHT_MAX_DP,
                 numberRowHeightDp = SettingsRepository.KEY_HEIGHT_MAX_DP,
             )
+            // Two bar rows when the tools have one of their own (#1261), and
+            // one more for the second toolbar (#1217), which is a toolbar's
+            // height too.
+            val barRows = (
+                if (
+                    settings.toolbarBehavior.placement == ToolbarPlacement.ALWAYS_ROW &&
+                    !settings.toolbarBehavior.stripHidden
+                ) {
+                    2
+                } else {
+                    1
+                }
+                ) + (
+                if (settings.toolbarBehavior.secondRow) 1 else 0
+                )
             val headroomDp = (
                 (gridDp(tallest) - gridDp(entry)) +
-                    (SettingsRepository.MAX_BOTTOM_PADDING_DP - entry.bottomPaddingDp)
+                    (SettingsRepository.MAX_BOTTOM_PADDING_DP - entry.bottomPaddingDp) +
+                    (ToolbarHeightRange.last - entry.toolbarHeightDp).coerceAtLeast(0) * barRows
                 ).roundToInt().coerceAtLeast(0)
             ResizeSession(
                 entry = entry,
@@ -2157,6 +2277,10 @@ private fun KeyboardScreenFrame(
                 onCommit = { result ->
                     onSizingAction(resizeCommitAction(variant, entry, result))
                 },
+                // A theme's own toolbar height wins over the portrait value,
+                // so a drag there would be stored and never seen.
+                toolbarResizable = activeSpec?.toolbarHeightDp == null || variant.isOverride,
+                barRows = barRows,
             )
         }
     }
@@ -2366,6 +2490,30 @@ private fun DockedKeyboardFrame(
     val previewHeadroomPx =
         if (bandMode == KeyPreviewBandMode.WINDOW) wantedHeadroomPx else 0
     val previewBand = remember { KeyPreviewBand() }
+    // Inverse top corners (#1325): concave ears in the board's colour, drawn
+    // in a band of their own just above the board, so the app above looks
+    // rounded at the bottom. Window, like the preview band: the band is held
+    // out of the app's insets, and the docked touchable area starts at the
+    // board's top, so a tap on an ear is the app's. Only for a host with a
+    // window behind the frame, not while resizing (whose outline runs to the
+    // corners), not on a television, and not under a glass theme's blur,
+    // which would blur the strip of app the ears sit in.
+    val earBehavior = state.settings.layoutBehavior
+    val earLeft = BoardCorner.TOP_LEFT in earBehavior.boardCorners
+    val earRight = BoardCorner.TOP_RIGHT in earBehavior.boardCorners
+    val earsOn = earBehavior.boardInverseCornerDp > 0 && (earLeft || earRight) && resize == null &&
+        !state.television && LocalKeyPreviewBand.current == KeyPreviewBandMode.WINDOW &&
+        !LocalKeyboardPreviewHost.current && !windowFrostLive(LocalKbTheme.current)
+    val earPx = if (earsOn) {
+        with(density) { earBehavior.boardInverseCornerDp.coerceIn(BoardCornerRadiusRange).dp.roundToPx() }
+    } else {
+        0
+    }
+    val earBand = remember { KeyPreviewBand() }
+    val earColor = boardTopEdgeColor(LocalKbTheme.current)
+    val earsModifier = remember(earPx, earLeft, earRight, earColor) {
+        if (earPx <= 0) Modifier else Modifier.inverseCornerEars(earPx.toFloat(), earLeft, earRight, earColor)
+    }
     var frameOrigin by remember { mutableStateOf(Offset.Zero) }
     var frameSize by remember { mutableStateOf(IntSize.Zero) }
     val configuration = LocalConfiguration.current
@@ -2387,10 +2535,24 @@ private fun DockedKeyboardFrame(
     // a swipe up from the screen's edge starts there, and the key it landed on
     // typed a space on the way to the home screen.
     val boardBottomRoom = bottomPaddingDp(state.settings).dp
+    // A split board's centre gap as a hole the app shows through and is
+    // tapped through (#1256). This docked frame only, and not while resizing,
+    // on a television or in a settings preview, where there is no app behind.
+    val gapSeeThrough = state.settings.layoutBehavior.splitGapSeeThrough && resize == null &&
+        !state.television && !LocalKeyboardPreviewHost.current
+    // The bar rows' holes reach down (or up) to the keys' over the board's
+    // padding between them, so the column runs through unbroken.
+    val gapBridgePx = with(density) { SplitGapBridge.toPx() }
+    val gapCutout = remember(gapSeeThrough, gapBridgePx) {
+        if (gapSeeThrough) SplitGapCutout(gapBridgePx) else null
+    }
+    val gapHoles = remember(gapCutout) { Modifier.splitGapHoles(gapCutout) }
+    SplitGapReporter(gapCutout)
     val revealingBody: @Composable ColumnScope.(KeyboardUiState) -> Unit = { bodyState ->
         CompositionLocalProvider(
             LocalRowRevealHeadroom provides revealHeadroom,
             LocalBoardBottomRoom provides boardBottomRoom,
+            LocalSplitGapCutout provides gapCutout,
         ) { body(bodyState) }
     }
     // The empty bands, reported to the service, which keeps them out of the
@@ -2400,9 +2562,9 @@ private fun DockedKeyboardFrame(
     // sees the write from the layout pass that made it and delivers after the
     // frame, which is also where the service's requestLayout belongs. Resize
     // mode's frame holds its own band in place of the rows' (issue #643).
-    LaunchedEffect(revealHeadroom, previewBand, onWindowHeadroom, resize) {
+    LaunchedEffect(revealHeadroom, previewBand, earBand, onWindowHeadroom, resize) {
         snapshotFlow {
-            previewBand.heldPx + (resize?.windowBandPx() ?: revealHeadroom.windowPx)
+            previewBand.heldPx + earBand.heldPx + (resize?.windowBandPx() ?: revealHeadroom.windowPx)
         }.collect { onWindowHeadroom(it) }
     }
     // Two boxes: the frame proper under its band, and the bubbles over the
@@ -2428,7 +2590,7 @@ private fun DockedKeyboardFrame(
                 frameSize = it.size
             }
     }
-    val innerFrameModifier = remember(previewHeadroomPx, previewBand, resize, revealHeadroom) {
+    val innerFrameModifier = remember(previewHeadroomPx, previewBand, resize, revealHeadroom, earPx, earBand) {
         Modifier
             .fillMaxWidth()
             .keyPreviewHeadroom(previewHeadroomPx, previewBand)
@@ -2439,6 +2601,9 @@ private fun DockedKeyboardFrame(
                     Modifier.resizeHeadroom(resize)
                 },
             )
+            // Innermost, so the ears' band sits right on the board's top
+            // edge, under a bar row's held band and the bubbles' band.
+            .keyPreviewHeadroom(earPx, earBand)
     }
     Box(modifier = outerFrameModifier) {
         Box(modifier = innerFrameModifier) {
@@ -2450,8 +2615,8 @@ private fun DockedKeyboardFrame(
             // through them. Not on a television, whose card rounds itself, and
             // not while resizing, whose outline chrome runs to the corners.
             val behavior = state.settings.layoutBehavior
-            val boardShape = remember(behavior.boardCornerTopDp, behavior.boardCornerBottomDp, behavior.boardCorners) {
-                boardCornerShape(behavior)
+            val boardShape = remember(behavior.boardCornerTopDp, behavior.boardCornerBottomDp, behavior.boardCorners, earsOn) {
+                boardCornerShape(behavior, squareTop = earsOn)
             }.takeUnless {
                 resize != null || (state.television && state.settings.oneHandedModeFor(landscape) == OneHandedMode.OFF)
             }
@@ -2465,8 +2630,12 @@ private fun DockedKeyboardFrame(
                 modifier = Modifier
                     .fillMaxWidth()
                     .align(Alignment.BottomCenter)
+                    // Before the clip, which would cut away anything drawn
+                    // above the board's own top edge.
+                    .then(earsModifier)
                     .then(if (boardShape == null) Modifier else Modifier.clip(boardShape))
                     .then(popupBlur)
+                    .then(gapHoles)
                     // The box the background image is cropped to; the theme
                     // editor's cropper frames the picture in this shape.
                     .onSizeChanged { KeyboardBoardShape.record(boardContext, it, landscape) }
@@ -2482,7 +2651,7 @@ private fun DockedKeyboardFrame(
                 val card = state.television && state.settings.oneHandedModeFor(landscape) == OneHandedMode.OFF
                 if (!card) {
                     BoardBackground(LocalKbTheme.current)
-                    IncognitoWatermark(state.incognitoOn && state.settings.incognitoWatermark)
+                    IncognitoWatermark(state)
                     // Under the keys and over the board, so a theme that gives the
                     // gesture bar a colour of its own paints only that band (#109).
                     NavigationBarBackground(LocalKbTheme.current)
@@ -2593,7 +2762,10 @@ private fun DockedKeyboardFrame(
                             Spacer(modifier = Modifier.weight(arrangement.leftSlack))
                         }
                         if (card) {
-                            TelevisionCard(modifier = Modifier.weight(arrangement.widthFraction)) {
+                            TelevisionCard(
+                                modifier = Modifier.weight(arrangement.widthFraction),
+                                widthShare = arrangement.widthFraction,
+                            ) {
                                 Column(modifier = Modifier.fillMaxWidth().then(bottomRoom)) {
                                     revealingBody(state)
                                 }
@@ -2901,12 +3073,18 @@ internal fun dockedWidthArrangement(
  * it shows wherever the board does. Tools / Incognito can switch it off.
  */
 @Composable
-private fun BoxScope.IncognitoWatermark(on: Boolean) {
-    if (!on) return
+private fun BoxScope.IncognitoWatermark(state: KeyboardUiState) {
+    if (!state.incognitoOn || !state.settings.incognitoWatermark) return
+    // Centred on the key rows, measured up from the bottom, rather than on the
+    // whole board (#1239): the toolbar and the strip above the keys pulled it
+    // off centre, and a tool changing the board's height moved it.
+    val density = LocalDensity.current
+    val navBottom = with(density) { navigationBarInsets().getBottom(density).toDp() }
+    val lift = navBottom + ((keyRowsHeight(state) - IncognitoWatermarkSize) / 2).coerceAtLeast(0.dp)
     SlotIcon(
         IconSlots.CHROME_INCOGNITO,
         contentDescription = null,
-        modifier = Modifier.align(Alignment.Center).size(IncognitoWatermarkSize),
+        modifier = Modifier.align(Alignment.BottomCenter).padding(bottom = lift).size(IncognitoWatermarkSize),
         tint = LocalKbTheme.current.secondaryText.copy(alpha = IncognitoWatermarkAlpha),
     )
 }
@@ -2928,10 +3106,12 @@ private const val IncognitoWatermarkAlpha = 0.14f
  * The theme's navigation-bar colour is left out: a TV draws no bar.
  */
 @Composable
-private fun TelevisionCard(modifier: Modifier, content: @Composable () -> Unit) {
+private fun TelevisionCard(modifier: Modifier, widthShare: Float, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(topStart = TelevisionCardCorner, topEnd = TelevisionCardCorner)
     Box(modifier = modifier.shadow(TelevisionCardElevation, shape, clip = true)) {
-        BoardBackground(LocalKbTheme.current)
+        // The card is half the screen wide by default: its photo is decoded
+        // for that, not for the whole 1080p width a cheap box can ill spare.
+        BoardBackground(LocalKbTheme.current, widthShare = widthShare)
         content()
     }
 }
@@ -2940,10 +3120,12 @@ private fun TelevisionCard(modifier: Modifier, content: @Composable () -> Unit) 
  * The docked board's outline from its corner settings, or null while every
  * corner is square, so the default board takes no clip at all. Left and right
  * are the screen's, whatever the language's direction, since the corners are
- * where the screen's are.
+ * where the screen's are. [squareTop] while the inverse corners' ears sit on
+ * the top edge (#1325): a convex corner under a concave ear would open a
+ * notch of app between the two.
  */
-internal fun boardCornerShape(behavior: LayoutBehaviorSettings): Shape? {
-    val top = behavior.boardCornerTopDp.coerceIn(BoardCornerRadiusRange)
+internal fun boardCornerShape(behavior: LayoutBehaviorSettings, squareTop: Boolean = false): Shape? {
+    val top = if (squareTop) 0 else behavior.boardCornerTopDp.coerceIn(BoardCornerRadiusRange)
     val bottom = behavior.boardCornerBottomDp.coerceIn(BoardCornerRadiusRange)
     fun radius(corner: BoardCorner, dp: Int): Int = if (corner in behavior.boardCorners) dp else 0
     val topLeft = radius(BoardCorner.TOP_LEFT, top)
@@ -2958,6 +3140,50 @@ internal fun boardCornerShape(behavior: LayoutBehaviorSettings): Shape? {
         bottomLeft = bottomLeft.dp,
     )
 }
+
+/**
+ * The flat colour the inverse corners' ears are painted in (#1325): the
+ * board's top edge, which for a gradient is its first stop (the default sweep
+ * runs from the top left). Opaque, since an ear over the app is the board's
+ * silhouette, not a tint of the app.
+ */
+internal fun boardTopEdgeColor(kb: KbTheme): Color {
+    val board = kb.boardGradient?.colors?.firstOrNull()?.let { Color(it.toInt()) } ?: kb.board
+    return board.compositeOver(kb.board.copy(alpha = 1f)).copy(alpha = 1f)
+}
+
+/**
+ * Draws the inverse corners' ears (#1325) above the node's top edge, in the
+ * band [keyPreviewHeadroom] holds for them: for each side, the square of
+ * [radiusPx] on the board's top corner minus a quarter circle, so the edge
+ * the app shows against curves from the screen's side down onto the board.
+ * Drawn behind the node and outside it, so it must sit before any clip.
+ * The bottom edge reaches a pixel into the board, under the board's own
+ * paint, so no hairline of app shows at the seam.
+ */
+private fun Modifier.inverseCornerEars(radiusPx: Float, left: Boolean, right: Boolean, color: Color): Modifier =
+    drawWithCache {
+        val r = radiusPx.coerceAtMost(size.width / 2f)
+        val seam = 1f
+        val w = size.width
+        val path = Path()
+        if (left) {
+            path.moveTo(0f, seam)
+            path.lineTo(r, seam)
+            path.lineTo(r, 0f)
+            // Centre (r, -r): from straight below it round to straight left of it.
+            path.arcTo(Rect(0f, -2f * r, 2f * r, 0f), 90f, 90f, false)
+            path.close()
+        }
+        if (right) {
+            path.moveTo(w, seam)
+            path.lineTo(w - r, seam)
+            path.lineTo(w - r, 0f)
+            path.arcTo(Rect(w - 2f * r, -2f * r, w, 0f), 90f, -90f, false)
+            path.close()
+        }
+        onDrawBehind { drawPath(path, color) }
+    }
 
 /** Corner radius of [TelevisionCard]'s two top corners. */
 private val TelevisionCardCorner = 12.dp
@@ -3220,7 +3446,7 @@ private fun FloatingKeyboardFrame(
         ) {
             Box {
                 BoardBackground(LocalKbTheme.current)
-                IncognitoWatermark(state.incognitoOn && state.settings.incognitoWatermark)
+                IncognitoWatermark(state)
                 val handleAtBottom = state.settings.floatingHandle == FloatingHandlePosition.BOTTOM
                 // One bar, placed above or below the keys; see the frame's KDoc.
                 val handleBar: @Composable () -> Unit = {
@@ -4218,10 +4444,27 @@ private fun TopBar(
     val toolbarFill = LocalKbTheme.current.toolbar
     // The finger steering the swipe-up popup of more words, and where its cells are.
     val moreHold = remember { MoreSuggestionsHold() }
+    // The strip folded away while it has nothing to show, under an always-open
+    // tools row (#1272). After the same settle beat the shared strip waits
+    // before handing its row to the tools, so a space between two words does
+    // not fold and unfold it. Compact dictation keeps it: that bar is the
+    // session's only status.
+    val stripFolded = state.settings.toolbarBehavior.stripOnlyWithWords &&
+        state.settings.toolbarBehavior.showStrip && placement == ToolbarPlacement.ALWAYS_ROW &&
+        state.settings.toolbarBehavior.enabled && !hasSuggestions && emptySettled &&
+        !state.voiceStripShown()
+    // With the arrow off (#970), a swipe up anywhere on the strip brings the
+    // pinned tools and a swipe down anywhere on them puts them away, so the
+    // arrow can go without a toolbox button taking its place at one end and
+    // the words keep the whole strip, centred.
+    val swipeTools = (placement == ToolbarPlacement.ON_SWIPE || !state.settings.toolbarBehavior.toolsArrow) &&
+        !toolsColumn && placement != ToolbarPlacement.ALWAYS_ROW && state.settings.toolbarBehavior.enabled
+    val toolsSwiped = rememberUpdatedState(onPinnedTools)
     Box(
         Modifier
             .fillMaxWidth()
-            .height(topBarHeight(state.settings))
+            .height(if (stripFolded) 0.dp else topBarHeight(state.settings))
+            .then(if (stripFolded) Modifier.clipToBounds() else Modifier)
             .graphicsLayer()
             .barRowFill(if (showToolbar) toolbarFill else null),
     ) {
@@ -4237,7 +4480,7 @@ private fun TopBar(
             // so the two don't collide. See [stripSwipes].
             .then(
                 if (state.settings.toolbarBehavior.swipeDownHide || state.settings.suggestionStrip.swipeForMore ||
-                    state.settings.suggestionStrip.swipeUpForMore
+                    state.settings.suggestionStrip.swipeUpForMore || swipeTools
                 ) {
                     // Read at the moment of the swipe, not when the detector
                     // was installed: whether there are words to page through
@@ -4249,7 +4492,20 @@ private fun TopBar(
                     )
                     val pagesOpen = rememberUpdatedState(state.panel == PanelMode.CANDIDATES)
                     val hide = rememberUpdatedState(state.settings.toolbarBehavior.swipeDownHide)
-                    Modifier.stripSwipes(pages, more, pagesOpen, hide, moreHold, suggestionHold, onSwipeDownHide)
+                    val toolsUp = rememberUpdatedState(
+                        swipeTools && state.panel == PanelMode.NONE &&
+                            !(if (toolsOwnRow) toolsRowOpen else wantToolbar),
+                    )
+                    // Swipe down to hide keeps its flick; the toolbar's own
+                    // toolbox button still puts the tools away then.
+                    val toolsDown = rememberUpdatedState(
+                        swipeTools && !state.settings.toolbarBehavior.swipeDownHide &&
+                            (if (toolsOwnRow) toolsRowOpen else toolbarOverride),
+                    )
+                    Modifier.stripSwipes(
+                        pages, more, pagesOpen, hide, toolsUp, toolsDown, toolsSwiped,
+                        moreHold, suggestionHold, onSwipeDownHide,
+                    )
                 } else {
                     Modifier
                 },
@@ -4384,12 +4640,10 @@ private fun TopBar(
         // emoji then slid right, was handed to the strip, and slid back left
         // past where it started. One decision, and the row moves once, when the
         // surface it belongs to arrives.
-        // The arrow can go (#970) where a toolbox button on screen does its
-        // job by a swipe: the strip's own while the strip shows, the bar's
-        // while the toolbar covers the strip. Without that button the arrow
-        // stays, as the only way in or out.
-        val swipeInstead = (placement == ToolbarPlacement.ON_SWIPE || !state.settings.toolbarBehavior.toolsArrow) &&
-            if (showToolbar) barToolboxShown(state) else state.settings.stripToolboxSwipes()
+        // The arrow can go (#970): a swipe up anywhere on the strip does its
+        // job, and a swipe down on the tools or the toolbar's toolbox button
+        // undoes it ([swipeTools]).
+        val swipeInstead = swipeTools
         AnimatedVisibility(
             visible = !toolsColumn && !swipeInstead && when (placement) {
                 // The row is always there; there is nothing for a chevron to do.
@@ -4429,23 +4683,36 @@ private fun TopBar(
                     // on the shared strip. With a row of their own the tools open
                     // above or below this one, so the chevron points that way and
                     // turns to face back once the row is out.
-                    Icon(
+                    val chevronDesc = stringResource(
                         when {
-                            !toolsOwnRow -> Icons.Outlined.ChevronRight
-                            toolsRowAbove -> Icons.Outlined.KeyboardArrowUp
-                            else -> Icons.Outlined.KeyboardArrowDown
+                            toolsOwnRow && toolsRowOpen -> R.string.ime_toolbar_hide_desc
+                            toolsOwnRow -> R.string.ime_toolbar_show_desc
+                            showToolbar -> R.string.ime_suggestions_show_desc
+                            else -> R.string.ime_toolbar_show_desc
                         },
-                        contentDescription = stringResource(
-                            when {
-                                toolsOwnRow && toolsRowOpen -> R.string.ime_toolbar_hide_desc
-                                toolsOwnRow -> R.string.ime_toolbar_show_desc
-                                showToolbar -> R.string.ime_suggestions_show_desc
-                                else -> R.string.ime_toolbar_show_desc
-                            },
-                        ),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.graphicsLayer { rotationZ = chevronTurn },
                     )
+                    if (!toolsOwnRow) {
+                        // The shared strip's arrow is the Show tools icon slot,
+                        // so a pick in Icons reaches it (Telegram 8802). Only
+                        // the shipped chevron turns: an icon the user chose
+                        // stays the way up they chose it.
+                        val ownIcon = LocalIconSet.current.resolve(IconSlots.CHROME_SUGGESTIONS_EXPAND) != null
+                        SlotIcon(
+                            IconSlots.CHROME_SUGGESTIONS_EXPAND,
+                            contentDescription = chevronDesc,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier
+                                .size(24.dp)
+                                .graphicsLayer { if (!ownIcon) rotationZ = chevronTurn },
+                        )
+                    } else {
+                        Icon(
+                            if (toolsRowAbove) Icons.Outlined.KeyboardArrowUp else Icons.Outlined.KeyboardArrowDown,
+                            contentDescription = chevronDesc,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.graphicsLayer { rotationZ = chevronTurn },
+                        )
+                    }
                 }
             }
         }
@@ -4495,10 +4762,11 @@ private fun TopBar(
             // which ART never compiles a method, for a function that runs on
             // every keystroke. Here it compiles separately.
             StripSlot {
-                // The tools kept beside the suggestions (#462), then the phonetic
-                // layouts' English-words switch. See [StripTools].
-                if (!stripToolsAtEnd(state)) {
-                    StripTools(state, toolsRowVisible, drag, onToolTap, onPinnedTools) { onPanelChange(PanelMode.TOOLBOX) }
+                // The tools kept beside the suggestions (#462) whose side is the
+                // strip's start, then the phonetic layouts' English-words switch.
+                // See [StripTools].
+                StripTools(state, toolsRowVisible, drag, onToolTap, onPinnedTools, atEnd = false) {
+                    onPanelChange(PanelMode.TOOLBOX)
                 }
                 StripChipsAndWords(state.settings.suggestionStrip.chipsAtEnd) {
                     if (StripOfferChips(
@@ -4585,10 +4853,9 @@ private fun TopBar(
                     if (aiAfterWords) aiChip()
                 }
             }
-            // The same buttons at the strip's far end instead, after the words,
-            // when the user put them there.
-            if (stripToolsAtEnd(state)) {
-                StripTools(state, toolsRowVisible, drag, onToolTap, onPinnedTools) { onPanelChange(PanelMode.TOOLBOX) }
+            // The buttons the user put at the strip's far end, after the words.
+            StripTools(state, toolsRowVisible, drag, onToolTap, onPinnedTools, atEnd = true) {
+                onPanelChange(PanelMode.TOOLBOX)
             }
         }
     }
@@ -4743,6 +5010,20 @@ private fun RowScope.StripOfferChips(
             onStripOfferAction(StripOfferAction.ToggleZawgyi)
         }
     }
+    // A legacy font button (#1252): Kruti Dev on the Hindi layouts, Preeti on
+    // the Nepali ones, Bamini on the Tamil ones and so on, once the language's
+    // screen picked the font. The same switch for the same reason.
+    state.settings.suggestionStrip.legacyFonts[state.language.id]
+        ?.let(com.wasimaster.wmkeyboard.core.transliteration.LegacyFonts.Font::of)
+        ?.let { font ->
+            EncodingToggle(
+                active = state.settings.suggestionStrip.legacyFontOn,
+                label = font.badge,
+                description = stringResource(R.string.ime_legacy_font_output),
+            ) {
+                onStripOfferAction(StripOfferAction.ToggleLegacyFont)
+            }
+        }
     // Chinese and Cantonese's 繁 button, the same switch over Traditional
     // characters (#962). Lit while candidates come out Traditional.
     if ((state.language.id == "zh" || state.language.id == "yue") && state.settings.cjk.traditionalButton) {
@@ -4905,7 +5186,7 @@ private fun RowScope.StripOfferChips(
             // Stretched across the strip, there would be no far end to sit at.
             stretch = !otpShares && !state.settings.suggestionStrip.chipsAtEnd,
             modifier = if (otpShares || state.settings.suggestionStrip.chipsAtEnd) {
-                Modifier.widthIn(max = 180.dp).padding(horizontal = 4.dp)
+                Modifier.besideWords(suggestionsShowing).widthIn(max = 180.dp).padding(horizontal = 4.dp)
             } else {
                 Modifier.weight(1f).padding(horizontal = 4.dp)
             },
@@ -4933,7 +5214,7 @@ private fun RowScope.StripOfferChips(
             onDecline = { onStripOfferAction(StripOfferAction.DismissDeleteUndo) },
             stretch = !shares,
             modifier = if (shares) {
-                Modifier.widthIn(max = 200.dp).padding(horizontal = 4.dp)
+                Modifier.besideWords(suggestionsShowing).widthIn(max = 200.dp).padding(horizontal = 4.dp)
             } else {
                 Modifier.weight(1f).padding(horizontal = 4.dp)
             },
@@ -4961,6 +5242,7 @@ private fun RowScope.StripOfferChips(
             stretch = !offerShares && single,
             modifier = if (offerShares) {
                 Modifier
+                    .besideWords(suggestionsShowing)
                     .widthIn(max = if (single) 200.dp else 280.dp)
                     .padding(horizontal = 4.dp)
             } else {
@@ -4982,7 +5264,7 @@ private fun RowScope.StripOfferChips(
             onDecline = { onStripOfferAction(StripOfferAction.Decline) },
             stretch = !learnShares,
             modifier = if (learnShares) {
-                Modifier.widthIn(max = 210.dp).padding(horizontal = 4.dp)
+                Modifier.besideWords(suggestionsShowing).widthIn(max = 210.dp).padding(horizontal = 4.dp)
             } else {
                 Modifier.weight(1f).padding(horizontal = 4.dp)
             },
@@ -5009,7 +5291,7 @@ private fun RowScope.StripOfferChips(
             onExplain = { onStripOfferAction(StripOfferAction.Explain) },
             stretch = !sandboxShares,
             modifier = if (sandboxShares) {
-                Modifier.widthIn(max = 210.dp).padding(horizontal = 4.dp)
+                Modifier.besideWords(suggestionsShowing).widthIn(max = 210.dp).padding(horizontal = 4.dp)
             } else {
                 Modifier.weight(1f).padding(horizontal = 4.dp)
             },
@@ -5039,7 +5321,7 @@ private fun RowScope.StripOfferChips(
             onDecline = { onStripOfferAction(StripOfferAction.Decline) },
             stretch = !wordListShares,
             modifier = if (wordListShares) {
-                Modifier.widthIn(max = 260.dp).padding(horizontal = 4.dp)
+                Modifier.besideWords(suggestionsShowing).widthIn(max = 260.dp).padding(horizontal = 4.dp)
             } else {
                 Modifier.weight(1f).padding(horizontal = 4.dp)
             },
@@ -5073,7 +5355,7 @@ private fun RowScope.StripOfferChips(
             onDecline = { onStripOfferAction(StripOfferAction.Decline) },
             stretch = !packShares,
             modifier = if (packShares) {
-                Modifier.widthIn(max = 260.dp).padding(horizontal = 4.dp)
+                Modifier.besideWords(suggestionsShowing).widthIn(max = 260.dp).padding(horizontal = 4.dp)
             } else {
                 Modifier.weight(1f).padding(horizontal = 4.dp)
             },
@@ -5118,7 +5400,7 @@ private fun RowScope.StripOfferChips(
             onDecline = { onStripOfferAction(StripOfferAction.Decline) },
             stretch = !zawgyiShares,
             modifier = if (zawgyiShares) {
-                Modifier.widthIn(max = 260.dp).padding(horizontal = 4.dp)
+                Modifier.besideWords(suggestionsShowing).widthIn(max = 260.dp).padding(horizontal = 4.dp)
             } else {
                 Modifier.weight(1f).padding(horizontal = 4.dp)
             },
@@ -5318,11 +5600,14 @@ private fun RowScope.StripAnswerChips(
     // The last few copies as a row of chips (#414), newest first
     // whatever is pinned (#612). Asked for by hand, so it holds the
     // strip over any words until something is typed or its ✕.
-    // Text clips only, never a secret, the same gates as the
-    // single chip's.
+    // Text and pictures, never a secret: the kinds the single chip
+    // shows. Pictures were left out, so a row of two or more lost the
+    // screenshot the one chip had just been showing (#1284).
     val clipBarChips = if (recentClipsBar && shownSmart == null) {
         state.clipboardItems
-            .filter { it.kind.isTextual && !it.sensitive && it.text.isNotBlank() }
+            .filter {
+                !it.sensitive && (it.kind == ClipKind.IMAGE || it.kind.isTextual && it.text.isNotBlank())
+            }
             .sortedByDescending { it.timestamp }
             .take(recentClipsRowCount(state.settings.clipboard.recentChips))
     } else {
@@ -5449,7 +5734,7 @@ private fun RowScope.StripAnswerChips(
             )
         }
         if (clipChipShares) {
-            clipChip(Modifier.widthIn(max = 160.dp).padding(horizontal = 4.dp))
+            clipChip(Modifier.besideWords(suggestionsShowing).widthIn(max = 160.dp).padding(horizontal = 4.dp))
         } else {
             // Alone on the strip it still sizes to what it holds
             // (#519): a four-letter copy is a short pill, not a bar
@@ -5666,6 +5951,7 @@ private fun RowScope.StripWords(
             primaryColor = state.settings.suggestionStrip.primaryColor?.let { Color(it.toInt()) },
             newWordColor = state.settings.suggestionStrip.newWordColor?.let { Color(it.toInt()) },
             newWords = state.newWords,
+            rankMarks = if (state.settings.suggestionStrip.rankMarks) state.wordRanks else emptyMap(),
             leadWord = state.stripTyped.takeIf { state.settings.suggestionStrip.typedWordFirst && !glideStripOnly },
             fitMore = state.settings.suggestionStrip.fitMoreWords && !glideStripOnly,
             autocorrectWord = state.autocorrectWord,
@@ -5679,7 +5965,15 @@ private fun RowScope.StripWords(
             shiftState = shiftForGlide(state.shiftState, state.glideCase),
             // Per-letter capitals a stroke drew (#163), which no one
             // shift state can say; empty under the whole-word reading.
-            casedWords = state.glideCased,
+            // A shift pressed mid-word cycles the words' case, lower case
+            // included (#1195).
+            casedWords = if (state.shiftCyclesCase()) {
+                remember(state.suggestions, state.shiftState, state.glideCased) {
+                    state.suggestions.associateWith { cycleCaseForShift(it, state.shiftState) } + state.glideCased
+                }
+            } else {
+                state.glideCased
+            },
             // A glided trigger shows what the lift types for it (#205).
             expansions = state.glideExpansions,
             // Only while the live candidates are the ones on screen: the
@@ -5772,14 +6066,20 @@ private fun RowScope.StripWords(
                 // A kaomoji chip ("shrug" → ¯\_(ツ)_/¯) is text, not a glyph:
                 // the text face at a text size, or it would run off the strip.
                 // It takes the words' colour too: the content colour here is
-                // not the strip's, and read black on dark themes.
+                // not the strip's, and read black on dark themes. So does a
+                // character found by its name (#1152): ω or — is a plain glyph,
+                // drawn in the colour it is given, and came out dark grey on a
+                // dark strip, an em dash all but invisible. A colour emoji
+                // ignores the colour, and the alpha is kept at 1 so a theme's
+                // faded words never fade one.
                 val face = KaomojiLibrary.isTextArt(emoji)
+                val glyphColour = LocalKbTheme.current.suggestionText.copy(alpha = 1f)
                 CachedTextLine(
                     text = AnnotatedString(if (face) emoji else LocalEmojiShaper.current.shape(emoji)),
                     style = LocalTextStyle.current.merge(
                         if (face) TextStyle(fontSize = 14.sp) else TextStyle(fontSize = 22.sp, fontFamily = emojiFamilyFor(emoji)),
                     ),
-                    color = if (face) LocalKbTheme.current.secondarySuggestionText else LocalContentColor.current,
+                    color = if (face) LocalKbTheme.current.secondarySuggestionText else glyphColour,
                     overflow = TextOverflow.Clip,
                 )
             }
@@ -5877,6 +6177,52 @@ internal fun stripShares(needs: List<Float>, total: Float): List<Float>? {
     if (left > 0f) for (i in 0 until n) shares[i] += left / n
     return shares.toList()
 }
+
+/**
+ * At most [slots] word slots, fewer when [width] cannot give each of them
+ * [StripMinSlotWidth] (#1291). Chips beside the words had left three slots a
+ * sliver each, and every word in them came out as a letter and "…". One slot
+ * is always drawn.
+ */
+internal fun slotsWithRoom(slots: Int, width: Dp): Int {
+    if (slots <= 1) return slots
+    val fit = ((width + SuggestionDividerWidth) / (StripMinSlotWidth + SuggestionDividerWidth)).toInt()
+    return fit.coerceIn(1, slots)
+}
+
+/** The narrowest word slot worth drawing: a short word, whole (#1291). */
+internal val StripMinSlotWidth = 52.dp
+
+/** What a chip sharing the strip leaves the words beside it (#1291): about two slots. */
+private val StripWordsRoom = 110.dp
+
+/** The narrowest a chip sharing the strip is squeezed to: its icon and its ✕. */
+private val StripChipFloor = 72.dp
+
+/**
+ * A chip beside the words leaves them [room] (#1291). The strip's chips are
+ * measured before the weighted words, each against what the row still has, so
+ * two side by side (the paste chip and the backspace undo) could take all but
+ * a sliver of it. Never narrower than [floor], and only ever narrower than the
+ * chip's own limits, so a strip with room to spare looks as it did.
+ */
+private fun Modifier.leavesWordRoom(room: Dp = StripWordsRoom, floor: Dp = StripChipFloor): Modifier =
+    layout { measurable, constraints ->
+        val max = if (constraints.hasBoundedWidth) {
+            (constraints.maxWidth - room.roundToPx())
+                .coerceAtLeast(floor.roundToPx())
+                .coerceAtMost(constraints.maxWidth)
+        } else {
+            constraints.maxWidth
+        }
+        val placeable = measurable.measure(
+            constraints.copy(minWidth = minOf(constraints.minWidth, max), maxWidth = max),
+        )
+        layout(placeable.width, placeable.height) { placeable.place(0, 0) }
+    }
+
+/** [leavesWordRoom] while there are [words] beside the chip to leave room for. */
+private fun Modifier.besideWords(words: Boolean): Modifier = if (words) leavesWordRoom() else this
 
 private fun slotsThatFit(
     candidates: List<String>,
@@ -6061,6 +6407,11 @@ internal fun RowScope.LatinSuggestionChips(
     newWordColor: Color? = null,
     /** Those words, lower-cased, as the service found them for [candidates]. */
     newWords: Set<String> = emptySet(),
+    /**
+     * The user's word ranks to mark the chips with (#1249), keyed by
+     * [com.wasimaster.wmkeyboard.core.prediction.WordKey]; empty marks nothing.
+     */
+    rankMarks: Map<String, Int> = emptyMap(),
     shiftState: ShiftState,
     /**
      * Words shown in a casing of their own, keyed by the raw word: a glide's
@@ -6096,6 +6447,8 @@ internal fun RowScope.LatinSuggestionChips(
     tinted: Boolean = false,
 ) {
     val kb = LocalKbTheme.current
+    // Appearance › Toolbar › Long words: how a word too long for its slot fits.
+    val fitting = LocalTextFitting.current
     // The theme's pill fills (#510): its own colours, or the accent washed thin.
     val pills = kb.suggestionPill to kb.primarySuggestionPill
     // The word a long press is asking about, or null while no menu is up. Held
@@ -6115,6 +6468,9 @@ internal fun RowScope.LatinSuggestionChips(
     // Candidates change under the menu as the user keeps typing; a menu still
     // naming the old word would blacklist something they never held.
     LaunchedEffect(candidates) { heldWord = null }
+    // Where a see-through split gap cuts the strip (#1256), so no word is
+    // drawn half on each side of it.
+    val splitCut = rememberSplitCutTracker()
 
     // BoxWithConstraints, not a bare Row, because the chips shrink long words to
     // fit and that needs the slot width up front. One subcomposition covers
@@ -6123,6 +6479,7 @@ internal fun RowScope.LatinSuggestionChips(
         modifier = Modifier
             .weight(weight)
             .fillMaxHeight()
+            .then(splitCut?.tracker ?: Modifier)
             // Fades in a beat behind the emoji's slide as candidates arrive,
             // and out as they leave (see [stripContentAlpha]).
             .graphicsLayer { this.alpha = alpha() },
@@ -6135,8 +6492,12 @@ internal fun RowScope.LatinSuggestionChips(
         val baseSize = (
             if (baseStyle.fontSize.isSpecified) baseStyle.fontSize else SuggestionFontSize
             ) * textScale
-        // Short words make room for more of them (#970).
-        val slots = if (fitMore && !scrollable && !fixedSlots && candidates.size > slotCount) {
+        // Short words make room for more of them (#970). Kept in place too
+        // when the best word holds the first slot (#1154): the added slots go
+        // on after it, so nothing already shown moves. Not with it centred,
+        // where one more slot would move the middle.
+        val fitsInPlace = !fixedSlots || !centerPrimaryEnabled
+        val wanted = if (fitMore && !scrollable && fitsInPlace && candidates.size > slotCount) {
             remember(candidates, slotCount, maxWidth, textPadding, baseSize, baseStyle, shiftState) {
                 slotsThatFit(candidates, slotCount, maxWidth, textPadding) { word ->
                     measurer.measure(
@@ -6150,6 +6511,10 @@ internal fun RowScope.LatinSuggestionChips(
         } else {
             slotCount
         }
+        // Chips beside the words can leave too little for every slot (#1291):
+        // fewer slots, each wide enough to read, rather than every word cut to
+        // a letter and "…".
+        val slots = if (scrollable) wanted else slotsWithRoom(wanted, maxWidth)
         // A scrolling strip runs on through every word it was given (#516);
         // a fixed one shows what fits its slots.
         val ranked = if (scrollable) candidates else candidates.take(slots)
@@ -6157,9 +6522,10 @@ internal fun RowScope.LatinSuggestionChips(
         // the runner-up on its left. The commit path still uses the engine's
         // order — this is display-only.
         val centerPrimary = centerPrimaryEnabled && ranked.size >= 2
-        val fixed = fixedSlots && !scrollable && ranked.isNotEmpty()
+        // Slots held in place only while there is room for all of them.
+        val fixed = fixedSlots && !scrollable && ranked.isNotEmpty() && slots == wanted
         val arranged: List<String?> = when {
-            fixed -> fixedSlotOrder(ranked, slotCount, if (centerPrimaryEnabled) primarySlot else 0)
+            fixed -> fixedSlotOrder(ranked, slots, if (centerPrimaryEnabled) primarySlot else 0)
             centerPrimary -> listOf(ranked[1], ranked[0]) + ranked.drop(2)
             else -> ranked
         }
@@ -6191,7 +6557,19 @@ internal fun RowScope.LatinSuggestionChips(
         // "it" is drawn whole rather than squeezed while two slots sit half
         // empty. Only when some word needs it: words that all fit keep the
         // equal slots, and with them where each one sits under the thumb.
-        val shareWidths: List<Dp>? = if (!scrollable && !fixed && shown.size >= 2) {
+        // Split around the gap: the slots before the cut share what is left of
+        // it and the rest what is right of it, so a slot edge is where the
+        // gap is. Not a scrolling strip, whose words move under the cut.
+        val cutAt = if (scrollable) null else splitCut?.cutIn()
+        val split = cutAt?.let { cut ->
+            with(density) {
+                cellsAroundCut(shown.size, maxWidth.toPx(), cut, SuggestionDividerWidth.toPx())
+                    ?.let { (widths, after) -> widths.map { it.toDp() } to after }
+            }
+        }
+        val shareWidths: List<Dp>? = if (split != null) {
+            split.first
+        } else if (!scrollable && !fixed && shown.size >= 2) {
             remember(shown, maxWidth, textPadding, baseSize, baseStyle, shiftState) {
                 val style = baseStyle.merge(TextStyle(fontSize = baseSize, fontWeight = FontWeight.SemiBold))
                 val needs = shown.map { word ->
@@ -6218,7 +6596,8 @@ internal fun RowScope.LatinSuggestionChips(
                 VerticalDivider(
                     modifier = Modifier.height(20.dp),
                     thickness = SuggestionDividerWidth,
-                    color = if (!tinted && suggestion != null && shown[index - 1] != null) {
+                    // Not against the gap, where the halves already stand apart.
+                    color = if (!tinted && suggestion != null && shown[index - 1] != null && index != split?.second) {
                         MaterialTheme.colorScheme.outlineVariant
                     } else {
                         Color.Transparent
@@ -6226,7 +6605,11 @@ internal fun RowScope.LatinSuggestionChips(
                 )
             }
             if (suggestion == null) {
-                Box(modifier = Modifier.weight(1f).fillMaxHeight())
+                Box(
+                    modifier = Modifier
+                        .weight(shareWidths?.getOrNull(index)?.value?.coerceAtLeast(1f) ?: 1f)
+                        .fillMaxHeight(),
+                )
                 return@slot
             }
             // Fixed mode splits the width by weight. Scroll mode cannot
@@ -6362,6 +6745,10 @@ internal fun RowScope.LatinSuggestionChips(
                 if (hint != null) {
                     HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
                 }
+                // A word the user ranked (#1249): its rank at the corner, so
+                // it need not be held to find out whether it was moved.
+                val rank = if (rankMarks.isEmpty()) 0 else rankMarks[com.wasimaster.wmkeyboard.core.prediction.WordKey.of(suggestion)] ?: 0
+                if (rank != 0) RankMark(rank, Modifier.align(Alignment.TopEnd))
                 // A chip is sometimes an emoji rather than a word — a learned
                 // bigram can predict one ("you" → ❤️). Those have to be drawn
                 // in the chosen emoji font, and in the spelling that font
@@ -6404,7 +6791,7 @@ internal fun RowScope.LatinSuggestionChips(
                 val fit = if (scrollable) {
                     // Natural width: nothing to fit, the row scrolls instead.
                     SuggestionTextFit(1f, 1f)
-                } else remember(label, family, weight, slotTextWidth, slotSize, baseStyle) {
+                } else remember(label, family, weight, slotTextWidth, slotSize, baseStyle, fitting) {
                     val measured = measurer.measure(
                         text = label,
                         style = baseStyle.merge(
@@ -6420,6 +6807,7 @@ internal fun RowScope.LatinSuggestionChips(
                     fitSuggestionText(
                         measuredWidthPx = measured.toFloat(),
                         availableWidthPx = with(density) { slotTextWidth.toPx() },
+                        fitting = fitting,
                     )
                 }
                 CachedTextLine(
@@ -6689,19 +7077,6 @@ private val SuggestionTextPadding = 6.dp
 private val SuggestionFontSize = 16.sp
 
 /**
- * How small a suggestion's font may go, as a fraction of the base size — 16sp
- * down to about 11sp. Past this the word condenses horizontally instead, because
- * shrinking further costs legibility faster than it buys width.
- */
-private const val MinSuggestionFontScale = 0.68f
-
-/**
- * How far a suggestion may be squeezed horizontally. Below roughly 0.8 the
- * letterforms visibly distort, so anything still too long after this ellipsizes.
- */
-private const val MinSuggestionScaleX = 0.8f
-
-/**
  * How a suggestion word is scaled down to fit its slot.
  *
  * [fontScale] multiplies the base font size; [scaleX] condenses the glyphs
@@ -6714,27 +7089,20 @@ internal data class SuggestionTextFit(val fontScale: Float, val scaleX: Float) {
 }
 
 /**
- * Works out how to fit a suggestion of [measuredWidthPx] into [availableWidthPx].
- *
- * Two stages, in the order that costs the least legibility: shrink the point
- * size first (text width is near enough linear in font size, so the ratio of the
- * two widths *is* the scale), and only once that hits [MinSuggestionFontScale]
- * start condensing the glyphs. Together the two floors fit a word about 1.8× the
- * slot width; longer than that and the caller's ellipsis takes over.
+ * Works out how to fit a suggestion of [measuredWidthPx] into [availableWidthPx]
+ * the way the user chose under Appearance › Toolbar › Long words ([fitting]).
+ * By default that is Gboard's: condense the glyphs first, so a long word stays
+ * as tall as its neighbours, and only then shrink the font. The shared
+ * [fitTextWidth] does the sums, so plugin buttons fit their labels the same way. Together the two floors fit a word about twice
+ * the slot width; longer than that and the caller's ellipsis takes over.
  */
 internal fun fitSuggestionText(
     measuredWidthPx: Float,
     availableWidthPx: Float,
-    minFontScale: Float = MinSuggestionFontScale,
-    minScaleX: Float = MinSuggestionScaleX,
+    fitting: TextFitting = TextFitting.DEFAULT,
 ): SuggestionTextFit {
-    if (availableWidthPx <= 0f || measuredWidthPx <= 0f || measuredWidthPx <= availableWidthPx) {
-        return SuggestionTextFit(1f, 1f)
-    }
-    val needed = availableWidthPx / measuredWidthPx
-    val fontScale = needed.coerceAtLeast(minFontScale)
-    val scaleX = (needed / fontScale).coerceIn(minScaleX, 1f)
-    return SuggestionTextFit(fontScale, scaleX)
+    val fit = fitTextWidth(measuredWidthPx, availableWidthPx, fitting)
+    return SuggestionTextFit(fit.fontScale, fit.scaleX)
 }
 
 /**
@@ -6988,12 +7356,45 @@ private fun CandidateGridPanel(
         // four, which fixed columns would leave ragged, so they always wrap.
         val columns = state.settings.suggestionStrip.slotCount.coerceAtLeast(1)
         if (!state.composer.isConversion && state.settings.suggestionStrip.expandedGrid) {
-            state.expandedCandidates.chunked(columns).forEachIndexed { row, words ->
-                Row(modifier = Modifier.fillMaxWidth()) {
-                    words.forEachIndexed { column, candidate ->
-                        chip(Modifier.weight(1f), row * columns + column, candidate)
+            // A word wider than one cell takes as many cells as it needs, in
+            // its place in the order, so a long Bengali word reads whole
+            // instead of ending in "…" (Telegram 8723). Rows still line up
+            // on the strip's columns.
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val measurer = rememberTextMeasurer()
+                val density = LocalDensity.current
+                val baseStyle = LocalTextStyle.current
+                val cellPx = (constraints.maxWidth / columns).coerceAtLeast(1)
+                val chipPaddingPx = with(density) { (CandidateGridChipPadding * 2).roundToPx() }
+                val candidates = state.expandedCandidates
+                val rows = remember(candidates, cellPx, textScale, baseStyle) {
+                    val style = baseStyle.merge(
+                        TextStyle(fontSize = CandidateFontSize * textScale, fontWeight = FontWeight.SemiBold),
+                    )
+                    val out = mutableListOf<MutableList<Pair<Int, Int>>>()
+                    var used = columns
+                    candidates.forEachIndexed { index, word ->
+                        val width = measurer.measure(word, style, maxLines = 1).size.width + chipPaddingPx
+                        val span = ((width + cellPx - 1) / cellPx).coerceIn(1, columns)
+                        if (used + span > columns) {
+                            out += mutableListOf<Pair<Int, Int>>()
+                            used = 0
+                        }
+                        out.last() += index to span
+                        used += span
                     }
-                    repeat(columns - words.size) { Spacer(modifier = Modifier.weight(1f)) }
+                    out
+                }
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    rows.forEach { cells ->
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            cells.forEach { (index, span) ->
+                                chip(Modifier.weight(span.toFloat()), index, candidates[index])
+                            }
+                            val left = columns - cells.sumOf { it.second }
+                            if (left > 0) Spacer(modifier = Modifier.weight(left.toFloat()))
+                        }
+                    }
                 }
             }
         } else {
@@ -7136,6 +7537,9 @@ internal fun fixedSlotOrder(ranked: List<String>, slots: Int, primarySlot: Int):
 /** Row height in the expanded grid — a comfortable tap target for one glyph. */
 private val CandidateGridRowHeight = 44.dp
 
+/** A grid chip's outer padding plus its text's, each side: 2dp + 10dp. */
+private val CandidateGridChipPadding = 12.dp
+
 /** Tap-target floor for a candidate chip; single Hanzi would be narrower. */
 private val CandidateChipMinWidth = 44.dp
 
@@ -7188,11 +7592,13 @@ private fun ClipboardSuggestionChip(
     // A press and hold deletes the copy (#612); not a part of one, whose
     // clip is more than what the chip shows.
     val onDelete = LocalClipChipDelete.current?.takeIf { otp == null }
-    val tint = kb.accent
+    // The theme's own chip colours where it names them (gap list item 28),
+    // else the accent tint the chip always wore.
+    val tint = kb.clipChipInk()
     // The fragment chip is an outline, not a solid — same language as the
     // clipboard panel's own fragment chips, and unmistakably not the ordinary
     // "paste what you copied" pill.
-    val fill = if (otp != null) Color.Transparent else tint.copy(alpha = if (kb.dark) 0.20f else 0.11f)
+    val fill = if (otp != null) Color.Transparent else kb.clipChipFill()
 
     val bitmap by produceState<ImageBitmap?>(initialValue = null, clip.imagePath) {
         if (clip.kind == ClipKind.IMAGE && clip.imagePath != null) {
@@ -7315,7 +7721,7 @@ private fun ClipboardSuggestionChip(
                 // over the board. A theme whose keys invert the board — dark
                 // letters on cream caps over a near-black board — draws the
                 // key colour invisible here.
-                color = kb.suggestionText,
+                color = kb.clipChipText ?: kb.suggestionText,
                 fontSize = 13.sp,
                 fontWeight = if (otp != null) FontWeight.Medium else FontWeight.Normal,
                 maxLines = 1,
@@ -7569,7 +7975,18 @@ private fun SnippetOfferChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            Box(
+            // A picture snippet shows its picture where the others show the
+            // snippets glyph: what is about to go in, as the text chips do.
+            val image = chip.image
+            if (image != null) {
+                SnippetImageThumb(
+                    image = image,
+                    label = chip.label,
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(6.dp)),
+                )
+            } else Box(
                 modifier = Modifier
                     .size(22.dp)
                     .clip(CircleShape)
@@ -8441,7 +8858,7 @@ private fun SymbolCell(
                 Text(
                     text = labels.first(),
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
+                        .align(hintAlignment(settings))
                         .hintPlacement(settings, end = 3.dp),
                     fontSize = (HintLabelSp * settings.layoutBehavior.hintFontScale).sp,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -9245,6 +9662,8 @@ internal fun toolLabelRes(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.RECENT_COPIES -> R.string.ime_tool_recent_copies
     ToolbarTool.LEAVE_FIELD -> R.string.ime_tool_leave_field
     ToolbarTool.QUICK_NOTE -> R.string.ime_tool_quick_note
+    ToolbarTool.DEBUG_INFO -> R.string.ime_tool_debug_info
+    ToolbarTool.HOMOPHONES -> R.string.ime_tool_homophones
     ToolbarTool.READ_BACK -> R.string.ime_tool_read_back
     ToolbarTool.SNIPPETS -> R.string.ime_tool_snippets
     ToolbarTool.TEXT_EDIT -> R.string.ime_tool_text_edit
@@ -9309,6 +9728,8 @@ internal fun toolLabelRes(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.MUSIC_ID -> R.string.ime_tool_music_id
     ToolbarTool.HOME_ASSISTANT -> R.string.ime_tool_home_assistant
     ToolbarTool.SEND_FILES -> R.string.ime_tool_send_files
+    ToolbarTool.FILES -> R.string.ime_tool_files
+    ToolbarTool.TIMESTAMP -> R.string.ime_tool_timestamp
     ToolbarTool.GALLERY -> R.string.ime_tool_gallery
     ToolbarTool.PLUGINS -> R.string.ime_tool_plugins
     ToolbarTool.APP_LAUNCHER -> R.string.ime_tool_app_launcher
@@ -9328,11 +9749,13 @@ internal fun toolLabelRes(tool: ToolbarTool): Int = when (tool) {
     ToolbarTool.HIDE_KEYBOARD -> R.string.ime_tool_hide_keyboard
     ToolbarTool.LANGUAGE -> R.string.ime_tool_language
     ToolbarTool.SCREENSHOT -> R.string.ime_tool_screenshot
+    ToolbarTool.PRIVACY_SHADE -> R.string.ime_tool_privacy_shade
     ToolbarTool.PAGE_UP -> R.string.ime_tool_page_up
     ToolbarTool.PAGE_DOWN -> R.string.ime_tool_page_down
     ToolbarTool.SELECT_WORD -> R.string.ime_tool_select_word
     ToolbarTool.SELECT_LINE -> R.string.ime_tool_select_line
     ToolbarTool.SELECT_ALL -> CommonR.string.common_select_all
+    ToolbarTool.CLEAR_FIELD -> R.string.ime_tool_clear_field
     ToolbarTool.SELECT_MODE -> R.string.ime_tool_select_mode
     ToolbarTool.COPY -> R.string.ime_tool_copy
     ToolbarTool.CUT -> R.string.ime_tool_cut
@@ -9401,7 +9824,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.IMAGE_SEARCH -> state.panel == PanelMode.WEB_SEARCH && state.searchTab == SearchTab.IMAGES
     ToolbarTool.OCR -> state.panel == PanelMode.OCR
     ToolbarTool.QR_SCAN -> state.panel == PanelMode.QR_SCAN
-    ToolbarTool.DOC_SCAN -> false
+    ToolbarTool.DOC_SCAN -> state.panel == PanelMode.DOC_SCAN
     // Opens the settings app, like Settings: nothing on the keyboard to stay lit for.
     ToolbarTool.STATISTICS -> false
     ToolbarTool.FIND_REPLACE -> state.panel == PanelMode.FIND_REPLACE
@@ -9414,6 +9837,7 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.MUSIC_ID -> state.panel == PanelMode.MUSIC_ID
     ToolbarTool.HOME_ASSISTANT -> state.panel == PanelMode.HOME_ASSISTANT
     ToolbarTool.SEND_FILES -> state.panel == PanelMode.SEND_FILES
+    ToolbarTool.FILES -> state.panel == PanelMode.FILES
     ToolbarTool.GALLERY -> state.panel == PanelMode.GALLERY
     ToolbarTool.VOICE -> state.panel == PanelMode.VOICE || state.voice.strip || state.voice.bar
     ToolbarTool.GRAMMAR -> state.panel == PanelMode.GRAMMAR
@@ -9438,9 +9862,11 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     // the tool and the 🌐 key reach the same place.
     ToolbarTool.FANCY -> state.language.id == FancyStyles.LANG_ID
     // Lit while any secondary layout is up, whether this tool or a key put it
-    // there: the tool takes it down either way.
+    // there: the tool takes it down either way. And while the board pinned on
+    // it is the one typing (#1230), since a press then goes back.
     ToolbarTool.CUSTOM_LAYOUT ->
-        state.layoutMode == LayoutMode.SECONDARY || state.panel == PanelMode.CUSTOM_LAYOUTS
+        state.layoutMode == LayoutMode.SECONDARY || state.panel == PanelMode.CUSTOM_LAYOUTS ||
+            state.settings.pinnedBoardId()?.let { it == state.layoutId } == true
     // Lit while a caret move would extend the selection, however that was
     // asked for: this tool, a hold on it, or the panel's own Select key. The
     // tool is the only indicator the mode has outside that panel, so it reads
@@ -9452,13 +9878,19 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
     ToolbarTool.CURSOR_UP, ToolbarTool.CURSOR_DOWN,
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END,
     ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
-    ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE, ToolbarTool.SELECT_ALL,
+    ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE, ToolbarTool.SELECT_ALL, ToolbarTool.CLEAR_FIELD, ToolbarTool.TIMESTAMP,
     // The clipboard trio the same: they act and are done.
     ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE,
     // A one-shot action too — it hides the keyboard, nothing to keep lit.
     ToolbarTool.HIDE_KEYBOARD, ToolbarTool.LEAVE_FIELD -> false
     // Takes the picture and is done.
     ToolbarTool.SCREENSHOT -> false
+    // Takes the report and opens it in the settings app.
+    ToolbarTool.DEBUG_INFO -> false
+    // Puts its list on the strip and is done.
+    ToolbarTool.HOMOPHONES -> false
+    // Lit while the shade is up.
+    ToolbarTool.PRIVACY_SHADE -> state.settings.privacyShade.on
     // Switches and is done, like the 🌐 key it stands in for.
     ToolbarTool.LANGUAGE -> false
     // Lit while it reads, so the second tap reads as Stop.
@@ -9479,7 +9911,8 @@ private fun toolActive(tool: ToolbarTool, state: KeyboardUiState): Boolean = whe
  * drop.
  */
 private class ToolDragController {
-    var dragging by mutableStateOf<ToolbarTool?>(null)
+    /** The tool in flight: a built-in one or a plugin's ([ToolKey]). */
+    var dragging by mutableStateOf<ToolKey?>(null)
         private set
     /**
      * The toolbox folder being dragged (#709), or null. Exclusive with
@@ -9510,7 +9943,31 @@ private class ToolDragController {
     var boxSlot by mutableStateOf<Int?>(null)
         private set
     private var fromToolbar = false
+    /** Whether the tool in flight was picked up off the second toolbar (#1217). */
+    private var fromSecond = false
+    val draggingFromSecond: Boolean get() = fromSecond
     var toolbarBounds: Rect? = null
+    /**
+     * Insertion slot on the second toolbar (#1217) under the finger, or null
+     * when off it. The row previews the drop there the way the bar does.
+     */
+    var secondSlot by mutableStateOf<Int?>(null)
+        private set
+    /** The second toolbar's box in root coordinates while it is on screen, else null. */
+    var secondBounds: Rect? = null
+    /** The second toolbar's stored tools, in order: every commit to it is a rewrite of this. */
+    var secondCurrent: List<ToolKey> = emptyList()
+    /** The subset of [secondCurrent] the row draws; slots count against it, as [visibleTools] does on the bar. */
+    var secondVisible: List<ToolKey> = emptyList()
+    /** Whether the second toolbar lays its tools out right-to-left, as [barRtl]. */
+    var secondRtl: Boolean = false
+    /**
+     * Each second-toolbar tool's centre across the screen, in root
+     * coordinates, as last laid out. The row packs or spreads, and scrolls
+     * when it is full, so the slot is counted from where the tools really are
+     * rather than from a share of the row's width.
+     */
+    val secondCentres = HashMap<ToolKey, Float>()
     /**
      * Width, in px, that the toolbar last gave one of its buttons.
      *
@@ -9532,9 +9989,11 @@ private class ToolDragController {
      * and the toolbar's pinned copy are different nodes: the handoff needs a
      * holder that outlives both.
      */
-    private val sharedPlacements = HashMap<ToolbarTool, SharedPlacement>()
+    private val sharedPlacements = HashMap<ToolKey, SharedPlacement>()
 
-    fun placementOf(tool: ToolbarTool): SharedPlacement = sharedPlacements.getOrPut(tool) { SharedPlacement() }
+    fun placementOf(tool: ToolKey): SharedPlacement = sharedPlacements.getOrPut(tool) { SharedPlacement() }
+
+    fun placementOf(tool: ToolbarTool): SharedPlacement = placementOf(tool.key)
     /**
      * The stored pinned-tool list, in the order it is saved back. Every commit
      * is a rewrite of this.
@@ -9544,7 +10003,7 @@ private class ToolDragController {
      * well was the reorder bug — the row was flipped twice and the slot maths
      * once, so a tool dragged left landed to the right (issue #79).
      */
-    var currentTools: List<ToolbarTool> = emptyList()
+    var currentTools: List<ToolKey> = emptyList()
     /**
      * The subset of [currentTools] the bar actually draws — a pinned tool the
      * user has disabled, or one this build does not ship, is stored but never
@@ -9552,7 +10011,7 @@ private class ToolDragController {
      * finger is pointing at; [end] then translates the slot back into a
      * position in the stored list, so hiding a tool never unpins it.
      */
-    var visibleTools: List<ToolbarTool> = emptyList()
+    var visibleTools: List<ToolKey> = emptyList()
     /**
      * Whether the row drawing [visibleTools] lays them out right-to-left.
      *
@@ -9571,12 +10030,45 @@ private class ToolDragController {
      */
     var barVertical: Boolean = false
     /** Each tool's centre down the screen in the column, in root coordinates, as last laid out. */
-    val columnCentres = HashMap<ToolbarTool, Float>()
-    var onCommit: (List<ToolbarTool>) -> Unit = {}
+    val columnCentres = HashMap<ToolKey, Float>()
+    /**
+     * Each tool's centre across the screen on the bar, in root coordinates, as
+     * last laid out: where an app carried along the bar lands (#1258).
+     */
+    val rowCentres = HashMap<ToolKey, Float>()
+
+    /** The slot among the drawn tools an app let go at [at] takes (#1258). */
+    fun appSlot(at: Offset): Int = appSlotAt(
+        at,
+        visibleTools,
+        if (barVertical) columnCentres else rowCentres,
+        vertical = barVertical,
+        rtl = barRtl,
+    )
+    var onCommit: (List<ToolKey>) -> Unit = {}
     /** Haptic tick when the drop target changes: slot to slot, or on/off the bar. */
     var onSnap: () -> Unit = {}
     /** Hold without dragging past the slop: open the tool's settings page. */
     var onOpenSettings: (ToolbarTool) -> Unit = {}
+
+    /** [onOpenSettings] for any entry: a plugin's hold opens the plugin's own page in Settings. */
+    fun openSettings(tool: ToolKey) {
+        when (tool) {
+            is ToolKey.Builtin -> onOpenSettings(tool.tool)
+            is ToolKey.Plugin -> toolbox.onPluginSettings(tool.pluginId)
+        }
+    }
+
+    /**
+     * A tap on [tool]: a built-in one through [onToolTap], the dispatcher
+     * every tool button already calls, and a plugin's by opening its panel.
+     */
+    fun tap(tool: ToolKey, onToolTap: (ToolbarTool) -> Unit) {
+        when (tool) {
+            is ToolKey.Builtin -> onToolTap(tool.tool)
+            is ToolKey.Plugin -> toolbox.onPluginTool(tool.pluginId)
+        }
+    }
 
     /**
      * Runs the tool a hold was remapped to (see `holdActionFor`). Routed through
@@ -9645,7 +10137,7 @@ private class ToolDragController {
      * Complete ordering over every tool; reorders rewrite this. Inside an open
      * folder it is that folder's own tools, and a reorder rewrites the folder.
      */
-    var toolboxOrder: List<ToolbarTool> = emptyList()
+    var toolboxOrder: List<ToolKey> = emptyList()
     /** The folder open in the toolbox (#709), or null at the top level. */
     var folderView: ToolboxFolder? = null
     /** The open folder's header, in root coordinates: the take-out target. */
@@ -9662,13 +10154,15 @@ private class ToolDragController {
     var toolbox: ToolboxCallbacks = ToolboxCallbacks()
     /** The apps on the toolbar (#1159), handed down from the service. */
     var apps: ToolbarAppCallbacks = ToolbarAppCallbacks()
+    /** The user's own buttons (#1213, #1236), handed down from the service. */
+    var custom: CustomButtonCallbacks = CustomButtonCallbacks()
     /**
      * Tools the user hid from the grid. The grid is no drop target for them:
      * it would show a slot and then never draw the tool in it. Dragged off the
      * bar, one simply unpins, the way any off-bar drop does.
      */
-    var toolboxHidden: Set<ToolbarTool> = emptySet()
-    var onOrderCommit: (List<ToolbarTool>) -> Unit = {}
+    var toolboxHidden: Set<ToolKey> = emptySet()
+    var onOrderCommit: (List<ToolKey>) -> Unit = {}
 
     /**
      * The order a drop just committed, handed to the grid so it can draw it
@@ -9676,11 +10170,12 @@ private class ToolDragController {
      * because they go different ways: the commit goes out to storage and takes
      * a coroutine hop to return, and this one stays here.
      */
-    var onOrderPreview: (List<ToolbarTool>) -> Unit = {}
+    var onOrderPreview: (List<ToolKey>) -> Unit = {}
 
-    fun start(tool: ToolbarTool, fromBar: Boolean, at: Offset) {
+    fun start(tool: ToolKey, fromBar: Boolean, at: Offset, fromSecondRow: Boolean = false) {
         dragging = tool
         fromToolbar = fromBar
+        fromSecond = fromSecondRow
         position = at
         retarget(at)
     }
@@ -9689,6 +10184,7 @@ private class ToolDragController {
     fun startFolder(folder: ToolboxFolder, at: Offset) {
         draggingFolder = folder
         fromToolbar = false
+        fromSecond = false
         position = at
         retarget(at)
     }
@@ -9705,11 +10201,18 @@ private class ToolDragController {
      */
     private fun retarget(at: Offset): Boolean {
         val exit = folderExitAt(at)
-        val bar = if (exit) null else slotAt(at)
-        val merge = if (exit || bar != null) null else mergeAt(at)
-        val box = if (exit || bar != null || merge != null) null else toolboxSlotAt(at)
-        val changed = bar != barSlot || box != boxSlot || merge?.key != boxMerge?.key || exit != overFolderExit
+        // The bar's hit box reaches past its edges, and the second toolbar may
+        // sit right against it: a finger inside the second row's own box is
+        // the second row's, whatever the bar's margin says.
+        val onSecond = !exit && secondBounds?.contains(at) == true
+        val bar = if (exit || onSecond) null else slotAt(at)
+        val second = if (exit || bar != null) null else secondSlotAt(at)
+        val merge = if (exit || bar != null || second != null) null else mergeAt(at)
+        val box = if (exit || bar != null || second != null || merge != null) null else toolboxSlotAt(at)
+        val changed = bar != barSlot || second != secondSlot || box != boxSlot ||
+            merge?.key != boxMerge?.key || exit != overFolderExit
         barSlot = bar
+        secondSlot = second
         boxSlot = box
         boxMerge = merge
         overFolderExit = exit
@@ -9720,6 +10223,7 @@ private class ToolDragController {
         dragging = null
         draggingFolder = null
         barSlot = null
+        secondSlot = null
         boxSlot = null
         boxMerge = null
         overFolderExit = false
@@ -9731,6 +10235,7 @@ private class ToolDragController {
         if (folder == null && tool == null) return
         retarget(position)
         val bar = barSlot
+        val second = secondSlot
         val box = boxSlot
         val merge = boxMerge
         val exit = overFolderExit
@@ -9751,10 +10256,17 @@ private class ToolDragController {
         val view = folderView
         if (exit) {
             toolbox.onTakeOut(tool)
+        } else if (second != null) {
+            // Onto the second toolbar (#1217): off the bar first when that is
+            // where it came from, so a tool moves between the rows rather
+            // than being copied.
+            if (fromToolbar) onCommit(currentTools - tool)
+            toolbox.onSecondRowChange(secondWith(tool, second))
         } else if (bar != null) {
+            if (fromSecond) toolbox.onSecondRowChange(secondCurrent - tool)
             onCommit(barWith(tool, bar))
         } else if (merge != null) {
-            if (fromToolbar) onCommit(currentTools - tool)
+            leaveRows(tool)
             when (merge) {
                 is ToolboxCell.Tool -> toolbox.onMerge(tool, merge.tool)
                 is ToolboxCell.Folder -> toolbox.onAddToFolder(tool, merge.folder.id)
@@ -9762,7 +10274,7 @@ private class ToolDragController {
         } else if (box != null) {
             // Dropped on the grid: place it at that spot in the toolbox
             // order — and off the bar first, when that's where it came from.
-            if (fromToolbar) onCommit(currentTools - tool)
+            leaveRows(tool)
             if (view != null && tool !in view.tools) {
                 // Off the bar into an open folder: filed in it.
                 toolbox.onAddToFolder(tool, view.id)
@@ -9773,12 +10285,43 @@ private class ToolDragController {
             // never draws an arrangement the storage will not agree with.
             onOrderPreview(next)
             if (view != null) toolbox.onFolderOrder(view.id, next) else onOrderCommit(next)
-        } else if (fromToolbar && toolboxViewport != null) {
+        } else if ((fromToolbar || fromSecond) && toolboxViewport != null) {
             // Off-bar drops unpin only while the toolbox is open (its
             // viewport is registered) — a reorder drag that wanders off the
             // bar with no toolbox in sight just snaps back.
-            onCommit(currentTools - tool)
+            leaveRows(tool)
         }
+    }
+
+    /** Takes [tool] off whichever row it was picked up from: the bar or the second toolbar. */
+    private fun leaveRows(tool: ToolKey) {
+        if (fromToolbar) onCommit(currentTools - tool)
+        if (fromSecond) toolbox.onSecondRowChange(secondCurrent - tool)
+    }
+
+    /**
+     * Insertion slot on the second toolbar (#1217) under [at], or null when
+     * off it. Its box is inflated like the bar's, so a drop just past its edge
+     * still lands. Folders stay on the bar: the row holds tools only.
+     */
+    private fun secondSlotAt(at: Offset): Int? {
+        val row = secondBounds ?: return null
+        val tool = dragging ?: return null
+        if (!row.inflate(30f).contains(at)) return null
+        return (secondVisible - tool).count { other ->
+            val centre = secondCentres[other] ?: return@count false
+            if (secondRtl) centre > at.x else centre < at.x
+        }
+    }
+
+    /** The second toolbar's stored list with [tool] at display slot [slot]; [barWith]'s rule. */
+    private fun secondWith(tool: ToolKey, slot: Int): List<ToolKey> {
+        val shown = secondVisible - tool
+        val successor = shown.getOrNull(slot.coerceIn(0, shown.size))
+        val row = secondCurrent.toMutableList().apply { remove(tool) }
+        val at = successor?.let { row.indexOf(it) }?.takeIf { it >= 0 } ?: row.size
+        row.add(at, tool)
+        return row
     }
 
     /**
@@ -9813,7 +10356,7 @@ private class ToolDragController {
      * the drawn tools, so the drawn tool it lands in front of is what pins the
      * position down in a stored list that may hold tools the bar never drew.
      */
-    private fun barWith(tool: ToolbarTool, slot: Int): List<ToolbarTool> {
+    private fun barWith(tool: ToolKey, slot: Int): List<ToolKey> {
         val shown = visibleTools - tool
         val successor = shown.getOrNull(slot.coerceIn(0, shown.size))
         val bar = currentTools.toMutableList().apply { remove(tool) }
@@ -9898,7 +10441,7 @@ private class ToolDragController {
     }
 
     /** The tool a cell stands at in the toolbox order: itself, or a folder's first. */
-    private fun anchorOf(cell: ToolboxCell?): ToolbarTool? = when (cell) {
+    private fun anchorOf(cell: ToolboxCell?): ToolKey? = when (cell) {
         null -> null
         is ToolboxCell.Tool -> cell.tool
         is ToolboxCell.Folder -> cell.folder.tools.minByOrNull { tool ->
@@ -9907,7 +10450,7 @@ private class ToolDragController {
     }
 
     /** The full tool order with [tool] moved to display slot [slot] of the grid. */
-    private fun orderWith(tool: ToolbarTool, slot: Int): List<ToolbarTool> {
+    private fun orderWith(tool: ToolKey, slot: Int): List<ToolKey> {
         // The grid previews the drop with the dragged cell removed, so the
         // slot indexes that list; the displayed cell it lands in front of
         // anchors the position in the complete order.
@@ -9923,7 +10466,7 @@ private class ToolDragController {
      * The full tool order with every tool of [folder] moved, as one block in
      * the order they already had, to display slot [slot] of the grid (#709).
      */
-    private fun folderOrderWith(folder: ToolboxFolder, slot: Int): List<ToolbarTool> {
+    private fun folderOrderWith(folder: ToolboxFolder, slot: Int): List<ToolKey> {
         val members = folder.tools.toSet()
         val block = toolboxOrder.filter { it in members }
         val displayed = cellsWithout()
@@ -9938,7 +10481,7 @@ private class ToolDragController {
     private fun folderExitAt(at: Offset): Boolean {
         val view = folderView ?: return false
         val tool = dragging ?: return false
-        if (fromToolbar || tool !in view.tools) return false
+        if (fromToolbar || fromSecond || tool !in view.tools) return false
         return folderExitBounds?.contains(at) == true
     }
 }
@@ -10057,6 +10600,22 @@ private fun holdArmsSelection(
     tool == ToolbarTool.SELECT_MODE &&
     state.settings.textEditing.selectionModeHold
 
+// The hold rules for any toolbox entry. A plugin's hold has one job, its
+// settings page (or a pick-up), so every special hold is the built-in tool's.
+private fun holdRepeatMs(tool: ToolKey, state: KeyboardUiState): Long? = tool.tool?.let { holdRepeatMs(it, state) }
+
+private fun holdActionFor(tool: ToolKey, fromToolbar: Boolean, state: KeyboardUiState): ToolHoldAction? =
+    tool.tool?.let { holdActionFor(it, fromToolbar, state) }
+
+private fun holdPicksVoiceMode(tool: ToolKey, fromToolbar: Boolean, state: KeyboardUiState): Boolean =
+    tool.tool?.let { holdPicksVoiceMode(it, fromToolbar, state) } == true
+
+private fun holdOpensTrackpad(tool: ToolKey, fromToolbar: Boolean, state: KeyboardUiState): Boolean =
+    tool.tool?.let { holdOpensTrackpad(it, fromToolbar, state) } == true
+
+private fun holdArmsSelection(tool: ToolKey, fromToolbar: Boolean, state: KeyboardUiState): Boolean =
+    tool.tool?.let { holdArmsSelection(it, fromToolbar, state) } == true
+
 /**
  * Wires long-press-drag onto a tool. Three outcomes from one gesture: a tap
  * runs [onTap]; a hold that never travels past [ToolDragSlop] opens the
@@ -10089,7 +10648,7 @@ private fun holdArmsSelection(
  */
 @Composable
 private fun DraggableTool(
-    tool: ToolbarTool,
+    tool: ToolKey,
     fromToolbar: Boolean,
     enabled: Boolean,
     drag: ToolDragController,
@@ -10120,6 +10679,8 @@ private fun DraggableTool(
     onHoldMenu: () -> Unit = {},
     /** How long the hold takes, in ms; 0 is the system's touch-and-hold delay (#665). */
     holdDelayMs: Int = 0,
+    /** Whether this is a second-toolbar button (#1217): a pick-up then comes off that row, not the bar. */
+    fromSecondRow: Boolean = false,
     content: @Composable (Modifier) -> Unit,
 ) {
     var origin by remember { mutableStateOf(Offset.Zero) }
@@ -10237,7 +10798,7 @@ private fun DraggableTool(
                                         held = false
                                         drag.onTrackpadHold(false)
                                     }
-                                    drag.start(tool, fromToolbar, rootPos)
+                                    drag.start(tool, fromToolbar && !fromSecondRow, rootPos, fromSecondRow)
                                 }
                                 // Nothing to move until the finger has travelled:
                                 // no drag has been started, and drag.move would
@@ -10288,10 +10849,10 @@ private fun DraggableTool(
                             else -> {
                                 drag.cancel()
                                 when (val bound = holdAction) {
-                                    null, ToolHoldAction.OpenSettings -> drag.onOpenSettings(tool)
+                                    null, ToolHoldAction.OpenSettings -> drag.openSettings(tool)
                                     ToolHoldAction.None -> Unit
                                     is ToolHoldAction.Run -> drag.onHoldAction(bound.tool)
-                                    ToolHoldAction.Floating -> drag.onFloat(tool)
+                                    ToolHoldAction.Floating -> tool.tool?.let(drag.onFloat)
                                 }
                             }
                         }
@@ -10639,7 +11200,7 @@ private fun Modifier.animateSharedPlacement(
  * nothing, so the flip only made them look swapped (#970).
  */
 @Composable
-private fun ToolGlyph(slot: String, description: String, modifier: Modifier, tint: Color, brush: Brush?) {
+private fun ToolGlyph(slot: String, description: String?, modifier: Modifier, tint: Color, brush: Brush?) {
     if (slot == UndoToolSlot || slot == RedoToolSlot) {
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             SlotIcon(slot, contentDescription = description, modifier = modifier, tint = tint, brush = brush)
@@ -10648,6 +11209,69 @@ private fun ToolGlyph(slot: String, description: String, modifier: Modifier, tin
         SlotIcon(slot, contentDescription = description, modifier = modifier, tint = tint, brush = brush)
     }
 }
+
+/**
+ * A [ToolGlyph] that turns into its next icon instead of swapping on one frame:
+ * the toolbox button becoming the way back while the toolbox is open (#1251).
+ *
+ * Not a path morph. The icons can come from a user's pack, as bitmaps or as
+ * vectors with nothing in common, so the motion is drawn around the glyphs
+ * rather than through them: the old one turns a quarter, shrinks and fades
+ * while the new one turns in from the other side and grows into place. The
+ * back arrow always arrives from, and leaves towards, the same side, so closing
+ * is the opening played backwards rather than a second, different spin.
+ *
+ * The stock pair is the exception: with neither glyph replaced, the grid turns
+ * into the chevron through [ToolboxBackMorph].
+ */
+@Composable
+private fun ToolGlyphSwap(slot: String, description: String, modifier: Modifier, tint: Color, brush: Brush?) {
+    // The stock toolbox and back glyphs get a motion drawn for them: the grid
+    // folds into the chevron rather than spinning past it.
+    if (toolboxMorphAvailable(slot)) {
+        ToolboxBackMorph(slot == IconSlots.CHROME_PANEL_BACK, description, modifier, tint, brush)
+        return
+    }
+    // The quarter turn runs towards reading start, the way the arrow points.
+    val turn = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -ToolGlyphTurn else ToolGlyphTurn
+    AnimatedContent(
+        targetState = slot,
+        transitionSpec = {
+            val grow = tween<Float>(ToolGlyphMorphMs, easing = FastOutSlowInEasing)
+            // Out a little faster than in, so the two never sit at full
+            // strength over each other in the middle of the turn.
+            val leave = tween<Float>(ToolGlyphMorphMs * 2 / 3, easing = FastOutSlowInEasing)
+            (fadeIn(grow) + scaleIn(grow, initialScale = 0.4f))
+                .togetherWith(fadeOut(leave) + scaleOut(leave, targetScale = 0.4f))
+                .using(SizeTransform(clip = false))
+        },
+        contentAlignment = Alignment.Center,
+        label = "toolGlyphSwap",
+    ) { shown ->
+        // The back arrow lives on the + side of the turn and every other glyph
+        // on the - side, so whichever way the swap goes both turn the same way.
+        val side = if (shown == IconSlots.CHROME_PANEL_BACK) turn else -turn
+        val rotation by transition.animateFloat(
+            transitionSpec = { tween(ToolGlyphMorphMs, easing = FastOutSlowInEasing) },
+            label = "toolGlyphTurn",
+        ) { state -> if (state == EnterExitState.Visible) 0f else side }
+        ToolGlyph(
+            shown,
+            // Only the icon being arrived at names the button: the leaving one
+            // is still drawn for a few frames, and two names would be read out.
+            description.takeIf { shown == slot },
+            modifier = modifier.graphicsLayer { rotationZ = rotation },
+            tint = tint,
+            brush = brush,
+        )
+    }
+}
+
+/** How long [ToolGlyphSwap] takes; a touch over [ToolbarMotionMs], since the turn is what the eye is on. */
+private const val ToolGlyphMorphMs = 200
+
+/** The quarter turn [ToolGlyphSwap] spins its glyphs through, in degrees. */
+private const val ToolGlyphTurn = 90f
 
 private val UndoToolSlot = IconSlots.forTool(ToolbarTool.UNDO)
 private val RedoToolSlot = IconSlots.forTool(ToolbarTool.REDO)
@@ -10699,15 +11323,25 @@ internal fun ToolCircle(
     // The labelled button's widest, in dp: a longer name is cut short rather
     // than widening the button (#970). Null lets the name set the width.
     labelMaxWidthDp: Int? = null,
+    // A change of [slot] or [active] animates (see [ToolGlyphSwap]) instead of
+    // snapping: for the one button whose icon changes under the finger.
+    morph: Boolean = false,
     onClick: () -> Unit,
 ) {
     val kb = LocalKbTheme.current
     val shape = kb.toolShape()
-    val background = when {
+    val restingBackground = when {
         ghost -> kb.toolCircleActive.copy(alpha = 0.22f)
         active -> kb.toolCircleActive
         kb.toolRadiusDp > 0 -> kb.toolCircle
         else -> Color.Transparent
+    }
+    // Only a morphing button pays for the colour animation; the rest of the
+    // bar's buttons (and every grid of them) keep the plain value.
+    val background = if (morph) {
+        animateColorAsState(restingBackground, tween(ToolGlyphMorphMs), label = "toolFill").value
+    } else {
+        restingBackground
     }
     val outline = when {
         // The ghost's own dashed-out look wins: it is saying "will go here",
@@ -10740,9 +11374,21 @@ internal fun ToolCircle(
             )
         }
     }
-    val fullTint = if (active) kb.toolCircleActiveIcon else (tint ?: kb.toolbarIcon)
+    val restingTint = if (active) kb.toolCircleActiveIcon else (tint ?: kb.toolbarIcon)
+    val fullTint = if (morph) {
+        animateColorAsState(restingTint, tween(ToolGlyphMorphMs), label = "toolTint").value
+    } else {
+        restingTint
+    }
     val iconTint = if (ghost) fullTint.copy(alpha = 0.45f) else fullTint
     val iconBrush = if (active || ghost) null else tintBrush
+    val glyph: @Composable (Modifier) -> Unit = { glyphModifier ->
+        if (morph) {
+            ToolGlyphSwap(slot, description, glyphModifier, iconTint, iconBrush)
+        } else {
+            ToolGlyph(slot, description, glyphModifier, iconTint, iconBrush)
+        }
+    }
     if (label != null) {
         // Labelled variant (toolbar labels): icon in its circle, name beneath.
         Column(
@@ -10764,10 +11410,8 @@ internal fun ToolCircle(
                     .then(outline),
                 contentAlignment = Alignment.Center,
             ) {
-                ToolGlyph(
-                    slot,
-                    description,
-                    modifier = Modifier
+                glyph(
+                    Modifier
                         // Two under the Tool icon size setting and capped at 26:
                         // this box is 30 dp, not 38, because the name underneath
                         // has to fit in the same toolbar height. A bigger glyph
@@ -10778,8 +11422,6 @@ internal fun ToolCircle(
                         // Lifted, not shrunk, so the badge below has room inside
                         // a box whose size must not change (see [HintBadge]).
                         .offset(y = if (hint != null) -(HintBadgeHeight / 2) else 0.dp),
-                    tint = iconTint,
-                    brush = iconBrush,
                 )
                 // Under the icon, over the name: the badge is temporary and the
                 // name is what the labels setting was turned on for, so the
@@ -10810,7 +11452,9 @@ internal fun ToolCircle(
                     wide -> kb.toolWidthDp
                     else -> side
                 }.dp,
-                height = side.dp,
+                // A bar button takes the Tool button height setting (#1264);
+                // never taller than the bar, whose height caps the size.
+                height = (if (wide && !compact && widthDp == null) kb.toolHeightDp else side).dp,
             )
             .clip(shape)
             // Glass under the tool's own fill; a bare-icon theme (radius 0)
@@ -10821,10 +11465,8 @@ internal fun ToolCircle(
             .then(click),
         contentAlignment = Alignment.Center,
     ) {
-        ToolGlyph(
-            slot,
-            description,
-            modifier = Modifier
+        glyph(
+            Modifier
                 .size(
                     when {
                         compact -> CompactToolIconSize
@@ -10836,8 +11478,6 @@ internal fun ToolCircle(
                 // under it rather than across it. The button's own 38 dp box is
                 // untouched, so nothing on the bar moves.
                 .offset(y = if (hint != null) -(HintBadgeHeight / 2) else 0.dp),
-            tint = iconTint,
-            brush = iconBrush,
         )
         if (hint != null) {
             HintBadge(hint, modifier = Modifier.align(Alignment.BottomCenter))
@@ -10938,6 +11578,9 @@ private fun Modifier.stripSwipes(
     more: State<Boolean>,
     pagesOpen: State<Boolean>,
     hide: State<Boolean>,
+    toolsUp: State<Boolean>,
+    toolsDown: State<Boolean>,
+    onTools: State<(Boolean) -> Unit>,
     hold: MoreSuggestionsHold,
     suggestionHold: SuggestionHoldCallbacks,
     onSwipeDownHide: () -> Unit,
@@ -10996,9 +11639,12 @@ private fun Modifier.stripSwipes(
                         }
                         // Words to page through win the swipe; the keyboard
                         // hides from an idle strip.
+                        // The tools on show put away first: they are what the
+                        // finger is on, not the words behind them.
                         total.y > threshold -> {
                             fired = true
-                            if (pages.value) suggestionHold.onPagesToggle(true)
+                            if (toolsDown.value) onTools.value(false)
+                            else if (pages.value) suggestionHold.onPagesToggle(true)
                             else if (hide.value) onSwipeDownHide()
                         }
                         total.y < -threshold && more.value -> {
@@ -11006,6 +11652,11 @@ private fun Modifier.stripSwipes(
                             opened = true
                             hold.reset()
                             suggestionHold.onMorePopup(true)
+                        }
+                        // With the arrow off, the tools (#970).
+                        total.y < -threshold && toolsUp.value -> {
+                            fired = true
+                            onTools.value(true)
                         }
                     }
                 }
@@ -11183,6 +11834,12 @@ private fun stripToolSet(state: KeyboardUiState): Set<ToolbarTool> {
  * [phoneticEnglishLanguage]), a step down in size from the user's own buttons
  * unless those have a size of their own, and lit while the switch is on.
  *
+ * Called twice, once for each end of the strip: [atEnd] picks the slot after
+ * the words, and the buttons drawn there are the ones whose side
+ * ([ToolbarBehavior.stripEndTools], [ToolbarBehavior.stripToolboxAtEnd]) lands
+ * on it. The switch added by itself goes by its own entry in that set, which
+ * is the start unless the old all-at-the-end switch put it there.
+ *
  * Its own composable: the strip's lambda sits near ART's 10,000-instruction
  * compile ceiling, and this loop would push it over.
  */
@@ -11193,17 +11850,25 @@ private fun StripTools(
     drag: ToolDragController,
     onToolTap: (ToolbarTool) -> Unit,
     onPinnedTools: (Boolean) -> Unit,
+    atEnd: Boolean,
     onToolbox: () -> Unit,
 ) {
+    val behavior = state.settings.toolbarBehavior
+    // The side the user picked that lands in this slot. A strip held LTR for
+    // its buttons ([stripToolsHeldLtr]) runs the other way, so the start the
+    // user picked is that row's end.
+    val side = atEnd != stripToolsHeldLtr(state)
     val onRow = if (toolsRowVisible) visibleToolbarTools(state) else emptyList()
-    val tools = stripShortcutTools(state).filter { it !in onRow }
+    val allTools = stripShortcutTools(state).filter { it !in onRow }
+    val tools = allTools.filter { (it in behavior.stripEndTools) == side }
     val phonetic = ToolbarTool.PHONETIC_ENGLISH
-    val autoPhonetic = phonetic !in tools && phonetic !in onRow && phoneticEnglishLanguage(state) != null
+    val autoPhonetic = phonetic !in allTools && phonetic !in onRow && phoneticEnglishLanguage(state) != null &&
+        (phonetic in behavior.stripEndTools) == side
     // Null is the toolbox button. Drawn in the order they read left to right,
     // whichever way the strip runs, unless the toolbar mirrors for this script
-    // too (see [stripToolsAtEnd]).
+    // too (see [stripToolsHeldLtr]).
     val order = buildList {
-        if (state.settings.emojiToolbar && state.settings.toolbarBehavior.stripToolbox) add(null)
+        if (state.settings.emojiToolbar && behavior.stripToolbox && behavior.stripToolboxAtEnd == side) add(null)
         addAll(tools)
         if (autoPhonetic) add(phonetic)
     }
@@ -11228,14 +11893,6 @@ private fun StripTools(
 private fun stripToolsHeldLtr(state: KeyboardUiState): Boolean =
     state.script.direction == TextDirection.RTL && !toolbarReadsRtl(state) &&
         state.settings.suggestionStrip.rtlWordsFromRight
-
-/**
- * Whether [StripTools] goes after the words in the strip's own direction. A
- * strip held LTR for its buttons ([stripToolsHeldLtr]) runs the other way, so
- * the start the user picked is that row's end.
- */
-private fun stripToolsAtEnd(state: KeyboardUiState): Boolean =
-    state.settings.toolbarBehavior.stripShortcutsAtEnd != stripToolsHeldLtr(state)
 
 private const val ToolboxSwipeUpDp = 16
 
@@ -11385,7 +12042,7 @@ private fun EncodingToggle(active: Boolean, label: String, description: String, 
  */
 @Composable
 private fun GhostToolCircle(
-    tool: ToolbarTool,
+    tool: ToolKey,
     modifier: Modifier = Modifier,
     wide: Boolean = false,
 ) {
@@ -11393,13 +12050,13 @@ private fun GhostToolCircle(
     val shape = kb.toolShape()
     Box(
         modifier = modifier
-            .size(width = (if (wide) kb.toolWidthDp else 38).dp, height = 38.dp)
+            .size(width = (if (wide) kb.toolWidthDp else 38).dp, height = (if (wide) kb.toolHeightDp else 38).dp)
             .background(kb.toolCircleActive.copy(alpha = 0.22f), shape)
             .border(1.dp, kb.toolbarIcon.copy(alpha = 0.35f), shape),
         contentAlignment = Alignment.Center,
     ) {
         SlotIcon(
-            IconSlots.forTool(tool),
+            toolKeySlot(tool),
             contentDescription = null,
             modifier = Modifier.size(kb.toolIconSizeDp.dp),
             tint = kb.toolbarIcon.copy(alpha = 0.45f),
@@ -11464,6 +12121,110 @@ private fun ToolsRow(
 }
 
 /**
+ * The second toolbar (#1217): a row of the tools the user put on it, apart
+ * from the pinned ones, that stays whatever the strip and the toolbar are
+ * doing.
+ *
+ * Its buttons are the bar's [PinnedToolCell]s, so they look, hold and drag
+ * exactly as on the bar: hold and drag one along the row to reorder it, up or
+ * down onto the toolbar to move it there, or into an open toolbox to take it
+ * off. A tool from the toolbar or the toolbox dropped here joins the row at
+ * the slot under the finger. Spread over the width when the toolbar's tool
+ * layout spreads, otherwise packed and scrolling once they outgrow it. With
+ * nothing on it the row says where its tools come from, so it is still a
+ * place to drop one. No toolbox button and no way back out of a panel: those
+ * stay the toolbar's.
+ */
+@Composable
+private fun SecondToolbarRow(
+    state: KeyboardUiState,
+    onToolTap: (ToolbarTool) -> Unit,
+    drag: ToolDragController,
+) {
+    val behavior = state.settings.toolbarBehavior
+    val spread = behavior.greedy && !behavior.scrollable
+    val labelMaxWidth = LocalKbTheme.current.toolWidthDp.takeIf { behavior.labelsFixedWidth }
+    val tools = secondToolbarTools(state)
+    val rtl = toolbarReadsRtl(state)
+    val direction = if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr
+    drag.secondVisible = tools
+    drag.secondCurrent = behavior.secondRowTools
+    drag.secondRtl = rtl
+    // Gone from the screen, the row is no drop target: a stale box would
+    // still catch drops meant for whatever took its place.
+    DisposableEffect(drag) {
+        onDispose {
+            drag.secondBounds = null
+            drag.secondCentres.clear()
+        }
+    }
+    // The drop preview, as on the bar: the dragged tool's cell moves to the
+    // slot under the finger and draws washed out there (see [ToolbarRow]).
+    val dragTool = drag.dragging
+    val ghostSlot = drag.secondSlot
+    val displayTools: List<ToolKey> = if (dragTool != null && ghostSlot != null) {
+        (tools - dragTool).toMutableList().apply { add(ghostSlot.coerceIn(0, size), dragTool) }
+    } else {
+        tools
+    }
+    CompositionLocalProvider(LocalLayoutDirection provides direction) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(secondToolbarHeight(state.settings))
+                // Outside the scroll, so it is the visible row: the whole of
+                // it is where a drop lands, the cells' centres say where.
+                .onGloballyPositioned { drag.secondBounds = it.boundsInRoot() }
+                // The toolbar's padding, whether or not the toolbar is on: a
+                // negative one only shortened the row's height above.
+                .padding(
+                    top = behavior.paddingTopDp.coerceAtLeast(0).dp,
+                    bottom = behavior.paddingBottomDp.coerceAtLeast(0).dp,
+                )
+                .then(if (spread) Modifier else Modifier.horizontalScroll(rememberScrollState())),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (displayTools.isEmpty()) {
+                Text(
+                    stringResource(R.string.ime_second_toolbar_empty),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    style = MaterialTheme.typography.bodySmall,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .then(if (spread) Modifier.weight(1f) else Modifier)
+                        .padding(horizontal = 16.dp),
+                )
+            }
+            for (tool in displayTools) {
+                key(tool) {
+                    val cell = if (spread) {
+                        Modifier.weight(1f).fillMaxHeight()
+                    } else {
+                        Modifier.padding(horizontal = 3.dp)
+                    }
+                    PinnedToolCell(
+                        tool = tool,
+                        state = state,
+                        drag = drag,
+                        onToolTap = onToolTap,
+                        cell = cell.onGloballyPositioned { drag.secondCentres[tool] = it.boundsInRoot().center.x },
+                        hint = null,
+                        labelMaxWidthDp = labelMaxWidth,
+                        inRow = true,
+                        secondRow = true,
+                    )
+                }
+            }
+        }
+    }
+}
+
+/** A second-toolbar button's place in the D-pad ring (#1217), apart from the same tool on the bar. */
+private data class SecondToolbarRingId(val tool: ToolKey)
+
+/**
  * The pinned tools in a column down one side of the keys, for a phone on its
  * side ([ToolbarBehavior.landscapeColumn], #970): the bar's buttons in the
  * bar's order, top to bottom. The way back out of an open panel, the toolbox
@@ -11505,7 +12266,7 @@ private fun ToolsColumn(
     // the finger, as on the bar (see [ToolbarRow]).
     val dragTool = drag.dragging
     val ghostSlot = drag.barSlot
-    val displayTools: List<ToolbarTool> = if (dragTool != null && ghostSlot != null) {
+    val displayTools: List<ToolKey> = if (dragTool != null && ghostSlot != null) {
         (tools - dragTool).toMutableList().apply {
             add(ghostSlot.coerceIn(0, size), dragTool)
         }
@@ -11541,8 +12302,11 @@ private fun ToolsColumn(
         // With any tool panel open, the top of the column is the way back to
         // the keys. Out at once, for the bar's reason: a fading exit holds
         // the slot, and the tools under it move twice.
+        // Not for the toolbox, whose own button is the way back (#1251).
+        val toolboxIsBack = customizing && barToolboxShown(state)
+        val toolboxDesc = stringResource(if (toolboxIsBack) R.string.ime_panel_back_desc else R.string.ime_toolbox_desc)
         AnimatedVisibility(
-            visible = state.panel != PanelMode.NONE,
+            visible = state.panel != PanelMode.NONE && !toolboxIsBack,
             enter = fadeIn(tween(if (motion) ToolbarMotionMs else 0)),
             exit = ExitTransition.None,
         ) {
@@ -11561,12 +12325,13 @@ private fun ToolsColumn(
                 wide = true,
             ) { onPanelChange(state.panel) }
         }
-        if (toolboxSearchShown && !searchAtEnd) toolboxSearch()
+        if (toolboxSearchShown && !searchAtEnd && !toolboxIsBack) toolboxSearch()
         if (barToolboxShown(state)) ToolCircle(
-            slot = IconSlots.CHROME_TOOLBOX,
-            description = stringResource(R.string.ime_toolbox_desc),
+            slot = if (toolboxIsBack) IconSlots.CHROME_PANEL_BACK else IconSlots.CHROME_TOOLBOX,
+            description = toolboxDesc,
             active = customizing,
-            label = stringResource(R.string.ime_toolbox_desc).takeIf { labels },
+            morph = motion,
+            label = toolboxDesc.takeIf { labels },
             labelSizeSp = labelSize,
             labelMaxWidthDp = labelMaxWidth,
             modifier = cell
@@ -11578,21 +12343,38 @@ private fun ToolsColumn(
                     },
                 )
                 .animatePlacement(enabled = motion) { drag.bodyCoords },
-            longPressLabel = stringResource(R.string.ime_toolbox_desc).takeUnless { labels },
+            longPressLabel = toolboxDesc.takeUnless { labels },
             wide = true,
             hint = hints?.label(HintSurface.TOOLBAR, 0),
         ) { onPanelChange(PanelMode.TOOLBOX) }
-        for (tool in displayTools) {
+        if (toolboxSearchShown && !searchAtEnd && toolboxIsBack) toolboxSearch()
+        // Apps carried in among the tools (#1258), as on the bar.
+        val appsBySlot = toolbarAppsBySlot(state, displayTools.size)
+        @Composable
+        fun appCell(app: String) {
+            key("app:$app") {
+                PinnedAppButton(
+                    key = app,
+                    state = state,
+                    callbacks = drag.apps,
+                    modifier = cell.animatePlacement(enabled = motion) { drag.bodyCoords },
+                    slotAt = drag::appSlot,
+                )
+            }
+        }
+        for ((index, tool) in displayTools.withIndex()) {
+            appsBySlot[index]?.forEach { appCell(it) }
             key(tool) {
                 PinnedToolCell(
                     tool, state, drag, onToolTap,
                     cell = cell.onGloballyPositioned { drag.columnCentres[tool] = it.boundsInRoot().center.y },
-                    hint = hints?.label(HintSurface.TOOLBAR, tools.indexOf(tool) + 1),
+                    hint = barHintSlot(tools, tool)?.let { hints?.label(HintSurface.TOOLBAR, it) },
                     labelMaxWidthDp = labelMaxWidth,
                     inRow = false,
                 )
             }
         }
+        appsBySlot[displayTools.size]?.forEach { appCell(it) }
         // Folders after the tools, as on the bar (#709).
         for (folder in pinnedFolders) {
             key("folder:${folder.id}") {
@@ -11601,18 +12383,20 @@ private fun ToolsColumn(
                     state = state,
                     open = customizing && state.toolboxView.folderOpen == folder.id,
                     onOpen = { drag.toolbox.onFolderOpen(folder.id) },
-                    onMain = onToolTap,
+                    onMain = { drag.tap(it, onToolTap) },
                     modifier = cell.animatePlacement(enabled = motion) { drag.bodyCoords },
                 )
             }
         }
-        // Apps after the folders, as on the bar (#1159).
-        for (app in toolbarApps(state)) {
-            key("app:$app") {
-                PinnedAppButton(
-                    key = app,
+        // Apps never carried in among the tools after the folders, as on the bar (#1159).
+        for (app in if (appsBySlot.isEmpty()) toolbarApps(state) else toolbarAppsTrailing(state)) appCell(app)
+        // The user's own buttons last, as on the bar (#1213, #1236).
+        for (button in toolbarCustomButtons(state)) {
+            key("custom:${button.id}") {
+                CustomButtonCell(
+                    button = button,
                     state = state,
-                    callbacks = drag.apps,
+                    callbacks = drag.custom,
                     modifier = cell.animatePlacement(enabled = motion) { drag.bodyCoords },
                 )
             }
@@ -11636,7 +12420,7 @@ private fun ToolsColumn(
                 wide = true,
             ) { drag.onHardwareKeysToggle() }
         }
-        if (incognitoBadgeShown(state.incognitoOn, tools)) {
+        if (incognitoBadgeShown(state.incognitoOn && state.settings.incognitoBadge, tools.builtinTools())) {
             SlotIcon(
                 IconSlots.CHROME_INCOGNITO,
                 contentDescription = stringResource(R.string.ime_incognito_on_desc),
@@ -11788,6 +12572,7 @@ private fun RowScope.ToolbarRow(
     val tools = visibleToolbarTools(state)
     val pinnedFolders = state.settings.toolbox.folders.filter { it.pinned }
     val pinnedApps = toolbarApps(state)
+    val pinnedCustom = toolbarCustomButtons(state)
     // The D-pad ring reaches the bar as well as the keys: without it a remote
     // could type but never open a tool, change a setting or start voice input.
     // Each button registers where it is while it is drawn (see [dpadTarget]).
@@ -11816,7 +12601,7 @@ private fun RowScope.ToolbarRow(
     // re-key its ghost per slot instead (see [ToolboxGrid]).
     val dragTool = drag.dragging
     val ghostSlot = drag.barSlot
-    val displayTools: List<ToolbarTool> = if (dragTool != null && ghostSlot != null) {
+    val displayTools: List<ToolKey> = if (dragTool != null && ghostSlot != null) {
         (tools - dragTool).toMutableList().apply {
             add(ghostSlot.coerceIn(0, size), dragTool)
         }
@@ -11836,6 +12621,9 @@ private fun RowScope.ToolbarRow(
     val toolboxSearchShown = customizing && state.settings.toolbox.searchButton &&
         !state.toolboxView.searchActive
     val searchAtEnd = state.settings.toolbox.searchAtEnd
+    // The toolbox button is the way back while the toolbox is open (#1251).
+    val toolboxIsBack = customizing && barToolboxShown(state)
+    val toolboxButtonDesc = stringResource(if (toolboxIsBack) R.string.ime_panel_back_desc else R.string.ime_toolbox_desc)
     val toolboxSearchCell: @Composable (Modifier) -> Unit = { cell ->
         Box(cell, contentAlignment = Alignment.Center) {
             ToolCircle(
@@ -11857,7 +12645,10 @@ private fun RowScope.ToolbarRow(
         // animation finishes, then drops it entirely so a weighted cell
         // doesn't linger as an invisible gap.
         val chevronVisible = remember { MutableTransitionState(false) }
-        chevronVisible.targetState = panelOpen
+        // Not for the toolbox itself (#1251): its own button turns into the
+        // way back, in the slot it already holds, so nothing on the bar moves
+        // and no second button does what the first one does.
+        chevronVisible.targetState = panelOpen && !toolboxIsBack
         if (chevronVisible.currentState || chevronVisible.targetState) {
             AnimatedVisibility(
                 visibleState = chevronVisible,
@@ -11908,20 +12699,26 @@ private fun RowScope.ToolbarRow(
             }
         }
         // The toolbox's search, when it sits beside the way back rather than
-        // at the far end (see [toolboxSearchCell]).
-        if (toolboxSearchShown && !searchAtEnd) toolboxSearchCell(cell)
+        // at the far end (see [toolboxSearchCell]). After the toolbox button
+        // while that button is the way back, so back still leads the bar.
+        if (toolboxSearchShown && !searchAtEnd && !toolboxIsBack) toolboxSearchCell(cell)
         // Left out at rest when the strip's own button is the way in (#970).
         // An open tool covers the strip, so the bar keeps it then.
         if (barToolboxShown(state)) Box(cell, contentAlignment = Alignment.Center) {
             ToolCircle(
-                slot = IconSlots.CHROME_TOOLBOX,
-                description = stringResource(R.string.ime_toolbox_desc),
+                // The way back while the toolbox is open (#1251): lit, since
+                // the toolbox is what is open, wearing the back arrow every
+                // other tool shows in this place.
+                slot = if (toolboxIsBack) IconSlots.CHROME_PANEL_BACK else IconSlots.CHROME_TOOLBOX,
+                description = toolboxButtonDesc,
                 active = customizing,
+                // Turns into the arrow rather than swapping on a frame.
+                morph = motion,
                 // The launcher wears its name alongside the tools it sits with:
                 // with labels on, one bare icon at the head of a row of named
                 // buttons reads as a button that forgot its own label, and it
                 // sits a few pixels off the others' baseline as well.
-                label = stringResource(R.string.ime_toolbox_desc).takeIf { labels },
+                label = toolboxButtonDesc.takeIf { labels },
                 labelSizeSp = labelSize,
                 labelMaxWidthDp = labelMaxWidth,
                 modifier = Modifier
@@ -11951,14 +12748,41 @@ private fun RowScope.ToolbarRow(
                     .graphicsLayer { alpha = contentAlpha() },
                 // The tooltip is what the labels setting replaces; the labelled
                 // variant never draws it anyway.
-                longPressLabel = stringResource(R.string.ime_toolbox_desc).takeUnless { labels },
+                longPressLabel = toolboxButtonDesc.takeUnless { labels },
                 wide = true,
                 hint = hints?.label(HintSurface.TOOLBAR, 0),
             ) { onPanelChange(PanelMode.TOOLBOX) }
         }
+        if (toolboxSearchShown && !searchAtEnd && toolboxIsBack) toolboxSearchCell(cell)
     }
+    // Apps the user carried in among the tools (#1258), by the drawn tool
+    // they sit before; the rest keep their place after the folders.
+    val appsBySlot = toolbarAppsBySlot(state, displayTools.size)
+    val trailingApps = if (appsBySlot.isEmpty()) pinnedApps else toolbarAppsTrailing(state)
     val toolCells: @Composable RowScope.() -> Unit = {
-        for (tool in displayTools) {
+        // Apps the user put on the bar (#1159): like a folder, an app has no
+        // place in the bar's stored list of tools, so its place is kept apart.
+        @Composable
+        fun RowScope.appCell(app: String) {
+            key("app:$app") {
+                Box(
+                    if (greedy) Modifier.weight(1f).fillMaxHeight() else Modifier.padding(horizontal = 3.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    PinnedAppButton(
+                        key = app,
+                        state = state,
+                        callbacks = drag.apps,
+                        modifier = Modifier
+                            .animatePlacement(enabled = motion, inRow = true) { drag.bodyCoords }
+                            .graphicsLayer { alpha = contentAlpha() },
+                        slotAt = drag::appSlot,
+                    )
+                }
+            }
+        }
+        for ((index, tool) in displayTools.withIndex()) {
+            appsBySlot[index]?.forEach { appCell(it) }
             key(tool) {
                 val cell = if (greedy) {
                     Modifier
@@ -11980,11 +12804,12 @@ private fun RowScope.ToolbarRow(
                 // was drawn with a slice missing and a hard vertical edge where
                 // the cell ended. On the icon's own node the buffer travels
                 // with it and there is nothing to clip.
-                val shared = tool in sharedTools
+                val shared = tool.tool?.let { it in sharedTools } == true
                 val fadeThis = !shared || fadeShared
                 PinnedToolCell(
-                    tool, state, drag, onToolTap, cell,
-                    hint = hints?.label(HintSurface.TOOLBAR, tools.indexOf(tool) + 1),
+                    tool, state, drag, onToolTap,
+                    cell.onGloballyPositioned { drag.rowCentres[tool] = it.boundsInRoot().center.x },
+                    hint = barHintSlot(tools, tool)?.let { hints?.label(HintSurface.TOOLBAR, it) },
                     labelMaxWidthDp = labelMaxWidth,
                     inRow = true,
                     shared = shared,
@@ -11993,6 +12818,7 @@ private fun RowScope.ToolbarRow(
                 )
             }
         }
+        appsBySlot[displayTools.size]?.forEach { appCell(it) }
         // Folders the user pinned (#709), after the tools: a folder has no
         // place in the bar's own stored list, so it cannot sit between them.
         for (folder in pinnedFolders) {
@@ -12006,7 +12832,7 @@ private fun RowScope.ToolbarRow(
                         state = state,
                         open = customizing && state.toolboxView.folderOpen == folder.id,
                         onOpen = { drag.toolbox.onFolderOpen(folder.id) },
-                        onMain = onToolTap,
+                        onMain = { drag.tap(it, onToolTap) },
                         // Slides when the tools before it move, and fades with the
                         // rest of the bar, like a pinned tool.
                         modifier = Modifier
@@ -12016,18 +12842,20 @@ private fun RowScope.ToolbarRow(
                 }
             }
         }
-        // Apps the user put on the bar (#1159), after the folders: like a
-        // folder, an app has no place in the bar's stored list of tools.
-        for (app in pinnedApps) {
-            key("app:$app") {
+        // The apps never carried in among the tools, after the folders.
+        for (app in trailingApps) appCell(app)
+        // The user's own buttons (#1213, #1236), after the apps: like an app,
+        // a custom button has no place in the bar's stored list of tools.
+        for (button in pinnedCustom) {
+            key("custom:${button.id}") {
                 Box(
                     if (greedy) Modifier.weight(1f).fillMaxHeight() else Modifier.padding(horizontal = 3.dp),
                     contentAlignment = Alignment.Center,
                 ) {
-                    PinnedAppButton(
-                        key = app,
+                    CustomButtonCell(
+                        button = button,
                         state = state,
-                        callbacks = drag.apps,
+                        callbacks = drag.custom,
                         modifier = Modifier
                             .animatePlacement(enabled = motion, inRow = true) { drag.bodyCoords }
                             .graphicsLayer { alpha = contentAlpha() },
@@ -12037,10 +12865,34 @@ private fun RowScope.ToolbarRow(
         }
     }
     if (greedy) {
+        // Over a see-through split gap (#1256), the grid moves in from one end
+        // until an edge between two cells is where the gap is, so no button is
+        // drawn half on each side of it. Every cell the row lays out counts:
+        // the way back, the toolbox's search beside it, the toolbox, the
+        // tools (one empty cell when there are none) and the search at the end.
+        val gridCut = rememberSplitCutTracker()
+        val gridCells = (if (panelOpen && !toolboxIsBack) 1 else 0) +
+            (if (toolboxSearchShown) 1 else 0) +
+            (if (barToolboxShown(state)) 1 else 0) +
+            (displayTools.size + pinnedFolders.size + pinnedApps.size + pinnedCustom.size).coerceAtLeast(1)
+        val gridInset = gridCut?.let { cut ->
+            cut.cutIn()?.let { insetToCut(gridCells, cut.laidOutWidth.toFloat(), it) }
+        }
+        val gridDensity = LocalDensity.current
         Row(
             modifier = Modifier
                 .weight(1f)
-                .fillMaxHeight(),
+                .fillMaxHeight()
+                .then(gridCut?.tracker ?: Modifier)
+                .then(
+                    if (gridInset == null) {
+                        Modifier
+                    } else {
+                        with(gridDensity) {
+                            Modifier.absolutePadding(left = gridInset.first.toDp(), right = gridInset.second.toDp())
+                        }
+                    },
+                ),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             leading(
@@ -12058,7 +12910,7 @@ private fun RowScope.ToolbarRow(
             CompositionLocalProvider(LocalLayoutDirection provides toolsDirection) {
                 Row(
                     modifier = Modifier
-                        .weight((displayTools.size + pinnedFolders.size + pinnedApps.size).coerceAtLeast(1).toFloat())
+                        .weight((displayTools.size + pinnedFolders.size + pinnedApps.size + pinnedCustom.size).coerceAtLeast(1).toFloat())
                         .fillMaxHeight()
                         .onGloballyPositioned { drag.toolbarBounds = it.boundsInRoot() },
                     verticalAlignment = Alignment.CenterVertically,
@@ -12132,7 +12984,7 @@ private fun RowScope.ToolbarRow(
             ) { drag.onHardwareKeysToggle() }
         }
     }
-    if (incognitoBadgeShown(state.incognitoOn, tools)) {
+    if (incognitoBadgeShown(state.incognitoOn && state.settings.incognitoBadge, tools.builtinTools())) {
         // Tappable: a field can switch incognito on by itself, and a badge
         // that shows up with no reason given reads as a bug (#665).
         SlotIcon(
@@ -12174,7 +13026,7 @@ private fun RowScope.ToolbarRow(
  */
 @Composable
 private fun PinnedToolCell(
-    tool: ToolbarTool,
+    tool: ToolKey,
     state: KeyboardUiState,
     drag: ToolDragController,
     onToolTap: (ToolbarTool) -> Unit,
@@ -12185,6 +13037,8 @@ private fun PinnedToolCell(
     shared: Boolean = false,
     fadeThis: Boolean = true,
     contentAlpha: () -> Float = { 1f },
+    /** A second-toolbar button (#1217): drags off that row and has a D-pad target of its own. */
+    secondRow: Boolean = false,
 ) {
     val customizing = state.panel == PanelMode.TOOLBOX
     val labels = state.settings.toolbarLabels
@@ -12209,7 +13063,7 @@ private fun PinnedToolCell(
             fromToolbar = true,
             enabled = true,
             drag = drag,
-            onTap = { onToolTap(tool) },
+            onTap = { drag.tap(tool, onToolTap) },
             holdRepeatMs = holdRepeatMs(tool, state),
             holdAction = holdActionFor(tool, fromToolbar = true, state = state),
             dragEnabled = state.settings.toolbarBehavior.dragToRearrange,
@@ -12224,15 +13078,16 @@ private fun PinnedToolCell(
             holdMenu = holdPicksVoiceMode(tool, fromToolbar = true, state = state),
             onHoldMenu = { voiceMenuOpen = true },
             holdDelayMs = state.settings.toolbarBehavior.holdDelayMs,
+            fromSecondRow = secondRow,
         ) { dragModifier ->
             val paint = if (pinnedColors) toolAccentPaint(tool, state.settings) else null
             ToolCircle(
-                slot = IconSlots.forTool(tool),
-                description = toolLabel(tool),
+                slot = toolKeySlot(tool),
+                description = toolLabel(tool, state),
                 active = toolActive(tool, state),
                 tint = paint?.color,
                 tintBrush = paint?.brush,
-                label = if (labels) toolLabel(tool) else null,
+                label = if (labels) toolLabel(tool, state) else null,
                 labelSizeSp = labelSize,
                 labelMaxWidthDp = labelMaxWidthDp,
                 // This cell IS the drop preview while it is the one
@@ -12241,7 +13096,12 @@ private fun PinnedToolCell(
                 // screen is exactly the row the drop commits. The
                 // solid icon to look at is the floating one under
                 // the finger.
-                ghost = tool == drag.dragging,
+                // A tool on both rows washes out only on the row it came
+                // off or is heading for.
+                ghost = tool == drag.dragging && when {
+                    secondRow -> drag.draggingFromSecond || drag.secondSlot != null
+                    else -> !drag.draggingFromSecond || drag.barSlot != null
+                },
                 wide = true,
                 hint = hint,
                 // The icon itself animates, anchored at the
@@ -12258,7 +13118,9 @@ private fun PinnedToolCell(
                     .panelOrigin()
                     .then(
                         if (dpadRing) {
-                            Modifier.dpadTarget(tool) { onToolTap(tool) }
+                            Modifier.dpadTarget(if (secondRow) SecondToolbarRingId(tool) else tool.tool ?: tool) {
+                                drag.tap(tool, onToolTap)
+                            }
                         } else {
                             Modifier
                         },
@@ -12344,11 +13206,11 @@ private fun Modifier.shrinkToFit(anchorRight: Boolean): Modifier = layout { meas
  * with this order, or with another one that has better claim to the screen.
  */
 private data class ToolboxOrderPreview(
-    val order: List<ToolbarTool>,
-    val before: List<ToolbarTool>,
+    val order: List<ToolKey>,
+    val before: List<ToolKey>,
 ) {
     /** Where [tool] sits in the committed order; unranked tools keep the tail. */
-    fun rank(tool: ToolbarTool): Int =
+    fun rank(tool: ToolKey): Int =
         order.indexOf(tool).takeIf { it >= 0 } ?: Int.MAX_VALUE
 }
 
@@ -12538,7 +13400,7 @@ private fun ToolboxPanel(
             val context = LocalContext.current
             val settledTools = when {
                 // A search lists tools from every folder, so it draws no folders.
-                searching -> toolboxSearchMatches(state) { context.getString(toolLabelRes(it)) }
+                searching -> toolboxSearchMatches(state) { toolKeyName(context, it, state) }
                 openFolder != null -> visibleToolboxTools(state).toSet().let { shown ->
                     openFolder.tools.filter { it in shown }
                 }
@@ -12644,6 +13506,9 @@ private fun ToolboxPanel(
                 drag.active && drag.boxMerge != null -> without
                 else -> cells
             }
+            // The user's own buttons kept in the toolbox (#1213, #1236), above
+            // the grid at its top level; a search or a folder lists tools only.
+            if (openFolder == null && !searching) ToolboxCustomButtons(state, drag.custom)
             if (display.isEmpty()) {
                 Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     Text(
@@ -12669,7 +13534,7 @@ private fun ToolboxPanel(
                 columns = columns,
                 onActivate = { index ->
                     when (val cell = cells.getOrNull(index)) {
-                        is ToolboxCell.Tool -> onToolTap(cell.tool)
+                        is ToolboxCell.Tool -> drag.tap(cell.tool, onToolTap)
                         is ToolboxCell.Folder -> callbacks.onFolderOpen(cell.folder.id)
                         null -> Unit
                     }
@@ -12853,7 +13718,7 @@ private fun ToolboxGrid(
     val hints = if (dragCell == null && state.toolPicker != null) armedHintPlan(withLiveTyping(state)) else null
     // The plan numbers the toolbox's tools in grid order, folders or not,
     // so a cell's badge is found by its tool rather than by where it sits.
-    val hintSlots = hints?.let { toolboxGridTools(state).withIndex().associate { (i, tool) -> tool to i } }
+    val hintSlots = hints?.let { toolboxGridTools(state).builtinTools().withIndex().associate { (i, tool) -> tool.key to i } }
     val dragEnabledNow by rememberUpdatedState(dragEnabled)
     val openFolder by rememberUpdatedState(drag.toolbox.onFolderOpen)
     val scope = rememberCoroutineScope()
@@ -12932,7 +13797,7 @@ private fun ToolboxGrid(
                     // tool the user opted in repeats here exactly as it does on
                     // the toolbar, and gives up this grid's hold-for-settings
                     // to do it; every other tool keeps it.
-                    val repeatTool = tool?.takeIf { it in toolboxRepeatNow && it in HoldRepeatCursorTools }
+                    val repeatTool = tool?.tool?.takeIf { it in toolboxRepeatNow && it in HoldRepeatCursorTools }
                     val holdRepeatMs = repeatMsNow.takeIf { repeatTool != null }
                     val timer = scope.launch {
                         delay(toolHoldDelay(holdDelayNow, viewConfiguration.longPressTimeoutMillis))
@@ -12997,7 +13862,7 @@ private fun ToolboxGrid(
                                     if (folder != null) {
                                     drag.folderOrigin = cellCenter
                                     openFolder(folder.id)
-                                } else if (tool != null) tapTool(tool)
+                                } else if (tool != null) drag.tap(tool, tapTool)
                                 }
                             }
                             dragged -> drag.end()
@@ -13012,7 +13877,7 @@ private fun ToolboxGrid(
                                 if (folder != null) {
                                     drag.folderOrigin = cellCenter
                                     openFolder(folder.id)
-                                } else if (tool != null) drag.onOpenSettings(tool)
+                                } else if (tool != null) drag.openSettings(tool)
                             }
                         }
                     }
@@ -13137,6 +14002,7 @@ private fun ToolboxGrid(
                     if (pills) {
                         ToolPill(
                             tool = shown,
+                            label = toolLabel(shown, state),
                             active = toolActive(shown, state),
                             labelSize = toolboxLabelSize(state),
                             paint = paint,
@@ -13161,8 +14027,8 @@ private fun ToolboxGrid(
                             GhostToolCircle(shown)
                         } else {
                             ToolCircle(
-                                slot = IconSlots.forTool(shown),
-                                description = toolLabel(shown),
+                                slot = toolKeySlot(shown),
+                                description = toolLabel(shown, state),
                                 active = toolActive(shown, state),
                                 interactive = false,
                                 tint = paint?.color,
@@ -13170,14 +14036,14 @@ private fun ToolboxGrid(
                                 hint = hint,
                             ) {}
                         }
-                        Text(
-                            toolLabel(shown),
+                        FitWordsText(
+                            toolLabel(shown, state),
                             // The name is what the grid is actually read by —
                             // the icons are close cousins of one another and
                             // the words are not — so it carries the same
                             // weight as a suggestion chip rather than the
                             // caption size it used to have.
-                            fontSize = toolboxLabelSize(state),
+                            style = LocalTextStyle.current.copy(fontSize = toolboxLabelSize(state)),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                                 .copy(alpha = if (ghost) 0.5f else 1f),
                             textAlign = TextAlign.Center,
@@ -13190,9 +14056,9 @@ private fun ToolboxGrid(
                             // and a tap landed on the tool below — further out
                             // the further down you were, until the index ran off
                             // the end and the last tools stopped opening at all.
-                            minLines = 2,
-                            maxLines = 2,
-                            overflow = TextOverflow.Ellipsis,
+                            // Breaks only between words: a word too wide for
+                            // the cell narrows rather than splitting mid-word.
+                            lines = 2,
                             onTextLayout = nameAnchor::onTextLayout,
                             modifier = Modifier
                                 .padding(top = 4.dp, start = 2.dp, end = 2.dp)
@@ -13491,7 +14357,7 @@ private fun RowScope.HeaderSearchPill(
  */
 @Composable
 private fun FolderFace(
-    tools: List<ToolbarTool>,
+    tools: List<ToolKey>,
     state: KeyboardUiState,
     ghost: Boolean,
     size: Dp = 38.dp,
@@ -13533,7 +14399,7 @@ private fun FolderFace(
                     for (tool in row) {
                         val paint = toolAccentPaint(tool, state.settings)
                         SlotIcon(
-                            IconSlots.forTool(tool),
+                            toolKeySlot(tool),
                             contentDescription = null,
                             modifier = Modifier.size(size * 0.34f),
                             tint = (if (active) kb.toolCircleActiveIcon else paint?.color ?: kb.toolbarIcon)
@@ -13625,15 +14491,13 @@ private fun ToolboxFolderCell(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         FolderFace(cell.tools, state, ghost)
-        Text(
+        FitWordsText(
             cell.folder.name,
-            fontSize = toolboxLabelSize(state),
+            style = LocalTextStyle.current.copy(fontSize = toolboxLabelSize(state)),
             color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = fade),
             textAlign = TextAlign.Center,
             // Two lines exactly, as every tool's name is: see the tool cell.
-            minLines = 2,
-            maxLines = 2,
-            overflow = TextOverflow.Ellipsis,
+            lines = 2,
             onTextLayout = nameAnchor::onTextLayout,
             modifier = Modifier
                 .padding(top = 4.dp, start = 2.dp, end = 2.dp)
@@ -13679,7 +14543,7 @@ private fun PinnedFolderButton(
     state: KeyboardUiState,
     open: Boolean,
     onOpen: () -> Unit,
-    onMain: (ToolbarTool) -> Unit,
+    onMain: (ToolKey) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val labels = state.settings.toolbarLabels
@@ -13701,7 +14565,7 @@ private fun PinnedFolderButton(
     ) {
         if (main != null) {
             SlotIcon(
-                IconSlots.forTool(main),
+                toolKeySlot(main),
                 contentDescription = null,
                 modifier = Modifier.size(LocalKbTheme.current.toolIconSizeDp.dp),
                 tint = LocalKbTheme.current.toolbarIcon,
@@ -13808,7 +14672,9 @@ private const val ToolCircleRadiusMax = 20
  */
 @Composable
 private fun ToolPill(
-    tool: ToolbarTool,
+    tool: ToolKey,
+    /** The tool's name: a built-in tool's, or its plugin's. */
+    label: String,
     active: Boolean,
     /** Caption size, resolved by the caller from the toolbox settings. */
     labelSize: TextUnit,
@@ -13871,14 +14737,14 @@ private fun ToolPill(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         SlotIcon(
-            IconSlots.forTool(tool),
+            toolKeySlot(tool),
             contentDescription = null,
             modifier = Modifier.size(ToolIconSize),
             tint = iconTint.copy(alpha = fade),
             brush = iconBrush,
         )
         Text(
-            toolLabel(tool),
+            label,
             fontSize = labelSize,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
@@ -13892,7 +14758,8 @@ private fun ToolPill(
         // A pill is a row, so its badge sits at the end beside the chevron
         // rather than under an icon. Same footprint either way.
         if (hint != null) HintBadge(hint, modifier = Modifier.padding(end = 4.dp))
-        if (toolOpensScreen(tool)) {
+        // A plugin always opens its panel.
+        if (tool.tool?.let(::toolOpensScreen) != false) {
             Icon(
                 Icons.AutoMirrored.Outlined.KeyboardArrowRight,
                 contentDescription = null,
@@ -13951,7 +14818,7 @@ private fun PageDots(count: Int, current: Int) {
  * hopping to another tool mid-use — sensors, reference views, converters.
  */
 private val FullBleedPanels = setOf(
-    PanelMode.OCR, PanelMode.QR_SCAN, PanelMode.CALCULATOR, PanelMode.CURRENCY,
+    PanelMode.OCR, PanelMode.QR_SCAN, PanelMode.DOC_SCAN, PanelMode.CALCULATOR, PanelMode.CURRENCY,
     PanelMode.UNIT_CONVERT, PanelMode.CALENDAR, PanelMode.AI,
     PanelMode.TRANSLATE, PanelMode.WEB_SEARCH, PanelMode.IMAGE_SEARCH,
     PanelMode.DICTIONARY, PanelMode.SYMBOLS, PanelMode.MEDIA_CONTROL, PanelMode.KDE_CONNECT,
@@ -13970,10 +14837,15 @@ private val FullBleedPanels = setOf(
  * for emoji, the search box for media — so the setting is on by default but
  * can be turned off by anyone who wants the toolbar within reach.
  */
-private fun isFullBleedPanel(panel: PanelMode, settings: KeyboardSettings): Boolean = when (panel) {
+private fun isFullBleedPanel(panel: PanelMode, settings: KeyboardSettings, plugins: PluginPanelUi? = null): Boolean = when (panel) {
+    // The list takes the whole keyboard; a running plugin does when its
+    // manifest asks (`tool.fullBleed`), as a tall one such as a planner does.
+    PanelMode.PLUGINS -> (plugins as? PluginPanelUi.Running)?.plugin?.tool?.fullBleed ?: true
     PanelMode.EMOJI -> settings.emojiFullBleed
     PanelMode.GIF, PanelMode.STICKER, PanelMode.EMOJI_MIX -> settings.mediaFullBleed
     PanelMode.CLIPBOARD -> settings.clipboard.fullBleed
+    // Under the toolbar when asked (#1282), so the tools stay in reach.
+    PanelMode.NOTES -> !settings.notes.keepToolbar
     else -> panel in FullBleedPanels
 }
 
@@ -14026,6 +14898,7 @@ internal fun fullBleedHiddenRows(
         // Avro's candidate row rides above the strip, so it hides with it.
         (if (phoneticCandidateBarShown(state)) PhoneticCandidateRowHeight else 0.dp) +
         (if (recentRowShown(state)) RecentRowHeight else 0.dp) +
+        (if (secondToolbarShown(state)) secondToolbarHeight(state.settings) else 0.dp) +
         // The macro row is state-driven, so unlike the on-demand tools row it
         // can be counted: whether it is on screen is in the ui state this
         // function already has.
@@ -14104,7 +14977,11 @@ internal fun FullBleedTool(
     // Opened at the keyboard's own height, the tool wears the same kind of bar
     // to drag it taller, one height every full-bleed tool shares. Not where
     // the panel brings a bar of its own (the clipboard's, the media panels').
-    val board = keyRowsHeight(state) + fullBleedHiddenRows(state, macroRowAtPanelOpen(state))
+    // The rows count only while the panel is standing in for them: one that
+    // opens under the toolbar (Notes, #1282) would otherwise grow the
+    // keyboard by the rows it leaves on screen.
+    val board = keyRowsHeight(state) +
+        (if (barFullBleed(state)) fullBleedHiddenRows(state, macroRowAtPanelOpen(state)) else 0.dp)
     val grown = if (overKeys == null && !compact && topHandle == null) {
         fullBleedSize(state, wanted = board + extraHeight, floor = board)
     } else {
@@ -14165,6 +15042,21 @@ internal fun FullBleedTool(
                     if (title.isNotEmpty()) Spacer(Modifier.weight(1f))
                     headerActions()
                 }
+                // Pops a tool that can float out into its box (#1240). Not in
+                // the box itself, whose tool's header this may be while the
+                // keyboard has a panel of its own.
+                floatingToolFor(state.panel)?.takeIf { !LocalInFloatingBox.current }?.let { tool ->
+                    val float = LocalToolFloat.current
+                    if (headerActions == null) Spacer(Modifier.weight(1f))
+                    IconButton(onClick = { float(tool) }, modifier = Modifier.size(40.dp)) {
+                        Icon(
+                            Icons.Outlined.PictureInPictureAlt,
+                            contentDescription = stringResource(R.string.ime_applet_pop_out),
+                            tint = kb.secondaryText,
+                            modifier = Modifier.size(20.dp),
+                        )
+                    }
+                }
             }
         }
         Box(
@@ -14173,6 +15065,31 @@ internal fun FullBleedTool(
                 .fillMaxWidth(),
         ) { content() }
     }
+}
+
+/** Drawn inside the floating box (#1155) rather than the keyboard: no pop-out button there. */
+internal val LocalInFloatingBox = androidx.compose.runtime.staticCompositionLocalOf { false }
+
+/** Opens a tool in its floating box (#1155); the panel header's pop-out button (#1240) uses it. */
+internal val LocalToolFloat = androidx.compose.runtime.staticCompositionLocalOf<(ToolbarTool) -> Unit> { {} }
+
+/** The tool a panel can pop out into a floating box as, or null (#1240). */
+internal fun floatingToolFor(panel: PanelMode): ToolbarTool? = when (panel) {
+    PanelMode.CALCULATOR -> ToolbarTool.CALCULATOR
+    PanelMode.UNIT_CONVERT -> ToolbarTool.UNIT_CONVERT
+    PanelMode.CURRENCY -> ToolbarTool.CURRENCY
+    PanelMode.CLOCK -> ToolbarTool.CLOCK
+    PanelMode.TODO -> ToolbarTool.TODO
+    PanelMode.NOTES -> ToolbarTool.NOTES
+    PanelMode.TRANSLATE -> ToolbarTool.TRANSLATE
+    // #1265
+    PanelMode.CLIPBOARD -> ToolbarTool.CLIPBOARD
+    PanelMode.CALENDAR -> ToolbarTool.CALENDAR
+    PanelMode.MEDIA_CONTROL -> ToolbarTool.MEDIA_CONTROL
+    PanelMode.DICTIONARY -> ToolbarTool.DICTIONARY
+    PanelMode.WIKIPEDIA -> ToolbarTool.WIKIPEDIA
+    PanelMode.WEB_SEARCH -> ToolbarTool.WEB_SEARCH
+    else -> null
 }
 
 /**
@@ -14198,7 +15115,11 @@ internal val FullBleedHeaderHeight = 46.dp
 internal fun toolPanelHeight(state: KeyboardUiState, wanted: Dp, floor: Dp): Dp {
     val rowsStandIn = barFullBleed(state) || barClipboardSearching(state) ||
         emojiPanelTyping(state)
+    // The second toolbar (#1217) stays through the two searches, so it is
+    // still around the panel there, as long as nothing full-bleed took it.
+    val secondStays = rowsStandIn && !barFullBleed(state) && secondToolbarShown(state)
     val around = (if (rowsStandIn) 0.dp else fullBleedHiddenRows(state, macroRowAtPanelOpen(state))) +
+        (if (secondStays) secondToolbarHeight(state.settings) else 0.dp) +
         (if (keyRowsUnderPanel(state)) keyRowsHeight(state) + captureStripHeight(state) else 0.dp) +
         bottomPaddingDp(state.settings).dp
     // Keys put down (#961): the panel takes their rows, so the keyboard keeps
@@ -14491,8 +15412,8 @@ private fun KeyboardBody(
     /** The AI reply panel's controls, threaded down from [KeyboardScreen]. */
     reply: ReplyCallbacks,
     onToolTap: (ToolbarTool) -> Unit,
-    onToolbarToolsChange: (List<ToolbarTool>) -> Unit,
-    onToolboxOrderChange: (List<ToolbarTool>) -> Unit,
+    onToolbarToolsChange: (List<ToolKey>) -> Unit,
+    onToolboxOrderChange: (List<ToolKey>) -> Unit,
     toolHold: ToolHoldCallbacks,
     onToolboxHintDismiss: () -> Unit,
     onWeatherRefresh: () -> Unit,
@@ -14599,6 +15520,7 @@ private fun KeyboardBody(
     drag.onIncognitoBadge = toolHold.onIncognitoBadge
     drag.toolbox = toolHold.toolbox
     drag.apps = toolHold.apps
+    drag.custom = toolHold.custom
     // A remapped hold runs the bound tool through the service's own dispatcher
     // rather than [onToolTap]: that one refuses any tool the toolbar does not
     // list, and the tool the user bound a hold to is very often one they never
@@ -14759,8 +15681,14 @@ private fun KeyboardBody(
             // through ColumnScope's own AnimatedVisibility.
             @Composable
             fun BarRowSlot(row: BarRow) {
+                // Split around the keys' see-through gap (#1256), inside the
+                // fill so the fill and its glass stay where they are.
+                val splitHalves = rememberSplitBarHalves(LocalSplitGapCutout.current)
                 Column(
-                    modifier = Modifier.barRowFill(if (row == BarRow.TOOLS) toolsFill else barFill)
+                    modifier = Modifier.barRowFill(
+                        if (row == BarRow.TOOLS || row == BarRow.SECOND_TOOLBAR) toolsFill else barFill,
+                    )
+                        .then(splitHalves?.modifier ?: Modifier)
                         .duetBarTouch(state, onGesturePreview)
                         // The all-thumbs-up pause, shrinking along the strip (#747).
                         .then(
@@ -14771,8 +15699,14 @@ private fun KeyboardBody(
                             },
                         ),
                 ) {
+                    // What sits on the row keeps clear of where it is cut.
+                    CompositionLocalProvider(LocalSplitBarHalves provides splitHalves) {
                     when (row) {
                         BarRow.TOPBAR -> when {
+                            // A snippet waiting for its {ask:} answers holds
+                            // the keys, so its row is what has to be seen.
+                            state.toolText.snippetAsk != null ->
+                                SnippetAskBar(state, snippetPanel.onAskNext, snippetPanel.onAskCancel)
                             // Before every other case, the toolbar's own
                             // visibility included: the word card has handed
                             // the keys to this bar, so it is the only thing
@@ -15006,9 +15940,21 @@ private fun KeyboardBody(
                                 RecentWordRow(state.recentBar, suggestionHold)
                             }
                         }
+                        // The second toolbar (#1217). Not gated on the
+                        // toolbar or the strip, which it is there to outlast.
+                        // A full-bleed panel takes it like every other row,
+                        // and [fullBleedHiddenRows] gives the panel its height.
+                        // The emoji and clipboard searches leave it, as they
+                        // leave the symbol and emoji rows: their panels make
+                        // up for the strip and the tools row they hide, and
+                        // nothing more, so hiding it there shrank the board.
+                        BarRow.SECOND_TOOLBAR -> if (secondToolbarShown(state) && !fullBleed) {
+                            SecondToolbarRow(state, onToolTap, drag)
+                        }
                         // Stands for the keys themselves: the split below draws
                         // them, so the entry itself is never a row.
                         BarRow.KEYBOARD -> {}
+                    }
                     }
                 }
             }
@@ -15179,6 +16125,7 @@ private fun KeyboardBody(
                     // weather tool's own page rather than the settings root.
                     onOpenSettings = { onOpenToolSettings(ToolbarTool.WEATHER) },
                     onUseMyLocation = toolHold.location.onUseMyLocationForTools,
+                    calendar = toolHold.calendar,
                 )
                 PanelMode.LOCATION -> LocationPanel(
                     state = state,
@@ -15294,6 +16241,15 @@ private fun KeyboardBody(
                         onTranslate = toolHold.photo.onTranslateText,
                     )
                 }
+                PanelMode.DOC_SCAN -> DocScanPanel(
+                    state = state,
+                    onRequestPermission = onCameraPermissionRequest,
+                    onClose = { onPanelChange(PanelMode.DOC_SCAN) },
+                    // The rail over the viewfinder only: over the corners and the page it would cover handles.
+                    cameraFrame = { content ->
+                        CameraModeHost(state, CameraMode.DOCUMENT, onPanelChange, toolHold.onHoldAction, content)
+                    },
+                )
                 PanelMode.QR_SCAN -> CameraModeHost(state, CameraMode.QR, onPanelChange, toolHold.onHoldAction) {
                     QrScanPanel(
                         state = state,
@@ -15318,8 +16274,15 @@ private fun KeyboardBody(
                 )
                 PanelMode.PLUGINS -> FullBleedTool(
                     state,
-                    title = (state.plugins as? PluginPanelUi.Running)?.plugin?.name
+                    // An API 5 plugin may title the page it pushed; the
+                    // plugin's own name stays the default.
+                    title = (state.plugins as? PluginPanelUi.Running)?.let { it.host?.title ?: it.plugin.displayName }
                         ?: stringResource(R.string.ime_tool_plugins),
+                    headerActions = if (state.plugins is PluginPanelUi.Running) {
+                        { PluginHeaderActions(state.plugins as PluginPanelUi.Running, onPluginEvent) }
+                    } else {
+                        null
+                    },
                     // Back out one level at a time: from a running plugin to the
                     // installed list, and only from the list itself out of the
                     // panel. Closing outright left no way back to the list short
@@ -15347,7 +16310,7 @@ private fun KeyboardBody(
                         onToolInsert = onToolInsert,
                         onCopy = onPluginCopy,
                         onPaste = onPluginPaste,
-                        onManage = { onOpenRoute("plugins") },
+                        onOpenRoute = onOpenRoute,
                     )
                 }
                 PanelMode.APP_LAUNCHER -> FullBleedTool(
@@ -15585,15 +16548,29 @@ private fun KeyboardBody(
                 // The converters open at the calculator's height too (#665): their
                 // keypad is the flexible part and shrinks to fit under the unit
                 // rows, the way the calculator's does under its functions.
+                // As two tabs of one panel when asked (#1268): the tabs take the
+                // title's place in the header.
                 PanelMode.UNIT_CONVERT -> FullBleedTool(
-                    state, stringResource(R.string.ime_unit_convert_title),
+                    state,
+                    if (converterTabsShown(state.settings)) "" else stringResource(R.string.ime_unit_convert_title),
                     onClose = { onPanelChange(PanelMode.UNIT_CONVERT) },
                     compact = state.captureHandedToApp,
+                    headerActions = if (converterTabsShown(state.settings)) {
+                        { ConverterTabs(PanelMode.UNIT_CONVERT, onPanelChange) }
+                    } else {
+                        null
+                    },
                 ) { UnitConverterPanel(state, onToolInsert, converter, onToolPrefillConsumed) }
                 PanelMode.CURRENCY -> FullBleedTool(
-                    state, stringResource(R.string.ime_tool_currency),
+                    state,
+                    if (converterTabsShown(state.settings)) "" else stringResource(R.string.ime_tool_currency),
                     onClose = { onPanelChange(PanelMode.CURRENCY) },
                     compact = state.captureHandedToApp,
+                    headerActions = if (converterTabsShown(state.settings)) {
+                        { ConverterTabs(PanelMode.CURRENCY, onPanelChange) }
+                    } else {
+                        null
+                    },
                 ) {
                     CurrencyPanel(
                         state = state,
@@ -15941,7 +16918,7 @@ private fun KeyboardBody(
             // one gesture.
             val pillToolbox = state.panel == PanelMode.TOOLBOX &&
                 state.settings.toolbox.layout == ToolboxLayout.PILLS
-            val asPill = pillToolbox && drag.barSlot == null
+            val asPill = pillToolbox && drag.barSlot == null && drag.secondSlot == null
             // As wide as the cell it is heading for, so the preview is the real
             // footprint; the cell size is whatever the grid last measured, and
             // a fallback covers the frame before it has.
@@ -15997,14 +16974,14 @@ private fun KeyboardBody(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     SlotIcon(
-                        IconSlots.forTool(tool),
+                        toolKeySlot(tool),
                         contentDescription = null,
                         modifier = Modifier.size(kb.toolIconSizeDp.dp),
                         tint = kb.toolCircleActiveIcon,
                     )
                     if (labelAlpha > 0.01f) {
                         Text(
-                            toolLabel(tool),
+                            toolLabel(tool, state),
                             fontSize = toolboxLabelSize(state),
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis,
@@ -16021,7 +16998,9 @@ private fun KeyboardBody(
         // Names the scope a tool drag lands in — a mode's own arrangement or
         // the one shared by every app. It never clashes with the picker overlay
         // below: a picker cannot be armed mid-drag.
-        if (drag.dragging != null) {
+        // Not inside an open folder (#1216): the folder's header is where a
+        // tool is dropped to take it out, and the pill sat over its words.
+        if (drag.dragging != null && !(state.panel == PanelMode.TOOLBOX && state.toolboxView.folderOpen != null)) {
             DragScopeLabel(
                 state = state,
                 drag = drag,
@@ -16744,6 +17723,35 @@ internal class KeyRects {
     /** Every cell, in root space; a copy, for the same reason as [focusCells]. */
     fun cellRects(): List<Rect> = cells.keys.toList()
 
+    /** [key]'s cell, in root space, or null when this grid does not hold it. */
+    fun rectOf(key: Key): Rect? {
+        for ((rect, cell) in cells) {
+            if (cell === key) return rect
+        }
+        for ((rect, cell) in cells) {
+            if (cell == key) return rect
+        }
+        return null
+    }
+
+    /**
+     * The outline each key of a honeycomb is drawn in ([KeyVisual.faceShape]),
+     * by key; empty on every other board. Set by the grid as it composes, and
+     * read by the layers that paint over the keys (the key lighting, a press
+     * lit by a drag, Autopilot) so that they paint hexagons where the keys are
+     * hexagons.
+     */
+    var faceShapes: Map<Key, Shape> = emptyMap()
+
+    /** The face outline of the key whose cell is [rect], as [cellRects] gave it; null for the theme's. */
+    fun shapeAt(rect: Rect): Shape? = if (faceShapes.isEmpty()) null else cells[rect]?.let { faceShapes[it] }
+
+    /** The face outline of the key under [point], in root space; null for the theme's. */
+    fun shapeNear(point: Offset): Shape? = if (faceShapes.isEmpty()) null else keyAt(point)?.let { faceShapes[it] }
+
+    /** The face outline [key] is drawn in; null for the theme's. */
+    fun shapeOf(key: Key): Shape? = if (faceShapes.isEmpty()) null else faceShapes[key]
+
     /** The key whose cell holds [point], or null outside the grid. */
     fun keyAt(point: Offset): Key? {
         for ((rect, key) in cells) {
@@ -16887,7 +17895,7 @@ internal fun chordKey(target: Key, meta: Int): Key? {
  */
 internal fun shiftChordKey(target: Key): Key? = when (target.action) {
     KeyAction.Text -> target.copy(
-        output = target.shiftLabel ?: (target.output ?: target.label).uppercase(),
+        output = target.shiftLabel ?: keyUppercase(target.output ?: target.label),
     )
     else -> chordKey(target, KeyEvent.META_SHIFT_ON or KeyEvent.META_SHIFT_LEFT_ON)
 }
@@ -17007,7 +18015,7 @@ private fun slideSelectPreview(target: Key, cell: Rect, enabled: Boolean, shift:
     val label = if (shift == ShiftState.OFF) {
         target.label
     } else {
-        target.shiftLabel ?: (target.output ?: target.label).uppercase()
+        target.shiftLabel ?: keyUppercase(target.output ?: target.label)
     }
     return KeyPreview(
         token = ChordPreviewToken,
@@ -17214,7 +18222,7 @@ internal fun Key.capitalFlickText(): String? {
     val base = output ?: label
     if (base.isEmpty()) return null
     shiftLabel?.takeIf { it.isNotEmpty() && it != base }?.let { return it }
-    return base.uppercase().takeIf { it != base }
+    return keyUppercase(base).takeIf { it != base }
 }
 
 /**
@@ -17319,6 +18327,7 @@ private fun KeyboardSettings.withResizePreview(preview: ResizeValues, scale: Flo
         sidePadRightScale = preview.sidePadRight,
         fullWidthBars = preview.fullWidthBars,
     ),
+    toolbarHeightDp = preview.toolbarHeightDp,
 )
 
 internal fun KeyboardUiState.peekedFromPanel(mode: LayoutMode): KeyboardUiState = copy(
@@ -17584,9 +18593,14 @@ internal suspend fun PointerInputScope.detectLayerPeek(
  * recomposes.
  */
 @Composable
-internal fun BoxScope.LayerPeekHighlight(peek: LayerPeek, settings: KeyboardSettings) {
+internal fun BoxScope.LayerPeekHighlight(
+    peek: LayerPeek,
+    settings: KeyboardSettings,
+    rects: KeyRects? = null,
+    origin: Offset = Offset.Zero,
+) {
     if (peek.mode == null) return
-    GridPressHighlight(peek.pressRect, settings)
+    GridPressHighlight(peek.pressRect, settings, rects, origin)
 }
 
 /**
@@ -17690,7 +18704,13 @@ internal class ShiftHold {
  * of the very key it points at. It blends instead ([pressHighlightBlend]).
  */
 @Composable
-internal fun BoxScope.GridPressHighlight(pressRect: State<Rect?>, settings: KeyboardSettings) {
+internal fun BoxScope.GridPressHighlight(
+    pressRect: State<Rect?>,
+    settings: KeyboardSettings,
+    /** Where to ask a honeycomb key's own outline ([KeyRects.shapeNear]); [origin] is this box's place in root. */
+    rects: KeyRects? = null,
+    origin: Offset = Offset.Zero,
+) {
     val kbTheme = LocalKbTheme.current
     val gapH = keyGapH(settings)
     val gapV = keyGapV(settings)
@@ -17709,7 +18729,8 @@ internal fun BoxScope.GridPressHighlight(pressRect: State<Rect?>, settings: Keyb
             cell.height - gapV.toPx() * 2,
         )
         if (face.width <= 0f || face.height <= 0f) return@Canvas
-        val outline = faceShape.createOutline(face, layoutDirection, this)
+        val shape = rects?.shapeNear(cell.center + origin) ?: faceShape
+        val outline = shape.createOutline(face, layoutDirection, this)
         translate(cell.left + gapH.toPx(), cell.top + gapV.toPx()) {
             drawOutline(outline, fill, blendMode = blend)
         }
@@ -17926,6 +18947,13 @@ internal data class KeyPalette(
     val overrides: Map<String, KeyOverride> = emptyMap(),
     /** False when the theme's keys have no shape; see [KbTheme.keysHaveFaces]. */
     val keysHaveFaces: Boolean = true,
+    /**
+     * The function keys' and the action keys' own corner radii (gap list item
+     * 29); null follows the board's. Resolved into [KeyVisual.cornerRadiusDp]
+     * here, once per palette, rather than looked up per key at draw time.
+     */
+    val modifierRadiusDp: Int? = null,
+    val actionRadiusDp: Int? = null,
 )
 
 internal fun KbTheme.keyPalette(): KeyPalette = KeyPalette(
@@ -17940,6 +18968,8 @@ internal fun KbTheme.keyPalette(): KeyPalette = KeyPalette(
     hintText = hintText,
     overrides = keyOverrides,
     keysHaveFaces = keysHaveFaces,
+    modifierRadiusDp = modifierKeyRadiusDp,
+    actionRadiusDp = actionKeyRadiusDp,
 )
 
 /**
@@ -18026,6 +19056,17 @@ internal data class KeyVisual(
      * family of imported themes is built on (issue #266).
      */
     val shapeKind: KeyShapeKind? = null,
+    /** This one key's corner radius from the theme; null follows the board's. */
+    val cornerRadiusDp: Int? = null,
+    /**
+     * The theme's gradient for this key's resting face, drawn over
+     * [background]; null paints the solid colour alone. Not drawn while a
+     * modifier is latched, for the reason a per-key background is not.
+     */
+    val faceGradient: GradientSpec? = null,
+    /** A halo behind this key, and how far it reaches in dp; null draws none. */
+    val glow: Color? = null,
+    val glowDp: Float = DEFAULT_KEY_GLOW_DP,
     /**
      * The roman this key feeds a transliterating layout's buffer, shift
      * included ([transliterationRoman]), for the corner to ask the composer
@@ -18062,6 +19103,12 @@ internal data class KeyVisual(
      * complaint (issue #18).
      */
     val fontScale: Float = 1f,
+    /**
+     * The outline this key's face is drawn in, over the theme's key shape and
+     * [shapeKind]: a honeycomb's hexagons ([HexFaceShape]). Null, every other
+     * board, follows the theme.
+     */
+    val faceShape: Shape? = null,
 )
 
 /**
@@ -18102,6 +19149,13 @@ private data class KeyBandVisual(
     val weight: Float,
     /** Key height in dp for each row of the band, top to bottom. */
     val rowHeights: List<Int>,
+    /**
+     * The honeycomb this band is, when the layout is one ([KeyboardLayout.hex]):
+     * what [hexTouchOwners] hit-tests against. Null for a band of spanning keys.
+     */
+    val hex: HexBoard? = null,
+    /** The deepest the honeycomb's zigzag may be, in dp; see [HexFaceShape]. */
+    val hexMaxAmplitudeDp: Float = 0f,
 )
 
 /** One key of a [KeyBandVisual], with where it sits and how far it reaches. */
@@ -18114,6 +19168,12 @@ private data class KeyBandSlot(
     /** First row of the band this key covers, and how many it covers. */
     val row: Int,
     val span: Int,
+    /**
+     * How much of the slot, as a fraction of its width, is a row's side gap the
+     * key takes as touch area rather than face (#530); see [KeyCell].
+     */
+    val edgeStart: Float = 0f,
+    val edgeEnd: Float = 0f,
 )
 
 /**
@@ -18208,11 +19268,12 @@ internal fun keyVisual(
         background = background,
         // An overridden face derives its own pressed shade the way specKbTheme
         // derives the theme's: a quarter of the way toward the label colour.
-        pressedBackground = if (overrideBackground != null) {
-            lerp(overrideBackground, contentColor, 0.25f)
-        } else {
-            palette.pressedKey
-        },
+        pressedBackground = override?.pressedBackground?.let { Color(it.toInt()) }
+            ?: if (overrideBackground != null) {
+                lerp(overrideBackground, contentColor, 0.25f)
+            } else {
+                palette.pressedKey
+            },
         contentColor = contentColor,
         // Enter is the one key that recolours under the finger: its text colour
         // is picked for its own accented face, which the press paints over.
@@ -18229,6 +19290,15 @@ internal fun keyVisual(
         bold = override?.bold,
         stripLetter = stripLetter,
         shapeKind = overrideShape,
+        // A single-key style's radius first, then its class's (gap list item
+        // 29): Enter and space are the action keys, every key that types no
+        // text is a function key, and the letters follow the board.
+        cornerRadiusDp = override?.cornerRadiusDp?.coerceIn(KEY_OVERRIDE_RADIUS_RANGE)
+            ?: classRadiusDp(action, palette),
+        faceGradient = override?.gradient
+            ?.takeIf { it.colors.isNotEmpty() && (latch == null || latch == ModifierState.OFF) },
+        glow = override?.glow?.let { Color(it.toInt()) }?.takeIf { it.alpha > 0f },
+        glowDp = override?.glowDp?.takeIf { it.isFinite() }?.coerceIn(KEY_GLOW_RANGE) ?: DEFAULT_KEY_GLOW_DP,
         transliterationRoman = transliterationRoman(key, state),
         alternatesShifted = key.longPress.isNotEmpty() && state.shiftCasesText(),
         flickShiftOn = key.hasFlicks() && state.shiftState != ShiftState.OFF,
@@ -18264,6 +19334,27 @@ internal fun keyVisual(
         popupText = override?.popupText?.let { Color(it.toInt()) },
         fontScale = fontScale,
     )
+}
+
+/**
+ * What a key's pop text shows (gap list item 45): what it types, capitalised
+ * the way shift will type it.
+ */
+internal fun popKeyText(key: Key, shift: ShiftState): String {
+    val text = key.output ?: key.label
+    return if (shift != ShiftState.OFF && text.length == 1 && text[0].isLetter()) keyUppercase(text) else text
+}
+
+/**
+ * The corner radius [action]'s class of key draws with (gap list item 29),
+ * or null for the board's own: [KeyPalette.actionRadiusDp] for Enter and the
+ * space bar, [KeyPalette.modifierRadiusDp] for every other key that types no
+ * text, nothing for the letters.
+ */
+internal fun classRadiusDp(action: KeyAction, palette: KeyPalette): Int? = when (action) {
+    KeyAction.Text -> null
+    KeyAction.Enter, KeyAction.Space -> palette.actionRadiusDp
+    else -> palette.modifierRadiusDp
 }
 
 /**
@@ -18306,6 +19397,7 @@ internal fun keyOverrideIds(key: Key): List<String> = when (val action = key.act
     is KeyAction.LayerSwitch -> parameterisedIds("LAYERSWITCH", action.layer)
     is KeyAction.Layout -> parameterisedIds("LAYOUT", action.id)
     is KeyAction.Mode -> parameterisedIds("MODE", action.id)
+    is KeyAction.Plugin -> parameterisedIds("PLUGIN", action.id)
     is KeyAction.BrailleDot -> listOf("BRAILLEDOT_${action.dot}", "BRAILLEDOT")
     else -> listOfNotNull(action::class.simpleName?.uppercase())
 }
@@ -18468,6 +19560,13 @@ private fun rememberKeyGrid(
                 else -> perRowHeight
             }
         }
+        // A honeycomb is one band whatever its keys say: its rows interlock, so
+        // no row of it can be drawn on its own (see [hexBandVisual]).
+        if (layout.hex && bodyRows.isNotEmpty()) {
+            return@remember digits to listOf(
+                KeyGridBlock.Band(hexBandVisual(bodyRows, gridWeight, heights, settings, state, palette, fontScale)),
+            )
+        }
         // Split mode cuts every row at its own midpoint, which a key belonging to
         // two rows cannot survive: the halves would part company under it. So a
         // split board draws spans as ordinary one-row keys — the arrangement the
@@ -18525,6 +19624,74 @@ private fun keyBandVisual(
         weight = weight,
         rowHeights = band.map { heights[it] },
     )
+}
+
+/**
+ * The body of a honeycomb layout ([KeyboardLayout.hex]) as one band: every key
+ * placed by [hexBoard] in the rectangle that takes its touches, its face cut to
+ * hexagons by a [HexFaceShape], and the board itself kept for the touches the
+ * hexagons' points take from the rectangles ([hexTouchOwners]).
+ *
+ * Split mode is the board's own here rather than [splitKeys]'s: each row is cut
+ * near the middle on one of its cell edges and the right half moved over, so
+ * the two halves stay honeycombs, two thumb clusters with a stepped channel
+ * between them.
+ */
+private fun hexBandVisual(
+    rows: List<List<Key>>,
+    gridWeight: Float,
+    heights: List<Int>,
+    settings: KeyboardSettings,
+    state: KeyboardUiState,
+    palette: KeyPalette,
+    fontScale: Float,
+): KeyBandVisual {
+    val gap = if (settings.splitKeyboard) gridWeight * settings.splitGapPercent / 100f else 0f
+    val board = hexBoard(
+        rows,
+        gridWeight,
+        splitGap = gap,
+        bridgeSpace = !settings.layoutBehavior.splitSpacebar,
+        extendEdges = settings.layoutBehavior.extendEdgeKeys,
+    )
+    val gapH = keyGapH(settings).value
+    // A third of the shortest row's pitch: deeper, and a wide, short key
+    // sideways would lose its straight sides.
+    val maxAmplitude = ((heights.minOrNull() ?: settings.keyHeightDp) + keyGapV(settings).value * 2f) / 3f
+    return KeyBandVisual(
+        slots = board.slots.map { slot ->
+            val shape = HexFaceShape(
+                widthCells = slot.width,
+                startPhase = board.startPhase(slot),
+                zigTop = board.joinedAbove(slot.row),
+                zigBottom = board.joinedBelow(slot.row),
+                gapDp = gapH,
+                maxAmplitudeDp = maxAmplitude,
+            )
+            val cell = slot.touchWidth.takeIf { it > 0f } ?: 1f
+            KeyBandSlot(
+                visual = keyVisual(slot.key, state, palette, fontScale).copy(faceShape = shape),
+                x = slot.touchX,
+                width = slot.touchWidth,
+                row = slot.row,
+                span = 1,
+                edgeStart = ((slot.x - slot.touchX) / cell).coerceAtLeast(0f),
+                edgeEnd = ((slot.touchEnd - slot.end) / cell).coerceAtLeast(0f),
+            )
+        },
+        weight = board.weight,
+        rowHeights = heights,
+        hex = board,
+        hexMaxAmplitudeDp = maxAmplitude,
+    )
+}
+
+/** Each key of a honeycomb band and the outline it is drawn in; empty for any other grid. */
+private fun hexFaceShapes(blocks: List<KeyGridBlock>): Map<Key, Shape> {
+    val band = (blocks.singleOrNull() as? KeyGridBlock.Band)?.band?.takeIf { it.hex != null } ?: return emptyMap()
+    val out = HashMap<Key, Shape>(band.slots.size)
+    for (slot in band.slots) slot.visual.faceShape?.let { out[slot.visual.key] = it }
+    return out
 }
 
 /** A key whose preview bubble is up, and where that key sits. */
@@ -18774,6 +19941,16 @@ internal fun KeyPreviewOverlay(
     }
     // The bubbles' label layouts, kept across presses; see [KeyPreviewBubble].
     val labelCache = rememberTextMeasurer(cacheSize = BubbleLabelCacheSize)
+    // A few bubbles composed once and reused press after press; see [BubblePool].
+    val pool = remember { BubblePool<KeyPreview>() }
+    val spill = pool.assign(bubbles) { it.token }
+    // What each child of the Layout below shows, in composition order: the
+    // pool's slots, then any spill. Null is an idle slot: composed, kept for
+    // the next press, but neither measured nor placed, so it draws nothing.
+    val children: List<KeyPreview?> = buildList(pool.used + spill.size) {
+        for (slot in 0 until pool.used) add(if (pool.live[slot]) pool.item(slot) else null)
+        addAll(spill)
+    }
     // In the tree even while nothing is previewing, with no children. Taking
     // the node out on release and putting it back on the next press changed
     // the frame's own child list twice a keystroke, and the frame is sized by
@@ -18802,11 +19979,23 @@ internal fun KeyPreviewOverlay(
             // Transient, and already spoken by the key: a screen reader has no
             // use for a bubble that is gone before the description finishes.
             modifier = Modifier.fillMaxSize().clearAndSetSemantics { },
-            // Keyed by the pressing key, so a bubble expiring under a finger that
-            // is still down removes that bubble rather than shuffling the rest up
-            // into its slot.
+            // Keyed by pool slot, so a press reuses a bubble already composed,
+            // and a bubble expiring under a finger that is still down leaves the
+            // others in their slots rather than shuffling them up. The spill,
+            // past the pool, is keyed by the pressing key as before.
             content = {
-                for (preview in bubbles) {
+                for (slot in 0 until pool.used) {
+                    val preview = pool.item(slot) ?: continue
+                    key(BubbleSlotKey, slot) {
+                        val heightPx = if (onKeyStyle) {
+                            onKeyBubbleHeightPx(bubbleHeightPx, preview.size.height, onKeyLabelLanePx)
+                        } else {
+                            bubbleHeightPx
+                        }
+                        KeyPreviewBubble(preview, popup, onKeyStyle, heightPx, labelCache)
+                    }
+                }
+                for (preview in spill) {
                     key(preview.token) {
                         val heightPx = if (onKeyStyle) {
                             onKeyBubbleHeightPx(bubbleHeightPx, preview.size.height, onKeyLabelLanePx)
@@ -18822,10 +20011,12 @@ internal fun KeyPreviewOverlay(
             // The space the providers clamp into: the overlay, plus the band a
             // host without one is pretending to have above it.
             val room = IntSize(laidOut.width, laidOut.height + headroomPx)
-            val placeables = measurables.map { it.measure(Constraints()) }
+            // Idle slots are skipped: not measured, not placed, not drawn.
+            val placeables = measurables.mapIndexedNotNull { index, measurable ->
+                children.getOrNull(index)?.let { it to measurable.measure(Constraints()) }
+            }
             layout(laidOut.width, laidOut.height) {
-                placeables.forEachIndexed { index, placeable ->
-                    val preview = bubbles[index]
+                placeables.forEach { (preview, placeable) ->
                     // The key in the overlay's space, pushed down by the band.
                     val keyBounds = IntRect(
                         IntOffset(
@@ -18852,6 +20043,17 @@ internal fun KeyPreviewOverlay(
     }
 }
 
+/** Marks a pooled bubble's key, so a slot number never equals a press's token. */
+private object BubbleSlotKey
+
+/**
+ * The letters a one-letter preview bubble is as wide as, lower and upper case:
+ * a mid-width letter, so most bubbles match and only the wide few (m, w, M, W)
+ * grow past it. Sizing to a W made every bubble as fat as the widest one.
+ */
+private const val UniformBubbleLetterLower = "n"
+private const val UniformBubbleLetterUpper = "N"
+
 /**
  * One preview bubble. In on-key mode it is key-wide with a large label near the
  * top, clear of the finger (the stock-keyboard style where the bubble replaces
@@ -18868,8 +20070,31 @@ private fun KeyPreviewBubble(
 ) {
     val kb = LocalKbTheme.current
     val density = LocalDensity.current
-    val shape = kb.popupShape()
+    // The bubble's own radius where the user set one (gap list item 30), else
+    // the radius every popup shares.
+    val shape = previewBubbleShape(kb, popup.previewCornerRadiusDp)
     val border = kb.popupSurfaceBorder()
+    val widthScale = popup.previewWidthScale.takeIf { it.isFinite() }?.coerceIn(KeyPreviewWidthScaleRange) ?: 1f
+    val keyWidth = with(density) { preview.size.width.toDp() }
+    val labelStyle = LocalTextStyle.current.merge(
+        TextStyle(fontSize = ((if (onKeyStyle) OnKeyLabelSp else FloatingLabelSp) * popup.fontScale).sp),
+    )
+    // One letter's bubble is as wide as a mid-width letter in its case, so
+    // most keys' are the same size (#1307): sized to its own label, an `i`
+    // drew narrower than a `q`. Wider letters and longer labels grow past it.
+    // The width setting below x1 narrows this floor with the padding.
+    val letterFloor = if (preview.label.codePointCount(0, preview.label.length) <= 1) {
+        val reference = if (preview.label.any { it.isUpperCase() }) UniformBubbleLetterUpper else UniformBubbleLetterLower
+        // Through the bubbles' cache, at the composition's density as
+        // [CachedTextLine] reads it, so the press after the first is a hit.
+        val measured = remember(reference, labelStyle, density) {
+            labelCache.measure(reference, labelStyle, maxLines = 1, softWrap = false, density = density).size.width
+        }
+        with(density) { measured.toDp() } * minOf(widthScale, 1f)
+    } else {
+        0.dp
+    }
+    val sidePadding = 14.dp * minOf(widthScale, 1f)
     val labelColor = preview.popupText
         ?: popup.textColor?.let { Color(it.toInt()) }
         ?: kb.popupText
@@ -18895,13 +20120,13 @@ private fun KeyPreviewBubble(
             )
             .clip(shape)
             .height(with(density) { heightPx.toDp() })
-            .widthIn(
-                min = if (onKeyStyle) with(density) { preview.size.width.toDp() } + 8.dp else 0.dp,
-            )
+            .widthIn(min = maxOf(previewBubbleMinWidth(keyWidth, onKeyStyle, widthScale), letterFloor + sidePadding * 2))
             .popupTexture(LocalKeyTextures.current, shape)
             // Lit from below by the touch bloom, where the finger is.
             .touchBloomGlow(kb.liveTouchBloom)
-            .padding(horizontal = 14.dp),
+            // A narrower bubble gives up its side padding first, so the label
+            // still fits; a wider one is wide by its floor above.
+            .padding(horizontal = sidePadding),
         contentAlignment = if (onKeyStyle) Alignment.TopCenter else Alignment.Center,
     ) {
         // Through the overlay's cache: a bubble is composed for every press
@@ -18910,14 +20135,36 @@ private fun KeyPreviewBubble(
         CachedTextLine(
             text = AnnotatedString(preview.label),
             modifier = if (onKeyStyle) Modifier.padding(top = OnKeyLabelTopPadding) else Modifier,
-            style = LocalTextStyle.current.merge(
-                TextStyle(fontSize = ((if (onKeyStyle) OnKeyLabelSp else FloatingLabelSp) * popup.fontScale).sp),
-            ),
+            style = labelStyle,
             color = labelColor,
             overflow = TextOverflow.Clip,
             cache = labelCache,
         )
     }
+}
+
+/**
+ * The preview bubble's outline: the popups' own shape, at [radiusDp] when the
+ * user set the bubble a radius of its own (gap list item 30), or at the
+ * shared popup radius when it is below zero.
+ */
+private fun previewBubbleShape(kb: KbTheme, radiusDp: Int): Shape =
+    if (radiusDp < 0) {
+        kb.popupShape()
+    } else {
+        keyShapeFor(kb.popupShapeKind, radiusDp.coerceIn(KeyPreviewRadiusRange))
+    }
+
+/**
+ * The narrowest the preview bubble may draw (gap list item 30). An on-key
+ * bubble is its key plus a little, scaled; a floating one is as wide as its
+ * label until [scale] asks for more, and then at least the key times it, so
+ * the setting widens a bubble in proportion to the keys it sits over.
+ */
+internal fun previewBubbleMinWidth(keyWidth: Dp, onKeyStyle: Boolean, scale: Float): Dp = when {
+    onKeyStyle -> (keyWidth + 8.dp) * scale
+    scale > 1f -> keyWidth * scale
+    else -> 0.dp
 }
 
 /**
@@ -19037,6 +20284,14 @@ private fun KeyRows(
     val slideSelect = state.settings.gestureTyping &&
         state.settings.letterSwipeAction == LetterSwipeAction.SELECT_KEY &&
         !state.layouts.handwriting && !glideInTest
+    // The line a drag off shift or a modifier draws is the glide trail's, so it
+    // goes with gesture typing (#1253); the lit key still says what the lift
+    // types. Read live so a change doesn't restart the gesture handler.
+    val chordBandLive = rememberUpdatedState(state.settings.gestureTyping)
+    // Whether a drag off a modifier types under it at all (#1253). Off, the
+    // loop below still runs for Shift, whose hold types capitals under the
+    // other fingers, but never starts a drag.
+    val modifierDragLive = rememberUpdatedState(state.settings.layoutBehavior.modifierDrag)
     // Every other keyboard-owned field glides too (#161): the stroke spells a
     // word into that field's own buffer at its own caret, never into the app
     // behind the panel. `state.panel == PanelMode.NONE` used to be the whole
@@ -19326,7 +20581,7 @@ private fun KeyRows(
     val onGlobeShortcut = LocalClipboardKeyAction.current
     // Read live rather than captured: the words change on every keystroke, and
     // a pointer loop restarted that often would be a loop that misses touches.
-    val octopusLive = rememberUpdatedState(state.octopus)
+    val octopusLive = rememberLiveOctopus(state)
     // The keyboard's own haptic, which already routes through the service and
     // respects the user's feedback settings — not Compose's, whose name this
     // composition local deliberately shadows.
@@ -19446,6 +20701,23 @@ private fun KeyRows(
     val fingerSwipesOn = gesture.multiFingerSwipes && !state.typingTestActive &&
         (state.panel == PanelMode.NONE || keysInBox || state.captureHandedToApp)
     val fingerSwipeMap = rememberUpdatedState(gesture.fingerSwipes)
+    // Pinch and stretch (gap list item 18): the same places, but never on the
+    // floating keyboard, whose own pinch resizes it, and never under two-thumb
+    // glide, where two thumbs moving apart are two words.
+    val pinchOn = gesture.pinchGestures && !state.typingTestActive && !state.settings.floatingKeyboard &&
+        !(twoThumbOn && gestureEnabled) &&
+        (state.panel == PanelMode.NONE || keysInBox || state.captureHandedToApp)
+    val pinchMap = rememberUpdatedState(gesture.pinchBindings)
+    // One-finger swipes across the letters (gap list item 44). Never while a
+    // finger moving over the letters means anything else: glide in any of its
+    // forms (the keyboard's setting, a typing test's own glide, the swipe as
+    // handwriting or as slide-to-select all ride on it), a handwriting layout,
+    // or a typing test, whose taps are the score. The letters layer only.
+    val oneFingerOn = gesture.oneFingerSwipes && !state.settings.gestureTyping && !gestureEnabled &&
+        !state.typingTestActive && !state.layouts.handwriting && state.layoutMode == LayoutMode.LETTERS &&
+        (state.panel == PanelMode.NONE || keysInBox || state.captureHandedToApp)
+    val oneFingerMap = rememberUpdatedState(gesture.oneFingerBindings)
+    val splitNow = rememberUpdatedState(state.settings.splitKeyboard)
     val boxSelection = rememberUpdatedState(
         if (keysInBox) LocalCaptureCaret.current.onSelectionAction else null,
     )
@@ -19504,8 +20776,32 @@ private fun KeyRows(
     // What the drawn keys commit through: a letter tapped under a held shift
     // comes out a capital (issue #367). The grid's own gestures keep calling
     // [stampedOnKey] directly; a chord drag has already decided its key.
-    val keyTapOnKey = remember(stampedOnKey) {
-        { k: Key -> shiftHold.route(k)?.let(stampedOnKey); Unit }
+    // Pop text (gap list item 45): the service's field, or the grid's own
+    // where no service hosts it. The settings reach it here, not through the
+    // keys, so a pop never touches a key's parameters.
+    val popText = LocalPopText.current ?: remember { PopTextField() }
+    val popAnchor = remember(popText) {
+        { liveSpace.value.value?.center?.let { it + boxOrigin } }
+    }
+    val popOrigin = remember { { boxOrigin } }
+    SideEffect {
+        popText.mode = state.settings.popup.popText
+        popText.still = state.settings.reduceMotion
+        popText.wordAnchor = popAnchor
+    }
+    val keyTapOnKey = remember(stampedOnKey, popText) {
+        { k: Key ->
+            shiftHold.route(k)?.let { routed ->
+                stampedOnKey(routed)
+                // Every key: the character rises from the key that typed it.
+                if (popText.mode == PopTextMode.EVERY_KEY && routed.action == KeyAction.Text) {
+                    liveRects.value.rectOf(k)?.let { cell ->
+                        popText.key(popKeyText(routed, liveShift.value), cell.center)
+                    }
+                }
+            }
+            Unit
+        }
     }
     // A glide stroke that turned out to be a tap types its key as the key's own
     // lift would have, Autopilot remap included (#782). Read live by the glide
@@ -19613,6 +20909,7 @@ private fun KeyRows(
                 awaitEachGesture {
                     val first = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
                     fingerGate.claimed = false
+                    fingerGate.pinched = false
                     val tracker = FingerSwipeTracker(claimPx, thumbsGlide)
                     tracker.track(first.id.value, first.position.x, first.position.y, pressed = true)
                     // Which trail each finger draws in, given at the claim.
@@ -19625,6 +20922,8 @@ private fun KeyRows(
                             }
                         }
                         if (tracker.abandoned) return@awaitEachGesture
+                        // A pinch took the pair (gap list item 18): it is not a swipe.
+                        if (fingerGate.pinched) return@awaitEachGesture
                         if (tracker.claimed) {
                             for (change in event.changes) {
                                 change.consume()
@@ -19658,6 +20957,120 @@ private fun KeyRows(
                     for (slot in slots.values) fingerTrails[slot].release()
                     val swipe = tracker.result() ?: return@awaitEachGesture
                     val binding = fingerSwipeMap.value.actionOf(swipe) ?: return@awaitEachGesture
+                    val inBox = boxSelection.value?.let { onBox -> binding.action.inCaptureBox()?.let { onBox to it } }
+                    if (inBox != null) {
+                        val (onBox, meant) = inBox
+                        if (meant is CaptureSwipe.Selection) onBox(meant.action)
+                        return@awaitEachGesture
+                    }
+                    if (hapticOn.value) pickerHaptic()
+                    if (binding.action == KeyAction.Text) {
+                        if (binding.label.isNotEmpty()) stampedOnText(binding.label)
+                    } else {
+                        stampedOnKey(Key(label = binding.label, action = binding.action))
+                    }
+                }
+            }
+            // Gap list item 18: two fingers stretched apart or pinched together
+            // on the keys run the action bound to that gesture, split and merge
+            // out of the box. Second in the chain, after the multi-finger swipe,
+            // and built the same way: nothing is consumed until [PinchTracker]
+            // claims the pair, so taps, glides and swipes are untouched, and the
+            // claim sets [fingerGate] so every other loop stands down at its lift.
+            // A touch a swipe has claimed, or one on which a key has already
+            // typed, is given up. The action runs once every finger is up, so
+            // the board never changes shape under fingers still on it, and it
+            // draws nothing, so there is no motion for reduceMotion to cut.
+            .pointerInput(pinchOn, stampedOnKey, stampedOnText) {
+                if (!pinchOn) return@pointerInput
+                val spanPx = PinchSpanDp.dp.toPx()
+                val fingerPx = PinchFingerDp.dp.toPx()
+                val landSlopPx = PinchLandSlopDp.dp.toPx()
+                awaitEachGesture {
+                    val first = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    fingerGate.claimed = false
+                    fingerGate.pinched = false
+                    val since = first.uptimeMillis
+                    val tracker = PinchTracker(spanPx, fingerPx, landSlopPx)
+                    tracker.track(first.id.value, first.position.x, first.position.y, pressed = true, uptimeMs = since)
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        if (fingerGate.claimed && !fingerGate.pinched) tracker.abandon()
+                        if (lastKeyPressTime.longValue >= since) tracker.abandon()
+                        if (tracker.abandoned) return@awaitEachGesture
+                        for (change in event.changes) {
+                            val claimedNow = tracker.track(
+                                change.id.value, change.position.x, change.position.y, change.pressed, change.uptimeMillis,
+                            )
+                            if (claimedNow) {
+                                fingerGate.claimed = true
+                                fingerGate.pinched = true
+                            }
+                        }
+                        if (tracker.abandoned) return@awaitEachGesture
+                        if (tracker.claimed != null) event.changes.forEach { it.consume() }
+                        if (event.changes.none { it.pressed }) break
+                    }
+                    val pinch = tracker.result() ?: return@awaitEachGesture
+                    val binding = pinchMap.value.actionOf(pinch) ?: return@awaitEachGesture
+                    // The split toggle runs one way per gesture: a stretch only
+                    // splits and a pinch only merges, so a second stretch on a
+                    // split board does not put it back together.
+                    if ((binding.action as? KeyAction.Tool)?.tool == ToolbarTool.SPLIT &&
+                        splitNow.value == (pinch == PinchGesture.STRETCH)
+                    ) {
+                        return@awaitEachGesture
+                    }
+                    val inBox = boxSelection.value?.let { onBox -> binding.action.inCaptureBox()?.let { onBox to it } }
+                    if (inBox != null) {
+                        val (onBox, meant) = inBox
+                        if (meant is CaptureSwipe.Selection) onBox(meant.action)
+                        return@awaitEachGesture
+                    }
+                    if (hapticOn.value) pickerHaptic()
+                    if (binding.action == KeyAction.Text) {
+                        if (binding.label.isNotEmpty()) stampedOnText(binding.label)
+                    } else {
+                        stampedOnKey(Key(label = binding.label, action = binding.action))
+                    }
+                }
+            }
+            // Gap list item 44: one finger swiped across the letters runs the
+            // action bound to its direction, only ever with glide off (see
+            // [oneFingerOn]). Third in the chain and built like the two above:
+            // it starts only on a letter key without flick arms, consumes
+            // nothing until [OneFingerSwipeTracker] claims the finger, and the
+            // claim sets [fingerGate], so the key it left never types at the
+            // lift. A popup taking the finger, or another finger landing,
+            // gives the touch up. Draws nothing, so there is no motion here
+            // for reduceMotion to cut.
+            .pointerInput(oneFingerOn, stampedOnKey, stampedOnText) {
+                if (!oneFingerOn) return@pointerInput
+                val claimPx = OneFingerSwipeClaimDp.dp.toPx()
+                awaitEachGesture {
+                    val first = awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
+                    val startKey = liveRects.value.keyAt(first.position + boxOrigin)
+                    if (startKey == null || !startsOneFingerSwipe(startKey)) return@awaitEachGesture
+                    val tracker = OneFingerSwipeTracker(claimPx, OneFingerSwipeWindowMs)
+                    tracker.track(first.id.value, first.position.x, first.position.y, pressed = true, uptimeMs = first.uptimeMillis)
+                    while (true) {
+                        val event = awaitPointerEvent(PointerEventPass.Initial)
+                        // A multi-finger swipe or a pinch took the touch, or the
+                        // alternates popup has the finger.
+                        if (fingerGate.claimed && !tracker.claimed) tracker.abandon()
+                        if (alternatesGate.open && !tracker.claimed) tracker.abandon()
+                        for (change in event.changes) {
+                            val claimedNow = tracker.track(
+                                change.id.value, change.position.x, change.position.y, change.pressed, change.uptimeMillis,
+                            )
+                            if (claimedNow) fingerGate.claimed = true
+                        }
+                        if (tracker.abandoned) return@awaitEachGesture
+                        if (tracker.claimed) event.changes.forEach { it.consume() }
+                        if (event.changes.none { it.pressed }) break
+                    }
+                    val direction = tracker.result() ?: return@awaitEachGesture
+                    val binding = oneFingerMap.value.oneFingerActionOf(direction) ?: return@awaitEachGesture
                     val inBox = boxSelection.value?.let { onBox -> binding.action.inCaptureBox()?.let { onBox to it } }
                     if (inBox != null) {
                         val (onBox, meant) = inBox
@@ -19711,6 +21124,8 @@ private fun KeyRows(
                     val globe = source.startsGlobeDrag(globeDragLive.value)
                     val slideSource = slideSelect && source.startsSlideSelect(possessiveChar)
                     if (!source.startsChordDrag() && !globe && !slideSource) return@awaitEachGesture
+                    // No band for a slide, nor with gesture typing off.
+                    val band = !slideSource && chordBandLive.value
                     // Issue #367: a held shift types capitals under the other
                     // fingers until it lifts. Not under caps lock, where every
                     // letter is a capital already and the tap that ends caps
@@ -19773,7 +21188,8 @@ private fun KeyRows(
                             // Once something was typed under the held shift, the
                             // shift finger drifting is a hand at work, not a
                             // chord drag towards the key it ends on.
-                            if (!dragging && (slideSource || !shiftHold.typed) && starts) {
+                            val dragAllowed = globe || slideSource || modifierDragLive.value
+                            if (!dragging && dragAllowed && (slideSource || !shiftHold.typed) && starts) {
                                 // A 🌐 held still long enough has opened the
                                 // language picker, and a drag from there is the
                                 // picker's: the key's own press is left as it is.
@@ -19782,13 +21198,13 @@ private fun KeyRows(
                                 }
                                 dragging = true
                                 // No band for a slide: the lit key is the answer.
-                                if (!slideSource) trail.beginLine(anchor.x, anchor.y)
+                                if (band) trail.beginLine(anchor.x, anchor.y)
                                 chordDrag.active = true
                                 chordDrag.shifted = source?.action == KeyAction.Shift
                             }
                             if (dragging) {
                                 change.consume()
-                                if (!slideSource) {
+                                if (band) {
                                     trail.add(
                                         change.position.x,
                                         change.position.y,
@@ -19820,7 +21236,7 @@ private fun KeyRows(
                         }
                         // A multi-finger swipe took the touch (#647): nothing fires.
                         if (fingerGate.claimed) {
-                            if (dragging && !slideSource) trail.release()
+                            if (dragging && band) trail.release()
                             return@awaitEachGesture
                         }
                         // Never travelled: an ordinary press the modifier key owns,
@@ -19840,7 +21256,7 @@ private fun KeyRows(
                             }
                             return@awaitEachGesture
                         }
-                        if (!slideSource) trail.release()
+                        if (band) trail.release()
                         val target = over
                         when {
                             // Lifted off the grid: the slide-away cancel every other
@@ -21075,6 +22491,8 @@ private fun KeyRows(
             KeyLightingLayer(
                 it, keyRects::cellRects, { keyRects.revision }, kbTheme.keyRadiusDp.toFloat(),
                 behind = true, modifier = Modifier.matchParentSize(),
+                gapHDp = keyGapH(state.settings).value, gapVDp = keyGapV(state.settings).value,
+                shapeAt = keyRects::shapeAt,
             )
         }
         // The touch bloom's light, the full half: across the board under the keys.
@@ -21085,6 +22503,7 @@ private fun KeyRows(
         // padding inside KeyButton.
         Column(
             modifier = Modifier
+                .keyGridRasterCache()
                 .fillMaxWidth()
                 .padding(horizontal = KeyRowsPadHorizontal, vertical = KeyRowsPadVertical),
         ) {
@@ -21251,6 +22670,7 @@ private fun KeyRows(
                 onHandwritingStroke = onKeyboardHandwritingStroke,
                 onHandwritingUndo = onHandwritingUndo,
                 onHandwritingDownload = onHandwritingDownload,
+                keyRects = keyRects,
             )
         }
 
@@ -21274,6 +22694,8 @@ private fun KeyRows(
             KeyLightingLayer(
                 it, keyRects::cellRects, { keyRects.revision }, kbTheme.keyRadiusDp.toFloat(),
                 behind = false, modifier = Modifier.matchParentSize(),
+                gapHDp = keyGapH(state.settings).value, gapVDp = keyGapV(state.settings).value,
+                shapeAt = keyRects::shapeAt,
             )
         }
         // And its faint wash over the keys, for a theme whose keys hide the board.
@@ -21285,9 +22707,9 @@ private fun KeyRows(
         // screen says which symbol the lift is about to type. Composed only
         // while a peek is up — the rect inside it is read in the draw lambda,
         // so the finger crossing keys repaints and never recomposes.
-        LayerPeekHighlight(layerPeek, state.settings)
+        LayerPeekHighlight(layerPeek, state.settings, keyRects, boxOrigin)
         // The key a chord drag would fire on, lit for the same reason (#345).
-        if (chordDrag.active) GridPressHighlight(chordDrag.pressRect, state.settings)
+        if (chordDrag.active) GridPressHighlight(chordDrag.pressRect, state.settings, keyRects, boxOrigin)
 
         // Autopilot's drawn letters and the octopus words over the keys.
         KeyGridWordOverlays(
@@ -21305,11 +22727,22 @@ private fun KeyRows(
             kbTheme = kbTheme,
             pickerOpen = picker.words.isNotEmpty(),
             octopusRects = octopusRects,
+            keyRects = keyRects,
         )
 
         // The press bursts, over the decals and under the trail. Composed only
         // while particles live; the frame loop dies with them.
         KeyPressEffectsOverlay(particleField, particleGlyphs)
+
+        // Pop text (gap list item 45), over the bursts. Composed only while a
+        // pop is alive; see [PopTextField].
+        PopTextOverlay(
+            popText,
+            popOrigin,
+            keyColor = kbTheme.suggestionText,
+            wordColor = kbTheme.suggestionText,
+            correctionColor = kbTheme.accent,
+        )
 
         // Only a grid with no frame above it draws its own bubbles — see
         // [KeyPreviewOverlay] and [LocalKeyPreviewState].
@@ -21495,6 +22928,8 @@ private fun KeyGridRows(
     onHandwritingStroke: (HwStroke, IntSize) -> Unit,
     onHandwritingUndo: () -> Unit,
     onHandwritingDownload: () -> Unit,
+    /** The cell table, told which keys draw as hexagons; see [KeyRects.faceShapes]. */
+    keyRects: KeyRects? = null,
 ) {
     // Layers shorter than the reserved span (the symbols pages under a
     // six-row alphabet, a keypad under a five-row board) fill it the way
@@ -21521,6 +22956,7 @@ private fun KeyGridRows(
     val padLeft = padHeight - (stretchDp * stretchRows).dp
     val (numberRowVisual, bodyBlocks) =
         rememberKeyGrid(gridState, layout, bodyRows, extraRow, palette, gridWeight, stretchDp)
+    if (keyRects != null) keyRects.faceShapes = remember(bodyBlocks) { hexFaceShapes(bodyBlocks) }
     // Issue #649: the bottom row reaches down over this column's own
     // bottom padding and the board's room under it, so a tap under the
     // spacebar types a space, the way #530 lets a tap beside `a` type
@@ -21802,7 +23238,10 @@ private fun rememberExtraRow(state: KeyboardUiState, fillRow: List<Key>, shiftHe
     val fancy = fancyStyleFor(state) != null
     // The user's holds for the digits, from Your hold symbols.
     val digitHolds = state.settings.layoutBehavior.holdSymbols.filterKeys { it.singleOrNull()?.isDigit() == true }
+    // Hints on the number row off (#1229): this row's corners only.
+    val rowHints = state.settings.layoutBehavior.numberRowHints
     return remember(
+        rowHints,
         kind,
         authored,
         custom,
@@ -21847,7 +23286,8 @@ private fun rememberExtraRow(state: KeyboardUiState, fillRow: List<Key>, shiftHe
             // The digits, with the symbol layer's long-presses.
             else -> BuiltInLayouts.defaultNumberRow(LayoutLayer.LETTERS)
         }.map { it.withDigitHold(digitHolds) }.withOtherNumerals(otherDigits).withFancyDigitForms(fancy)
-        if (tabletRow) base.expandNumberRowForTablet() else base
+        val row = if (tabletRow) base.expandNumberRowForTablet() else base
+        if (rowHints) row else row.map { it.copy(hideHint = true) }
     }
 }
 
@@ -21964,6 +23404,7 @@ private fun BoxScope.KeyGridWordOverlays(
     kbTheme: KbTheme,
     pickerOpen: Boolean,
     octopusRects: OctopusRects,
+    keyRects: KeyRects? = null,
 ) {
     // The expected letters and the promised word change with every key: read
     // live, so only this overlay recomposes for them (see [withLiveTyping]).
@@ -21993,6 +23434,8 @@ private fun BoxScope.KeyGridWordOverlays(
             showEffect = autopilotShow,
             visualScale = state.settings.layoutBehavior.autopilotVisualScale,
             outline = autopilotOutline,
+            // A honeycomb's letters grow as hexagons.
+            shapeOf = remember(letterKeys, keyRects) { { ch: Char -> letterKeys[ch]?.let { keyRects?.shapeOf(it) } } },
         )
     }
 
@@ -22597,7 +24040,7 @@ private fun KeyRow(
         // A row whose spacebar bridges the gap (#399) is drawn whole, gap and all
         // inside the spacebar, so it has no spacer — and a zero weight throws.
         if (rightDrawn) {
-            Spacer(modifier = Modifier.weight(row.splitGapWeight))
+            SplitGapSpacer(row.splitGapWeight)
             for ((index, visual) in row.right.withIndex()) {
                 val start = if (extend && index == 0 && row.left.isEmpty()) row.sidePad else 0f
                 val end = if (extend && index == row.right.lastIndex) row.sidePad else 0f
@@ -22669,7 +24112,18 @@ private fun KeyBand(
     val tops = IntArray(rowPitch.size + 1).also {
         for (i in rowPitch.indices) it[i + 1] = it[i] + rowPitch[i]
     }
+    // A honeycomb's keys commit the key whose hexagon the touch went down in,
+    // which in a point's corner is not the rectangle that took it.
+    val hex = band.hex
+    val hexOwners = remember { HashMap<PointerId, Key>() }
+    val resolve = if (hex == null) smartResolve else remember(smartResolve) { hexResolve(hexOwners, smartResolve) }
+    val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     Layout(
+        modifier = if (hex == null) {
+            Modifier
+        } else {
+            Modifier.hexTouchOwners(hex, band.rowHeights, gap, band.hexMaxAmplitudeDp, rtl, hexOwners)
+        },
         content = {
             for (slot in band.slots) {
                 // heightDp is what this key would be on a row of its own; the
@@ -22689,8 +24143,10 @@ private fun KeyBand(
                     onLayoutSelect,
                     onKeyPositioned,
                     onSpacePositioned,
-                    smartResolve,
+                    resolve,
                     onBurst,
+                    edgeStart = slot.edgeStart,
+                    edgeEnd = slot.edgeEnd,
                     touchBelow = if (slot.row + slot.span >= band.rowHeights.size) touchBelow else 0.dp,
                 )
             }
@@ -22834,7 +24290,7 @@ private fun ReadingColumnKey(
     val picking = readings.isNotEmpty()
     val entries = if (picking) readings else key.longPress
     val kb = LocalKbTheme.current
-    val keyShape = kb.keyShape(bleedDp = keyGapH(settings).value, kind = visual.shapeKind)
+    val keyShape = kb.keyShape(bleedDp = keyGapH(settings).value, kind = visual.shapeKind, radiusDp = visual.cornerRadiusDp)
     val onPress = LocalKeyRoleFeedback.current
     val listState = rememberLazyListState()
     LaunchedEffect(entries) { listState.scrollToItem(0) }
@@ -23705,7 +25161,7 @@ internal fun shiftedAlternate(key: Key, twin: Key? = null): String? {
     val base = key.output ?: key.label
     val shifted = key.shiftLabel
         ?: twin?.takeIf { it.action == KeyAction.Text }?.let { it.output ?: it.label }
-        ?: base.takeIf { it.length == 1 && it[0].isLetter() }?.uppercase()
+        ?: base.takeIf { it.length == 1 && it[0].isLetter() }?.let(::keyUppercase)
         ?: return null
     return shifted.takeIf { it.isNotBlank() && it != base && it !in key.longPress }
 }
@@ -23920,23 +25376,41 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     // expanded tablet grid arranges its own bottom row. A layer laid out by
     // hand in the editor is left alone by every one of these; see
     // [LayerSpec.bottomRowAsLaidOut].
+    //
+    // The Bottom row preset (competitor gap list item 15) draws a whole row in
+    // place of the letters page's own before any of that, and only there: the
+    // symbols pages keep their ABC row, and a secondary layout and the tablet
+    // grid are exempt for the reasons above.
     val secondaryGrid = state.layoutMode == LayoutMode.SECONDARY
     val laidOut = grid.bottomRowAsLaidOut
-    val arranged = grid.arrangedBy(
+    val presetHere = state.layoutMode == LayoutMode.LETTERS && state.layouts.gridWidth == null
+    val arrangement = grid.arrangedBy(
         BottomRowRules(
+            preset = if (presetHere) state.settings.bottomRow.preset else BottomRowPreset.AS_LAID_OUT,
             hideGlobe = !state.settings.showGlobeKey && !secondaryGrid,
             globeInOnePlace = state.settings.layoutBehavior.globeInOnePlace &&
                 !secondaryGrid && state.layouts.gridWidth == null,
             swapCommaAndGlobe = state.settings.swapCommaAndGlobe,
         ),
-    ).layout
+    )
+    val arranged = arrangement.layout
     // Issue #423: Gboard's 1234 key beside ABC on the symbols pages, opt-in.
     val symbolsPage = state.layoutMode == LayoutMode.SYMBOLS ||
         state.layoutMode == LayoutMode.SYMBOLS_SHIFTED
-    val base = if (state.settings.layoutBehavior.symbolsNumpadKey && symbolsPage && !laidOut) {
+    // A page that is a number pad already (the Number pad symbols page) has
+    // no use for a key that opens one, so it gets neither of the keys below.
+    val addsKeys = symbolsPage && !laidOut && !grid.digitPad
+    val withNumpad = if (state.settings.layoutBehavior.symbolsNumpadKey && addsKeys) {
         arranged.withNumpadKey()
     } else {
         arranged
+    }
+    // HeliBoard's D-pad key (competitor gap list item 3), opt-in for the same
+    // reason: a new key on a row people know by touch gets hit by accident.
+    val base = if (state.settings.layoutBehavior.symbolsTextEditKey && addsKeys) {
+        withNumpad.withTextEditKey()
+    } else {
+        withNumpad
     }
     // Issue #423: a ?123 key whose layout gave it alternates holds them, not
     // the number pad, so the pad joins that popup instead of being lost.
@@ -23998,10 +25472,11 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     val tabletGrid = state.layouts.gridWidth != null
     // Optional Gboard-style emoji key: the letter layouts' comma key becomes
     // an emoji-panel key, with comma demoted to its long-press alternates.
+    // Neither on a row the With emoji preset drew, which has its own.
     val commaAsEmoji = state.settings.commaAsEmoji && !tabletGrid && !laidOut &&
-        state.layoutMode == LayoutMode.LETTERS
+        state.layoutMode == LayoutMode.LETTERS && !arrangement.ownEmojiKey
     // 🌐 → emoji key: language switching lives on spacebar swipes instead.
-    val globeAsEmoji = state.settings.globeAsEmoji && !tabletGrid && !laidOut
+    val globeAsEmoji = state.settings.globeAsEmoji && !tabletGrid && !laidOut && !arrangement.ownEmojiKey
     // What the digits on the letters' long press become (issue #672). Auto is
     // the long-standing rule: with the dedicated number row on they are
     // redundant, so they go and those keys lead with their accents (or lose
@@ -24126,6 +25601,10 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
     // Opt-in: the emoji panel under a hold on enter, for a bottom row with no
     // emoji key. See [LayoutBehaviorSettings.enterLongPressEmoji].
     val emojiAlternate = state.settings.layoutBehavior.enterLongPressEmoji
+    // Competitor gap list item 14: the user's own actions under a hold on
+    // enter, the comma or the 🌐 seat, on every layer that key is on.
+    val holdActions = state.settings.bottomRow.holdActions
+    val holdActionsKey = state.settings.bottomRow.holdKey
     // Issue #340: the keys that stand in for 小゛゜ while the reading ends in a
     // kana that has one of those forms.
     val kanaVariantKeys = state.kanaVariantReady
@@ -24149,7 +25628,7 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
         punctuationPicks.isEmpty() && smartMark == null &&
         clipboardKeys.isEmpty() && fieldKey == null && domainAlternates.isEmpty() &&
         currencyKeys.isEmpty() && !allAccents && !noAccents && !shiftedKeys && fullStop == null &&
-        !newlineAlternate && !emojiAlternate && spaceHoldKeys.isEmpty() &&
+        !newlineAlternate && !emojiAlternate && holdActions.isEmpty() && spaceHoldKeys.isEmpty() &&
         punctuationAlternates.isEmpty() && !kanaVariantKeys && nativeLetters.isEmpty() &&
         questionMark == null && questionSwap == null && periodAlternates.isEmpty() &&
         !reorderAlternates && !numpadOnHold && !fancyDigits &&
@@ -24223,13 +25702,20 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
                 // email box needs its @ more than a shortcut to emoji.
                 // Everything the slot decides about itself — width, span, label
                 // scale — survives; everything about the character it used to
-                // type is replaced, icons and flicks included.
+                // type is replaced, icons and flicks included. The actions the
+                // user put on its hold (Clipboard, Emoji, Switch layout) are not
+                // about the character and stay; a web address field, whose key
+                // still types a comma, keeps the user's own hold characters
+                // after the address ones too.
                 fieldKey != null && role == KeyRole.Comma -> key.copy(
                     label = fieldKey.first,
                     output = null,
                     shiftLabel = null,
-                    longPress = fieldKey.second,
-                    actionAlternates = emptyList(),
+                    longPress = if (fieldKey.first == ",") {
+                        (fieldKey.second + key.longPress.filterNot { it == "," }).distinct()
+                    } else {
+                        fieldKey.second
+                    },
                     icon = null,
                     iconHint = null,
                     hint = null,
@@ -24441,6 +25927,13 @@ internal fun currentLayout(state: KeyboardUiState): KeyboardLayout {
                         mapped.actionAlternates,
                 )
             }
+            // Last of the popup passes, so the user's list lands after
+            // everything the key already offered: enter's line break and
+            // emoji, the comma's marks. The key is found as laid out, so the
+            // 🌐 seat the emoji preference took over is still the 🌐's.
+            if (holdActions.isNotEmpty() && holdActionsKey.owns(rowKey, rowIndex, bottom)) {
+                mapped = mapped.withHoldActions(holdActions)
+            }
             // After the passes above, so a key keyed by what it types is keyed by
             // what it types now. The layout's own arms keep their directions.
             if (keySwipes.isNotEmpty()) {
@@ -24586,6 +26079,31 @@ internal fun KeyboardLayout.withNumpadKey(): KeyboardLayout {
 }
 
 private const val NumpadKeyWidth = 1f
+
+/**
+ * This symbols page with a key that opens the text-editing panel (competitor
+ * gap list item 3, HeliBoard's D-pad key), after the 1234 key when
+ * [withNumpadKey] put one there, else straight after ABC. Drawn with the
+ * tool's own icon, as any tool key with no label is.
+ *
+ * Paid for the way the 1234 key is: one standard width off the spacebar, and
+ * left out when the page already has such a key, has no ABC key or spacebar on
+ * its bottom row, or has a spacebar too narrow to give the width up.
+ */
+internal fun KeyboardLayout.withTextEditKey(): KeyboardLayout {
+    val textEdit = KeyAction.Tool(ToolbarTool.TEXT_EDIT)
+    if (rows.any { row -> row.any { it.action == textEdit } }) return this
+    val bottom = rows.lastOrNull() ?: return this
+    val letters = bottom.indexOfFirst { it.action == KeyAction.Letters }
+    val space = bottom.indexOfFirst { it.action == KeyAction.Space }
+    if (letters < 0 || space < 0 || bottom[space].width - NumpadKeyWidth < MinSpaceAfterNumpadKey) return this
+    val numpad = bottom.indexOfFirst { it.action == KeyAction.Numpad }
+    val after = if (numpad == letters + 1) numpad else letters
+    val row = bottom.toMutableList()
+    row[space] = row[space].copy(width = row[space].width - NumpadKeyWidth)
+    row.add(after + 1, Key(label = "", action = textEdit, width = NumpadKeyWidth))
+    return copy(rows = rows.dropLast(1) + listOf(row))
+}
 
 /** The narrowest spacebar [withNumpadKey] leaves: still two keys wide. */
 private const val MinSpaceAfterNumpadKey = 2f
@@ -24905,6 +26423,48 @@ private const val GlideHintId = "glide-hint"
 internal val KeyRowsPadVertical = 2.dp
 
 /**
+ * How far past the grid its cached layer reaches: a key's glow (up to 16 dp
+ * past its face), a grown or risen key on the top row and the shadows of the
+ * bottom row all draw outside the grid, and the layer must not cut them off.
+ */
+private val KeyGridRasterMargin = 20.dp
+
+/**
+ * Keeps the key grid as one picture between frames.
+ *
+ * Every frame the keyboard draws repaints the whole window: any change to a
+ * Compose layer invalidates the hosting view, the view records again, and
+ * the renderer counts that view's whole rectangle as damaged. Measured on a
+ * CPH2481 (88 taps in the system Settings search box, default theme): 275
+ * frames, every one damaging the board from the toolbar down, 5 ms of render
+ * thread each. On a glass theme every key's backdrop slice and lens shader
+ * ran again on each of them. Per-key layers keep a press from *recording*
+ * the other keys, but not from *rasterising* them.
+ *
+ * Drawn into an offscreen layer, the grid is rasterised once and composited
+ * as a single texture after that. Inside the layer the renderer repaints
+ * only what changed — the pressed key's rectangle, since every key has a
+ * layer of its own — and the rest of the board's frames (the strip filling,
+ * the press fading) cost one textured quad for the whole grid. Compositing
+ * the layer with source-over gives the same pixels as drawing the keys
+ * straight onto the board.
+ *
+ * The layer is grown by [KeyGridRasterMargin] on every side without the
+ * grid's own size or place moving: the grid reports the size it had and the
+ * layer, [KeyGridRasterMargin] larger, is placed back by the margin.
+ */
+private fun Modifier.keyGridRasterCache(): Modifier =
+    layout { measurable, constraints ->
+        val margin = KeyGridRasterMargin.roundToPx()
+        val inner = measurable.measure(constraints.offset(horizontal = 2 * margin, vertical = 2 * margin))
+        val width = (inner.width - 2 * margin).coerceIn(constraints.minWidth, constraints.maxWidth)
+        val height = (inner.height - 2 * margin).coerceIn(constraints.minHeight, constraints.maxHeight)
+        layout(width, height) { inner.place(-margin, -margin) }
+    }
+        .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+        .padding(KeyGridRasterMargin)
+
+/**
  * Horizontal padding of the [KeyRows] column. Named because the gesture
  * decoder's key-width derivation has to subtract it to get the real cell width.
  */
@@ -24944,14 +26504,40 @@ private fun toolbarReadsRtl(state: KeyboardUiState): Boolean =
  * caller (full-bleed absorption, emoji-search sizing) drops the strip with it.
  */
 internal fun topBarHeight(settings: KeyboardSettings): Dp =
-    if (settings.toolbarBehavior.enabled) {
-        // A padding below zero (#970) takes height off the strip, never past
-        // the slider floor, and never past a bar a theme made shorter still.
-        val padded = settings.toolbarHeightDp + settings.toolbarBehavior.paddingTopDp + settings.toolbarBehavior.paddingBottomDp
-        padded.coerceAtLeast(minOf(settings.toolbarHeightDp, ToolbarHeightRange.first)).dp
-    } else {
-        0.dp
-    }
+    if (settings.toolbarBehavior.enabled) paddedToolbarHeight(settings) else 0.dp
+
+/**
+ * The toolbar's height with its padding, whether or not the toolbar is on:
+ * [topBarHeight] while it is, and the second toolbar's height always (#1217).
+ */
+private fun paddedToolbarHeight(settings: KeyboardSettings): Dp {
+    // A padding below zero (#970) takes height off the strip, never past
+    // the slider floor, and never past a bar a theme made shorter still.
+    val padded = settings.toolbarHeightDp + settings.toolbarBehavior.paddingTopDp + settings.toolbarBehavior.paddingBottomDp
+    return padded.coerceAtLeast(minOf(settings.toolbarHeightDp, ToolbarHeightRange.first)).dp
+}
+
+/**
+ * The second toolbar's height (#1217): a toolbar's, padding included, so it
+ * follows the toolbar height setting, a theme's toolbar height and the resize
+ * tool's toolbar handle. Not gated on the toolbar being on, since the row
+ * stays without it.
+ */
+internal fun secondToolbarHeight(settings: KeyboardSettings): Dp = paddedToolbarHeight(settings)
+
+/** The second toolbar's tools that can draw here, in its order (#1217). */
+internal fun secondToolbarTools(state: KeyboardUiState): List<ToolKey> =
+    state.settings.toolbarBehavior.secondRowTools.filter { toolShown(it, state) }
+
+/**
+ * Whether the second toolbar (#1217) has a row on screen, panels aside: on,
+ * and not on a lock screen the strip is kept off. An empty row still draws,
+ * saying where its tools come from, so there is always a row to drop one on.
+ * The renderer and [fullBleedHiddenRows] both read it, so a full-bleed panel takes
+ * exactly the height the row gave up.
+ */
+internal fun secondToolbarShown(state: KeyboardUiState): Boolean =
+    state.settings.toolbarBehavior.secondRow && !barLockHidden(state)
 
 /**
  * The user's toolbar top and bottom padding (#208), for a row sized with
@@ -25007,7 +26593,10 @@ internal fun numberRowShown(state: KeyboardUiState): Boolean =
         (state.settings.layoutBehavior.numberRowOnKeypad || !numericPadActive(state)) &&
         (state.settings.layoutBehavior.numberRowInSymbols ||
             (state.layoutMode != LayoutMode.SYMBOLS &&
-                state.layoutMode != LayoutMode.SYMBOLS_SHIFTED))
+                state.layoutMode != LayoutMode.SYMBOLS_SHIFTED)) &&
+        // A symbols page with a number pad of its own would show every digit
+        // twice under a number row.
+        !(state.layoutMode == LayoutMode.SYMBOLS && state.layouts.symbols.digitPad)
 
 /**
  * Whether the arrow row (issue #369) is drawn under the current layer. Shared
@@ -25081,7 +26670,7 @@ internal fun clipboardStacked(state: KeyboardUiState): Boolean =
 
 /** A panel is claiming the strip's height, so the rows above the keys are gone. */
 internal fun barFullBleed(state: KeyboardUiState): Boolean =
-    (isFullBleedPanel(state.panel, state.settings) || toolboxSearchBleeds(state)) && !barClipboardSearching(state)
+    (isFullBleedPanel(state.panel, state.settings, state.plugins) || toolboxSearchBleeds(state)) && !barClipboardSearching(state)
 
 /** The toolbox's search takes the whole keyboard, with its own way back (#687). */
 private fun toolboxSearchBleeds(state: KeyboardUiState): Boolean =
@@ -25108,13 +26697,63 @@ internal fun symbolRowVisible(state: KeyboardUiState): Boolean =
  * themselves, so nothing they *did* pin ever moves — every other tool keeps
  * its slot, and with it its hardware digit.
  */
-internal fun visibleToolbarTools(state: KeyboardUiState): List<ToolbarTool> =
+internal fun visibleToolbarTools(state: KeyboardUiState): List<ToolKey> =
     state.settings.toolbarTools
-        .let { if (mediaAutoPinned(state)) it + ToolbarTool.MEDIA_CONTROL else it }
-        .filter {
-            it in state.settings.enabledTools && isSupportedTool(it) &&
-                isUsableTool(it, state.settings)
+        .let { if (mediaAutoPinned(state)) it + ToolbarTool.MEDIA_CONTROL.key else it }
+        .filter { toolShown(it, state) }
+
+/**
+ * Whether [tool] may be drawn at all: a built-in tool switched on that this
+ * build ships and can run now, or a plugin that is installed, on and drawing a
+ * panel ([KeyboardUiState.pluginTools]).
+ */
+internal fun toolShown(tool: ToolKey, state: KeyboardUiState): Boolean =
+    tool.shownWith(state.pluginTools.keys) {
+        it in state.settings.enabledTools && isSupportedTool(it) && isUsableTool(it, state.settings)
+    }
+
+/**
+ * The toolbar badge slot of [tool] among the drawn [tools]: the toolbox button
+ * is 0, so a built-in tool's is its place among the built-in tools plus one.
+ * Null for a plugin: the digits press built-in tools (see [keyboardHintPlan]).
+ */
+internal fun barHintSlot(tools: List<ToolKey>, tool: ToolKey): Int? =
+    tool.tool?.let { builtin -> tools.builtinTools().indexOf(builtin) + 1 }
+
+/** The name a toolbox entry goes by: a built-in tool's own, or its plugin's. */
+@Composable
+internal fun toolLabel(tool: ToolKey, state: KeyboardUiState): String = when (tool) {
+    is ToolKey.Builtin -> toolLabel(tool.tool)
+    is ToolKey.Plugin -> state.pluginTools[tool.pluginId]?.name ?: tool.pluginId
+}
+
+/** [toolLabel] for a caller with no composition: the service, the search's ranking. */
+internal fun toolKeyName(context: android.content.Context, tool: ToolKey, state: KeyboardUiState): String = when (tool) {
+    is ToolKey.Builtin -> context.getString(toolLabelRes(tool.tool))
+    is ToolKey.Plugin -> state.pluginTools[tool.pluginId]?.name ?: tool.pluginId
+}
+
+/** Lit while its panel is open: a built-in tool by its own rule, a plugin while it is the one running. */
+@Composable
+private fun toolActive(tool: ToolKey, state: KeyboardUiState): Boolean = when (tool) {
+    is ToolKey.Builtin -> toolActive(tool.tool, state)
+    is ToolKey.Plugin -> state.panel == PanelMode.PLUGINS &&
+        (state.plugins as? PluginPanelUi.Running)?.plugin?.id == tool.pluginId
+}
+
+/** A built-in tool's colours; a plugin wears the theme's own tool colour. */
+private fun toolAccentPaint(tool: ToolKey, settings: KeyboardSettings): ToolPaint? = when (tool) {
+    is ToolKey.Builtin -> toolAccentPaint(tool.tool, settings)
+    // A plugin wears the colour its manifest names (`tool.color`), under the
+    // same "Colorful tool icons" and gradient switches as the built-in tools.
+    is ToolKey.Plugin -> if (!settings.coloredToolIcons) {
+        null
+    } else {
+        PluginToolIcons.colorOf(tool.pluginId)?.let { color ->
+            ToolPaint(color, if (settings.toolIconGradients) com.wasimaster.wmkeyboard.core.ui.toolGradientEnd(color) else null)
         }
+    }
+}
 
 /**
  * Whether the toolbar's small incognito badge shows. Not while the Incognito
@@ -25152,13 +26791,19 @@ data class ToolboxCallbacks(
     /** Ungroups a folder, by id: its tools go back to cells of their own. */
     val onUngroup: (String) -> Unit = {},
     /** A tool (first) dropped on another tool (second): a folder of the two. */
-    val onMerge: (ToolbarTool, ToolbarTool) -> Unit = { _, _ -> },
+    val onMerge: (ToolKey, ToolKey) -> Unit = { _, _ -> },
     /** A tool dropped on a folder, by id: filed in it. */
-    val onAddToFolder: (ToolbarTool, String) -> Unit = { _, _ -> },
+    val onAddToFolder: (ToolKey, String) -> Unit = { _, _ -> },
     /** A tool dragged out of the open folder onto its header. */
-    val onTakeOut: (ToolbarTool) -> Unit = {},
+    val onTakeOut: (ToolKey) -> Unit = {},
     /** The open folder's tools in their new order, by folder id. */
-    val onFolderOrder: (String, List<ToolbarTool>) -> Unit = { _, _ -> },
+    val onFolderOrder: (String, List<ToolKey>) -> Unit = { _, _ -> },
+    /** A plugin's tool tapped, wherever it is: opens its panel, by plugin id. */
+    val onPluginTool: (String) -> Unit = {},
+    /** A plugin's tool held: its page in the settings app, by plugin id. */
+    val onPluginSettings: (String) -> Unit = {},
+    /** The second toolbar's tools after a drop on, off or along it (#1217). */
+    val onSecondRowChange: (List<ToolKey>) -> Unit = {},
 )
 
 /** One cell of the toolbox grid: a tool, or a folder of them (#709). */
@@ -25166,12 +26811,12 @@ internal sealed interface ToolboxCell {
     /** Identity across settles: for the grid's keys and for finding the cell in flight. */
     val key: String
 
-    data class Tool(val tool: ToolbarTool) : ToolboxCell {
-        override val key: String get() = "tool:${tool.name}"
+    data class Tool(val tool: ToolKey) : ToolboxCell {
+        override val key: String get() = "tool:${tool.token}"
     }
 
     /** [tools] are the folder's tools the toolbox would show, in the folder's own order. */
-    data class Folder(val folder: ToolboxFolder, val tools: List<ToolbarTool>) : ToolboxCell {
+    data class Folder(val folder: ToolboxFolder, val tools: List<ToolKey>) : ToolboxCell {
         override val key: String get() = "folder:${folder.id}"
     }
 }
@@ -25182,7 +26827,7 @@ internal sealed interface ToolboxCell {
  * them falls (#709). A folder none of whose tools is visible (all of them
  * pinned, hidden or switched off) draws nothing.
  */
-internal fun toolboxCells(tools: List<ToolbarTool>, folders: List<ToolboxFolder>): List<ToolboxCell> {
+internal fun toolboxCells(tools: List<ToolKey>, folders: List<ToolboxFolder>): List<ToolboxCell> {
     if (folders.isEmpty()) return tools.map { ToolboxCell.Tool(it) }
     val shown = tools.toHashSet()
     val placed = HashSet<String>()
@@ -25208,7 +26853,7 @@ internal fun toolboxCells(tools: List<ToolbarTool>, folders: List<ToolboxFolder>
  * [label] is a parameter so the service, which has no composition, can ask the
  * same question when Enter opens the first match.
  */
-internal fun toolboxSearchMatches(state: KeyboardUiState, label: (ToolbarTool) -> String): List<ToolbarTool> {
+internal fun toolboxSearchMatches(state: KeyboardUiState, label: (ToolKey) -> String): List<ToolKey> {
     val tools = visibleToolboxTools(state)
     val query = state.toolboxView.query.trim()
     if (query.isEmpty()) return sortedByUse(tools, state.settings.toolbox.searchSort, state)
@@ -25228,7 +26873,7 @@ internal fun toolboxSearchMatches(state: KeyboardUiState, label: (ToolbarTool) -
 }
 
 /** The toolbox's top-level tools in the order its grid draws them. */
-internal fun toolboxGridTools(state: KeyboardUiState): List<ToolbarTool> =
+internal fun toolboxGridTools(state: KeyboardUiState): List<ToolKey> =
     sortedByUse(visibleToolboxTools(state), state.settings.toolbox.sort, state)
 
 /**
@@ -25236,7 +26881,7 @@ internal fun toolboxGridTools(state: KeyboardUiState): List<ToolbarTool> =
  * their place in [tools] after the ones that were, so a fresh install still
  * opens on the toolbox order.
  */
-internal fun sortedByUse(tools: List<ToolbarTool>, sort: ToolboxSort, state: KeyboardUiState): List<ToolbarTool> {
+internal fun sortedByUse(tools: List<ToolKey>, sort: ToolboxSort, state: KeyboardUiState): List<ToolKey> {
     val ranking = when (sort) {
         ToolboxSort.CUSTOM -> return tools
         ToolboxSort.MOST_USED -> state.toolsMostUsed
@@ -25254,13 +26899,15 @@ internal fun sortedByUse(tools: List<ToolbarTool>, sort: ToolboxSort, state: Key
  * once and a drag has one cell to start from — less the tools the user hid
  * from the grid ([ToolboxSettings.hiddenTools]), which stay on everywhere else.
  */
-internal fun visibleToolboxTools(state: KeyboardUiState): List<ToolbarTool> {
+internal fun visibleToolboxTools(state: KeyboardUiState): List<ToolKey> {
+    // The second toolbar's tools (#1217) are pinned too: a tool sits in one
+    // place, so a drag has one cell to start from.
     val pinned = state.settings.toolbarTools.toSet() +
-        if (mediaAutoPinned(state)) setOf(ToolbarTool.MEDIA_CONTROL) else emptySet()
+        (if (mediaAutoPinned(state)) setOf(ToolbarTool.MEDIA_CONTROL.key) else emptySet()) +
+        (if (state.settings.toolbarBehavior.secondRow) state.settings.toolbarBehavior.secondRowTools else emptyList())
     val hidden = state.settings.toolbox.hiddenTools
     return state.settings.toolboxOrder.filter {
-        it !in pinned && it !in hidden && it in state.settings.enabledTools &&
-            isSupportedTool(it) && isUsableTool(it, state.settings)
+        it !in pinned && it !in hidden && toolShown(it, state)
     }
 }
 
@@ -25304,8 +26951,10 @@ internal fun keyboardHintPlan(state: KeyboardUiState): HintPlan {
         0
     }
     return buildHintPlan(
-        toolbarTools = visibleToolbarTools(state),
-        toolboxTools = if (state.panel == PanelMode.TOOLBOX) toolboxGridTools(state) else emptyList(),
+        // The digits press built-in tools; a plugin on the bar or in the
+        // toolbox is reached by a tap, a search or the floating button.
+        toolbarTools = visibleToolbarTools(state).builtinTools(),
+        toolboxTools = if (state.panel == PanelMode.TOOLBOX) toolboxGridTools(state).builtinTools() else emptyList(),
         toolLetters = resolvedToolLetters(hw.toolByLetter, usableTools(state.settings)),
         symbolCells = symbols,
         emojiCells = emoji,
@@ -25731,7 +27380,8 @@ internal fun KeyButton(
     // The gap is handed to the shape as the room a leaning outline may spill
     // into: a slanted key then leans across the gap rather than out of its own
     // width, and neighbouring keys interlock instead of thinning out.
-    val keyShape = kb.keyShape(bleedDp = keyGapH(settings).value, kind = visual.shapeKind)
+    val keyShape = visual.faceShape
+        ?: kb.keyShape(bleedDp = keyGapH(settings).value, kind = visual.shapeKind, radiusDp = visual.cornerRadiusDp)
     // A key the theme gave its own shape re-runs the shadow guard for that
     // shape: a round enter key may cast one on a board whose own shape cannot.
     // Only an opaque face casts one: the platform shadow is a solid slab under
@@ -25919,6 +27569,7 @@ internal fun KeyButton(
                     spaceLongSwipe = settings.spaceLongSwipe,
                     enabledLayoutIds = settings.switchLayoutIds(),
                     currentLayoutId = layoutId,
+                    languageAnchor = LocalLanguageAnchor.current,
                     setPressed = { down ->
                         // Judged here rather than at the commit: every branch
                         // below reports the contact before it spends anything
@@ -26061,7 +27712,7 @@ internal fun KeyButton(
                     // The theme's shadow colour, where it has one; both halves
                     // of the platform shadow take it (Android 9 and up).
                     val shadow = kb.keyShadow ?: DefaultShadowColor
-                    Modifier.shadow(keyElevation, keyShape, clip = false, ambientColor = shadow, spotColor = shadow)
+                    Modifier.shadow(keyElevation, keyShape.forShadow(), clip = false, ambientColor = shadow, spotColor = shadow)
                 } else {
                     Modifier
                 }
@@ -26090,6 +27741,19 @@ internal fun KeyButton(
                 val sheen = kb.keyGradient
                     ?.takeIf { faces && key.action == KeyAction.Text }
                     ?.brush()
+                // This key's own gradient face, which a theme names outright
+                // and so draws whether or not the board's keys have faces.
+                val faceBrush = visual.faceGradient?.brush()
+                // Its halo, as rings stepping outwards from the face the way
+                // the GLOW key lighting draws one: cheaper than a blur and
+                // close enough at the width of a key gap.
+                val glowColor = visual.glow
+                val glowReach = visual.glowDp * density
+                val glowCorner = when (visual.shapeKind ?: kb.keyShapeKind) {
+                    KeyShapeKind.PILL, KeyShapeKind.CIRCLE -> size.minDimension / 2f
+                    KeyShapeKind.SHARP -> 0f
+                    else -> (visual.cornerRadiusDp ?: kb.keyRadiusDp) * density
+                }
                 // The theme's texture for this key class, prepared here so the
                 // press-path draw below only picks between ready-made values.
                 // The clip path and tile brush depend on size/shape alone —
@@ -26098,7 +27762,7 @@ internal fun KeyButton(
                 val texturePaint = texture?.let {
                     KeyTexturePaint.of(it, textures, outline, size)
                 }
-                val pressedTexture = textures.pressed
+                val pressedTexture = textures.pressedForKey(visual.overrideId)
                 val pressedPaint = pressedTexture?.let {
                     KeyTexturePaint.of(it, textures, outline, size)
                 }
@@ -26110,7 +27774,7 @@ internal fun KeyButton(
                 val frost = kb.frost?.takeIf { faces && it.has(frostSurfaceFor(key.action)) }
                 val glass = frost?.let {
                     val lensKind = visual.shapeKind ?: kb.keyShapeKind
-                    val lensRadius = lensRadiusPx(lensKind, kb.keyRadiusDp, size, this)
+                    val lensRadius = lensRadiusPx(lensKind, visual.cornerRadiusDp ?: kb.keyRadiusDp, size, this)
                     GlassPaint.of(
                         backdrop, outline, keyBounds.value.topLeft, it, size, lensRadius, kb.boardFill,
                         pxPerDp = density, withPress = true,
@@ -26135,6 +27799,18 @@ internal fun KeyButton(
                 }
                 onDrawBehind {
                     val down = pressed.value
+                    if (glowColor != null) {
+                        val steps = 4
+                        for (step in steps downTo 1) {
+                            val grow = glowReach * step / steps
+                            drawRoundRect(
+                                glowColor.copy(alpha = glowColor.alpha * 0.3f * (1f - (step - 1f) / steps)),
+                                Offset(-grow, -grow),
+                                Size(size.width + grow * 2, size.height + grow * 2),
+                                CornerRadius(glowCorner + grow),
+                            )
+                        }
+                    }
                     glass?.draw(this, down)
                     if (skin != null) {
                         skin.draw(this, down)
@@ -26151,6 +27827,7 @@ internal fun KeyButton(
                             drawOutline(outline, visual.pressedBackground.copy(alpha = 0.5f))
                         }
                     }
+                    if (faceBrush != null && !down) drawOutline(outline, faceBrush)
                     if (sheen != null && !down) drawOutline(outline, sheen)
                     material?.drawOver(this, down)
                     rim?.draw(this)
@@ -28199,7 +29876,9 @@ private fun LanguageCarouselPopup(
     // so the centring below can aim at a chip whose width depends on its label.
     val chipBounds = remember(enabledLayoutIds) { mutableStateMapOf<Int, Pair<Int, Int>>() }
     var viewportWidth by remember { mutableIntStateOf(0) }
-    val currentIndex = enabledLayoutIds.indexOf(currentLayoutId).coerceAtLeast(0)
+    val anchor = LocalLanguageAnchor.current
+    val currentIndex = enabledLayoutIds.indexOf(currentLayoutId).takeIf { it >= 0 }
+        ?: enabledLayoutIds.indexOf(anchor.value).coerceAtLeast(0)
     val centreOn = highlightIndex ?: currentIndex
     // The first centring is a jump — the strip should open already looking at
     // the current layout — and every one after it slides, following the drag.
@@ -28634,7 +30313,7 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
                     contentDescription = null,
                     tint = visual.hintColor ?: contentColor.copy(alpha = 0.55f),
                     modifier = Modifier
-                        .align(Alignment.TopEnd)
+                        .align(hintAlignment(settings))
                         .hintPlacement(settings)
                         .size(
                             (HintIconDp * fontScale * settings.layoutBehavior.hintFontScale).dp,
@@ -28851,7 +30530,12 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
                 // label is held in from whichever edges carry one and the
                 // overflow rule below shrinks it clear of them. The corners
                 // need no room: a letter never reaches them.
-                val armsShown = settings.layoutBehavior.flickHints && key.hasFlicks()
+                // A single glyph sits in the middle, clear of the arms at the
+                // edges, so it keeps its size (#979): held in as well, it was
+                // shrunk to a speck on a short key and sat low beside the arm
+                // under it.
+                val armsShown = settings.layoutBehavior.flickHints && key.hasFlicks() &&
+                    text.codePointCount(0, text.length) > 1
                 val sideArms = armsShown &&
                     (key.flickArm(FlickDirection.LEFT) != null || key.flickArm(FlickDirection.RIGHT) != null)
                 val endArms = armsShown &&
@@ -28940,11 +30624,14 @@ private fun KeyContent(visual: KeyVisual, settings: KeyboardSettings, contentCol
             } else {
                 null
             }
-            val hintMask = if (octopusHere == null) {
-                Modifier
-            } else {
-                Modifier.drawWithContent { if (!octopusHere.value) drawContent() }
-            }
+            // A honeycomb key's slanted top would cut through a hint in its corner.
+            val hintMask = (
+                if (octopusHere == null) {
+                    Modifier
+                } else {
+                    Modifier.drawWithContent { if (!octopusHere.value) drawContent() }
+                }
+                ).clearHexCorner(visual.faceShape)
             // An arm drawn in the top right corner (issue #410) owns it; the
             // character hint would sit on top of it. The alternates are still
             // one hold away, as with [Key.hideHint].
@@ -29193,7 +30880,7 @@ private fun BoxScope.KeyCornerHint(
             text = translit,
             modifier = Modifier
                 .clearAndSetSemantics {}
-                .align(Alignment.TopEnd)
+                .align(hintAlignment(settings))
                 .hintPlacement(settings, shift = shift),
             fontSize = (TranslitHintSp * fontScale * settings.layoutBehavior.hintFontScale).sp,
             color = hintColor,
@@ -29207,7 +30894,7 @@ private fun BoxScope.KeyCornerHint(
             contentDescription = null,
             tint = hintColor,
             modifier = hintMask
-                .align(Alignment.TopEnd)
+                .align(hintAlignment(settings))
                 .hintPlacement(settings, shift = shift)
                 .size((HintIconDp * fontScale * settings.layoutBehavior.hintFontScale).dp),
         )
@@ -29215,7 +30902,7 @@ private fun BoxScope.KeyCornerHint(
             text = hint,
             modifier = hintMask
                 .clearAndSetSemantics {}
-                .align(Alignment.TopEnd)
+                .align(hintAlignment(settings))
                 .hintPlacement(settings, shift = shift),
             fontSize = (HintLabelSp * fontScale * settings.layoutBehavior.hintFontScale).sp,
             color = hintColor,
@@ -29279,19 +30966,44 @@ internal fun Modifier.hintPlacement(
     end: Dp = HintEndPadding,
     shift: DpOffset = DpOffset.Zero,
 ): Modifier {
+    val corner = settings.layoutBehavior.hintCorner
     // A bigger font puts more empty line above the glyph, so the slider alone
     // walked the hint down the key (#970). Taken back, the glyph's top stays put.
-    val grown = (settings.layoutBehavior.hintFontScale - 1f) * HintLabelSp * HintGlyphTopGap
-    val top = settings.layoutBehavior.hintOffsetDp.dp - grown.dp + shift.y
+    // A hint at the bottom sits on its baseline's line box instead, so no take-back.
+    val grown = if (corner.bottom) 0f else (settings.layoutBehavior.hintFontScale - 1f) * HintLabelSp * HintGlyphTopGap
+    val vertical = settings.layoutBehavior.hintOffsetDp.dp - grown.dp + shift.y
     val side = end + settings.layoutBehavior.hintOffsetXDp.dp + shift.x
-    val padded = padding(top = top.coerceAtLeast(0.dp), end = side.coerceAtLeast(0.dp))
-    return if (top >= 0.dp && side >= 0.dp) {
-        padded
-    } else {
-        // Toward the end edge is +x in a left-to-right row; offset mirrors it
-        // for a right-to-left one, the way the end padding does.
-        padded.offset(x = -side.coerceAtMost(0.dp), y = top.coerceAtMost(0.dp))
+    // The offsets measure in from the hint's own corner (gap list item 21):
+    // from the bottom for a bottom corner, from the start for a start one. A
+    // centred hint has no side to keep clear of, so the side offset nudges it.
+    val inset = vertical.coerceAtLeast(0.dp)
+    val sideInset = side.coerceAtLeast(0.dp)
+    val padded = padding(
+        top = if (corner.bottom) 0.dp else inset,
+        bottom = if (corner.bottom) inset else 0.dp,
+        end = if (corner.side > 0) sideInset else 0.dp,
+        start = if (corner.side < 0) sideInset else 0.dp,
+    )
+    // What padding cannot take (a negative inset, or a centred hint's nudge)
+    // goes in as an offset. Toward the end edge is +x in a left-to-right row;
+    // offset mirrors it for a right-to-left one, the way the end padding does.
+    val dx = when {
+        corner.side > 0 -> -side.coerceAtMost(0.dp)
+        corner.side < 0 -> side.coerceAtMost(0.dp)
+        else -> -(settings.layoutBehavior.hintOffsetXDp.dp + shift.x)
     }
+    val dy = if (corner.bottom) -vertical.coerceAtMost(0.dp) else vertical.coerceAtMost(0.dp)
+    return if (dx == 0.dp && dy == 0.dp) padded else padded.offset(x = dx, y = dy)
+}
+
+/** The corner of the key the hint is aligned to ([LayoutBehaviorSettings.hintCorner]). */
+internal fun hintAlignment(settings: KeyboardSettings): Alignment = when (settings.layoutBehavior.hintCorner) {
+    HintCorner.TOP_START -> Alignment.TopStart
+    HintCorner.TOP_CENTER -> Alignment.TopCenter
+    HintCorner.TOP_END -> Alignment.TopEnd
+    HintCorner.BOTTOM_START -> Alignment.BottomStart
+    HintCorner.BOTTOM_CENTER -> Alignment.BottomCenter
+    HintCorner.BOTTOM_END -> Alignment.BottomEnd
 }
 
 /**
@@ -29373,7 +31085,7 @@ private fun transliterationRoman(key: Key, state: KeyboardUiState): String? {
     val shiftLabel = key.shiftLabel
     return when {
         state.shiftState != ShiftState.OFF && shiftLabel != null -> shiftLabel
-        state.shiftState != ShiftState.OFF -> base.uppercase()
+        state.shiftState != ShiftState.OFF -> keyUppercase(base)
         else -> base
     }
 }
@@ -29439,6 +31151,23 @@ private fun rememberTransliterationPreview(state: KeyboardUiState): Transliterat
     }
 }
 
+/**
+ * [label] in the case the user asked the letter keys to be drawn in (gap list
+ * item 31). Only a letter key of a cased script is touched, and never the
+ * roman keys of a transliterating layout, where `t` and `T` write different
+ * letters and the drawn case is the only sign of which one a tap gives.
+ * What the key types still follows shift; this is the face alone.
+ */
+internal fun labelCased(label: String, key: Key, state: KeyboardUiState): String {
+    val case = state.settings.layoutBehavior.labelCase
+    if (case == KeyLabelCase.FOLLOW_SHIFT) return label
+    if (key.action != KeyAction.Text || label.isEmpty() || !label.all { it.isLetter() }) return label
+    if (!state.script.hasLetterCase || state.composer.isTransliterating || state.composer.isClusterShaping) {
+        return label
+    }
+    return if (case == KeyLabelCase.UPPER) label.uppercase() else label.lowercase()
+}
+
 private fun displayLabel(key: Key, state: KeyboardUiState): String {
     // Digit keys draw the chosen numeral system's glyphs (in every commit
     // scope, including display-only). The layout data stays ASCII; the swap
@@ -29465,9 +31194,9 @@ private fun displayLabel(key: Key, state: KeyboardUiState): String {
             !state.composer.isClusterShaping &&
             (state.script.hasLetterCase || state.composer.isTransliterating) &&
             key.label.singleOrNull()?.isLetter() == true ->
-            key.label.uppercase()
+            keyUppercase(key.label)
         else -> key.label
-    }
+    }.let { label -> labelCased(label, key, state) }
     // Fixed Bengali layouts: vowel keys track the cursor context — the
     // independent letter (আ, ই …) at a word start, the kar (া, ি …) after a
     // consonant, the য়-glide (য়া) after a vowel — matching what the key
@@ -29483,8 +31212,11 @@ private fun displayLabel(key: Key, state: KeyboardUiState): String {
     // drawn here (and committed by the service's twin of this substitution),
     // so the keys are WYSIWYG and the compiled layout never varies. The
     // uppercase branch above already cased the plain letter, so shift shows
-    // the style's capital via the upper map.
-    fancyStyleFor(state)?.let { style -> return FancyStyles.transform(raw, style) }
+    // the style's capital via the upper map. Zalgo is the exception: its
+    // marks pile up over the neighbouring keys until no letter can be read,
+    // so its keys show the plain letter and only the text gets the marks.
+    fancyStyleFor(state)?.takeIf { it.assembly != FancyAssembly.ZALGO }
+        ?.let { style -> return FancyStyles.transform(raw, style) }
     // A Chinese board writing Traditional labels its Han keys that way too:
     // the word separator reads '詞, not '词 (#580), and 分词 reads 分詞.
     if (state.settings.cjk.traditionalOutput && state.language.id == "zh" && raw.any { it in '\u4e00'..'\u9fff' }) {
@@ -29742,6 +31474,15 @@ private fun CoroutineScope.noSpaceArmHold(
 }
 
 /**
+ * The key a discrete spacebar swipe presses, once per gesture: the number pad,
+ * the keyboard list, the secondary layout, or the action bound to the slot
+ * (see [pressedAction]). A bound action's label rides along, which is what a
+ * swipe that types text types.
+ */
+internal fun spaceSwipeKey(press: KeyAlternate): Key =
+    Key(label = press.label.ifEmpty { " " }, action = press.action)
+
+/**
  * Whether a plain hold on the spacebar may open the language chooser.
  *
  * Three things can want that hold and only one of them can have it. Keys the
@@ -29795,6 +31536,8 @@ private fun Modifier.pointerInputKey(
     spaceLongSwipe: SpaceSwipeAction,
     enabledLayoutIds: List<String>,
     currentLayoutId: String,
+    /** Where the swipe starts when [currentLayoutId] is not in the cycle; see [LocalLanguageAnchor]. */
+    languageAnchor: State<String?>,
     setPressed: (Boolean) -> Unit,
     onKeyPress: () -> Unit,
     onKeySound: () -> Unit,
@@ -29915,7 +31658,7 @@ private fun Modifier.pointerInputKey(
 ): Modifier = this.then(
     if (key.action == KeyAction.Space &&
         (spaceShortSwipe != SpaceSwipeAction.NONE || spaceLongSwipe != SpaceSwipeAction.NONE ||
-            spaceSwipeDownHide || textEditing.spaceSwipeUpTouchpad || textEditing.spaceSwipeUpNumpad ||
+            spaceSwipeDownHide || textEditing.spaceSwipeUp != SpaceSwipeUp.NONE ||
             key.hasFlicks())
     ) {
         Modifier.pointerInput(
@@ -29996,7 +31739,8 @@ private fun Modifier.pointerInputKey(
                     // still travelling up from that swipe, and the caret should
                     // not take it as a line up. Cleared by a pause or a turn.
                     var padSettling = false
-                    var langIndex = enabledLayoutIds.indexOf(currentLayoutId).coerceAtLeast(0)
+                    var langIndex = enabledLayoutIds.indexOf(currentLayoutId).takeIf { it >= 0 }
+                        ?: enabledLayoutIds.indexOf(languageAnchor.value).coerceAtLeast(0)
                     // The stops the language swipe walks: the layouts, plus the
                     // switcher's extra stop (see [SwitcherExtraStop]), added once
                     // a hold puts the preview up or a swipe starts walking.
@@ -30071,10 +31815,18 @@ private fun Modifier.pointerInputKey(
                         else -> minOf(longPressDelayMs, SpaceHoldPickerMs)
                     }
                     // A hold slot set to the keyboard list opens it on the hold
-                    // alone (#477), unless authored keys have the hold.
+                    // alone (#477), unless authored keys have the hold. The
+                    // Secondary layout action toggles the same way (#1230):
+                    // once, on the hold, and the drag after it is spent.
                     val holdOpensKeyboards = !holdOpensAlternates &&
-                        spaceLongSwipe == SpaceSwipeAction.KEYBOARDS
+                        (spaceLongSwipe == SpaceSwipeAction.KEYBOARDS ||
+                            spaceLongSwipe == SpaceSwipeAction.SECONDARY_LAYOUT)
                     var keyboardsOpened = false
+                    // A swipe set to another action (competitor gap list item
+                    // 3) has resolved: what it runs, held until the finger
+                    // lifts, so a panel it opens never pulls the key out from
+                    // under a finger still on it. The press goes inert meanwhile.
+                    var pendingPress: KeyAlternate? = null
                     // Issue #533: with both slots set to nothing, this gesture is
                     // here only for the swipe down to hide, and the hold keeps the
                     // space repeat it has with that switch off. Any movement (the
@@ -30097,7 +31849,7 @@ private fun Modifier.pointerInputKey(
                                     keyboardsOpened = true
                                     hidden = true
                                     if (hapticOnLongPress) onKeyPress()
-                                    onKey(Key(label = " ", action = KeyAction.InputMethodPicker))
+                                    spaceLongSwipe.pressedAction(null)?.let { onKey(spaceSwipeKey(it)) }
                                     return@launch
                                 }
                                 // List for a long ring (> 4, unless the user keeps
@@ -30218,7 +31970,8 @@ private fun Modifier.pointerInputKey(
                             continue
                         }
                         // The keyboard list is up: nothing left for this finger to do.
-                        if (keyboardsOpened) {
+                        // Nor once a bound action waits for the lift.
+                        if (keyboardsOpened || pendingPress != null) {
                             change.consume()
                             continue
                         }
@@ -30339,9 +32092,11 @@ private fun Modifier.pointerInputKey(
                             // A swipe up for the number pad, SwiftKey's way:
                             // discrete like the NUMPAD slot below, past the
                             // same debounce the touchpad waits for.
-                            if (textEditing.spaceSwipeUpNumpad && !textEditing.spaceSwipeUpTouchpad &&
-                                -totalDy > abs(totalDx)
-                            ) {
+                            // Or the action bound to the swipe up (competitor gap
+                            // list item 3), the same distance, run at the lift.
+                            val upPress = textEditing.spaceSwipeUp
+                                .pressedAction(textEditing.spaceSwipeBinding(SpaceSwipeSlot.UP))
+                            if (upPress != null && -totalDy > abs(totalDx)) {
                                 if (-totalDy > swipeUpPx) {
                                     if (holdPreviewShown) {
                                         holdPreviewShown = false
@@ -30349,14 +32104,17 @@ private fun Modifier.pointerInputKey(
                                         setPreviewExtraStop(false)
                                     }
                                     onKeyHaptic()
-                                    onKey(Key(label = " ", action = KeyAction.Numpad))
-                                    hidden = true
                                     change.consume()
-                                    break
+                                    if (textEditing.spaceSwipeUp == SpaceSwipeUp.NUMPAD) {
+                                        onKey(Key(label = " ", action = KeyAction.Numpad))
+                                        hidden = true
+                                        break
+                                    }
+                                    pendingPress = upPress
                                 }
                                 continue
                             }
-                            if (textEditing.spaceSwipeUpTouchpad && -totalDy > abs(totalDx)) {
+                            if (textEditing.spaceSwipeUp == SpaceSwipeUp.TOUCHPAD && -totalDy > abs(totalDx)) {
                                 if (-totalDy > swipeUpPx) {
                                     touchpadActivatedAt = change.uptimeMillis
                                     action = SpaceSwipeAction.CURSOR
@@ -30401,13 +32159,30 @@ private fun Modifier.pointerInputKey(
                                 lastY = change.position.y
                                 accumulated = 0f
                                 accumulatedY = 0f
-                                if (action == SpaceSwipeAction.KEYBOARDS) {
+                                if (action == SpaceSwipeAction.KEYBOARDS ||
+                                    action == SpaceSwipeAction.SECONDARY_LAYOUT
+                                ) {
                                     // Discrete, like the numpad below: the list
-                                    // opens once and the gesture goes inert.
-                                    onKey(Key(label = " ", action = KeyAction.InputMethodPicker))
+                                    // opens (or the secondary layout toggles)
+                                    // once and the gesture goes inert.
+                                    action.pressedAction(null)?.let { onKey(spaceSwipeKey(it)) }
                                     hidden = true
                                     change.consume()
                                     break
+                                }
+                                if (action == SpaceSwipeAction.ACTION) {
+                                    // The slot's bound action, once, at the lift.
+                                    // Nothing bound: as inert as NONE. Which slot
+                                    // by the same hold time that chose candidate.
+                                    val slot = if (change.uptimeMillis - down.uptimeMillis < spaceHoldMs) {
+                                        SpaceSwipeSlot.SHORT
+                                    } else {
+                                        SpaceSwipeSlot.LONG
+                                    }
+                                    pendingPress = action.pressedAction(textEditing.spaceSwipeBinding(slot))
+                                    if (pendingPress != null) onKeyHaptic()
+                                    change.consume()
+                                    continue
                                 }
                                 if (action == SpaceSwipeAction.NUMPAD) {
                                     // Discrete action (A39): open the numeric panel once
@@ -30699,7 +32474,12 @@ private fun Modifier.pointerInputKey(
                     setLanguagePreview(null)
                     setPreviewExtraStop(false)
                     val armKey = arm?.let { key.flickKey(it) }
+                    val press = pendingPress
                     when {
+                        // A swipe bound to an action runs it now the finger is
+                        // up, and types no space. A cancelled pointer (no lift)
+                        // runs nothing.
+                        press != null -> if (liftAt > 0L) onKey(spaceSwipeKey(press))
                         // A swipe-down already dismissed the keyboard: the finger
                         // lifting must not also type a space.
                         hidden -> {}
@@ -30783,7 +32563,10 @@ private fun Modifier.pointerInputKey(
             // so everything below treats them as it treats a layout's arms.
             @Suppress("NAME_SHADOWING")
             val key = if (key.action.deletesBackward() && textEditing.deleteLineSwipes) {
-                key.withDeleteLineArms(up = !textEditing.backspaceSwipeUpClears)
+                key.withDeleteLineArms(
+                    up = textEditing.deleteLineSwipeUp && !textEditing.backspaceSwipeUpClears,
+                    down = textEditing.deleteLineSwipeDown,
+                )
             } else {
                 key
             }
@@ -30873,6 +32656,9 @@ private fun Modifier.pointerInputKey(
                 var flicked = false
                 var armRepeat: Job? = null
                 var armRepeated = false
+                // Lines a delete-line arm has selected to show what the lift
+                // will take (#1248), 0 while none are; held out, one more a tick.
+                var linesShown = 0
                 val repeat = scope.launch {
                     delay(keyRepeat.startDelayMs.toLong())
                     longPressFired = true
@@ -30909,10 +32695,23 @@ private fun Modifier.pointerInputKey(
                                 setFlickDirection(live)
                                 armRepeat?.cancel()
                                 armRepeat = null
+                                // Off a delete-line arm: the lines it showed go back.
+                                if (linesShown > 0) {
+                                    deleteSwipe.onCancel()
+                                    linesShown = 0
+                                }
                                 if (live != null) {
                                     flicked = true
                                     repeat.cancel()
                                     onKeyHaptic()
+                                    // A delete-line arm shows what it will take
+                                    // before the lift takes it, as the sideways
+                                    // swipe does (#1248).
+                                    val lineForward = key.flickKey(live)?.deletesLinesForward()
+                                    if (lineForward != null && previewing) {
+                                        val covered = deleteSwipe.onSelectLines(1, lineForward)
+                                        if (covered > 0) linesShown = covered else if (covered == 0) deleteSwipe.onCancel()
+                                    }
                                     // A forward delete or an arrow on the arm keeps
                                     // going while the finger stays out on it.
                                     armRepeat = key.flickKey(live)?.takeIf { it.flickArmRepeats() }?.let { armKey ->
@@ -30921,7 +32720,13 @@ private fun Modifier.pointerInputKey(
                                             armRepeated = true
                                             while (true) {
                                                 repeatFeedback(vibrateOnRepeat, soundOnRepeat, onKeyPress, onKeySound, onKeyHaptic)
-                                                onKeyRepeat(armKey)
+                                                if (linesShown > 0 && lineForward != null) {
+                                                    // Held out, the preview takes one more line a tick.
+                                                    val more = deleteSwipe.onSelectLines(linesShown + 1, lineForward)
+                                                    if (more > linesShown) linesShown = more
+                                                } else {
+                                                    onKeyRepeat(armKey)
+                                                }
                                                 // A caret move steps at the caret's pace, a delete at the delete's.
                                                 val stepMs = if (armKey.action.repeatsAsCaretMove()) textEditing.repeatMs else keyRepeat.deleteMs
                                                 delay(stepMs.toLong())
@@ -31027,7 +32832,7 @@ private fun Modifier.pointerInputKey(
                     if (!lifted) {
                         repeat.cancel()
                         armRepeat?.cancel()
-                        if (clearArmed) deleteSwipe.onCancel()
+                        if (clearArmed || linesShown > 0) deleteSwipe.onCancel()
                         if (flicked) setFlickDirection(null)
                         setPressed(false)
                     }
@@ -31039,6 +32844,8 @@ private fun Modifier.pointerInputKey(
                 onKeyRelease()
                 val armKey = arm?.let { key.flickKey(it) }
                 when {
+                    // A delete-line arm's preview: the lift deletes what it shows (#1248).
+                    armKey != null && linesShown > 0 -> deleteSwipe.onCommit()
                     // The arm already ran while held, or it runs now.
                     armRepeated -> Unit
                     armKey != null -> onKey(armKey)
@@ -31875,9 +33682,14 @@ internal fun EmojiSearchField(
     val canDeleteField = LocalCanDeleteField.current
     val scope = rememberCoroutineScope()
     val vibrateOnRepeat = state.settings.feedback.vibrateOnRepeat
+    // The theme's own search-bar colours where it names them (gap list item
+    // 28), else the card colour and strip text the bar always drew with.
+    val kb = LocalKbTheme.current
+    val ink = kb.emojiSearchInk(MaterialTheme.colorScheme.onSurface)
+    val quietInk = kb.emojiSearchText?.copy(alpha = 0.7f) ?: MaterialTheme.colorScheme.onSurfaceVariant
     Row(
         modifier = modifier
-            .background(MaterialTheme.colorScheme.surfaceContainer, RoundedCornerShape(20.dp))
+            .background(kb.emojiSearchFill(MaterialTheme.colorScheme.surfaceContainer), RoundedCornerShape(20.dp))
             .clickable { onEmojiQueryTap() }
             .padding(horizontal = 12.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -31886,15 +33698,15 @@ internal fun EmojiSearchField(
             Icons.Outlined.Search,
             contentDescription = null,
             modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            tint = quietInk,
         )
         Box(modifier = Modifier.width(8.dp))
         SearchQueryText(
             query = state.emojiQuery,
             placeholder = stringResource(R.string.ime_emoji_search_hint),
             active = state.emojiSearchActive,
-            textColor = MaterialTheme.colorScheme.onSurface,
-            placeholderColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            textColor = ink,
+            placeholderColor = quietInk,
             fontSize = 14.sp,
             modifier = Modifier.weight(1f),
         )
@@ -31908,7 +33720,7 @@ internal fun EmojiSearchField(
                     .padding(start = 8.dp)
                     .size(18.dp)
                     .clickable { onClear() },
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = quietInk,
             )
         }
         // While searching, the keys type into the query — so an emoji just
@@ -31944,7 +33756,7 @@ internal fun EmojiSearchField(
                             },
                         )
                     },
-                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                tint = quietInk,
             )
         }
     }
@@ -31952,17 +33764,41 @@ internal fun EmojiSearchField(
 
 /**
  * The face to show for an emoji [base] in the panel grid and in search: the
- * global default skin tone, or the last-used variant when that override is
- * enabled. Mirrors the IME's `applyEmojiTone`, so what is drawn is what a tap
- * commits.
+ * last-used variant when that override is enabled, else the default gender
+ * and then the default skin tone (either may be random, see
+ * [EmojiDefaultFace]). Mirrors the IME's `applyEmojiTone`, so what is drawn is
+ * what a tap commits.
  */
 internal fun emojiDisplay(state: KeyboardUiState, base: String): String {
     val emoji = state.settings.emoji
-    return state.emojiVariants.tonedDisplay(
+    if (emoji.toneOverrideByLastUsed) state.emojiVariantPrefs[base]?.let { return it }
+    return emojiDefaultFace(state.emojiCatalog, state.emojiVariants, emoji, base)
+}
+
+/**
+ * [base] with the default gender and skin tone of [emoji] applied, shared by
+ * the panel ([emojiDisplay]) and the service's suggestions.
+ */
+internal fun emojiDefaultFace(
+    catalog: List<EmojiEntry>,
+    variants: EmojiVariantIndex,
+    emoji: EmojiSettings,
+    base: String,
+): String {
+    val gender = emoji.defaultGender
+    val tone = emoji.defaultSkinTone.toneIndex
+    if (gender == EmojiDefaultGender.PERSON && tone == 0) return base
+    val children = if (gender == EmojiDefaultGender.PERSON) {
+        emptyList()
+    } else {
+        EmojiDefaultFace.children(catalog)[base].orEmpty()
+    }
+    return EmojiDefaultFace.resolve(
         base = base,
-        tone = emoji.defaultSkinTone.toneIndex,
-        preferred = state.emojiVariantPrefs[base],
-        overrideWithPreferred = emoji.toneOverrideByLastUsed,
+        children = children,
+        variants = variants,
+        gender = EmojiDefaultFace.Gender.valueOf(gender.name),
+        tone = tone,
     )
 }
 
@@ -32814,6 +34650,8 @@ data class ToolHoldCallbacks(
     val toolbox: ToolboxCallbacks = ToolboxCallbacks(),
     /** The apps on the toolbar (#1159): their faces, and opening one. */
     val apps: ToolbarAppCallbacks = ToolbarAppCallbacks(),
+    /** The user's own buttons (#1213, #1236): a tap runs one. */
+    val custom: CustomButtonCallbacks = CustomButtonCallbacks(),
     /**
      * The selection bar's callbacks (a chip, a ladder pick, an AI button).
      * Ride this bundle for the reason [dictionaryBar] does: it is the nearest
@@ -32904,6 +34742,10 @@ data class SnippetPanelCallbacks(
     val onPickerBack: () -> Unit = {},
     /** The header's search was tapped: open it, or close and clear it (#471). */
     val onSearchToggle: () -> Unit = {},
+    /** The fill-in row's arrow or tick: keep this answer and move on, or insert. */
+    val onAskNext: () -> Unit = {},
+    /** The fill-in row's ✕: the snippet inserts nothing. */
+    val onAskCancel: () -> Unit = {},
 )
 
 /**
@@ -33227,6 +35069,20 @@ private fun SnippetTile(
                     )
                 }
             }
+        }
+        val image = snippet.image
+        if (image != null) {
+            // The picture is the snippet; its name is already above it.
+            SnippetImageThumb(
+                image = image,
+                label = snippet.label,
+                modifier = Modifier
+                    .padding(top = 4.dp)
+                    .fillMaxWidth()
+                    .height(if (titleOnly) 28.dp else 48.dp)
+                    .clip(RoundedCornerShape(6.dp)),
+            )
+            return@Column
         }
         if (titleOnly) return@Column
         Text(
@@ -33740,6 +35596,8 @@ internal fun ClipActionCircle(
 internal fun ClipInfoPopup(
     item: ClipItem,
     onSendSticker: (() -> Unit)? = null,
+    /** A picture clip's Share: Android's share sheet, which a tap used to open (#1178). */
+    onShare: (() -> Unit)? = null,
     /** Opens the clip in the panel's editor; null for a clip that has no text to edit. */
     onEdit: (() -> Unit)? = null,
     /** Deletes the clip; null while a swipe does that instead (#344). */
@@ -33886,6 +35744,9 @@ internal fun ClipInfoPopup(
                                 }
                                 onView?.let {
                                     ClipTextActionIcon(Icons.Outlined.Visibility, stringResource(R.string.ime_clip_view_image), tint, it)
+                                }
+                                onShare?.let {
+                                    ClipTextActionIcon(Icons.Outlined.Share, stringResource(R.string.ime_clip_share_image), tint, it)
                                 }
                                 // Before Extract text, as #807 asks.
                                 onTranslateImage?.let {

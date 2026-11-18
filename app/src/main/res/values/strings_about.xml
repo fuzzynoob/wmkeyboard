@@ -12,6 +12,10 @@
 
     <!-- About screen: the App group. -->
     <string name="about_app_title">App</string>
+    <!-- About screen: the group with Statistics, Storage, Resources, Diagnostics and the like. -->
+    <string name="about_data_title">Data and diagnostics</string>
+    <!-- About screen: the group of switches for the settings app itself (how many settings show, its language, its name in the launcher). -->
+    <string name="about_settings_app_title">Settings app</string>
     <string name="about_version_title">Version</string>
     <string name="about_whats_new_subtitle">What changed in <xliff:g id="version" example="0.6.2">%1$s</xliff:g></string>
     <!--
@@ -21,6 +25,11 @@
       %4$d = the numeric version code.
     -->
     <string name="about_version_subtitle"><xliff:g id="flavour" example="Standard">%1$s</xliff:g> build (<xliff:g id="build_type" example="release">%2$s</xliff:g><xliff:g id="channel" example=" · Play Store">%3$s</xliff:g>) · code <xliff:g id="version_code" example="3">%4$d</xliff:g></string>
+    <!--
+      Second line of the version row's subtitle: the source commit this build was made from.
+      %1$s = short commit hash (not translated), %2$s = the commit's date, YYYY-MM-DD.
+    -->
+    <string name="about_version_commit">Commit <xliff:g id="commit" example="ca9cd11053">%1$s</xliff:g> · <xliff:g id="date" example="2026-11-14">%2$s</xliff:g></string>
     <!-- The row that brings back the bar walking through the settings the latest update added (#970). -->
     <string name="about_new_settings_title">New settings</string>
     <plurals name="about_new_settings_subtitle">
@@ -282,6 +291,7 @@
     <!-- dictionary_oss is the name of the file inside mozc. -->
     <string name="about_pack_mozc_used">The Japanese kana to kanji conversion dictionary (dictionary_oss)</string>
     <string name="about_pack_hunspell_tr_used">Turkish spelling rules, downloaded on request and unchanged</string>
+    <string name="about_pack_ayaspell_used">The Arabic spelling dictionary, downloaded on request and unchanged</string>
     <string name="about_pack_catt_used">Adding tashkeel to Arabic: its encoder-only model, exported to ONNX and quantized, downloads on request</string>
     <string name="about_pack_phonikud_used">Adding niqqud to Hebrew: the model downloads on request, and its character list ships with the app</string>
     <string name="about_pack_eyo_used">The list of Russian words Restore ё reads, downloaded on request and unchanged</string>
@@ -376,4 +386,37 @@
     <string name="tips_thanks_anonymous">Your support means a lot. You stay off the list, as you asked.</string>
     <string name="tips_again">Tip again</string>
 
+
+    <!-- The feedback form (#1242): About › Feedback, or a shake or screenshot in the app. -->
+    <string name="feedback_open_title">Send feedback</string>
+    <string name="feedback_open_subtitle">Report a bug, suggest an idea or ask a question, as a GitHub issue or in the Telegram group</string>
+    <string name="feedback_title">Send feedback</string>
+    <string name="feedback_kind_bug">Bug</string>
+    <string name="feedback_kind_idea">Idea</string>
+    <string name="feedback_kind_question">Question</string>
+    <string name="feedback_text_label">What do you want to tell us?</string>
+    <string name="feedback_text_hint_bug">What happened, and what did you expect?</string>
+    <string name="feedback_text_hint_idea">What would you like the keyboard to do?</string>
+    <string name="feedback_text_hint_question">What do you want to know?</string>
+    <string name="feedback_attach_screenshot">Attach this screen</string>
+    <string name="feedback_screenshot_desc">The screen the report is about</string>
+    <string name="feedback_send_note">Nothing is sent from here. GitHub, Telegram or your mail app opens with your report filled in, and you send it there. Your build, Android version and phone model go with it.</string>
+    <string name="feedback_send_github">GitHub issue</string>
+    <string name="feedback_send_telegram">Telegram</string>
+    <string name="feedback_send_email">Email</string>
+    <string name="feedback_screenshot_saved">The screen is saved in your gallery, in Pictures › WM Keyboard. Attach it to the issue from there.</string>
+    <string name="feedback_screenshot_not_saved">The screen could not be saved on this Android version. Take a screenshot to attach it yourself.</string>
+    <string name="feedback_topic_copied">Your report is copied. Paste it in the topic that opens.</string>
+    <string name="feedback_topic_copied_with_picture">Your report is copied, and the screen is in Pictures › WM Keyboard. Paste the text in the topic that opens, and attach the picture.</string>
+    <string name="feedback_no_browser">No app here can open the link.</string>
+    <string name="feedback_no_telegram">No Telegram app is installed.</string>
+    <string name="feedback_shortcuts_group">Feedback shortcuts</string>
+    <string name="feedback_shake_title">Shake to send feedback</string>
+    <string name="feedback_shake_subtitle">Shake the phone while this app is open to report what is on the screen</string>
+    <string name="feedback_screenshot_title">Screenshot to send feedback</string>
+    <string name="feedback_screenshot_subtitle">Taking a screenshot of this app opens the feedback form with that screen</string>
+    <string name="feedback_screenshot_needs_14">Needs Android 14 or later, which tells an app when it is in a screenshot</string>
+    <string name="feedback_telegram_route_title">Send to Telegram by</string>
+    <string name="feedback_telegram_route_share">Telegram\'s share list</string>
+    <string name="feedback_telegram_route_topic">The topic\'s link</string>
 </resources>

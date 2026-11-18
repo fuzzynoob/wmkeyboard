@@ -79,6 +79,8 @@
     <string name="ime_notes_tag_hint">Tag name</string>
     <!-- Word and character counts under the editor. -->
     <string name="ime_notes_word_count"><xliff:g id="words" example="12">%1$d</xliff:g> words · <xliff:g id="chars" example="80">%2$d</xliff:g> chars</string>
+    <!-- The editor's chip that types the clipboard's text into the note. -->
+    <string name="ime_notes_paste_desc">Paste</string>
     <string name="ime_notes_md_bold_desc">Bold</string>
     <string name="ime_notes_md_italic_desc">Italic</string>
     <string name="ime_notes_md_bullet_desc">Bulleted list</string>
@@ -99,6 +101,30 @@
     <plurals name="ime_notes_archived">
         <item quantity="one">Note archived</item>
         <item quantity="other">%d notes archived</item>
+    </plurals>
+    <!-- The notes assistant (#1293): headings, summaries, key details, reminders, related items, study decks -->
+    <string name="ime_notes_assist_heading_busy">Thinking of a heading…</string>
+    <string name="ime_notes_assist_heading_suggestion">Heading: %1$s</string>
+    <string name="ime_notes_assist_heading_use_action">Use</string>
+    <string name="ime_notes_assist_heading_dismiss_desc">Not this heading</string>
+    <string name="ime_notes_assist_summary_label">Summary</string>
+    <string name="ime_notes_assist_summarize_action">Summarize</string>
+    <string name="ime_notes_assist_summarize_again_action">Again</string>
+    <string name="ime_notes_assist_summary_busy">Summarizing on your phone…</string>
+    <string name="ime_notes_assist_reminders_label">Coming up</string>
+    <string name="ime_notes_assist_remind_chip">Remind me: %1$s · %2$s</string>
+    <string name="ime_notes_assist_details_label">Key details</string>
+    <string name="ime_notes_assist_related_label">Related</string>
+    <string name="ime_notes_assist_deck_action">Make a study deck</string>
+    <plurals name="ime_notes_assist_deck_action_count">
+        <item quantity="one">Make a study deck (%d card)</item>
+        <item quantity="other">Make a study deck (%d cards)</item>
+    </plurals>
+    <string name="ime_notes_assist_deck_working_toast">Making a study deck…</string>
+    <string name="ime_notes_assist_deck_empty_toast">No terms with meanings to make cards from</string>
+    <plurals name="ime_notes_assist_deck_made_toast">
+        <item quantity="one">Study deck \"%2$s\" made with %1$d card. Find it in Vocabulary.</item>
+        <item quantity="other">Study deck \"%2$s\" made with %1$d cards. Find it in Vocabulary.</item>
     </plurals>
 
 </resources>

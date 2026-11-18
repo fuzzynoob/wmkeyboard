@@ -1,9 +1,9 @@
 package com.wasimaster.wmkeyboard.core.snippets
 
+import com.wasimaster.wmkeyboard.core.regex.GuardedRegex
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
 import java.util.regex.Pattern
-import java.util.regex.PatternSyntaxException
 
 /**
  * The pattern half of snippet expansion: a snippet whose trigger is a regular
@@ -193,17 +193,15 @@ object SnippetMatcher {
 
     /** Checks a pattern the way [SnippetIndex] will, without building one. */
     fun validate(pattern: String): PatternError? {
-        val source = pattern.trim()
-        if (source.isEmpty()) return PatternError(Fault.EMPTY)
-        if (source.length > MAX_PATTERN_LENGTH) return PatternError(Fault.TOO_LONG)
-        if (hasBackreference(source)) return PatternError(Fault.BACKREFERENCE)
-        if (hasNestedQuantifier(source)) return PatternError(Fault.NESTED_QUANTIFIER)
-        return try {
-            compile(source)
-            null
-        } catch (e: PatternSyntaxException) {
-            PatternError(Fault.SYNTAX, e.description)
+        val error = GuardedRegex.check(pattern, MAX_PATTERN_LENGTH) ?: return null
+        val fault = when (error.fault) {
+            GuardedRegex.Fault.EMPTY -> Fault.EMPTY
+            GuardedRegex.Fault.TOO_LONG -> Fault.TOO_LONG
+            GuardedRegex.Fault.SYNTAX -> Fault.SYNTAX
+            GuardedRegex.Fault.BACKREFERENCE -> Fault.BACKREFERENCE
+            GuardedRegex.Fault.NESTED_QUANTIFIER -> Fault.NESTED_QUANTIFIER
         }
+        return PatternError(fault, error.description)
     }
 
     /**
@@ -262,87 +260,55 @@ object SnippetMatcher {
     }
 
     /** Compiles [source] the way every pattern in this file is compiled. */
-    internal fun compile(source: String): Pattern =
-        Pattern.compile(source, Pattern.CASE_INSENSITIVE or Pattern.UNICODE_CASE)
-
-    /** True when [source] refers back to an earlier group. */
-    private fun hasBackreference(source: String): Boolean {
-        var i = 0
-        while (i < source.length - 1) {
-            if (source[i] == '\\') {
-                val next = source[i + 1]
-                if (next in '1'..'9' || next == 'k') return true
-                i += 2
-                continue
-            }
-            i++
-        }
-        return false
-    }
+    internal fun compile(source: String): Pattern = GuardedRegex.compile(source)
 
     /**
-     * True when [source] quantifies a group whose own body is quantified, the
-     * `(a+)+` shape that turns a hundred characters into an unbounded search.
+     * The numbers of [source]'s groups that may only hold a name (#1291): the
+     * named groups called `name`, or `name` and a number (`name2`), as in
+     * `^hello (?<name>.+)$`. Such a group still counts as `$1` in the text.
      *
-     * This is a screen, not a proof: it looks only at the group that a
-     * quantifier closes over. The step budget in [SnippetIndex] is what
-     * actually protects the keyboard.
+     * `^hello (.+)$` turned "hello am" into "Hello, Am! Nice to meet you."; a
+     * name group makes the keyboard ask whether each word it caught reads as a
+     * name first (see [SnippetIndex.matchPattern]).
+     *
+     * Counted off the source rather than asked of the pattern, because
+     * `Matcher.group(String)` arrived on Android only at API 26. Escapes and
+     * character classes are skipped; any other `(?` opens no group, except
+     * `(?<` followed by a letter, which is a named one.
      */
-    private fun hasNestedQuantifier(source: String): Boolean {
-        for (close in source.indices) {
-            if (source[close] != ')' || isEscaped(source, close)) continue
-            val quantifier = source.getOrNull(close + 1) ?: continue
-            if (quantifier !in QUANTIFIERS) continue
-            val open = matchingOpen(source, close) ?: continue
-            if (bodyIsQuantified(source, open + 1, close)) return true
-        }
-        return false
-    }
-
-    /** True when the character at [index] is spelled out by a backslash. */
-    private fun isEscaped(source: String, index: Int): Boolean {
-        var slashes = 0
-        var i = index - 1
-        while (i >= 0 && source[i] == '\\') {
-            slashes++
-            i--
-        }
-        return slashes % 2 == 1
-    }
-
-    /** The `(` that [close] closes, or null when the pattern is unbalanced. */
-    private fun matchingOpen(source: String, close: Int): Int? {
-        var depth = 0
-        for (i in close downTo 0) {
-            if (isEscaped(source, i)) continue
-            when (source[i]) {
-                ')' -> depth++
-                '(' -> {
-                    depth--
-                    if (depth == 0) return i
-                }
-                else -> Unit
-            }
-        }
-        return null
-    }
-
-    /** True when the group body in `[start, end)` quantifies anything itself. */
-    private fun bodyIsQuantified(source: String, start: Int, end: Int): Boolean {
+    fun nameGroupsOf(source: String): IntArray {
+        if (!source.contains("(?<")) return NO_GROUPS
+        val found = ArrayList<Int>(2)
+        var count = 0
         var inClass = false
-        var i = start
-        while (i < end) {
+        var i = 0
+        while (i < source.length) {
             val c = source[i]
             when {
                 c == '\\' -> i++
+                inClass -> if (c == ']') inClass = false
                 c == '[' -> inClass = true
-                c == ']' -> inClass = false
-                !inClass && c in QUANTIFIERS -> return true
+                c == '(' && source.getOrNull(i + 1) != '?' -> count++
+                c == '(' && source.getOrNull(i + 2) == '<' && source.getOrNull(i + 3)?.isLetter() == true -> {
+                    count++
+                    val close = source.indexOf('>', startIndex = i + 3)
+                    if (close > 0 && isNameGroup(source.substring(i + 3, close))) found += count
+                }
             }
             i++
         }
-        return false
+        return found.toIntArray()
     }
+
+    /** True for a group name that asks for a name: `name`, or `name` and digits. */
+    private fun isNameGroup(group: String): Boolean =
+        group.startsWith(NAME_GROUP, ignoreCase = true) &&
+            group.drop(NAME_GROUP.length).all { it in '0'..'9' }
+
+    /** What a group is called when it may only hold a name. */
+    const val NAME_GROUP = "name"
+
+    private val NO_GROUPS = IntArray(0)
 
     /**
      * A snippet text with its capture references blanked out.
@@ -532,6 +498,8 @@ internal class CompiledSnippet(
     val head: String?,
     /** Words behind the cursor this snippet may reach across. */
     val words: Int,
+    /** Groups that may only hold a name (#1291); see [SnippetMatcher.nameGroupsOf]. */
+    val nameGroups: IntArray = IntArray(0),
 )
 
 /**
@@ -817,6 +785,11 @@ class SnippetIndex private constructor(
      * for at different moments and one must never answer for the other — a
      * pattern that expands by itself has no business appearing as a chip
      * mid-word, and one that asks first must not fire on the space.
+     *
+     * [isName] says whether one word reads as a name, for the groups a pattern
+     * names `name` (#1291): a match whose name group holds a word that does
+     * not is no match, and the search goes on. Null lets any word through, as
+     * the settings screen's tester does, having no dictionary to ask.
      */
     fun matchPattern(
         window: CharSequence,
@@ -824,6 +797,7 @@ class SnippetIndex private constructor(
         now: Long = System.currentTimeMillis(),
         context: SnippetStore.Companion.Context = SnippetStore.Companion.Context(),
         confirm: Boolean = false,
+        isName: ((String) -> Boolean)? = null,
     ): SnippetMatch? {
         if (if (confirm) !hasConfirmPatterns else !hasAutoPatterns) return null
         val whole = window.toString()
@@ -849,7 +823,7 @@ class SnippetIndex private constructor(
         // says about the field.
         val cutAtCap = trimmed.length < line.length
         val anchored = !cutAtCap && (atFieldStart || line.length < whole.length)
-        return search(w, spanStarts(w), anchored, now, context, confirm)
+        return search(w, spanStarts(w), anchored, now, context, confirm, isName)
     }
 
     /**
@@ -889,6 +863,7 @@ class SnippetIndex private constructor(
         now: Long,
         context: SnippetStore.Companion.Context,
         confirm: Boolean,
+        isName: ((String) -> Boolean)?,
     ): SnippetMatch? {
         var attempts = 0
         for (candidate in starts) {
@@ -909,7 +884,7 @@ class SnippetIndex private constructor(
                         continue
                     }
                     if (attempts++ >= SnippetMatcher.MAX_ATTEMPTS) return null
-                    val hit = run(compiled, span, w.length - start, now, context)
+                    val hit = run(compiled, span, w.length - start, now, context, isName)
                     if (hit != null) return hit
                 }
             }
@@ -924,15 +899,25 @@ class SnippetIndex private constructor(
         consumed: Int,
         now: Long,
         context: SnippetStore.Companion.Context,
+        isName: ((String) -> Boolean)?,
     ): SnippetMatch? {
-        val matcher = compiled.pattern.matcher(StepBudget(span, SnippetMatcher.MAX_STEPS))
+        val matcher = compiled.pattern.matcher(GuardedRegex.budgeted(span, SnippetMatcher.MAX_STEPS))
         val matched = try {
             matcher.matches()
-        } catch (_: StepBudgetExceeded) {
+        } catch (_: GuardedRegex.Runaway) {
             stopped.add(compiled.snippet.id)
             return null
         }
         if (!matched) return null
+        // A name group holding a word that is no name: "hello am" is not a
+        // greeting for someone called Am (#1291).
+        if (isName != null) {
+            for (index in compiled.nameGroups) {
+                if (index > matcher.groupCount()) continue
+                val caught = matcher.group(index) ?: continue
+                if (!isNameText(caught, isName)) return null
+            }
+        }
         val groups = minOf(matcher.groupCount(), SnippetMatcher.MAX_GROUPS)
         // Read out now, while the matcher still holds the match. The snippet's
         // other expansions are templated with exactly these, so every chip on
@@ -951,6 +936,22 @@ class SnippetIndex private constructor(
             consumedText = span,
             groups = captured,
         )
+    }
+
+    /**
+     * Whether every word in [text] reads as a name to [isName], with the
+     * punctuation around each word left out ("John," is John). Text with no
+     * word in it is no name.
+     */
+    private fun isNameText(text: String, isName: (String) -> Boolean): Boolean {
+        var any = false
+        for (raw in text.split(' ', '\t')) {
+            val word = raw.trim { !SnippetMatcher.isTriggerWordChar(it) && it != '-' }
+            if (word.isEmpty()) continue
+            any = true
+            if (!isName(word)) return false
+        }
+        return any
     }
 
     companion object {
@@ -1027,6 +1028,7 @@ class SnippetIndex private constructor(
                     head = SnippetMatcher.headOf(source),
                     words = snippet.triggerWords.takeIf { it in 1..SnippetMatcher.MAX_WORDS }
                         ?: SnippetMatcher.DEFAULT_WORDS,
+                    nameGroups = SnippetMatcher.nameGroupsOf(source),
                 )
                 val head = compiled.head
                 if (head == null) {
@@ -1043,33 +1045,4 @@ class SnippetIndex private constructor(
             return SnippetIndex(plain, prefixed, suffixed, immediate, immediateWords, byHead, ungated, asking)
         }
     }
-}
-
-/**
- * Stops a matcher that will not stop itself.
- *
- * `java.util.regex` offers no timeout, but it reads the input one character at
- * a time through [get], including on every backtracking step. Counting those
- * reads bounds the work a pattern can do without changing what it matches.
- */
-private class StepBudget(private val source: CharSequence, private val budget: Int) : CharSequence {
-
-    private var steps = 0
-
-    override val length: Int get() = source.length
-
-    override fun get(index: Int): Char {
-        if (++steps > budget) throw StepBudgetExceeded()
-        return source[index]
-    }
-
-    override fun subSequence(startIndex: Int, endIndex: Int): CharSequence =
-        source.subSequence(startIndex, endIndex)
-
-    override fun toString(): String = source.toString()
-}
-
-/** Thrown out of a runaway matcher. Carries no stack: this is the typing path. */
-private class StepBudgetExceeded : RuntimeException() {
-    override fun fillInStackTrace(): Throwable = this
 }

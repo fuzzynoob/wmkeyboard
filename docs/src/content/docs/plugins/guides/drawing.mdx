@@ -1,0 +1,228 @@
+---
+title: "Drawing the panel"
+description: "How render() works, how to lay widgets out, and which widget to reach for."
+sidebar:
+  label: "Drawing the panel"
+  order: 5.01
+---
+
+Your plugin never draws pixels. It describes the panel with widgets, and the
+keyboard draws them in the user's theme. This page covers how that works and
+which widget fits which job. Every widget and its arguments are listed in the
+[API reference](/plugins/wm-package/#ui).
+
+## render() describes the panel
+
+Write a function called `render`. The keyboard calls it when the panel opens,
+and again after every event: a press, a change, a timer, an answer from the
+internet. Each call draws the panel from scratch.
+
+```python
+from wm import plugin, ui
+
+state = plugin.state(count=0)
+
+
+def add():
+    state.count += 1
+
+
+def render():
+    with ui.column():
+        ui.title(f"{state.count} presses")
+        ui.button("Add one", on_click=add)
+```
+
+So `render()` should only read state and create widgets. Change state in
+callbacks, not in `render()`. A `render()` that changes state, or that calls
+the internet, runs again and again.
+
+## Two ways to build the tree
+
+**With blocks.** Open a container with `with`, and every widget you create
+inside it goes in, in order:
+
+```python
+def render():
+    with ui.card(title="Today"):
+        ui.stat("Now", "21°", caption="Dhaka")
+        with ui.row():
+            ui.button("Refresh", on_click=refresh)
+            ui.button("Share", on_click=share_it)
+```
+
+**Nested calls.** Pass children as arguments, and return the top widget:
+
+```python
+def render():
+    return ui.card(
+        ui.stat("Now", "21°", caption="Dhaka"),
+        ui.row(
+            ui.button("Refresh", on_click=refresh),
+            ui.button("Share", on_click=share_it),
+        ),
+        title="Today",
+    )
+```
+
+Both give the same panel. `with` blocks read better when there are `if` and
+`for` inside. You can mix them. When `render()` returns nothing, the panel is
+everything you created at the top level.
+
+## Layout
+
+| Widget | Use it for |
+|---|---|
+| `ui.column(...)` | Things top to bottom. The usual outer container. |
+| `ui.row(..., weights=[3, 1])` | Things side by side. A row of buttons splits the width evenly; next to a box, a button keeps its own width. `weights` shares out the width yourself; a weight of `0` keeps that child at its own width, as `weights=[1, 0]` does for a box with an icon button beside it. A button on a line of its own runs the panel's width. A one-character label (a symbol palette's `∫`, `≤`) is drawn larger than a word. A label too long for its button narrows its letters first, then gets smaller, and is cut short with "…" only after both; the user can change that under Appearance › Toolbar › Long words. |
+| `ui.grid(..., columns=3)` | A grid of equal cells: buttons, stats, pictures. |
+| `ui.card(..., title=, on_click=)` | A group that belongs together. Pressable with `on_click`. |
+| `ui.section(title, ..., collapsible=True)` | A titled part of a long panel that the user can fold. |
+| `ui.scroll(..., height=200)` | A part that scrolls on its own. |
+| `ui.tabs(ui.page("One", ...), ui.page("Two", ...))` | Pages the user switches between. |
+| `ui.spacer(16)`, `ui.divider()` | Space and a line. |
+
+`gap=` sets the space between children of a column or row, and `align=` lines
+them up.
+
+## Text
+
+- `ui.title(text)` and `ui.label(text)` show text. `ui.caption(text)` is small
+  and quiet. `ui.label(text, style=, color=)` covers the rest.
+- `ui.markdown(text)` shows simple Markdown: `#` headings, `-` bullets,
+  `**bold**`, `*italic*` and `` `code` ``. Links show as plain text.
+- `ui.output(text)` shows a result with **Insert** and **Copy** buttons under
+  it. This is how a plugin puts text into what the user is writing without any
+  permission: the user presses **Insert**. Pass `mono=True` for code.
+
+## Input
+
+| Widget | The callback hears |
+|---|---|
+| `ui.input(label=, value=, on_change=, on_submit=, multiline=, kind=)` | the text |
+| `ui.search(placeholder=, on_submit=)` | the text |
+| `ui.button(text, on_click=, primary=, icon=)`, `ui.icon_button(icon, on_click=, label=)` | nothing |
+| `ui.toggle(label, value, on_change=)`, `ui.checkbox(...)` | `True` or `False` |
+| `ui.slider(value, min=, max=, step=, on_change=)`, `ui.stepper(...)` | the number |
+| `ui.select(options, value=, on_change=, style="segmented")` | the chosen value |
+| `ui.chips(options, value=, multi=True, on_change=)` | a value, or a list with `multi` |
+| `ui.date(label=, value=, time=True, on_change=)` | seconds since 1970, or `None` |
+| `ui.keys(rows, on_press=)` | the key's label |
+
+The keyboard types into a plugin's `ui.input`, the same way it types into an
+app. Three things about text boxes:
+
+- **Without `on_change`**, the plugin hears nothing while the user types. It
+  gets the text when they press Enter, through `on_submit`. Use this when you
+  only need the finished text: it saves a redraw on every key.
+- **With `on_change`**, every key press is an event. Keep the text in state
+  and pass it back as `value=`, or the box empties on the next draw.
+- `kind="number"`, `"email"`, `"url"` or `"password"` changes the keys the
+  keyboard offers. A password box shows dots and is never logged.
+- A long line scrolls sideways to keep its end in view, as an app's text field
+  does. The `placeholder` is drawn faint, with the caret before it.
+
+A `select` drawn as a dropdown opens its options over the panel, under the box
+(or above it, near the bottom), and a tap anywhere else closes them; nothing
+below is pushed down. With `style="segmented"`, the chosen segment's fill and
+check slide in. Tabs share the width, up to six of them, with their titles
+narrowed to fit, and a page slides in from the side of the tab tapped.
+
+An `output` puts its Copy and Insert buttons above the text, so a long result
+can be taken without scrolling past it.
+
+Options for `select` and `chips` are a list of values, or of
+`(value, label)` pairs when the text shown differs:
+`ui.select([("c", "Celsius"), ("f", "Fahrenheit")], value=state.unit)`.
+
+## Lists
+
+`ui.list` shows rows made with `ui.item`. A row has a title, and can have a
+subtitle, an icon, text on the right, and actions. The actions show when the
+user presses the **⋯** button at the end of the row:
+
+```python
+def render():
+    ui.list(
+        [
+            ui.item(note["text"], subtitle=note["when"], icon="sticky_note_2",
+                    on_click=lambda n=note: open_note(n),
+                    actions={"Delete": lambda n=note: delete(n)})
+            for note in state.notes
+        ],
+        empty="No notes yet",
+    )
+```
+
+:::caution[Callbacks in a loop]
+Write `lambda n=note: open_note(n)`, not `lambda: open_note(note)`. Without
+`n=note`, every row's lambda sees the loop's last `note` by the time the user
+presses one. This is how Python works everywhere, not only here.
+:::
+
+## Pictures, numbers and drawings
+
+- `ui.image(src, alt=, height=)` shows a picture you bundle in the plugin
+  (`"assets/logo.png"`) or bytes you made. See
+  [Sharing your plugin](/plugins/guides/sharing/#several-files) for bundling.
+- `ui.icon(name)` shows a [Material Symbols](https://fonts.google.com/icons)
+  icon by name, such as `cloud`, `delete` or `history`. The icon the keyboard
+  draws for your plugin itself, on its tool, is set in the manifest instead:
+  see [Your icon](/plugins/guides/pages-and-timers/#your-icon).
+- `ui.qr(text)` draws a QR code.
+- `ui.stat(label, value, caption=)` shows one big number. `ui.ring(0.7, label=)`
+  shows a share as a ring.
+- `ui.progress(0.4)` shows a bar; `ui.progress()` shows one that only says
+  "working".
+- `ui.chart([3, 5, 2], kind="bar", labels=[...])` draws a line, bar or spark
+  chart. Pass a dict for several series.
+- `ui.canvas(width, height, shapes, on_tap=, on_drag=, on_hold=)` draws shapes
+  made with `ui.rect`, `ui.circle`, `ui.line` and `ui.text_at`. Coordinates are
+  in your own units, scaled to fit. See the
+  [Tap the dot](/plugins/examples/#tap-the-dot) example. A canvas that takes
+  drags also takes the swipes that would scroll the panel; pass
+  `drag_after_hold=True` and a drag starts only after a long press, the way
+  events move in the Calendar tool's Day view.
+- `ui.empty(text, action=, on_click=)` fills an empty screen with a message and
+  a button, like "No notes yet. Add one".
+
+## Colours are roles
+
+You cannot pick a colour by value. Pass a role, and the keyboard maps it to the
+user's theme: `primary`, `secondary`, `muted`, `danger`, `success`, `warning`
+or `accent`.
+
+```python
+ui.label("Saved", color="success")
+ui.button("Delete all", on_click=wipe, color="danger")
+```
+
+This keeps every plugin readable in every theme, light or dark, and stops a
+plugin from imitating a system warning. Anything else raises `ValueError`.
+
+## Messages
+
+- `ui.toast(text)` shows a short message over the panel.
+- `ui.dialog(title, text, buttons=("Delete", "Cancel"), on_result=fn)` asks a
+  question over the panel, with your plugin's name above the title. Up to three
+  buttons; list the answer first, as in `("Delete", "Cancel")`: it is drawn filled at the right, where Android puts an alert's confirming button. `fn` gets the label the user
+  pressed, or `None` if they tapped outside it or the panel closed.
+
+```python
+def ask_to_clear():
+    ui.dialog("Delete every note?", "This cannot be undone.",
+              buttons=("Delete", "Cancel"), on_result=answered)
+
+
+def answered(choice):
+    if choice == "Delete":
+        state.notes = []
+```
+
+## Limits
+
+A draw can hold up to 1,024 widgets and 128K characters of text. Past that the
+keyboard drops or shortens what does not fit and notes it under the panel.
+`render()` gets 1.2 million steps and half a second. A step is about one line
+of Python or one turn of a loop. For long lists, show the first 100 rows and a
+search box.

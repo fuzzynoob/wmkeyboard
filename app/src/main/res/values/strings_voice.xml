@@ -139,9 +139,16 @@
     <string name="voice_vad_threshold_info">How sure the detector must be that a moment is speech. Lower keeps listening through soft or distant speech, but noise can hold the phrase open. Higher ends the phrase sooner in a noisy room, but a quiet voice can be taken for silence. For Loudness only it sets how loud counts as speech: 50% is the level the pause stop has always used. 50% by default.</string>
     <!-- Slider readout: the threshold as a percentage, e.g. "50%". -->
     <string name="voice_vad_threshold_value">%1$d%%</string>
+    <string name="voice_vad_grace_title">Grace after the end</string>
+    <string name="voice_vad_grace_subtitle">Keep listening a moment after the end of speech is heard</string>
+    <string name="voice_vad_grace_info">Once the phrase end detector (and Smart Turn, if it is on) decides you have stopped, the microphone stays open this much longer before the dictation ends. The engine gets time to hear your last sound out, and if you speak again within it, the phrase carries on as if the pause had been shorter. It is added to every end, however it was decided. Off by default; up to 3 seconds.</string>
+    <string name="voice_vad_grace_off">Off</string>
     <string name="voice_smart_turn_title">Smart Turn</string>
     <string name="voice_smart_turn_subtitle">End sooner when you sound finished, wait longer when you do not</string>
     <string name="voice_smart_turn_info">At each pause, Smart Turn v3.2 listens to the last 8 seconds and judges whether you finished what you were saying or stopped mid-thought, from how you said it: the falling voice at the end of a sentence, a word left hanging, an \"um\". When you sound finished, the phrase ends after a short pause; when you do not, it waits out the whole pause set in Stop after a pause. So you can set a long pause and still not wait at the end of every sentence. It was trained on 23 languages and is an 8.7 MB download that runs on ONNX Runtime. Off by default.</string>
+    <string name="voice_smart_turn_conservative_title">Only ever wait longer</string>
+    <string name="voice_smart_turn_conservative_subtitle">Never end sooner than the pause; wait twice the pause when you sound unfinished</string>
+    <string name="voice_smart_turn_conservative_info">Ending a phrase too soon cuts off your last words, while ending it late only costs a moment. With this on, Smart Turn can only make the wait longer: when you sound finished, the phrase still waits out the whole pause set in Stop after a pause, and when you sound mid-thought, it waits twice that pause. Off by default, which lets Smart Turn end a finished sentence after a short pause.</string>
     <string name="voice_smart_turn_model_title">Smart Turn model</string>
     <!-- %1$s is a file size, e.g. "8.7 MB". -->
     <string name="voice_smart_turn_model_missing"><xliff:g id="size" example="8.7 MB">%1$s</xliff:g> to download. Until then every pause is waited out</string>
@@ -224,6 +231,11 @@
     <string name="voice_resume_info">When the keyboard goes away with the voice panel, the compact bar or the collapsed bar on screen, the next text field you tap opens on the same view and starts listening.\n\nTo stop that, leave voice typing before you close the keyboard: press Back or the close button on the panel or the compact bar, the keyboard button on the collapsed bar, or the Voice tool. The keyboard then opens on the keys as usual until you start voice typing again. Password fields always open on the keys.</string>
     <string name="voice_pause_media_title">Pause media during voice typing</string>
     <string name="voice_pause_media_subtitle">Pause music and video while the microphone listens</string>
+    <!-- A sound of the user's own when the microphone opens (#1260). -->
+    <string name="voice_start_sound_title">Sound when the mic opens</string>
+    <string name="voice_start_sound_subtitle">Play a sound you pick each time voice typing starts listening</string>
+    <string name="voice_start_sound_none">None</string>
+    <string name="voice_start_sound_custom">Your sound</string>
     <string name="voice_mic_title">Microphone</string>
     <string name="voice_mic_subtitle">Prefer a Bluetooth, wired or USB microphone when one is connected</string>
     <string name="voice_mic_info">Which microphone voice typing listens through. Automatic uses the one Android picks, which is a plugged-in headset before the phone. Pick a kind to prefer it whenever one is connected. When it is not connected, voice typing uses the automatic choice.\n\nOffline Whisper and the transcription server can use every kind. The system recognizer records the audio itself, so for it only Bluetooth has an effect.\n\nThe microphone button on the voice panel and both voice bars shows the microphone in use. Tap it to switch to the next one that is connected.</string>
@@ -255,6 +267,12 @@
     <!-- #499: each dictated phrase is cleaned up by the model of the AI tool. -->
     <string name="voice_ai_tidy_title">Tidy dictation with AI</string>
     <string name="voice_ai_tidy_subtitle">Remove filler words, repeats and spoken corrections from each phrase</string>
+    <string name="voice_suppress_symbols_title">Suppress symbols</string>
+    <string name="voice_suppress_symbols_subtitle">Leave out the symbols the recognizer writes, such as @ $ and %</string>
+    <string name="voice_suppress_symbols_info">Some recognizers write symbols of their own: an email address with @, a price with $, 50% for \"fifty percent\", or an emoji. With this on, the keyboard takes those out of each phrase and keeps the words, the digits and ordinary punctuation such as full stops, commas, question marks, quotes and brackets. A symbol you say by name with Spoken punctuation, such as \"at sign\" or \"dollar sign\", still goes in. Off by default.</string>
+    <string name="voice_mask_swearing_title">Mask swear words</string>
+    <string name="voice_mask_swearing_subtitle">Dictated swear words go in as f***</string>
+    <string name="voice_mask_swearing_info">Off, the keyboard asks Google\'s speech recognition not to mask swear words, which it does by default on Android 13 and later. Some other recognizers ignore the request. On, swear words and slurs keep their first letter and the rest becomes asterisks, whichever engine heard them. Whisper, the other on-device engines and transcription servers have no filter of their own, so the keyboard uses a short list of its own for them, in English, Spanish, French, German, Italian and Portuguese. Dictation in another language is only masked when it goes through Google.</string>
     <string name="voice_ai_tidy_info">After each phrase goes into the field, the keyboard sends it to the model of the AI tool. The model removes filler words such as um and uh, false starts, repeated words and the parts that you corrected aloud: \"at three, no, four\" becomes \"at four\". Your words, language and tone stay the same. The phrase stays as you said it if the answer is slow or fails, or if you change the text first. The next phrase starts when the answer arrives. Each phrase goes to the AI provider that you set for the AI tool. Plain text mode, password fields and the boxes of the keyboard itself are not tidied.</string>
     <string name="voice_hold_picks_title">Hold the tool to pick a mode</string>
     <string name="voice_hold_picks_subtitle">Press and hold the Voice tool on the toolbar to choose a voice typing mode and start at once</string>
@@ -285,6 +303,17 @@
     <!-- The Offline Asr4All models (#289). Asr4All is a name.              -->
     <!-- ================================================================== -->
     <string name="voice_asr4all_group">Asr4All models</string>
+    <string name="voice_asr4all_tier_group">Streaming</string>
+    <string name="voice_asr4all_tier_title">Streaming tier</string>
+    <string name="voice_asr4all_tier_subtitle">Wait longer for the first words, and get them right more often</string>
+    <string name="voice_asr4all_tier_info">Asr4All reads ahead of the word it writes. The lowest tier, its default, shows your first words about 1.7 seconds after you start and is made for live dictation. Each later tier reads further ahead: the first words come seconds later, and they come out more accurately. Highest accuracy waits about 18 seconds for its first words, so it suits a long dictation you read at the end more than one you watch as you speak. A model that lacks the tier runs its default.</string>
+    <string name="voice_asr4all_tier_default">Model default</string>
+    <string name="voice_asr4all_tier_c16r4">Lowest latency (1.7 s)</string>
+    <string name="voice_asr4all_tier_c32r8">3.3 s</string>
+    <string name="voice_asr4all_tier_c64r16">6.5 s</string>
+    <string name="voice_asr4all_tier_c128r24">11 s</string>
+    <string name="voice_asr4all_tier_c256r32">Highest accuracy (18 s)</string>
+    <string name="voice_asr4all_tier_c512r8">Long audio (22.5 s)</string>
     <string name="voice_asr4all_model_info">Asr4All is an English speech recognition model that runs on this phone and listens as you speak: the words appear while you talk, and a second pass adds punctuation and capitals. Of the sizes you download, the largest is used. Small is quickest, Large the most accurate. While a layout in another language is in use, dictation uses the system recognizer instead. The models come from Hugging Face once, under their own licence, which allows dictation; after that no audio leaves the phone.</string>
 
     <!-- ================================================================== -->
@@ -349,7 +378,8 @@
     <string name="voice_system_input_subtitle">Offer the keyboard\'s voice engines as the phone\'s voice input</string>
     <string name="voice_system_input_info">Lists WM Keyboard among Android\'s voice input apps, so the microphone in a browser\'s search box, a notes app or a launcher can use the engines set up on this screen without the keyboard being open. Each language uses its own engine, as it does here. Turning this on does not change the phone\'s voice input: pick WM Keyboard under the row below. With the phone\'s recognizer as the engine, requests go on to it. Turn this off and WM Keyboard leaves the list.</string>
     <string name="voice_system_input_pick_title">Choose the phone\'s voice input</string>
-    <string name="voice_system_input_pick_subtitle">Opens Android\'s settings, where WM Keyboard can be picked</string>
+    <string name="voice_system_input_pick_subtitle">Opens Android\'s digital assistant page. Pick WM Keyboard under Voice input, near the bottom</string>
+    <string name="voice_system_input_pick_hint">Tap Voice input on this page and pick WM Keyboard</string>
     <string name="voice_input_label">WM Keyboard voice input</string>
     <string name="voice_input_speak_now">Speak now</string>
     <string name="voice_input_mic">Microphone. Tap to finish</string>

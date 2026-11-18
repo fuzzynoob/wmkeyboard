@@ -1,5 +1,6 @@
 package com.wasimaster.wmkeyboard.app
 
+import com.wasimaster.wmkeyboard.core.settings.key
 import com.wasimaster.wmkeyboard.core.netlog.InternetPermission
 import android.content.ComponentName
 import android.content.Context
@@ -25,8 +26,11 @@ import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.barcode.BarcodeEngine
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Check
 import com.wasimaster.wmkeyboard.app.media.MusicApps
+import com.wasimaster.wmkeyboard.app.launcher.LauncherAppIcons
 import com.wasimaster.wmkeyboard.app.launcher.LauncherCombos
 import com.wasimaster.wmkeyboard.core.settings.SearchResultTap
+import com.wasimaster.wmkeyboard.core.settings.PrivacyShadeSettings
+import com.wasimaster.wmkeyboard.core.settings.PrivacyShadeStyle
 import com.wasimaster.wmkeyboard.core.settings.LauncherOpenMode
 import com.wasimaster.wmkeyboard.core.settings.MAX_SEARCH_RESULTS
 import com.wasimaster.wmkeyboard.ime.AppLaunchModes
@@ -47,6 +51,7 @@ import com.wasimaster.wmkeyboard.app.launcher.LauncherShizukuRow
 import com.wasimaster.wmkeyboard.core.settings.PhotoSearchEngine
 import com.wasimaster.wmkeyboard.core.settings.PhotoSearchTarget
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
+import com.wasimaster.wmkeyboard.core.settings.toolKeywordScripts
 import com.wasimaster.wmkeyboard.core.settings.HandwritingFullScreenMode
 import com.wasimaster.wmkeyboard.core.tools.PasswordGen
 import com.wasimaster.wmkeyboard.core.tools.AiPrompts
@@ -153,6 +158,7 @@ import com.wasimaster.wmkeyboard.core.ocr.PaddleOcrModel
 import com.wasimaster.wmkeyboard.core.ocr.TesseractOcr
 import androidx.compose.runtime.collectAsState
 import com.wasimaster.wmkeyboard.core.settings.TranslateEngine
+import com.wasimaster.wmkeyboard.core.settings.TRANSLATE_LIVE_DELAY_RANGE
 import com.wasimaster.wmkeyboard.core.settings.DeepLWriteStyle
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.Dispatchers
@@ -166,6 +172,7 @@ import com.wasimaster.wmkeyboard.core.script.LanguageRegistry
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
 import com.wasimaster.wmkeyboard.core.layout.language
 import com.wasimaster.wmkeyboard.core.settings.LauncherToolSettings
+import com.wasimaster.wmkeyboard.core.settings.boxClosesOutside
 import com.wasimaster.wmkeyboard.core.settings.floats
 import com.wasimaster.wmkeyboard.core.settings.isSupportedTool
 import com.wasimaster.wmkeyboard.core.settings.ToolBlocker
@@ -181,6 +188,7 @@ import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AltRoute
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Keyboard
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Language
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Timer10
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Timer3
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.TimerOff
@@ -815,6 +823,21 @@ internal fun ToolDetailSettings(
                     ) { scope.launch { repository.setLauncherIconShape(it) } }
                 }
                 item(level = SettingLevel.STANDARD) {
+                    // Icon packs installed on the phone (#1275): the pack and
+                    // the single-app picks have a screen of their own.
+                    val iconPack = settings.watch { it.launcher.iconPack }
+                    NavRow(
+                        title = R.string.tooldetail_launcher_app_icons_title,
+                        subtitle = stringResource(
+                            if (iconPack.isEmpty()) {
+                                R.string.tooldetail_launcher_app_icons_none_subtitle
+                            } else {
+                                R.string.tooldetail_launcher_app_icons_pack_subtitle
+                            },
+                        ),
+                    ) { onNavigate(LauncherAppIcons.ROUTE) }
+                }
+                item(level = SettingLevel.STANDARD) {
                     ToggleSetting(
                         R.string.tooldetail_launcher_recents_title,
                         stringResource(R.string.tooldetail_launcher_recents_subtitle),
@@ -1214,6 +1237,18 @@ internal fun ToolDetailSettings(
                 }
             }
             CalendarNewEventRows(repository, settings)
+            SettingsGroup(stringResource(R.string.tooldetail_calendar_weather_group), level = SettingLevel.STANDARD) {
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_calendar_weather_title,
+                        stringResource(R.string.tooldetail_calendar_weather_subtitle),
+                        settings.watch { it.calendarTool.weatherOnEvents },
+                        info = stringResource(R.string.tooldetail_calendar_weather_info),
+                        default = SettingsDefaults.calendarTool.weatherOnEvents,
+                    ) { scope.launch { repository.setCalendarWeatherOnEvents(it) } }
+                }
+            }
+            InviteSettingsGroup(repository, settings)
         }
         ToolbarTool.CAMERA -> {
             // What decides which rows the search group holds; each row reads
@@ -1740,6 +1775,14 @@ internal fun ToolDetailSettings(
                     ) { scope.launch { repository.setIncognitoWatermark(it) } }
                 }
                 item {
+                    ToggleSetting(
+                        R.string.tooldetail_incognito_badge_title,
+                        stringResource(R.string.tooldetail_incognito_badge_subtitle),
+                        settings.watch { it.incognitoBadge },
+                        default = SettingsDefaults.incognitoBadge,
+                    ) { scope.launch { repository.setIncognitoBadge(it) } }
+                }
+                item {
                     NavRow(
                         R.string.tooldetail_incognito_auto_nav_title,
                         stringResource(R.string.tooldetail_incognito_auto_nav_subtitle),
@@ -1749,6 +1792,57 @@ internal fun ToolDetailSettings(
                     )
                 }
             }
+        }
+        // The cover over the app above the keys (#1242). Up and down is the
+        // tool's own tap; this page is how it looks and what it does with touches.
+        ToolbarTool.PRIVACY_SHADE -> {
+            SettingsGroup(stringResource(R.string.tooldetail_privacy_shade_group)) {
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_privacy_shade_on_title,
+                        stringResource(R.string.tooldetail_privacy_shade_on_subtitle),
+                        settings.watch { it.privacyShade.on },
+                    ) { scope.launch { repository.setPrivacyShadeOn(it) } }
+                }
+                item {
+                    ChoiceSetting(
+                        R.string.tooldetail_privacy_shade_style_title,
+                        options = listOf(
+                            PrivacyShadeStyle.DARK to stringResource(R.string.tooldetail_privacy_shade_style_dark),
+                            PrivacyShadeStyle.GREY to stringResource(R.string.tooldetail_privacy_shade_style_grey),
+                            PrivacyShadeStyle.LIGHT to stringResource(R.string.tooldetail_privacy_shade_style_light),
+                            PrivacyShadeStyle.WARM to stringResource(R.string.tooldetail_privacy_shade_style_warm),
+                        ),
+                        selected = settings.watch { it.privacyShade.style },
+                        default = SettingsDefaults.privacyShade.style,
+                    ) { scope.launch { repository.setPrivacyShadeStyle(it) } }
+                }
+                item {
+                    SliderSetting(
+                        R.string.tooldetail_privacy_shade_opacity_title,
+                        subtitle = stringResource(R.string.tooldetail_privacy_shade_opacity_subtitle),
+                        value = settings.watch { it.privacyShade.opacity } * 100f,
+                        range = PrivacyShadeSettings.MIN_OPACITY * 100f..100f,
+                        display = { percentFormat.format(it.toInt()) },
+                        default = SettingsDefaults.privacyShade.opacity * 100f,
+                    ) { scope.launch { repository.setPrivacyShadeOpacity(it / 100f) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_privacy_shade_touch_title,
+                        stringResource(
+                            if (settings.watch { it.privacyShade.touchThrough }) {
+                                R.string.tooldetail_privacy_shade_touch_on_subtitle
+                            } else {
+                                R.string.tooldetail_privacy_shade_touch_off_subtitle
+                            },
+                        ),
+                        settings.watch { it.privacyShade.touchThrough },
+                        default = SettingsDefaults.privacyShade.touchThrough,
+                    ) { scope.launch { repository.setPrivacyShadeTouchThrough(it) } }
+                }
+            }
+            PrivacyShadeAppsGroup(repository, settings)
         }
         ToolbarTool.POWER_SAVING -> {
             // Decides which rows the group holds; the rows read everything else.
@@ -1812,6 +1906,20 @@ internal fun ToolDetailSettings(
                     ) { scope.launch { repository.setPowerSavingOffWhileCharging(it) } }
                 }
             }
+            // Not part of power saving's switch or bundles: it runs whether or
+            // not saving is on, and is here because it is the same question,
+            // what the keyboard gives up and when.
+            SettingsGroup(stringResource(R.string.tooldetail_power_load_group)) {
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_power_adapt_title,
+                        stringResource(R.string.tooldetail_power_adapt_subtitle),
+                        settings.watch { it.powerSaving.adaptToLoad },
+                        info = stringResource(R.string.tooldetail_power_adapt_info),
+                        default = SettingsDefaults.powerSaving.adaptToLoad,
+                    ) { scope.launch { repository.setPowerSavingAdaptToLoad(it) } }
+                }
+            }
             SettingsGroup(
                 stringResource(R.string.tooldetail_power_drop_group),
                 info = stringResource(R.string.tooldetail_power_info),
@@ -1867,6 +1975,15 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.powerSaving.dropMovingThemes,
                     ) { scope.launch { repository.setPowerSavingDropMovingThemes(it) } }
                 }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_power_dark_theme_title,
+                        stringResource(R.string.tooldetail_power_dark_theme_subtitle),
+                        settings.watch { it.powerSaving.darkTheme },
+                        info = stringResource(R.string.tooldetail_power_dark_theme_info),
+                        default = SettingsDefaults.powerSaving.darkTheme,
+                    ) { scope.launch { repository.setPowerSavingDarkTheme(it) } }
+                }
             }
             SettingsGroup(stringResource(R.string.tooldetail_power_drop_helpers_group), level = SettingLevel.ADVANCED) {
                 item {
@@ -1893,6 +2010,15 @@ internal fun ToolDetailSettings(
                         settings.watch { it.powerSaving.dropSmartChips },
                         default = SettingsDefaults.powerSaving.dropSmartChips,
                     ) { scope.launch { repository.setPowerSavingDropSmartChips(it) } }
+                }
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_power_drop_suggestions_title,
+                        stringResource(R.string.tooldetail_power_drop_suggestions_subtitle),
+                        settings.watch { it.powerSaving.dropSuggestions },
+                        info = stringResource(R.string.tooldetail_power_drop_suggestions_info),
+                        default = SettingsDefaults.powerSaving.dropSuggestions,
+                    ) { scope.launch { repository.setPowerSavingDropSuggestions(it) } }
                 }
             }
             SettingsGroup(stringResource(R.string.tooldetail_power_drop_background_group), level = SettingLevel.ADVANCED) {
@@ -2068,23 +2194,36 @@ internal fun ToolDetailSettings(
                     val secondaries = settings.watch {
                         com.wasimaster.wmkeyboard.core.layout.secondaryLayouts(it.customLayouts)
                     }
-                    // "The first one" is the empty pick, so the tool works before
+                    // Any enabled language layout can be pinned too (#1230): the
+                    // tool then swaps it in as the board rather than drawing it
+                    // over the letters, and the language switcher leaves it out.
+                    val enabledIds = settings.watch { it.enabledLayoutIds }
+                    val customLayouts = settings.watch { it.customLayouts }
+                    val boardIds = enabledIds.toSet()
+                    // "Ask each time" is the empty pick, so the tool works before
                     // this page has ever been visited and keeps working when the
-                    // picked layout is deleted.
+                    // picked layout is deleted or turned off.
                     val first = stringResource(R.string.tooldetail_custom_layout_first)
+                    val boardDetail = stringResource(R.string.tooldetail_custom_layout_board_detail)
                     ChoiceSetting(
                         R.string.tooldetail_custom_layout_layout_title,
                         subtitle = stringResource(R.string.tooldetail_custom_layout_layout_subtitle),
                         info = stringResource(R.string.tooldetail_custom_layout_layout_info),
                         options = listOf<Pair<String?, String>>(null to first) +
-                            secondaries.map { it.id to it.name },
+                            secondaries.map { it.id to it.name } +
+                            enabledIds.map { id ->
+                                val name = com.wasimaster.wmkeyboard.core.layout.resolveLayoutName(customLayouts, id)
+                                val language = com.wasimaster.wmkeyboard.core.layout.resolveLayoutLanguage(customLayouts, id)
+                                id to "$name (${language.displayName})"
+                            },
                         selected = settings.watch { it.layoutBehavior.customLayoutToolId }
-                            ?.takeIf { id -> secondaries.any { it.id == id } },
+                            ?.takeIf { id -> secondaries.any { it.id == id } || id in boardIds },
                         detail = { id ->
-                            ChoiceDetail(
-                                icon = if (id == null) Icons.Outlined.AltRoute
-                                else Icons.Outlined.Keyboard,
-                            )
+                            when {
+                                id == null -> ChoiceDetail(icon = Icons.Outlined.AltRoute)
+                                id in boardIds -> ChoiceDetail(boardDetail, icon = Icons.Outlined.Language)
+                                else -> ChoiceDetail(icon = Icons.Outlined.Keyboard)
+                            }
                         },
                     ) { scope.launch { repository.setCustomLayoutToolLayout(it) } }
                 }
@@ -2325,6 +2464,7 @@ internal fun ToolDetailSettings(
                     tone = if (onDevice) BannerTone.INFO else BannerTone.WARNING,
                 )
             }
+            val manualTranslate = settings.watch { it.translate.manual }
             SettingsGroup(stringResource(R.string.tooldetail_options_group)) {
                 item { TranslateLanguageSetting(repository, settings) }
                 item {
@@ -2334,6 +2474,28 @@ internal fun ToolDetailSettings(
                         settings.watch { it.translate.clearOnInsert },
                         default = SettingsDefaults.translate.clearOnInsert,
                     ) { scope.launch { repository.setTranslateClearOnInsert(it) } }
+                }
+                // Issue #1226: a provider with a request limit, sent every pause in the typing.
+                item {
+                    ToggleSetting(
+                        R.string.tooldetail_translate_manual_title,
+                        stringResource(R.string.tooldetail_translate_manual_subtitle),
+                        settings.watch { it.translate.manual },
+                        info = stringResource(R.string.tooldetail_translate_manual_info),
+                        default = SettingsDefaults.translate.manual,
+                    ) { scope.launch { repository.setTranslateManual(it) } }
+                }
+                item(level = SettingLevel.STANDARD, visible = !manualTranslate) {
+                    val msFormat = stringResource(R.string.keypress_value_ms)
+                    SliderSetting(
+                        R.string.tooldetail_translate_live_delay_title,
+                        subtitle = stringResource(R.string.tooldetail_translate_live_delay_subtitle),
+                        value = settings.watch { it.translate.liveDelayMs }.toFloat(),
+                        range = TRANSLATE_LIVE_DELAY_RANGE.first.toFloat()..TRANSLATE_LIVE_DELAY_RANGE.last.toFloat(),
+                        steps = (TRANSLATE_LIVE_DELAY_RANGE.last - TRANSLATE_LIVE_DELAY_RANGE.first) / 100 - 1,
+                        display = { msFormat.format(it.roundToInt()) },
+                        default = SettingsDefaults.translate.liveDelayMs.toFloat(),
+                    ) { scope.launch { repository.setTranslateLiveDelay(it.roundToInt()) } }
                 }
                 item {
                     ToggleSetting(
@@ -2970,6 +3132,17 @@ internal fun ToolDetailSettings(
                         ) { scope.launch { repository.setDocScanBuiltIn(it) } }
                     }
                 }
+                // Only the built-in scanner can run in the keyboard; Google's is its own screen.
+                if (!googleDocScanner || builtIn) {
+                    item {
+                        ToggleSetting(
+                            R.string.tooldetail_doc_scan_in_keyboard_title,
+                            stringResource(R.string.tooldetail_doc_scan_in_keyboard_subtitle),
+                            settings.watch { it.scanner.docInKeyboard },
+                            default = SettingsDefaults.scanner.docInKeyboard,
+                        ) { scope.launch { repository.setDocScanInKeyboard(it) } }
+                    }
+                }
                 item {
                     ToggleSetting(
                         R.string.tooldetail_doc_scan_gallery_title,
@@ -2979,6 +3152,8 @@ internal fun ToolDetailSettings(
                     ) { scope.launch { repository.setDocScanSaveToGallery(it) } }
                 }
             }
+            // #1198: scans to the user's Paperless-ngx server.
+            PaperlessSettingsGroup(repository, settings)
         }
         ToolbarTool.VOICE -> SettingsGroup(stringResource(R.string.tooldetail_voice_group)) {
             item {
@@ -3232,6 +3407,16 @@ internal fun ToolDetailSettings(
                         default = SettingsDefaults.compoundUnits,
                     ) { scope.launch { repository.setCompoundUnits(it) } }
                 }
+                // One setting shown on both converters' pages (#1268).
+                item(level = SettingLevel.STANDARD) {
+                    ToggleSetting(
+                        R.string.tooldetail_converter_tabs_title,
+                        stringResource(R.string.tooldetail_converter_tabs_subtitle),
+                        settings.watch { it.toolbox.converterTabs },
+                        info = stringResource(R.string.tooldetail_converter_tabs_info),
+                        default = SettingsDefaults.toolbox.converterTabs,
+                    ) { scope.launch { repository.setToolboxConverterTabs(it) } }
+                }
             }
         }
         ToolbarTool.CURRENCY -> {
@@ -3259,6 +3444,16 @@ internal fun ToolDetailSettings(
                         info = stringResource(R.string.tooldetail_currency_auto_fetch_info),
                         default = SettingsDefaults.rateSources.autoFetch,
                     ) { scope.launch { repository.setCurrencyAutoFetch(it) } }
+                }
+                // One setting shown on both converters' pages (#1268).
+                item(level = SettingLevel.STANDARD) {
+                    ToggleSetting(
+                        R.string.tooldetail_converter_tabs_title,
+                        stringResource(R.string.tooldetail_converter_tabs_subtitle),
+                        settings.watch { it.toolbox.converterTabs },
+                        info = stringResource(R.string.tooldetail_converter_tabs_info),
+                        default = SettingsDefaults.toolbox.converterTabs,
+                    ) { scope.launch { repository.setToolboxConverterTabs(it) } }
                 }
                 item(level = SettingLevel.ADVANCED) {
                     SliderSetting(
@@ -3607,6 +3802,17 @@ internal fun ToolDetailSettings(
         ToolbarTool.MUSIC_ID -> MusicToolSettings(repository, settings, onNavigate)
         ToolbarTool.HOME_ASSISTANT -> com.wasimaster.wmkeyboard.app.homeassistant.SmartHomeToolSettings(repository, settings, onNavigate)
         ToolbarTool.GALLERY -> GalleryToolSettings(repository, settings)
+        // The panel's own header switches it too; this is the same setting (#1267).
+        ToolbarTool.FILES -> SettingsGroup {
+            item {
+                ToggleSetting(
+                    R.string.files_tool_two_panes_title,
+                    stringResource(R.string.files_tool_two_panes_subtitle),
+                    settings.watch { it.filesTwoPanes },
+                    default = SettingsDefaults.filesTwoPanes,
+                ) { scope.launch { repository.setFilesTwoPanes(it) } }
+            }
+        }
         ToolbarTool.SEND_FILES -> com.wasimaster.wmkeyboard.app.send.SendToolSettings(repository, settings, onNavigate)
         ToolbarTool.MODES -> SettingsGroup(stringResource(R.string.tooldetail_modes_group)) {
             item {
@@ -3641,9 +3847,9 @@ internal fun ToolDetailSettings(
             ToggleSetting(
                 R.string.tooldetail_show_in_toolbox_title,
                 stringResource(R.string.tooldetail_show_in_toolbox_subtitle),
-                settings.watch { tool !in it.toolbox.hiddenTools },
-                default = tool !in SettingsDefaults.toolbox.hiddenTools,
-            ) { scope.launch { repository.setToolHiddenInToolbox(tool, !it) } }
+                settings.watch { tool.key !in it.toolbox.hiddenTools },
+                default = tool.key !in SettingsDefaults.toolbox.hiddenTools,
+            ) { scope.launch { repository.setToolHiddenInToolbox(tool.key, !it) } }
         }
         // Recolour just this tool's icon. Only meaningful while the global
         // "Colorful tool icons" switch is on, since it's what paints them.
@@ -3674,6 +3880,26 @@ internal fun ToolDetailSettings(
             }
         }
         item { ToolHoldRow(repository, settings, tool) }
+        // A tap that opens the tool in its floating box (#1259), for a tool that has one.
+        item(visible = tool.floats) {
+            ToggleSetting(
+                title = R.string.tooldetail_float_on_tap_title,
+                subtitle = stringResource(R.string.tooldetail_float_on_tap_subtitle),
+                checked = settings.watch { tool in it.toolbarBehavior.floatOnTap },
+                onChange = { scope.launch { repository.setToolFloatsOnTap(tool, it) } },
+                default = false,
+            )
+        }
+        // This tool's box on a tap outside it (#1262), set apart from every other box's.
+        item(visible = tool.floats) {
+            ToggleSetting(
+                title = R.string.tooldetail_box_close_outside_title,
+                subtitle = stringResource(R.string.tooldetail_box_close_outside_subtitle),
+                checked = settings.watch { it.boxClosesOutside(tool) },
+                onChange = { scope.launch { repository.setToolBoxClosesOutside(tool, it) } },
+                default = settings.watch { it.summonButton.boxClosesOutside },
+            )
+        }
     }
     ToolKeywordSetting(repository, settings, tool)
 }
@@ -4188,10 +4414,14 @@ private fun ToolKeywordSetting(
     settings: LiveSettings,
     tool: ToolbarTool,
 ) {
-    val defaults = SmartSuggest.defaultKeywords[tool] ?: return
+    if (tool !in SmartSuggest.defaultKeywords) return
+    // Only the defaults the user's languages can type: no 翻译 for someone
+    // with no Chinese layout.
+    val scripts = settings.watch { it.toolKeywordScripts }
+    val defaults = SmartSuggest.defaultKeywordsFor(tool, scripts)
     val scope = rememberCoroutineScope()
     // Decides whether the reset row is in the group, and seeds the field.
-    val saved = settings.watch { SmartSuggest.keywordsFor(tool, it.toolKeywords) }
+    val saved = settings.watch { SmartSuggest.keywordsFor(tool, it.toolKeywords, it.toolKeywordScripts) }
     var text by remember(tool) { mutableStateOf(saved.joinToString(", ")) }
     SettingsGroup(stringResource(R.string.toolai_keyword_group_title), foldKey = "tool_keyword", level = SettingLevel.STANDARD) {
         item {
@@ -4199,7 +4429,7 @@ private fun ToolKeywordSetting(
                 value = text,
                 onValueChange = {
                     text = it
-                    scope.launch { repository.setToolKeywords(tool, it.split(',')) }
+                    scope.launch { repository.setToolKeywords(tool, it.split(','), scripts) }
                 },
                 label = { Text(stringResource(R.string.toolai_keyword_field_label)) },
                 singleLine = true,
@@ -4243,7 +4473,7 @@ private fun ToolKeywordSetting(
                 icon = SettingsRowIcons[CommonR.string.common_reset_defaults],
                 onClick = {
                     text = defaults.joinToString(", ")
-                    scope.launch { repository.setToolKeywords(tool, defaults) }
+                    scope.launch { repository.setToolKeywords(tool, defaults, scripts) }
                 },
             )
         }

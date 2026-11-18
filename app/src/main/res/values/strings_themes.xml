@@ -115,7 +115,7 @@
 
     <!-- Themes screen: the gallery of themes. -->
     <string name="theme_gallery_section_title">Themes</string>
-    <string name="theme_gallery_auto_on_body">Auto theme is on, so the gallery only shows what it would look like.</string>
+    <string name="theme_gallery_auto_on_picks_body">Auto theme is on, so a theme you pick here becomes the light or the dark theme, whichever is showing now.</string>
     <string name="theme_high_contrast_on_body">High contrast keys is on, so the keyboard uses its own key, background and hint colors instead of the colors of this theme.</string>
     <!-- Notice on the themes screen and the theme editor when a layout, one of
          its pages or a panel keeps a theme of its own (issue #806). The
@@ -383,6 +383,12 @@
     <string name="theme_secondary_text_body">The quieter text beside the main text: the second word of a suggestion, and the kind and time of a clipboard entry.</string>
     <string name="theme_divider_title">Dividers</string>
     <string name="theme_divider_body">The thin lines between the parts of a panel, and between suggestions.</string>
+    <string name="theme_emoji_search_background_title">Emoji search bar</string>
+    <string name="theme_emoji_search_background_body">The search bar at the top of the emoji panel. Unset, it uses the colour of the cards and search bars.</string>
+    <string name="theme_emoji_search_text_title">Emoji search text</string>
+    <string name="theme_clip_chip_background_title">Copied-text chip</string>
+    <string name="theme_clip_chip_background_body">The chip on the suggestion strip that pastes what you just copied. Unset, it is a light tint of the accent colour.</string>
+    <string name="theme_clip_chip_text_title">Copied-text chip text</string>
 
     <!-- Theme editor: shadows, the popup selection and the one-handed rail. -->
     <string name="theme_key_elevation_title">Key shadow</string>
@@ -403,6 +409,9 @@
     <!-- "Appearance" is the name of another settings screen. -->
     <string name="theme_custom_radii_subtitle">Off: the theme follows the sliders in Appearance</string>
     <string name="theme_key_radius_title">Key corner radius</string>
+    <string name="theme_modifier_key_radius_title">Function key corner radius</string>
+    <string name="theme_action_key_radius_title">Enter and space corner radius</string>
+    <string name="theme_radius_same_as_letters">Same as letters</string>
     <string name="theme_popup_radius_title">Popup corner radius</string>
     <string name="theme_tool_circle_radius_title">Tool circle radius</string>
 
@@ -458,7 +467,7 @@
     <string name="theme_glass_dispersion_body">How far red and blue part where the pane bends the backdrop, like light through the edge of a prism.</string>
     <string name="theme_glass_window_blur_title">Blur behind the keyboard</string>
     <string name="theme_glass_window_blur_subtitle">The app behind the keyboard shows through the board, blurred. Android 12 and later. Off while the phone\'s blur or the keyboard\'s power saving is off, and in the floating keyboard. Turn this off, and set Behind the glass to Nothing, for a solid keyboard</string>
-    <string name="theme_glass_window_blur_unavailable">This phone isn\'t blurring windows right now: its blur is off, or it has none. The glass shows your wallpaper instead of the app, so the background won\'t change from app to app. Look for a window blur switch in the phone\'s settings, or turn off battery saver.</string>
+    <string name="theme_glass_window_blur_unavailable">This phone isn\'t blurring windows right now: its blur is off, or it has none. The glass shows your wallpaper instead of the app, so the background won\'t change from app to app. Look for a window blur switch in the phone\'s settings (on Samsung, turn off Reduce transparency and blur under Accessibility › Visibility enhancements), or turn off battery saver.</string>
     <string name="theme_glass_blur_strength_title">Blur strength</string>
     <string name="theme_glass_blur_strength_body">How far the system blurs the app behind the board, and the keys behind a popup or menu.</string>
     <string name="theme_glass_fallback_title">Board opacity without blur</string>
@@ -552,6 +561,23 @@
     <string name="theme_key_override_section_title">Single-key styles</string>
     <string name="theme_key_override_section_body">Give one key a style of its own: its colors, a texture, the burst it throws, and how its label is drawn. A letter keeps its style on every layout that has it.</string>
     <string name="theme_key_override_add_action">Add a key</string>
+    <string name="theme_rule_sheet_title">Rule sheet</string>
+    <string name="theme_rule_sheet_subtitle_off">Style many keys at once with rules you write as text</string>
+    <string name="theme_rule_sheet_subtitle_on">On. The rules apply over the styles above</string>
+    <string name="theme_rule_sheet_missing_message">This theme is not in your themes any more.</string>
+    <string name="theme_rule_sheet_example_action">Example</string>
+    <string name="theme_rule_sheet_empty_status">No rules. Tap Example to start from a short sheet.</string>
+    <plurals name="theme_rule_sheet_applied_status">
+        <item quantity="one"><xliff:g id="count" example="1">%1$d</xliff:g> rule changes the theme</item>
+        <item quantity="other"><xliff:g id="count" example="4">%1$d</xliff:g> rules change the theme</item>
+    </plurals>
+    <string name="theme_rule_sheet_issue_unreadable">The text is not a rule sheet. A rule sheet is one JSON object, with a selector before each set of properties.</string>
+    <string name="theme_rule_sheet_issue_too_long">The sheet is too long. The app does not use it.</string>
+    <string name="theme_rule_sheet_issue_element"><xliff:g id="rule" example="smartbar">%1$s</xliff:g>: a rule sheet styles only key, key-hint and key-popup.</string>
+    <string name="theme_rule_sheet_issue_state"><xliff:g id="rule" example="key:focus">%1$s</xliff:g>: the only state is :pressed.</string>
+    <string name="theme_rule_sheet_issue_attribute"><xliff:g id="rule" example="key[mode=numeric]">%1$s</xliff:g>: name keys with code, output, id or class.</string>
+    <string name="theme_rule_sheet_issue_key"><xliff:g id="rule" example="key[code=-999]">%1$s</xliff:g>: some keys that it names are not in this app.</string>
+    <string name="theme_rule_sheet_issue_property"><xliff:g id="rule" example="key-hint">%1$s</xliff:g>: <xliff:g id="properties" example="background">%2$s</xliff:g> has no effect here.</string>
     <string name="theme_key_override_add_body">Type a letter, or choose one of the special keys.</string>
     <string name="theme_key_override_letter_label">Letter</string>
     <string name="theme_key_override_texture_title">Key image</string>
@@ -560,6 +586,13 @@
     <string name="theme_key_override_shape_title">Key shape</string>
     <string name="theme_key_override_bold_label">Bold label</string>
     <string name="theme_key_override_label_size_title">Label size</string>
+    <string name="theme_key_override_gradient_title">Gradient face</string>
+    <string name="theme_key_override_gradient_start_title">Gradient start</string>
+    <string name="theme_key_override_gradient_end_title">Gradient end</string>
+    <string name="theme_key_override_gradient_angle_title">Gradient angle</string>
+    <string name="theme_key_override_glow_title">Glow</string>
+    <string name="theme_key_override_glow_size_title">Glow reach</string>
+    <string name="theme_key_override_radius_title">Corner radius</string>
     <string name="theme_key_background_title">Key background</string>
     <string name="theme_key_override_pick_action">Pick on keyboard</string>
 
@@ -807,6 +840,13 @@
     <string name="theme_board_effect_reactive_body">How much typing drives the effect. Each key press makes it move faster and glow brighter for a moment. At 0 the effect ignores the keys.</string>
     <string name="theme_board_effect_color_title">First colour</string>
     <string name="theme_board_effect_color2_title">Second colour</string>
+    <string name="theme_board_effect_color3_title">Third colour</string>
+    <string name="theme_board_effect_color4_title">Fourth colour</string>
+    <string name="theme_board_effect_orb_spots_title">Place the pools by hand</string>
+    <string name="theme_board_effect_orb_spots_body">Each colour gets one pool that stays where you put it, instead of pools scattered at random. The pools still sway a little when Speed is above 0.</string>
+    <string name="theme_board_effect_orb_x_title">Pool %1$d across</string>
+    <string name="theme_board_effect_orb_y_title">Pool %1$d down</string>
+    <string name="theme_board_effect_orb_size_title">Pool %1$d size</string>
     <string name="theme_lighting_section_title">Key lighting</string>
     <string name="theme_lighting_section_body">Light on the keys, like a backlit keyboard. Some patterns run on their own. Others light up from the key you press and fade when you stop typing. It stops when Reduce motion or power saving is on.</string>
     <string name="theme_lighting_title">Pattern</string>

@@ -27,6 +27,7 @@ Reach it from the **Data** group on the settings home screen, or by searching "B
 | **Locations** | One card per place backups can go, and **Add a location** |
 | **Automatic backup** | Opens the schedule, the passphrase, where backups go, and what goes in |
 | **Sync devices** | Opens sync between your devices |
+| **Undo and restore points** | Opens undo for recent settings changes, and your restore points |
 | **Files** | **Export to a file**, **What goes in an export**, and **Import a file** |
 
 The status card turns red when the last backup or the last sync failed, and says why.
@@ -85,7 +86,7 @@ This page writes a backup on a timer to the locations you tick. It stays inert u
 | Keep older backups spread out | Toggle | Off | Back up automatically on |
 | Only while charging | Toggle | On | Back up automatically on |
 | Only on Wi-Fi | Toggle | On | Same, and only while a ticked location needs a connection (anything but a Folder) |
-| **Back up to** | A tick box per location | On for every location | always |
+| **Back up to** | A tick box per location; tap the row for its own page | On for every location | always |
 | Protect with a passphrase | Toggle | Off | always |
 | Passphrase | Password field | empty | Protect with a passphrase on |
 | **What goes in a backup** | The same switches as the export list, with their own settings | Same defaults as the export list | always |
@@ -97,6 +98,25 @@ This page writes a backup on a timer to the locations you tick. It stays inert u
 **Frequent backup** adds a second automatic backup beside this one, for what changes often and is small. Turn on **Also back up often** and it gets its own **How often, frequent backup** (the same 1 hour to 7 days, 1 hour to start with), **Frequent backups to keep** (5), **Encrypt frequent backups** and **What goes in a frequent backup** (Settings, Themes and Snippets to start with). So the hourly copy can be your settings in plain text while the daily one carries the clipboard and the stickers under a passphrase. It goes to the same ticked locations, waits for the same charging and Wi-Fi conditions, needs **Back up automatically** on, and stops while backups are paused. Its files start `wmkeyboard-quick-` rather than `wmkeyboard-auto-`, so each schedule deletes only its own old copies, and **Restore from a location** lists both. It never carries API keys. **Encrypt frequent backups** uses the passphrase under **Protect with a passphrase**, and stays off until there is one. **Back up now** takes a main backup.
 
 Each backup goes to every ticked location. A location you untick keeps its settings and gets no backups until you tick it again. One passphrase covers the automatic backups and the sync files, so use the same one on every device that syncs.
+
+#### One location's own settings
+
+Tap a location under **Back up to**, or pick **Backup settings** in its menu on the Locations card, to open its own page. Each row there reads "Same schedule and contents as this screen" until you change something, then "Own settings:" and what differs.
+
+| Setting | Type | Default | Shown when |
+| --- | --- | --- | --- |
+| Back up here | Toggle | On | always (the same tick as on **Back up to**) |
+| **Schedule**: Own schedule | Toggle | Off | always |
+| How often | Slider, the same 1 hour to 7 days | The automatic backup's | Own schedule on |
+| Backups to keep | Slider, 1–100 | The automatic backup's | Own schedule on |
+| Keep older backups spread out | Toggle | The automatic backup's | Own schedule on |
+| Only while charging | Toggle | The automatic backup's | Own schedule on |
+| Only on Wi-Fi | Toggle | The automatic backup's | Own schedule on, and the location needs a connection |
+| **What goes in**: Own contents | Toggle | Off | always |
+| Encrypt backups | Toggle | The automatic backup's | Own contents on; needs the passphrase on the Automatic backup page |
+| The section switches, and Include API keys | Toggles | The automatic backup's | Own contents on |
+
+Turning **Own schedule** or **Own contents** on copies the automatic backup's current values, so nothing changes until you move one; turning it off goes back to following that page. A weekly server and an hourly phone folder can then sit side by side: the phone checks as often as the most frequent location asks, and each run writes only to the locations that are due, and whose own charging and Wi-Fi conditions hold. A location's interval counts from its own last good backup, which its card shows. Locations that share the same contents share one file, built and checked once; a location with contents of its own gets a file built for it. **Back up now** writes to every ticked location at once, whatever their schedules. The frequent backup keeps its own interval and count everywhere, and follows each location's charging and Wi-Fi conditions.
 
 **Include API keys** under **What goes in a backup** is yours to turn on. Without a passphrase, its subtitle strongly suggests turning one on first, and turning it on asks you to confirm, because anyone who can open the location could then read your keys. It doesn't refuse.
 
@@ -146,6 +166,38 @@ Some settings never sync, because they only fit one device: the keyboard size an
 Ticking a location under **Sync through** checks it for other groups. When other devices sync there in groups this device isn't in, the same box opens, saying so, to pick one to join. A **Nearby device** or **Other profile** location ignores the group.
 
 **Sync API keys and passwords** is off by default. It works with or without a passphrase. Without one, the subtitle strongly suggests turning one on first, and turning it on asks you to confirm.
+
+### Undo and restore points
+
+<SettingsPath path="Data / Backup & restore / Undo and restore points" />
+
+This screen takes settings back to how they were, without a file. It has three groups.
+
+| Part | What it does |
+| --- | --- |
+| **Undo the last change** | Puts back the settings the newest change replaced. The row names the change and when it happened. Press it again to go one change further back |
+| **Undo the last 10 minutes**, **Undo the last hour** | Put back every change made in that time, each setting to the value it had before the first of them. The rows say how many changes they cover |
+| **Save a restore point** | Saves a copy of all your settings, with a name if you type one, or the date if you don't |
+| A restore point | Tap it to restore it: the dialog first says how many settings would change. Swipe it to rename or delete it, or hold it to rename it |
+| **Keep a change history** | Toggle, on by default. Off deletes the history and stops recording, and the undo rows have nothing left to undo |
+| The history | Each change, newest first, with when it happened. Tap one to see every setting it changed, old value and new, and to undo just that change |
+| **Clear the history** | Deletes the list. Your settings and restore points stay as they are |
+
+An undo says how many settings it put back, with a **Redo** button on the bar at the bottom of the screen. The undo is in the history too, so it can be taken back later from there.
+
+The history catches a change wherever it was made: on a settings screen, from the keyboard's own toggles, by an import, or by resetting all settings. Changes to the same setting within about 2 seconds count as one, so dragging a slider or typing a name is one step back. It keeps 30 days and at most 400 changes, on this phone only. It never goes into an export, a backup or a sync file.
+
+Restoring a point first saves your settings as they are now as a restore point of its own, named "Before restoring" and the point's name, so a restore can always be taken back, with the history on or off. The app keeps the last 5 of these and drops the oldest. Points you saved yourself stay until you delete them. A setting that was on its default when the point was saved goes back to its default. If the restored values leave the app unable to read its settings, nothing changes and the app says so.
+
+Some things are not settings, and neither an undo nor a restore point touches them:
+
+- your words, clipboard, snippets, notes and other stores that live in their own files
+- your own themes in the theme list (which theme is in use is a setting, and is restored)
+- API keys, passwords and the other secrets an export leaves out
+- the backup, sync and app lock settings
+- what the keyboard keeps for itself, such as recent emoji and layouts, which layout is active, and counters it uses to reload things
+
+Very long values are left out of the history but not out of restore points. These are mostly whole custom layouts and long lists, which the layout editor and the theme editor change many times a minute; both editors have their own undo. The history names a setting by the name it's stored under, such as "Key height landscape", because some settings have no title of their own on any screen.
 
 ### Export
 

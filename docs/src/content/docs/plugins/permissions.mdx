@@ -1,150 +1,243 @@
 ---
 title: "Permissions"
-description: "The three permissions a plugin can declare, and what they grant."
+description: "What a plugin can declare, which permissions apply on install, and which stay off until the user grants them."
 sidebar:
   label: "Permissions"
-  order: 4
+  order: 7
 ---
 
 import SettingsPath from '@components/SettingsPath.astro';
 
-There are three.
+A plugin lists what it needs in its manifest:
 
 ```json title="plugin.json (excerpt)"
-"permissions": ["storage", "reminders", "selection"]
+"permissions": ["storage", "network", "field.write"],
+"hosts": ["api.open-meteo.com"]
 ```
 
-Most plugins declare `[]` and need nothing.
+Most plugins declare `[]` and need nothing. Every declared permission is shown
+to the user before they install, on the addon page and in the file-import
+confirmation.
 
-## `storage`
+Permissions come in three kinds:
 
-Gives you `wm.storage`: a small string-to-string map that belongs to your plugin
-alone.
+| Kind | What happens |
+|---|---|
+| **Listed** | Applies as soon as the plugin is installed. Shown in the list before install. |
+| **Risky** | Shown before install in a separate, warned block. **Off until the user turns it on** on the plugin's page, after reading a warning, and only while <SettingsPath path="Tools / Plugins / Allow risky permissions" /> is on. |
+| **Not available** | Things no permission grants, listed [below](#what-no-permission-allows). |
 
-```python
-wm.storage.set("items", json.dumps(items))
-items = json.loads(wm.storage.get("items", "[]"))
-```
+Plugins written for API 4 can declare only `storage`, `reminders` and
+`selection`. Everything else needs `"apiVersion": 5`.
 
-- Local to the device. It cannot leave, because the interpreter has no network
-  API for it to leave through.
-- Local to your plugin. No other plugin can read it.
+## Listed permissions
+
+### `storage`
+
+Gives you [`storage`](/plugins/wm-package/#storage), and `secrets` for API keys.
+
+- Local to the device and to your plugin. No other plugin can read it.
 - Deleted when the user uninstalls you, and clearable by them any time from
   <SettingsPath path="Tools / Plugins / Manage plugins / your plugin" />. An
-  update to your plugin leaves it alone, so a saved list survives a new version.
-- 128 keys, 64 characters per key, 8 KB per value, 64 KB in total.
+  update leaves it alone.
+- API 4: 128 keys, 64 characters per key, 8 KB per value, 64 KB in total.
+  API 5: 512 keys, 64 KB per value, 1 MB in total.
+- Values in `secrets` are kept in a file of their own in the keyboard's private
+  storage, which other apps cannot read. They never appear in the storage
+  inspector or a backup. They are not encrypted on the phone.
 
 :::caution[Handle quota errors]
-`set` raises `ValueError` when you are over quota. Catch it and say something.
+Writing raises `ValueError` when you are over quota. Catch it and say something.
 Do not lose the user's data quietly.
 :::
 
-## `reminders`
+### `reminders`
 
-Gives you `wm.reminders`: ask the app to show a line of text in a notification
-at a time you set.
+Ask the app to show a line of text in a notification at a time you set.
 
 ```python
-due = wm.timestamp(2026, 12, 24, hour=9)
-wm.reminders.set("item:7", due, "Buy milk")
-wm.reminders.cancel("item:7")
+from wm import reminders
+reminders.set("item:7", time.time() + 3600, "Buy milk")
 ```
 
-- The app shows it, not your script. It keeps the id, the time and the text,
-  and when the time comes it posts the notification. No plugin code runs in the
-  background, and none runs when it fires.
-- The title is always your plugin's name. You choose the words under it, never
-  the name, so a reminder cannot pretend to come from the system or another app.
-- Tapping it opens your plugin's page in
-  <SettingsPath path="Tools / Plugins / Manage plugins / your plugin" />, which
-  lists every pending reminder with a button to cancel them all.
-- Nothing shows while plugins, or your plugin, are turned off, or while the user
-  has the app's notifications off.
+- The app shows it, not your script. No plugin code runs in the background, and
+  none runs when it fires.
+- The title is always your plugin's name, so a reminder cannot pretend to come
+  from the system or another app.
 - 64 pending, 200 characters of text, up to ten years ahead.
 
-## `selection`
+### `selection`
 
-Lets your plugin add buttons to the bar over selected text, listed under
-`actions` in the manifest. A manifest with actions must declare it, as one with
-this permission must have actions.
+Adds buttons to the bar over selected text, listed under `actions` in the
+manifest. Your script sees the selection only when the user tapped one of your
+buttons on it, never on a password field. See
+[Selection actions](/plugins/api-reference/#selection-actions).
 
-```python
-def transform(text, action):
-    return text.upper()
+### `field.write` (API 5)
+
+Type, replace the selection, delete, move the cursor and press the field's
+action key, through [`field`](/plugins/wm-package/#field). The user sees every
+change happen. Refused in password fields and incognito.
+
+### `clipboard.write` (API 5)
+
+Copy text with `clipboard.set`.
+
+### `sensors` (API 5)
+
+Motion, light, pressure and step readings while your panel is open.
+
+### `scan` (API 5)
+
+Open the keyboard's own QR and text scanners. You get the result, never the
+camera.
+
+### `device` (API 5)
+
+Vibrate, turn on the flashlight, read text aloud, and read the battery level.
+
+### `share` (API 5)
+
+Hand text to another app or open an https link. The keyboard always shows what
+is being shared, and where, before it goes.
+
+### `notifications` (API 5)
+
+Show a notification, titled with your plugin's name.
+
+### `clock` (API 5)
+
+Set an alarm or start a timer in the keyboard's own Clock. The keyboard says
+so on screen each time, naming your plugin, and the alarm or timer is the
+user's from then on. Your plugin never sees the user's alarms.
+
+## Risky permissions
+
+Each of these is off after install. The user turns it on, one plugin at a time,
+on the plugin's page in
+<SettingsPath path="Tools / Plugins / Manage plugins / your plugin" />, after a
+warning that says what it allows. A call before that raises `PermissionError`,
+and the keyboard asks over your panel, the way Android asks for an app's
+permission: your plugin's icon and name, each permission it needs with its
+warning, and **Allow** or **Don't allow**. The panel can't be used until the
+user answers. **Allow** turns the permission on for your plugin (and the
+risky-permissions switch, when it was off, which the dialog says), and your
+plugin's next call goes through; nothing is retried for you. The same switches
+stay on the plugin's page, where the user can turn them off again.
+
+| Permission | Gives you | Warning the user reads |
+|---|---|---|
+| `network` | [`http`](/plugins/wm-package/#http): https requests to the hosts in `hosts` | Data you give the plugin can go to those websites, which see your IP address. |
+| `network.local` | With `network`: the server the user typed into a `host` setting may be on the local network, over http or https. [More](#networklocal) | The plugin can connect to the server you type into its settings on your local network, and use plain http there, where anyone else on that network can read what is sent, including passwords and tokens. |
+| `ai` | [`ai`](/plugins/wm-package/#ai): the AI model the user set up | Text goes to that model, online or on the phone. |
+| `field.read` | `field.selection()`, `field.text_before()`, `field.text_after()`, `field.info()` | The plugin can read what you are writing, each time you tap something in its panel. |
+| `clipboard.read` | `clipboard.get()` | The plugin can read what you copied, each time you tap something in its panel. |
+| `location` | `location.get()` | The plugin can find out where your phone is while its panel is open. |
+| `files` | `files.pick()`, `files.photo()`, `files.save()` | The plugin can read every file you pick for it, and every photo you take for it. |
+| `calendar` | [`calendar`](/plugins/wm-package/#calendar): `events()`, `calendars()`, `add()` | The plugin can read the events in your phone's calendars while its panel is open, and add new events to them. |
+| `todo` | [`todo`](/plugins/wm-package/#todo): the keyboard's To-do list | The plugin can read every task in the keyboard's To-do list, and add, tick, change and delete tasks. |
+
+Rules that hold whatever was granted:
+
+- **Reads need the user's hand.** `field.*` reads and `clipboard.get` work only
+  while your plugin handles something the user did in its panel: a tap, a
+  change, a submit, a key, a header button, a keyword chip. A timer, a network
+  answer or `on_open` cannot call them, so a plugin cannot poll the field.
+- **Never protected text.** Password fields, incognito, and clips marked
+  private are refused.
+- **Network rules.** https only, to a host your manifest lists (exactly, or
+  under a `*.` entry) or one the user typed into a `host` setting. No IP
+  addresses or `localhost`, except a server on the local network that the user
+  typed in, with [`network.local`](#networklocal). Every redirect is checked
+  again. Replies up to 1 MB,
+  15 seconds at most, 60 requests a minute. Nothing is sent while Data saver is
+  on, and every request appears in the keyboard's Network activity under your
+  plugin's name.
+- **Only while open.** Timers, sensors and streams stop when your panel or
+  floating box closes. In the floating box a plugin keeps running over the
+  app with the keyboard closed, until the user closes the box; its text boxes
+  never type there, because tapping one moves the plugin into the keyboard.
+
+When a plugin can read something of the user's *and* send data away (for
+example `field.read` with `network`), the install screen says so in plain
+words: "This plugin can read text or files you give it and send them to
+api.example.com."
+
+An update that adds a risky permission, or a host, leaves it off, and the
+plugin's page says what is new.
+
+### `hosts`
+
+Required with `network`, unless a `host` setting lets the user type their own
+server:
+
+```json title="plugin.json (excerpt)"
+"hosts": ["api.open-meteo.com", "*.openfoodfacts.org"]
 ```
 
-- Your script sees text only when the user selected it and tapped one of your
-  buttons. It never sees what they type, the rest of the field, or a password
-  field: the bar does not appear on one.
-- Each tap runs in a fresh interpreter, discarded when `transform` returns. Only
-  what you write to `wm.storage` stays, and storage has no way off the device.
-- The user sees your action names before they install, and can switch each one
-  off in <SettingsPath path="Advanced / Selection actions" />.
+At most 16. Host names only: no scheme, port or path.
 
-[Selection actions](/plugins/api-reference/#selection-actions) has the
-manifest fields.
+The user can type a whole address into a `host` setting, such as
+`https://money.example.com:8443/firefly`. Only the host joins your list; your
+script reads the setting and builds its own addresses from it.
 
-Declared permissions are shown to the user *before* they install, on the addon
-page and in the file-import confirmation. There is no runtime prompt. With no
-way for data to leave the device, a prompt would have nothing to protect, and a
-prompt for something harmless mostly teaches people to dismiss prompts without
-reading them.
+### `network.local`
 
-## What you cannot ask for
+Self-hosted services often live at `http://192.168.1.20:8080` or
+`http://nas:9283`, with no https and no public name. `network.local` lets a
+plugin reach such a server, under three conditions:
 
-This is not a list of things that need a permission. It is a list of things with
-no API at all:
+- The plugin also has `network` and a `host` setting.
+- The server is the one the user typed into that setting. A plugin can never
+  reach a local address its manifest names, or one the user did not type.
+- The user turned `network.local` on, after its own warning.
+
+A local address is an IPv4 address in `10.0.0.0/8`, `172.16.0.0/12`,
+`192.168.0.0/16`, `100.64.0.0/10` (Tailscale and other carrier-grade NAT) or
+`169.254.0.0/16`; a one-word name such as `nas`; or a name ending in `.local`,
+`.lan`, `.home`, `.home.arpa`, `.internal` or `.localdomain`. Requests there
+may use http or https. `localhost`, `127.0.0.1` and every public IP address
+stay refused, with or without the grant, and plain http to anywhere else is
+still refused.
+
+Without the grant, a request to the typed server raises `PermissionError` and
+the keyboard asks for it over the panel, as for any risky permission.
+
+:::caution[Plain http on a shared network]
+On plain http, anyone on the same network can read the request, including
+the token the plugin sends. Suggest https to your users where their server
+has it, or a private network such as Tailscale.
+:::
+
+## What no permission allows
 
 | | |
 |---|---|
-| What the user types | No key event API of any kind. |
-| The text they are writing in | No API returns the field's contents. A [selection action](#selection) is handed the selection the user tapped it on, and nothing else. |
-| The clipboard | No API. |
-| The network | No HTTP, no sockets, no URL handling. |
-| Files | No paths, no filesystem. |
-| Other apps, or the device | No package list, no identifiers, no sensors. |
-| Android permissions | A plugin cannot request any; it does not have that reach. |
-| Background work | No timers. Execution stops when the panel closes. A reminder is text the app shows, not code that runs. |
+| What the user types | No key event API. |
+| Text outside your own boxes, without the user acting | Field reads only happen inside a user's action in your panel. |
+| Password fields and incognito text | Refused in every build. |
+| Background work | Nothing of yours runs while none of your panels is open. A reminder is text the app shows. |
+| Downloaded code | No `eval`, `exec` or `compile`, and `import` reaches your own files and the bundled library only. |
+| Android itself | Only the named host calls. No Intents, no file paths, no reflection. |
+| Your own look | Every widget is drawn by the keyboard in its theme; colours are roles like `danger`, never values. |
 
 :::note[Unknown permissions refuse the install]
-Adding `"permissions": ["network"]` to your manifest enables nothing. It makes
-the app refuse to install your plugin, because the app will not install
-something whose capabilities it cannot explain to the user. That refusal is
-deliberate: it is also how an old app version safely declines a plugin built for
-a newer one.
+A permission this version does not know makes the app refuse to install your
+plugin, because the app will not install something whose capabilities it cannot
+explain to the user. That is also how an older app version safely declines a
+plugin built for a newer one.
 :::
 
 ## Getting text without reading it
 
-The replacement for the text APIs is the user, and it is less limiting than it
-sounds.
+You often do not need `field.read` at all.
 
-**In:** draw a `ui.input`. The user types into it, or taps **Paste** beside it to
-drop in whatever they already copied. You are told the contents through
-`input_changed`. They can see exactly what they gave you.
+**In:** draw an input. The user types into it, or taps **Paste** beside it.
+They can see exactly what they gave you.
 
-**Out:** draw a `ui.output`. The keyboard puts an **Insert** button under it, and
-tapping that puts your text where they are writing.
+**Out:** draw an output. The keyboard puts an **Insert** button under it.
 
-So the flow for "encrypt the message I just wrote" is: select it, copy it, open
-your plugin, tap Paste, tap Encode, tap Insert. Six taps instead of two, and in
-exchange nothing on the keyboard can read anyone's messages.
+**Both at once:** a [selection action](#selection). The user selects text and
+taps your button, and what you return replaces it.
 
-**Both at once:** a [selection action](#selection). The user selects the text
-and taps your button on the bar, and what you return replaces it. Two taps, and
-still only the text they chose.
-
-## Why it is this short
-
-A keyboard sees everything its user types. Third-party code that could read that
-text *and* reach the network is a keylogger with extra steps. No consent dialog
-makes that untrue, because nobody can audit what a script does with a permission
-after they grant it.
-
-Google Play's Device and Network Abuse policy takes the same view of
-interpreted code an app loads at run time, and names Python among its examples:
-such code "must not allow potential violations of Google Play policies". That is a question about
-what is *possible*, not about what is consented to. The only answer that holds
-is not to build the capability.
-
-[Security](/plugins/security/) covers how that is enforced.
+[Security](/plugins/security/) covers how all of this is enforced.

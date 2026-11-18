@@ -70,6 +70,15 @@ data class DictionaryEntry(
      * [DictionaryCatalog.byLegacyFileName].
      */
     val legacyFileNames: List<String> = emptyList(),
+    /**
+     * The count a list gives the words its source text never used, when it
+     * keeps them at all: they sit after every counted word, all tied and in
+     * alphabetical order, so they have no rank for a size to cut by. A capped
+     * size takes none of them and only [DictionaryCatalog.DictionarySize.ALL]
+     * reads them. Bangla's list carries 203,382 such words at 2 (its counts
+     * were shifted up by 2 so they survive the noise cut).
+     */
+    val unseenCount: Int? = null,
 ) {
     /** The list's file name in the data repo, and in a language pack. */
     val fileName: String get() = "${fileStem ?: "${repoCode}_$suffix"}.txt.gz"
@@ -91,8 +100,8 @@ object DictionaryCatalog {
 
     /**
      * User-selectable download size: how many of the most frequent words to
-     * keep. [ALL] takes the list whole, however long it is — its cap is the
-     * entry's own [DictionaryEntry.totalWordCount], not a number chosen here.
+     * keep. [ALL] takes every word the list yields, however many that is — its
+     * cap is the entry's own [keptWords], not a number chosen here.
      */
     enum class DictionarySize(@StringRes val labelRes: Int, val wordCap: Int) {
         SMALL(R.string.core_pred_wordlist_size_small_label, 50_000),
@@ -101,9 +110,39 @@ object DictionaryCatalog {
         ALL(R.string.core_pred_wordlist_size_all_label, Int.MAX_VALUE),
     }
 
-    /** Words [size] actually keeps of [entry] — never more than the list holds. */
-    fun wordCap(entry: DictionaryEntry, size: DictionarySize): Int =
-        minOf(size.wordCap, entry.totalWordCount)
+    /**
+     * The most words a download of [entry] can keep: its line count less the
+     * noise tail the downloader cuts (every word counted once) and the lines
+     * that are not one word. Hindi's list has 242,911 lines and yields 81,289.
+     * From [DictionaryKeptCounts]; the line count for a list not measured yet.
+     */
+    fun keptWords(entry: DictionaryEntry): Int =
+        DictionaryKeptCounts.of(entry)?.words ?: entry.totalWordCount
+
+    /**
+     * Words [size] actually keeps of [entry]: never more than the list yields,
+     * all of it at every size for a list with no counts to rank by, which the
+     * downloader takes whole (see [WordlistDownloadManager]), and none of the
+     * unranked words ([DictionaryEntry.unseenCount]) below [DictionarySize.ALL].
+     */
+    fun wordCap(entry: DictionaryEntry, size: DictionarySize): Int {
+        val kept = DictionaryKeptCounts.of(entry)
+        if (kept?.flat == true) return kept.words
+        if (size == DictionarySize.ALL) return keptWords(entry)
+        return minOf(size.wordCap, kept?.ranked ?: keptWords(entry))
+    }
+
+    /**
+     * Roughly what [entry] transfers at [size]. A capped download stops partway
+     * through the file, so this scales what the whole kept list costs by the
+     * share of it read.
+     */
+    fun approxBytes(entry: DictionaryEntry, size: DictionarySize): Long {
+        val kept = DictionaryKeptCounts.of(entry)
+        val words = kept?.words ?: entry.totalWordCount
+        val bytes = kept?.bytes ?: entry.approxGzBytes
+        return bytes * wordCap(entry, size) / words.coerceAtLeast(1)
+    }
 
     private fun entry(
         id: String,
@@ -115,9 +154,10 @@ object DictionaryCatalog {
         suffix: String = "full",
         fileStem: String? = null,
         legacyFileNames: List<String> = emptyList(),
+        unseenCount: Int? = null,
     ) = DictionaryEntry(
         id, languageId, repoCode, totalWordCount, approxGzBytes, variantRes, suffix, fileStem,
-        legacyFileNames = legacyFileNames,
+        legacyFileNames = legacyFileNames, unseenCount = unseenCount,
     )
 
     /**
@@ -127,6 +167,9 @@ object DictionaryCatalog {
     private const val BN_STEM = "bn_full_v2"
     private const val BN_GZ_BYTES = 2_308_065L
     private val BN_LEGACY = listOf("bn_full.txt.gz")
+
+    /** What `bn_full_v2` counts a word its corpus never used: 0 + 2. */
+    private const val BN_UNSEEN_COUNT = 2
 
     /**
      * An AOSP list, `data/<repoCode>/<repoCode>_aosp.txt.gz` beside the
@@ -165,7 +208,10 @@ object DictionaryCatalog {
         entry("bho", "bho", "bho", 73_823, 368_808L, fileStem = "bho_full_v2", legacyFileNames = listOf("bho_full.txt.gz")),
         entry("bi", "bi", "bi", 6_558, 25_592L),
         entry("bm", "bm", "bm", 45_558, 203_813L, fileStem = "bm_full_v2", legacyFileNames = listOf("bm_full.txt.gz")),
-        entry("bn", "bn", "bn", 451_348, BN_GZ_BYTES, fileStem = BN_STEM, legacyFileNames = BN_LEGACY),
+        entry(
+            "bn", "bn", "bn", 451_348, BN_GZ_BYTES,
+            fileStem = BN_STEM, legacyFileNames = BN_LEGACY, unseenCount = BN_UNSEEN_COUNT,
+        ),
         entry("bo", "bo", "bo", 27_565, 352_881L, fileStem = "bo_full_v2", legacyFileNames = listOf("bo_full.txt.gz")),
         entry("br", "br", "br", 165_034, 856_994L, fileStem = "br_full_v2", legacyFileNames = listOf("br_full.txt.gz")),
         entry("brx", "brx", "brx", 24_136, 127_775L, fileStem = "brx_full_v2", legacyFileNames = listOf("brx_full.txt.gz")),
@@ -566,7 +612,10 @@ object DictionaryCatalog {
         entry("khk_cyrl_mn", "khk-Cyrl-MN", "mn", 187_074, 1_074_182L, fileStem = "mn_full_v2", legacyFileNames = listOf("mn_full.txt.gz")),
         entry("nan_latn_035", "nan-Latn-035", "nan", 310331, 1285434L),
         entry("nan_latn_tw", "nan-Latn-TW", "nan", 310331, 1285434L),
-        entry("bn_in", "bn-IN", "bn", 451348, BN_GZ_BYTES, fileStem = BN_STEM, legacyFileNames = BN_LEGACY),
+        entry(
+            "bn_in", "bn-IN", "bn", 451348, BN_GZ_BYTES,
+            fileStem = BN_STEM, legacyFileNames = BN_LEGACY, unseenCount = BN_UNSEEN_COUNT,
+        ),
         entry("tzm", "tzm", "ber", 81160, 312491L),
         entry("tzm_tfng", "tzm-Tfng", "zgh", 58474, 243558L),
         entry("dz_bt", "dz-BT", "dz", 11_899, 53_114L, fileStem = "dz_full_v2", legacyFileNames = listOf("dz_full.txt.gz")),

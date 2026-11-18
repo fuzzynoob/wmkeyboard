@@ -208,8 +208,8 @@ class SuggestionEngineTest {
         assertEquals("world", e.suggest("wor", previousWord = "hello").first())
         // Without context the raw order stands.
         assertEquals("words", e.suggest("wor", previousWord = null).first())
-        // The boost is capped: an enormous count cannot bury a much more
-        // frequent candidate (a >4x frequency gap beats the ln(4) cap).
+        // A word the user writes after "hello" is carried to the front once
+        // its letters are typed, past a 5x commoner word, which sits behind it.
         val lopsided = Trie().apply {
             insert("world", 100)
             insert("words", 500)
@@ -217,7 +217,60 @@ class SuggestionEngineTest {
         val heavy = UserLexicon(null)
         repeat(10_000) { heavy.learnBigram("hello", "world") }
         val e2 = SuggestionEngine(lopsided, BengaliPhoneticIndex(emptyList()), heavy)
-        assertEquals("words", e2.suggest("wor", previousWord = "hello").first())
+        assertEquals(listOf("world", "words"), e2.suggest("wor", previousWord = "hello"))
+        // The capped boost alone still cannot: a corpus pair is not carried.
+        val seeded = SuggestionEngine(
+            lopsided, BengaliPhoneticIndex(emptyList()), UserLexicon(null),
+            seedBigrams = SeedBigrams.load("hello world 10000\n".byteInputStream()),
+        )
+        assertEquals("words", seeded.suggest("wor", previousWord = "hello").first())
+    }
+
+    /**
+     * Forty commoner words starting with "d", so "dujon" is outside the walk's
+     * top ranks for "d" and "du", as a Banglish word is on English.
+     */
+    private fun followersEngine(): SuggestionEngine {
+        val dictionary = Trie().apply {
+            for (i in 0 until 40) insert("d" + ('a' + i / 26) + ('a' + i % 26), 1000 - i)
+            insert("dujon", 1)
+            insert("do", 5000)
+            insert("doing", 2)
+        }
+        val lexicon = UserLexicon(null)
+        lexicon.learnBigram("cholo", "dujon")
+        lexicon.learnBigram("to", "doing")
+        return SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), lexicon)
+    }
+
+    @Test fun aPredictedWordStaysWhileItsPrefixIsTyped() {
+        val e = followersEngine()
+        assertTrue("dujon" in e.suggest("", previousWord = "cholo", limit = 3))
+        assertEquals("dujon", e.suggest("d", previousWord = "cholo", limit = 3).first())
+        assertEquals("dujon", e.suggest("du", previousWord = "cholo", limit = 3).first())
+        // No word before, nothing carried: the frequency order stands.
+        assertFalse("dujon" in e.suggest("d", previousWord = null, limit = 3))
+        // A letter past the follower's spelling lets it go.
+        assertFalse("dujon" in e.suggest("dx", previousWord = "cholo", limit = 3))
+    }
+
+    @Test fun aKnownWordTypedInFullStaysAheadOfACarriedFollower() {
+        val strip = followersEngine().suggest("do", previousWord = "to", limit = 3)
+        assertEquals(listOf("do", "doing"), strip.take(2))
+    }
+
+    @Test fun aHiddenFollowerIsNotCarried() {
+        val e = followersEngine()
+        e.blacklist = setOf("dujon")
+        assertFalse("dujon" in e.suggest("d", previousWord = "cholo", limit = 3))
+    }
+
+    @Test fun nextWordsAreUnchangedByTheCarry() {
+        val lexicon = UserLexicon(null)
+        repeat(2) { lexicon.learnBigram("good", "morning") }
+        lexicon.learnBigram("good", "night")
+        val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), lexicon)
+        assertEquals(listOf("morning", "night"), e.suggest("", previousWord = "good"))
     }
 
     @Test fun trigramContextOutranksBigramTail() {
@@ -483,6 +536,35 @@ class SuggestionEngineTest {
         val e = engine().apply { blacklist = setOf("they") }
         // Capitalized composing still filters the (capitalized) candidate.
         assertTrue("They" !in e.suggest("Th", previousWord = null))
+    }
+
+    @Test fun aBlacklistPatternHidesEveryWordItMatchesWhole() {
+        val e = engine().apply { blacklist = setOf("/the[ym]/") }
+        val suggestions = e.suggest("th", previousWord = null)
+        assertTrue("they" !in suggestions)
+        assertTrue("them" !in suggestions)
+        // Matched against the whole word: "the" is not "the" plus y or m.
+        assertTrue("the" in suggestions)
+    }
+
+    @Test fun aBlacklistPatternIgnoresCase() {
+        val e = engine().apply { blacklist = setOf("/THE[YM]/") }
+        val suggestions = e.suggest("Th", previousWord = null)
+        assertTrue("They" !in suggestions)
+        assertTrue("The" in suggestions)
+    }
+
+    @Test fun aBlacklistPatternIsNotAnAutocorrectTarget() {
+        val e = engine().apply { blacklist = setOf("/w.rld/") }
+        assertNull(e.shouldAutocorrect("wprld"))
+    }
+
+    @Test fun aRefusedBlacklistPatternHidesNothing() {
+        // A backreference never compiles onto the list; the words stay.
+        val e = engine().apply { blacklist = setOf("/(th)\\1/", "/(e+)+/") }
+        val suggestions = e.suggest("th", previousWord = null)
+        assertTrue("they" in suggestions)
+        assertTrue("the" in suggestions)
     }
 
     @Test fun rejectedCorrectionNeverFiresAgain() {
@@ -1049,15 +1131,19 @@ class SuggestionEngineTest {
     @Test fun `a downloaded secondary with real counts does not bury the typed primary word`() {
         // #653: bundled English on its 0..10000 scale, Italian downloaded with
         // corpus counts in the millions. "visit" typed in full stays first.
+        // The real counts: the bundled list's `visit` and the Italian
+        // download's (it_full, `e` at the top). The test once had `visita` at
+        // 4.7% of the top word's count, fifty times its real share, which only
+        // a linear reading of the counts let `visit` at 238 beat.
         val dictionary = Trie().apply {
-            insert("the", 10_000)
-            insert("visit", 238)
+            insert("the", 9_771)
+            insert("visit", 3_915)
         }
         val italian = Trie().apply {
-            insert("di", 19_000_000)
-            insert("visita", 900_000)
-            insert("visitare", 400_000)
-            insert("visite", 300_000)
+            insert("e", 7_389_373)
+            insert("visita", 18_631)
+            insert("visite", 5_069)
+            insert("visitare", 3_634)
         }
         val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null)).apply {
             primaryLanguageId = "en"
@@ -1094,10 +1180,15 @@ class SuggestionEngineTest {
         // #403: a Greek list with corpus counts in the millions read at its raw
         // scale cleared the lone-candidate floor by ten nats, so any unknown
         // word one slip from a rare listed one was replaced.
+        // `kalimera` sits under the list's floor (its top over 28,788, as the
+        // bundled list's count-1000 floor sits under its top), where the
+        // walk reads counts as the bundled list's rarest words. At 5,000 of
+        // 19 million it read as a word as common as the bundled list's mid
+        // range, which that list corrects to as well.
         val greek = Trie().apply {
             insert("kai", 19_000_000)
             insert("einai", 10_000_000)
-            insert("kalimera", 5_000)
+            insert("kalimera", 300)
         }
         val e = SuggestionEngine(Trie(), BengaliPhoneticIndex(emptyList()), UserLexicon(null)).apply {
             englishSources = false
@@ -1344,6 +1435,72 @@ class SuggestionEngineTest {
         assertTrue("us offered in $s", "us" in s)
         // The strip only: a known word is still never corrected.
         assertNull(e.shouldAutocorrect("is"))
+    }
+
+    @Test fun `a rare known word still offers its slip when completions crowd the walk`() {
+        // `tnr` is listed (the Full English download keeps it twice), but the
+        // walk's top ranks fill with `tr…` completions after dropping its `n`,
+        // so neither it nor `tmr` makes them. The strip used to show `tnr`
+        // and nothing else.
+        val dictionary = Trie().apply {
+            insert("tnr", 2)
+            insert("tmr", 1_000)
+            for (a in 'a'..'z') for (b in "ab") insert("tr$a$b", 100_000)
+        }
+        val e = SuggestionEngine(dictionary, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        val s = e.suggest("tnr", previousWord = null)
+        assertEquals("tnr", s.first())
+        assertTrue("tmr offered in $s", "tmr" in s)
+    }
+
+    @Test fun `a list of corpus counts ranks a one-letter fix over a two-edit common word`() {
+        // The AOSP English list's counts for `tdreat`'s neighbours. Shrunk in
+        // proportion to the bundled list's 10,000 top, `threat` read as 6 and
+        // fell behind `great`, two edits off; on the bundled list's log line
+        // it reads as the bundled list has it.
+        val aosp = PackedTrie.of(
+            listOf("the" to 18_700_000, "great" to 65_911, "threat" to 11_166, "treat" to 4_982),
+        )
+        val e = SuggestionEngine(aosp, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        val s = e.suggest("tdreat", previousWord = null)
+        assertTrue("threat offered in $s", "threat" in s)
+        assertTrue("threat before great in $s", "great" !in s || s.indexOf("threat") < s.indexOf("great"))
+    }
+
+    @Test fun `a list already on the bundled scale is read exactly as before`() {
+        val bundled = Trie().apply {
+            insert("great", 6_138)
+            insert("threat", 2_962)
+            insert("treat", 3_589)
+        }
+        val e = SuggestionEngine(bundled, BengaliPhoneticIndex(emptyList()), UserLexicon(null))
+        assertEquals(listOf("treat", "threat", "great"), e.suggest("tdreat", previousWord = null).take(3))
+    }
+
+    @Test fun `a romanized list's slip of a far commoner word one key over is not a word`() {
+        // The Banglish list's own counts: `tnr` is `tmr` with `n` for `m`.
+        val banglish = Trie().apply {
+            insert("tmr", 10_130)
+            insert("tnr", 67)
+        }
+        val e = engine().apply { secondaryDictionaries = listOf(SecondaryDictionary("bn_rom", banglish)) }
+        assertEquals("tmr", e.suggest("tnr", previousWord = null).first())
+    }
+
+    @Test fun `a word a standard list ranks high stays a word whatever a romanized list says`() {
+        val english = Trie().apply {
+            insert("but", 5_000)
+            insert("bit", 1_000)
+        }
+        val banglish = Trie().apply {
+            insert("but", 4_465)
+            insert("bit", 43)
+        }
+        val e = SuggestionEngine(english, BengaliPhoneticIndex(emptyList()), UserLexicon(null)).apply {
+            secondaryDictionaries = listOf(SecondaryDictionary("bn_rom", banglish))
+        }
+        assertEquals("bit", e.suggest("bit", previousWord = null).first())
+        assertNull(e.shouldAutocorrect("bit"))
     }
 
     @Test fun `a secondary word one slip from a primary word reaches the strip`() {
@@ -1614,6 +1771,57 @@ class SuggestionEngineTest {
         assertTrue(e.owningLanguages("zzq").isEmpty())
         // No mix configured: nothing to classify against.
         assertTrue(engine().owningLanguages("hello").isEmpty())
+    }
+
+    /**
+     * Hinglish with English under Also suggest from (#1292): each list holds
+     * the other's common words at a count of a few, the way the real ones do.
+     */
+    private fun hinglishEngine(mix: LanguageMixConfidence = LanguageMixConfidence()): SuggestionEngine {
+        val english = Trie().apply {
+            insert("you", 10_000)
+            insert("good", 6_100)
+            insert("the", 7_900)
+            insert("me", 2_200)
+            insert("hai", 1)
+        }
+        val hinglish = Trie().apply {
+            insert("hai", 24_000)
+            insert("ki", 14_000)
+            insert("me", 5_400)
+            insert("the", 2_100)
+            insert("good", 12)
+            insert("you", 12)
+        }
+        return SuggestionEngine(english, BengaliPhoneticIndex(emptyList()), UserLexicon(null), mixConfidence = mix)
+            .apply {
+                primaryLanguageId = "hi_rom"
+                englishSources = false
+                englishAsSecondary = true
+                customDictionary = hinglish
+                fieldDetectionShift = SuggestionEngine.FIELD_SHIFT_BALANCED
+            }
+    }
+
+    @Test fun `a word a list holds only at a few counts belongs to the other language`() {
+        val e = hinglishEngine()
+        assertEquals(setOf("en"), e.owningLanguages("good"))
+        assertEquals(setOf("en"), e.owningLanguages("you"))
+        assertEquals(setOf("hi_rom"), e.owningLanguages("hai"))
+        assertEquals(setOf("hi_rom"), e.owningLanguages("ki"))
+        // Common in both: says nothing about the sentence's language.
+        assertEquals(setOf("hi_rom", "en"), e.owningLanguages("me"))
+        assertEquals(setOf("hi_rom", "en"), e.owningLanguages("the"))
+    }
+
+    @Test fun `english typed on hinglish earns english its share`() {
+        val mix = LanguageMixConfidence()
+        val e = hinglishEngine(mix)
+        repeat(10) { e.recordUsage("good") }
+        repeat(10) { e.recordUsage("hai") }
+        // Credited to the primary only because its list had it, English
+        // used to sink to the floor however much of it was typed.
+        assertTrue(mix.confidenceFor("en") > LanguageMixConfidence.MIN_CONFIDENCE + 0.5)
     }
 
     @Test fun `committed words swing the detection back mid-field`() {

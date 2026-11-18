@@ -162,6 +162,15 @@ enum class ToolbarTool {
     // with a row of the latest notes under it to switch to one and add to it
     // (#864). Action-only, like [CLIPBOARD_SEARCH].
     QUICK_NOTE,
+    // The focused field's EditorInfo decoded, the keyboard's state, the screen
+    // and memory, for a bug report (FUTO U3), shown in the settings app with a
+    // Copy button. Never the field's text. Action-only, like [CLIPBOARD_SEARCH].
+    DEBUG_INFO,
+    // The characters that sound like the Chinese or Japanese character just
+    // typed, on the strip, a pick replacing it (AnySoftKeyboard's homophone
+    // search key). Action-only, like [CLIPBOARD_SEARCH]: meant for a key on
+    // a CJK layout, a flick or a hold.
+    HOMOPHONES,
     // A to-do list with steps under each task (#920), kept in the app's files
     // and shared with the settings app's list. Can sync with a CalDAV task
     // list through DAVx5's task app when the user sets that up. Reads
@@ -188,6 +197,24 @@ enum class ToolbarTool {
     // not in the picture. Pressed through SystemButtonsService, an accessibility
     // service of its own; not in the Play build, and needs Android 9.
     SCREENSHOT,
+    // A cover over the app above the keyboard, so the conversation cannot be
+    // read over your shoulder while you type (#1242). Drag its edge up to see
+    // the last lines. A switch over a setting; drawn in the keyboard's own
+    // window, so it needs no permission to draw over other apps.
+    PRIVACY_SHADE,
+    // Everything in the field gone in one tap (#1194), for the fields that
+    // have no clear button of their own. Undo brings it back.
+    CLEAR_FIELD,
+    // The keyboard's file manager as a tool of its own (#1267), not only the
+    // picker other tools open: rename, copy, move and delete, one list or two
+    // side by side, over the phone's storage (with All files access) and the
+    // folders added through Android's folder picker, which a Play build can
+    // use too. Not over the lock screen.
+    FILES,
+    // The date and time typed in one tap, in the format the Clock tool's
+    // insert sheet is set to (competitor gap list item 6, HeliBoard's
+    // timestamp key). The first Backspace after it takes it back whole.
+    TIMESTAMP,
 }
 
 /** The cursor tools, in the order they read on the toolbar. */
@@ -274,6 +301,12 @@ fun isDirectBootSafeTool(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.COPY, ToolbarTool.CUT,
     // Languages are settings, mirrored into the pre-unlock store.
     ToolbarTool.LANGUAGE,
+    // A switch over a setting, drawn in the keyboard's window.
+    ToolbarTool.PRIVACY_SHADE,
+    // Only touches the field the user is already typing in.
+    ToolbarTool.CLEAR_FIELD,
+    // Reads the clock's format from device-protected preferences.
+    ToolbarTool.TIMESTAMP,
     -> true
     // The cursor moves only touch the input connection.
     else -> tool in CursorTools
@@ -299,7 +332,8 @@ fun toolOpensScreen(tool: ToolbarTool): Boolean = when (tool) {
     ToolbarTool.INCOGNITO, ToolbarTool.POWER_SAVING, ToolbarTool.AUTOCORRECT,
     ToolbarTool.FANCY, ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.HIDE_KEYBOARD, ToolbarTool.LEAVE_FIELD,
     ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH, ToolbarTool.LANGUAGE,
-    ToolbarTool.RECENT_COPIES, ToolbarTool.READ_BACK, ToolbarTool.SCREENSHOT,
+    ToolbarTool.RECENT_COPIES, ToolbarTool.READ_BACK, ToolbarTool.SCREENSHOT, ToolbarTool.PRIVACY_SHADE,
+    ToolbarTool.CLEAR_FIELD, ToolbarTool.TIMESTAMP, ToolbarTool.HOMOPHONES,
     -> false
     // The cursor moves nudge the caret and nothing else, and the clipboard trio
     // acts on the selection in place.
@@ -341,7 +375,10 @@ val OptInOnlyTools: Set<ToolbarTool> = setOf(ToolbarTool.LEARN_FROM_TEXT)
  * regardless.
  */
 val ActionOnlyTools: Set<ToolbarTool> =
-    setOf(ToolbarTool.CLIPBOARD_SEARCH, ToolbarTool.RECENT_COPIES, ToolbarTool.LEAVE_FIELD, ToolbarTool.QUICK_NOTE)
+    setOf(
+        ToolbarTool.CLIPBOARD_SEARCH, ToolbarTool.RECENT_COPIES, ToolbarTool.LEAVE_FIELD, ToolbarTool.QUICK_NOTE,
+        ToolbarTool.DEBUG_INFO, ToolbarTool.HOMOPHONES,
+    )
 
 /**
  * The "Everything" preset, and the enabled-tools default before setup swaps
@@ -416,9 +453,9 @@ private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.WEB_SEARCH, ToolbarTool.IMAGE_SEARCH, ToolbarTool.AI_REPLY,
     ToolbarTool.LEARN_FROM_TEXT, ToolbarTool.FIND_REPLACE, ToolbarTool.TYPING_TEST, ToolbarTool.SPEED_TEST, ToolbarTool.STATISTICS, ToolbarTool.PLUGINS,
     ToolbarTool.CUSTOM_LAYOUT, ToolbarTool.LANGUAGE,
-    ToolbarTool.FLOATING, ToolbarTool.PERSISTENT, ToolbarTool.RESIZE, ToolbarTool.INCOGNITO,
+    ToolbarTool.FLOATING, ToolbarTool.PERSISTENT, ToolbarTool.RESIZE, ToolbarTool.INCOGNITO, ToolbarTool.PRIVACY_SHADE,
     ToolbarTool.SELECTION_ACTIONS, ToolbarTool.PHONETIC_ENGLISH, ToolbarTool.SOUND_HAPTICS,
-    ToolbarTool.EMOJI_MIX, ToolbarTool.MUSIC_ID,
+    ToolbarTool.EMOJI_MIX, ToolbarTool.MUSIC_ID, ToolbarTool.FILES, ToolbarTool.TIMESTAMP,
     ToolbarTool.QR_SCAN, ToolbarTool.QR_GEN, ToolbarTool.TEXT_REPEAT, ToolbarTool.READ_BACK, ToolbarTool.DOC_SCAN, ToolbarTool.CAMERA,
     ToolbarTool.FLASHLIGHT, ToolbarTool.SCREENSHOT, ToolbarTool.COMPASS, ToolbarTool.LEVEL, ToolbarTool.MOON_PHASE,
     // The one-tap cursor moves last: useful, but they would otherwise push
@@ -429,9 +466,9 @@ private val RestOfToolOrder: List<ToolbarTool> = listOf(
     ToolbarTool.CURSOR_HOME, ToolbarTool.CURSOR_END, ToolbarTool.PAGE_UP, ToolbarTool.PAGE_DOWN,
     ToolbarTool.SELECT_WORD, ToolbarTool.SELECT_LINE, ToolbarTool.SELECT_ALL,
     ToolbarTool.SELECT_MODE,
-    ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE,
+    ToolbarTool.COPY, ToolbarTool.CUT, ToolbarTool.PASTE, ToolbarTool.CLEAR_FIELD,
     ToolbarTool.CLIPBOARD_SEARCH, ToolbarTool.RECENT_COPIES, ToolbarTool.LEAVE_FIELD,
-    ToolbarTool.QUICK_NOTE,
+    ToolbarTool.QUICK_NOTE, ToolbarTool.DEBUG_INFO, ToolbarTool.HOMOPHONES,
 )
 
 /**

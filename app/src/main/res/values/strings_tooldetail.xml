@@ -15,7 +15,7 @@
     <string name="tooldetail_enabled_voice_off_subtitle">Voice typing is off. Turn it on under All voice typing settings below.</string>
     <string name="tooldetail_enabled_needs_mix_source_subtitle">Add a source under Emoji › Emoji mixes first.</string>
     <string name="tooldetail_enabled_needs_music_provider_subtitle">Set up a song recogniser with your key under Song recognisers below to turn this tool on</string>
-    <string name="tooldetail_enabled_needs_layout_subtitle">Make a secondary layout under Key layouts below to turn this tool on</string>
+    <string name="tooldetail_enabled_needs_layout_subtitle">Select one of your enabled layouts under Layout to show, or make a secondary layout under Key layouts, to turn this tool on</string>
     <!-- A switch under the one above. Off takes the tool out of the toolbox grid
          (the panel that lists every tool) while it stays on everywhere else. -->
     <string name="tooldetail_show_in_toolbox_title">Show in toolbox</string>
@@ -137,6 +137,10 @@
     <string name="tooldetail_calendar_save_mode_info">In the keyboard writes the event straight into your calendar, and asks for calendar access the first time. In the calendar app opens your calendar app\'s own editor with the event filled in, and you save it there. Changing and deleting events always happens in the keyboard.</string>
     <string name="tooldetail_calendar_save_keyboard_label">In the keyboard</string>
     <string name="tooldetail_calendar_save_app_label">In the calendar app</string>
+    <string name="tooldetail_calendar_weather_group">Weather</string>
+    <string name="tooldetail_calendar_weather_title">Weather on events</string>
+    <string name="tooldetail_calendar_weather_subtitle">The forecast for the time and place of each event, up to 16 days ahead</string>
+    <string name="tooldetail_calendar_weather_info">An event card shows a weather icon and the temperature for its start, at the place of the event. If the event has no place, or the keyboard cannot find it, the card uses the location of the weather tool. Tap the icon to see the forecast for each hour of that day, with the chance of rain.\n\nThe keyboard sends the place of each event to the place search of Open-Meteo, and gets the forecast from Open-Meteo. It does not send the title or any other part of the event. It refreshes the forecast when it is older than the refresh time of the weather tool. While data saving is on or you are offline, the cards show only a forecast that the keyboard already has. This setting needs the weather tool to be turned on.</string>
     <string name="tooldetail_calendar_default_calendar_title">Default calendar</string>
     <string name="tooldetail_calendar_default_calendar_subtitle">The calendar a new event starts in</string>
     <string name="tooldetail_calendar_default_calendar_primary">Primary calendar</string>
@@ -328,6 +332,8 @@
     <string name="tooldetail_incognito_private_clipboard_info">While incognito is on, text you copy or cut with the keyboard stays inside the keyboard. The paste keys of the keyboard paste it back. When incognito goes off, the keyboard forgets it.\n\nIf you have not copied with the keyboard yet, paste gives what is on the system clipboard, as usual. The copy and paste menu of the app itself still uses the system clipboard.</string>
     <string name="tooldetail_incognito_watermark_title">Mark on the keyboard</string>
     <string name="tooldetail_incognito_watermark_subtitle">A large, faint incognito sign behind the keys</string>
+    <string name="tooldetail_incognito_badge_title">Badge on the toolbar</string>
+    <string name="tooldetail_incognito_badge_subtitle">A small incognito sign at the end of the toolbar. Off keeps the tools from shifting over</string>
 
     <!-- Power saving tool: when power saving runs. -->
     <string name="tooldetail_chips_nav_title">Suggestion chip</string>
@@ -401,9 +407,19 @@
     <string name="tooldetail_power_drop_moving_themes_title">Moving themes</string>
     <string name="tooldetail_power_drop_moving_themes_subtitle">Hold animated backgrounds and board effects still, and stop key lighting</string>
     <string name="tooldetail_power_drop_moving_themes_info">A theme that moves redraws the whole keyboard on every frame while it is open. This keeps the theme\'s colours, pictures and key finishes, shows an animated background as a still picture, holds a board effect on one frame, and drops the effects that are only motion: key lighting, the glow under your finger and press particles. Panels still open with their usual animation unless Animations is on too.</string>
+    <string name="tooldetail_power_load_group">When the phone is busy</string>
+    <string name="tooldetail_power_adapt_title">Adapt to the phone\'s load</string>
+    <string name="tooldetail_power_adapt_subtitle">Ease off while the phone is hot, short of memory or slow to keep up</string>
+    <string name="tooldetail_power_adapt_info">The keyboard watches its own frames, how long its suggestions take, the phone\'s temperature and its free memory. When the phone is busy, it saves work you cannot see: moving themes draw fewer frames, and the suggestion strip, the smart punctuation key and glide previews wait a little longer for a burst of typing to end. When the phone is struggling, it also holds a moving theme still, stops the blur behind a glass theme, hides the word hints over the keys and cuts panel animations. Everything comes back by itself once the phone has been calm for a while. This works without power saving, and it does not change your settings.</string>
     <string name="tooldetail_power_drop_warm_models_title">Loaded models</string>
     <string name="tooldetail_power_drop_warm_models_subtitle">Unload them 15 seconds after the keyboard hides, not 2 minutes</string>
     <string name="tooldetail_power_drop_warm_models_info">After the keyboard has been hidden for a while, it unloads the models that it loaded: the language model, voice typing, the translator, text scanning and the rest. This shortens that wait. A loaded model costs memory more than battery, and loading it again for the next field is the part that uses battery, so this is off unless memory is what you are short of. The Resources screen in About shows what is loaded now.</string>
+    <string name="tooldetail_power_dark_theme_title">Dark theme</string>
+    <string name="tooldetail_power_dark_theme_subtitle">Show Pitch black, a plain dark theme, while power saving is on</string>
+    <string name="tooldetail_power_dark_theme_info">Black keys on a black background use the least power on an OLED screen, and this theme has no image, blur or motion to draw. Your own theme and your light and dark pair are not changed. They come back when power saving stops. A Keyboard Mode that has its own theme keeps that theme. This setting is off by default and no bundle turns it on.</string>
+    <string name="tooldetail_power_drop_suggestions_title">Word suggestions</string>
+    <string name="tooldetail_power_drop_suggestions_subtitle">Hide the word suggestions in the strip</string>
+    <string name="tooldetail_power_drop_suggestions_info">The strip stops offering words to complete or predict, the same as the Suggestions switch in Typing set to off. This setting is off by default and no bundle turns it on.</string>
     <string name="tooldetail_power_drop_floating_button_title">Floating button</string>
     <string name="tooldetail_power_drop_floating_button_subtitle">Hide the button drawn over other apps</string>
     <string name="tooldetail_power_drop_floating_button_info">The floating button is a small window that Android draws over every app. It comes back where you left it when power saving ends. With this off, the button stays, and Animations still stops its quick menu from animating.</string>
@@ -442,12 +458,13 @@
 
     <!-- Secondary layout tool. -->
     <string name="tooldetail_custom_layout_layout_title">Layout to show</string>
-    <string name="tooldetail_custom_layout_layout_subtitle">The secondary layout the tool puts on screen, or a list to select from</string>
-    <string name="tooldetail_custom_layout_layout_info">With no layout selected here, the tool opens a list of all your secondary layouts, or the only one you have. Select a layout and the tool shows that one directly. A press while a secondary layout is on screen always takes it off again. A key on any layout can also open a secondary layout.</string>
+    <string name="tooldetail_custom_layout_layout_subtitle">The layout the tool puts on screen, or a list of your secondary layouts to select from</string>
+    <string name="tooldetail_custom_layout_layout_info">With no layout selected here, the tool opens a list of all your secondary layouts, or the only one you have. Select a secondary layout and the tool shows that one over the letters. A key on any layout can also open a secondary layout.\n\nYou can also select one of your enabled language layouts, such as One-row QWERTY. The tool then makes it the keyboard, with its own dictionary and autocorrect, and the next press goes back to the layout you were typing on. The globe key, the spacebar language swipe and the language list no longer stop on it, unless it is the only layout you have enabled.\n\nA press while the tool is lit always goes back.</string>
     <string name="tooldetail_custom_layout_first">Ask each time</string>
+    <string name="tooldetail_custom_layout_board_detail">Becomes the keyboard, with its own dictionary, until the next press</string>
     <string name="tooldetail_custom_layout_keymaps_nav_title">Key layouts</string>
     <string name="tooldetail_custom_layout_keymaps_nav_subtitle">Make and edit secondary layouts</string>
-    <string name="tooldetail_custom_layout_info">A secondary layout is a grid of your own, such as a symbols page or a macro pad. It is not a language. It keeps the dictionary of the layout you type with.</string>
+    <string name="tooldetail_custom_layout_info">A secondary layout is a grid of your own, such as a symbols page or a macro pad. It is not a language. It keeps the dictionary of the layout you type with. The tool can also switch to one of your enabled language layouts and back.</string>
 
     <!-- Sound and haptics tool. -->
     <string name="tooldetail_keypress_nav_title">All key press settings</string>
@@ -511,6 +528,11 @@
     <string name="tooldetail_translate_downloaded_first_subtitle">The language lists on the panel start with the languages on the device. With On device and Automatic.</string>
     <string name="tooldetail_translate_clear_on_insert_title">Clear after inserting</string>
     <string name="tooldetail_translate_clear_on_insert_subtitle">Insert empties the box and its translation, so you can type the next message straight away</string>
+    <string name="tooldetail_translate_manual_title">Translate only when asked</string>
+    <string name="tooldetail_translate_manual_subtitle">Nothing is sent while you type. Tap Translate to translate the text once</string>
+    <string name="tooldetail_translate_manual_info">For a provider with a request limit or a cost per request, such as an AI service on a free plan. Editing the text, or changing its language or provider, dims the translation instead of sending it again; it can still be inserted.</string>
+    <string name="tooldetail_translate_live_delay_title">Wait before translating</string>
+    <string name="tooldetail_translate_live_delay_subtitle">How long after the last key the translation follows the typing</string>
     <string name="tooldetail_translate_hint_replaces_title">Translate "in …" where it stands</string>
     <string name="tooldetail_translate_hint_replaces_subtitle">A tap on the chip for "good morning in spanish" puts the Spanish in place of the words, without opening Translate. The chip\'s Translate button still opens it</string>
     <string name="tooldetail_translate_only_downloaded_title">Only downloaded languages</string>
@@ -676,6 +698,10 @@
     <string name="tooldetail_search_info">Web search and image search share everything here. They search the whole web. The Brave plan includes a free monthly credit of about a thousand searches. Brave asks for attribution, so the panel shows \"via Brave\".</string>
     <!-- Tavily is a brand name: keep it as it is. -->
     <string name="tooldetail_tavily_group">Tavily</string>
+    <string name="tooldetail_klipy_group">KLIPY</string>
+    <string name="tooldetail_klipy_memes_title">Memes chip</string>
+    <string name="tooldetail_klipy_memes_subtitle">KLIPY\'s memes in a tab of the GIF panel</string>
+    <string name="tooldetail_klipy_memes_info">Adds a Memes chip to the category row of the GIF panel, after Trending. It shows KLIPY\'s trending memes, which are still pictures with a caption, and while it is selected the search box searches the memes instead of the GIFs. Tap a meme to send it as a picture. Press Trending to go back to the GIFs. The chip only shows when KLIPY is on the GIF provider list, and it costs nothing until you press it.</string>
     <string name="tooldetail_tavily_key_label">Tavily API key</string>
     <string name="tooldetail_tavily_key_hint">From app.tavily.com, with 1,000 free credits a month</string>
     <string name="tooldetail_tavily_info">Another search service, made for AI tools. The free plan gives 1,000 credits a month, and each search uses one. With a key here, web search and image search use Tavily instead of Brave. Image search shows the pictures that Tavily found on the pages of its results, so it finds fewer pictures than Brave.</string>
@@ -753,9 +779,11 @@
     <string name="tooldetail_doc_scan_gallery_title">Save to the gallery</string>
     <string name="tooldetail_doc_scan_gallery_subtitle">Also keep scanned pages in Pictures/WM Keyboard</string>
     <string name="tooldetail_doc_scan_info">This opens the document scanner of Google, which is part of Google Play services, with edge detection, crop and shadow cleanup. Turn on the built-in scanner below to use the keyboard\'s own instead. Scanned pages come back as images. The keyboard puts them into the chat like a camera photo when it opens again. The processing runs on your device.</string>
-    <string name="tooldetail_doc_scan_builtin_info">This opens the keyboard\'s own document scanner. It finds the page in the camera picture or a photo, lets you move its corners, flattens it, and can clean it up to white paper in colour, grey or black and white. Scanned pages come back as images. The keyboard puts them into the chat like a camera photo when it opens again. Everything runs on your device, without Google Play services.</string>
+    <string name="tooldetail_doc_scan_builtin_info">This opens the keyboard\'s own document scanner. It finds the page in the camera picture or a photo, lets you move its corners, flattens it, and can clean it up to white paper in colour, grey or black and white. It opens in the keyboard, in place of the keys, and Send puts the pages straight into the chat like a camera photo. Turned to full screen, the keyboard puts them in when it opens again. Everything runs on your device, without Google Play services.</string>
     <string name="tooldetail_doc_scan_builtin_title">Use the built-in scanner</string>
     <string name="tooldetail_doc_scan_builtin_subtitle">Scan with the keyboard\'s own scanner instead of Google\'s</string>
+    <string name="tooldetail_doc_scan_in_keyboard_title">Scan in the keyboard</string>
+    <string name="tooldetail_doc_scan_in_keyboard_subtitle">The built-in scanner opens in place of the keys, like the text scanner. Off: full screen</string>
     <string name="tooldetail_doc_scan_module_missing_info">The built-in scanner is an extra part of the keyboard, about 2.5 MB. It downloads the first time you scan, or now.</string>
     <string name="tooldetail_doc_scan_module_installing_info">Downloading the built-in scanner…</string>
     <string name="tooldetail_doc_scan_module_installing_sized_info">Downloading the built-in scanner: <xliff:g id="done" example="0.4 MB">%1$s</xliff:g> of <xliff:g id="total" example="2.4 MB">%2$s</xliff:g></string>
@@ -833,6 +861,9 @@
     <!-- Unit converter tool. -->
     <string name="tooldetail_units_compound_title">Feet and inches</string>
     <string name="tooldetail_units_compound_subtitle">Show a length in feet as feet and inches, not as a decimal</string>
+    <string name="tooldetail_converter_tabs_title">Units and currency as tabs</string>
+    <string name="tooldetail_converter_tabs_subtitle">Show the two converters as two tabs of one panel</string>
+    <string name="tooldetail_converter_tabs_info">The unit converter and the currency converter stay two tools, each with its own button. With this on, either panel has a Units and a Currency tab at the top, so you can switch to the other converter without going back to the toolbox, the way the GIF and sticker panels switch. Each tool still opens on its own tab. Off by default.</string>
     <string name="tooldetail_units_compound_info">1 metre reads as \"3 ft 3.37 in\" instead of \"3.2808399 ft\". The chip writes the units the way that you did: \"1m\" answers with \"3 ft 3.37 in\" and \"1 meter\" answers with \"3 feet 3.37 inches\". Where there is no room for either, it falls back to \"3\'3\"\". Turn this off for the plain decimal.</string>
     <string name="tooldetail_units_info">There are 14 categories: length, mass, temperature, area, volume, speed, time, data, energy, power, pressure, angle, frequency and fuel economy. All conversions run on your device. The result precision follows the calculator setting. The panel opens again on the category and the units that you used last.</string>
 
@@ -1013,6 +1044,9 @@
     <string name="tooldetail_launcher_icon_shape_rounded_label">Rounded square</string>
     <string name="tooldetail_launcher_icon_shape_system_label">As on the phone</string>
     <string name="tooldetail_launcher_icon_shape_info">As on the phone shows each icon with the shape your home screen gives it. Old apps without an adaptive icon keep their own outline.</string>
+    <string name="tooldetail_launcher_app_icons_title">App icons</string>
+    <string name="tooldetail_launcher_app_icons_none_subtitle">Use an icon pack installed on this phone, such as Arcticons</string>
+    <string name="tooldetail_launcher_app_icons_pack_subtitle">Drawn from an icon pack installed on this phone</string>
     <string name="tooldetail_launcher_hidden_title">Hidden apps</string>
     <string name="tooldetail_launcher_hidden_none_subtitle">No apps are hidden. Press and hold an app in the panel, open its page from the menu, then tap the eye.</string>
     <plurals name="tooldetail_launcher_hidden_count">
@@ -1076,6 +1110,7 @@
     <string name="tooldetail_launcher_shizuku_title">Shizuku</string>
     <string name="tooldetail_launcher_shizuku_on">Allowed. Floating windows and split screen can use it where nothing else works</string>
     <string name="tooldetail_launcher_shizuku_allow">Running. Tap to allow WM Keyboard</string>
+    <string name="tooldetail_launcher_shizuku_denied">Shizuku was told not to ask again. Allow WM Keyboard in Shizuku\'s list of apps.</string>
     <string name="tooldetail_launcher_shizuku_start">Installed, not running. Tap to open it and start it</string>
     <string name="tooldetail_launcher_shizuku_get">Lets apps open floating or split on phones that refuse it. Tap to get Shizuku</string>
     <string name="tooldetail_launcher_root_title">Use root</string>
@@ -1161,6 +1196,35 @@
     <string name="tooldetail_notes_sort_created_label">Date created</string>
     <string name="tooldetail_notes_sort_title_label">Title</string>
     <string name="tooldetail_notes_markdown_title">Format Markdown</string>
+    <string name="tooldetail_notes_keep_toolbar_title">Keep the toolbar</string>
+    <string name="tooldetail_notes_keep_toolbar_subtitle">Open Notes under the toolbar, so your tools stay in reach</string>
+    <string name="tooldetail_notes_keep_toolbar_info">Off, the Notes panel takes the whole keyboard and the toolbar steps aside, which gives the notes the most room. On, the toolbar stays above the panel while you read and write notes, and the panel is one row shorter. The back button in the panel\'s header still goes back one step: out of the note you are editing, then to the list.</string>
+    <string name="tooldetail_notes_assist_group">On-device assistant</string>
+    <string name="tooldetail_notes_assist_title">Notes assistant</string>
+    <string name="tooldetail_notes_assist_subtitle">Headings, summaries, key details and reminders for your notes and pinned clips, worked out on this phone</string>
+    <string name="tooldetail_notes_assist_info">Everything the assistant does happens on this phone and needs no internet. Key details, reminders, related items and study decks from notes that spell out their terms use rules and work with nothing downloaded. Headings and summaries use the on-device AI model from AI › On-device models, never a cloud provider, even when the AI tool is set to one. Locked notes are never read. Turning this off removes every heading and summary it kept.</string>
+    <string name="tooldetail_notes_assist_needs_model">Needs an on-device AI model</string>
+    <string name="tooldetail_notes_assist_model_title">Download an on-device model</string>
+    <string name="tooldetail_notes_assist_model_subtitle">Headings and summaries need one; the rest works without</string>
+    <string name="tooldetail_notes_assist_headings_title">Suggest headings</string>
+    <string name="tooldetail_notes_assist_headings_subtitle">A heading for a note that has none, for you to use or wave away</string>
+    <string name="tooldetail_notes_assist_summaries_title">Summarize long notes</string>
+    <string name="tooldetail_notes_assist_summaries_subtitle">A short summary at the top of a long note</string>
+    <string name="tooldetail_notes_assist_summary_words_title">Long means</string>
+    <string name="tooldetail_notes_assist_summary_words_subtitle">How many words a note needs before it gets a summary</string>
+    <plurals name="tooldetail_notes_assist_words">
+        <item quantity="one">%d word</item>
+        <item quantity="other">%d words</item>
+    </plurals>
+    <string name="tooldetail_notes_assist_highlights_title">Key details</string>
+    <string name="tooldetail_notes_assist_highlights_subtitle">Deadlines, dates, amounts, numbers and links picked out of a note</string>
+    <string name="tooldetail_notes_assist_reminders_title">Reminders</string>
+    <string name="tooldetail_notes_assist_reminders_subtitle">\"Remind me\" for deadlines and birthdays in notes and pinned clips</string>
+    <string name="tooldetail_notes_assist_related_title">Related notes and clips</string>
+    <string name="tooldetail_notes_assist_related_subtitle">Notes and pinned clips about the same thing, wherever they are in the list</string>
+    <string name="tooldetail_notes_assist_related_info">Two notes are related when they share their unusual words, or the same phone number, address or link. With search by meaning on (AI › Search by meaning), notes about the same thing in different words are found too.</string>
+    <string name="tooldetail_notes_assist_decks_title">Study decks</string>
+    <string name="tooldetail_notes_assist_decks_subtitle">Turn a note of terms and meanings into Vocabulary flashcards</string>
     <string name="tooldetail_notes_markdown_subtitle">Show headings, lists and checklists formatted in the keyboard and in previews. Off, every note is plain text.</string>
     <string name="tooldetail_notes_panel_start_title">The keyboard panel opens on</string>
     <string name="tooldetail_notes_panel_start_subtitle">What you see when you tap the tool</string>
@@ -1346,8 +1410,31 @@
     <string name="tooldetail_hold_settings_title">Settings page</string>
     <string name="tooldetail_hold_floating_title">In a floating box</string>
     <string name="tooldetail_hold_floating_subtitle">Opens the tool in a box over the app, which stays when the keyboard closes</string>
+    <string name="tooldetail_box_close_outside_title">Close its floating box on a tap outside</string>
+    <string name="tooldetail_box_close_outside_subtitle">For this tool only; the setting on the Tools screen covers the rest</string>
+    <string name="tooldetail_float_on_tap_title">Open in a floating box</string>
+    <string name="tooldetail_float_on_tap_subtitle">A tap on the tool\'s button opens it in a box over the app instead of in the keyboard</string>
     <string name="tooldetail_hold_settings_subtitle">Opens the settings of this tool, as the hold did before</string>
     <!-- The WM Pass tool's page while WM Pass is not on the phone. -->
     <string name="tooldetail_wmpass_get_title">Get WM Pass</string>
     <string name="tooldetail_wmpass_get_subtitle">This tool is built on WM Pass, a separate password manager, which is not installed. Opens its page on Google Play</string>
+
+    <!-- Tools / Privacy shade (#1242): a cover over the app above the keyboard. -->
+    <string name="tooldetail_privacy_shade_group">Privacy shade</string>
+    <string name="tooldetail_privacy_shade_on_title">Show the shade</string>
+    <string name="tooldetail_privacy_shade_on_subtitle">Covers the app above the keyboard. Drag its handle up to see the last lines, and tap the handle to cover them again.</string>
+    <string name="tooldetail_privacy_shade_style_title">Colour</string>
+    <string name="tooldetail_privacy_shade_style_dark">Dark</string>
+    <string name="tooldetail_privacy_shade_style_grey">Grey</string>
+    <string name="tooldetail_privacy_shade_style_light">Light</string>
+    <string name="tooldetail_privacy_shade_style_warm">Warm</string>
+    <string name="tooldetail_privacy_shade_opacity_title">Opacity</string>
+    <string name="tooldetail_privacy_shade_opacity_subtitle">Lower lets you make out your own messages up close, while someone a seat away cannot</string>
+    <string name="tooldetail_privacy_shade_touch_title">Touch the app through the shade</string>
+    <string name="tooldetail_privacy_shade_touch_on_subtitle">Taps and scrolls on the shade reach the app under it</string>
+    <string name="tooldetail_privacy_shade_apps_title">Turn on in these apps</string>
+    <string name="tooldetail_privacy_shade_apps_info">In these apps the shade is already up when the keyboard opens, with nothing to press. Its close button, or the tool, takes it down until the keyboard opens in another app.</string>
+    <string name="tooldetail_privacy_shade_apps_add">Add an app</string>
+    <string name="tooldetail_privacy_shade_apps_remove_desc">Take the app off the list</string>
+    <string name="tooldetail_privacy_shade_touch_off_subtitle">The shade takes taps. Hold a finger on it to see under it until you let go</string>
 </resources>

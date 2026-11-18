@@ -230,6 +230,17 @@ data class Snippet(
     /** This snippet's override of the app-wide [MultiExpandMode]. */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
     val multiExpand: MultiExpand = MultiExpand.DEFAULT,
+    /**
+     * A picture this snippet inserts instead of text: a file name under
+     * [SnippetStore.IMAGES_DIR], never a path, so a hand-edited or restored
+     * file cannot point the keyboard anywhere else. See [SnippetStore.imageFile].
+     *
+     * [text] stays as the snippet's words for the picture. It is what goes in
+     * when the file has gone missing, which is what a snippet exported to a
+     * `.wmsnippets.json` (text only) and imported elsewhere becomes.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val image: String? = null,
 ) {
 
     /**
@@ -308,7 +319,20 @@ data class SnippetCandidate(
     val viaChild: Boolean,
     /** True when tapping into that linked snippet would show more. */
     val drillable: Boolean,
+    /**
+     * The picture this candidate inserts instead of [text], as a
+     * [Snippet.image] file name, or null for text.
+     */
+    val image: String? = null,
 )
+
+/**
+ * One fill-in field of a snippet: `{ask:Name}` or `{ask:Name:default}`.
+ *
+ * [name] is how the field is asked for and how a second `{ask:}` with the same
+ * name (in any case) is known to be the same field.
+ */
+data class SnippetAsk(val name: String, val default: String = "")
 
 /**
  * A named group of snippets, and the switch that arms or disarms their
@@ -444,6 +468,7 @@ class SnippetStore(private val storageFile: File?) {
             alternates = normalizeAlternates(snippet.alternates, snippet.text),
             children = normalizeChildren(snippet.children, id),
             tags = normalizeTags(snippet.tags),
+            image = snippet.image?.takeIf(::isImageName),
         )
     }
 
@@ -459,6 +484,9 @@ class SnippetStore(private val storageFile: File?) {
      * when an add-on is being installed.
      *
      * Returns the snippets as stored, in the order they were given.
+     *
+     * [images] are the pictures the file carried, by the [Snippet.image] name
+     * each snippet already holds; see [writeImages].
      */
     @Synchronized
     fun addAll(
@@ -466,7 +494,9 @@ class SnippetStore(private val storageFile: File?) {
         folders: List<SnippetFolder> = emptyList(),
         fallbackFolderId: Long = 0,
         now: Long = System.currentTimeMillis(),
+        images: Map<String, ByteArray> = emptyMap(),
     ): List<Snippet> {
+        if (images.isNotEmpty()) writeImages(images)
         val remapped = HashMap<Long, Long>(folders.size)
         for (folder in folders) {
             remapped[folder.id] = addFolder(folder.name, folder.enabled, now).id
@@ -558,6 +588,37 @@ class SnippetStore(private val storageFile: File?) {
         snippets.clear()
         snippets.addAll(items)
         lookup = null
+    }
+
+    /**
+     * Stores the whole list a [SnippetText.Plan] worked out, in its order:
+     * the folders it names that do not exist yet are made, new snippets get
+     * fresh ids and the links to them follow, and everything is normalised as
+     * [update] would. Returns the folders made, so an undo can take them away.
+     */
+    @Synchronized
+    fun replaceFromText(plan: SnippetText.Plan, now: Long = System.currentTimeMillis()): List<SnippetFolder> {
+        val made = plan.newFolders.map { addFolder(it, now = now) }
+        val ids = HashMap<Long, Long>()
+        for (snippet in plan.snippets) {
+            if (snippet.id > 0) continue
+            val id = freshId(nextId, now)
+            nextId = id + 1
+            ids[snippet.id] = id
+        }
+        val out = plan.snippets.map { snippet ->
+            val id = ids[snippet.id] ?: snippet.id
+            val folderId = if (snippet.folderId < 0) made.getOrNull((-snippet.folderId - 1).toInt())?.id ?: 0L else snippet.folderId
+            normalize(
+                snippet.copy(folderId = folderId, children = snippet.children.map { ids[it] ?: it }),
+                id = id,
+                createdAt = if (snippet.id > 0) snippet.createdAt else now,
+            )
+        }
+        snippets.clear()
+        snippets.addAll(out)
+        lookup = null
+        return made
     }
 
     @Synchronized
@@ -835,7 +896,9 @@ class SnippetStore(private val storageFile: File?) {
         val seen = HashSet<String>()
         fun emit(source: Snippet, raw: String, viaChild: Boolean) {
             val expanded = expandCandidate(raw, now, context, casing, groups, blank)
-            if (!seen.add(expanded.text)) return
+            // A picture is told apart by its file, not by its words, which
+            // may well be empty for every picture a snippet links to.
+            if (!seen.add(source.image?.let { "\u0000$it" } ?: expanded.text)) return
             out += SnippetCandidate(
                 snippetId = source.id,
                 label = source.label,
@@ -843,9 +906,17 @@ class SnippetStore(private val storageFile: File?) {
                 cursorOffset = expanded.cursorOffset,
                 viaChild = viaChild,
                 drillable = viaChild && source.hasChoices(),
+                image = source.image,
             )
         }
-        for (raw in snippet.expansions()) emit(snippet, raw, viaChild = false)
+        // A picture snippet has one thing to insert, the picture: its
+        // alternates are words, and a chip offering words in place of the
+        // picture the trigger asked for would be a different snippet.
+        if (snippet.image != null) {
+            emit(snippet, snippet.text, viaChild = false)
+        } else {
+            for (raw in snippet.expansions()) emit(snippet, raw, viaChild = false)
+        }
         for (child in childrenOf(snippet)) emit(child, child.expansions().first(), viaChild = true)
         return out
     }
@@ -982,7 +1053,8 @@ class SnippetStore(private val storageFile: File?) {
         now: Long = System.currentTimeMillis(),
         context: Companion.Context = Companion.Context(),
         confirm: Boolean = false,
-    ): SnippetMatch? = index().matchPattern(window, atFieldStart, now, context, confirm)
+        isName: ((String) -> Boolean)? = null,
+    ): SnippetMatch? = index().matchPattern(window, atFieldStart, now, context, confirm, isName)
 
     /** True when any snippet carries a pattern, so the keyboard need not look. */
     fun hasPatterns(): Boolean = index().hasPatterns
@@ -1126,6 +1198,48 @@ class SnippetStore(private val storageFile: File?) {
             file.parentFile?.mkdirs()
             file.writeText(json.encodeToString(Snapshot(snippets.toList(), folders.toList())))
         }
+        pruneImages()
+    }
+
+    /** Where this store's pictures live: beside its file. Null for a store with no file. */
+    fun imagesDir(): File? = storageFile?.parentFile?.let { File(it, IMAGES_DIR_NAME) }
+
+    /**
+     * Writes pictures an import brought with it, under the names its snippets
+     * already carry ([Snippet.image]). Called before [addAll], so the snippets
+     * never point at a file that is not there yet. A name that is not one this
+     * store could have made is skipped, and so is anything over [MAX_IMAGE_BYTES].
+     */
+    @Synchronized
+    fun writeImages(images: Map<String, ByteArray>) {
+        val dir = imagesDir() ?: return
+        for ((name, bytes) in images) {
+            if (!isImageName(name) || bytes.isEmpty() || bytes.size > MAX_IMAGE_BYTES) continue
+            runCatching {
+                dir.mkdirs()
+                File(dir, name).writeBytes(bytes)
+            }
+        }
+    }
+
+    /**
+     * Deletes pictures no snippet points at any more.
+     *
+     * Only ones older than [IMAGE_GRACE_MS]: a delete in settings is undone by
+     * putting the old list back ([replaceAll]), and the picture has to still be
+     * there when it is. A day is long past any undo, and a picture picked in
+     * the editor and then abandoned is gone by the next save after it.
+     */
+    @Synchronized
+    fun pruneImages(now: Long = System.currentTimeMillis()) {
+        val dir = imagesDir() ?: return
+        val files = dir.listFiles() ?: return
+        val used = snippets.mapNotNullTo(HashSet()) { it.image }
+        for (file in files) {
+            if (file.name in used) continue
+            if (now - file.lastModified() < IMAGE_GRACE_MS) continue
+            runCatching { file.delete() }
+        }
     }
 
     /** Re-reads the backing file (settings app and IME share the store). */
@@ -1204,6 +1318,22 @@ class SnippetStore(private val storageFile: File?) {
              * seen; null when the tool is off or knows nothing about the entity.
              */
             val homeAssistant: ((entityId: String, attribute: String?) -> String?)? = null,
+            /**
+             * What the user typed for each `{ask:Name}` field, by name. Null
+             * leaves every field in the text as it is, which is what the
+             * keyboard wants: it asks only once it knows what is being
+             * inserted, then fills them with [fillAsks].
+             */
+            val answers: Map<String, String>? = null,
+            /** `{battery}`: the charge in percent, read only when a snippet asks. */
+            val battery: (() -> Int?)? = null,
+            /** `{language}`: the keyboard language's name, as the language picker shows it. */
+            val language: String? = null,
+            /**
+             * The keyboard language's BCP 47 tag (`bn-BD`, `hi-Latn`), which
+             * picks the words `{greeting}` uses. Null means English.
+             */
+            val languageTag: String? = null,
         )
 
         /** Expanded text plus where the cursor should end up inside it. */
@@ -1226,6 +1356,19 @@ class SnippetStore(private val storageFile: File?) {
 
         /** `{ha:light.kitchen}` or `{ha:sensor.outside:unit_of_measurement}`. */
         private val HOME_ASSISTANT = Regex("""\{ha:([a-z0-9_]{1,40}\.[a-z0-9_]{1,80})(?::([a-z0-9_]{1,40}))?\}""")
+
+        /**
+         * `{bullets:3}` and `{list:3}`: that many bulleted or numbered lines.
+         * A keyword of their own, so they never meet the `{clip:…}` and
+         * `{selection:…}` modifiers or an `{ask:…}` field.
+         */
+        private val LIST = Regex("""\{(bullets|list)(?::(\d{1,3}))?\}""")
+
+        /** Most lines one `{bullets:N}` or `{list:N}` writes. */
+        const val MAX_LIST_LINES = 50
+
+        /** Lines a bare `{bullets}` or `{list}` writes. */
+        private const val DEFAULT_LIST_LINES = 3
 
         /** `{random:one|two|three}`, one alternative picked per insertion. */
         private val RANDOM = Regex("""\{random:([^}\n]{1,400})\}""")
@@ -1274,6 +1417,9 @@ class SnippetStore(private val storageFile: File?) {
                 val pattern = match.groupValues[2].ifEmpty { DEFAULT_DATE }
                 format(pattern, now + shift * 1000L)
             }
+            // Lists before {cursor} is resolved, so they can tell whether the
+            // snippet already chose where the caret goes.
+            out = expandLists(out)
             // The Location tool's places (#350). Before the plain tokens so an
             // address can never be read as one.
             out = LOCATION.replace(out) { match -> ctx.location?.invoke(match.groupValues[1].ifEmpty { null }).orEmpty() }
@@ -1283,12 +1429,257 @@ class SnippetStore(private val storageFile: File?) {
             out = PLACE.replace(out) { match ->
                 ctx.place?.invoke(match.groupValues[1].trim(), match.groupValues[2].ifEmpty { null }).orEmpty()
             }
+            // {clip:clean:singleline} and {selection:snake}: the plain tokens
+            // reshaped on the way in. Before the plain tokens, which would
+            // otherwise never see the colon form at all.
+            out = TextModifiers.TOKEN.replace(out) { match ->
+                val source = if (match.groupValues[1] == "clip") ctx.clipboard else ctx.selection
+                TextModifiers.apply(source.orEmpty(), match.groupValues[2])
+            }
             val fmt: (String) -> String = { format(it, now) }
             for (variable in SnippetVariable.entries) {
                 if (!out.contains(variable.token)) continue
                 out = out.replace(variable.token, variable.value(fmt, ctx, now))
             }
+            // Last, so what the user typed is never read as a variable: an
+            // answer of "{clip}" is those six characters, not the clipboard.
+            ctx.answers?.let { out = fillAsks(out, it) }
             return out
+        }
+
+        /**
+         * [text] with every `{bullets:N}` and `{list:N}` written out, one line
+         * each, joined by newlines and with nothing after the last.
+         *
+         * The caret goes after the first bullet of the first list, unless the
+         * snippet put a `{cursor}` of its own somewhere: that one wins, as it
+         * would anywhere else.
+         */
+        private fun expandLists(text: String): String {
+            if (!text.contains('{')) return text
+            var caretPlaced = text.contains(SnippetVariable.CURSOR.token) || text.contains(CURSOR_MARKER)
+            return LIST.replace(text) { match ->
+                val count = (match.groupValues[2].toIntOrNull() ?: DEFAULT_LIST_LINES).coerceIn(1, MAX_LIST_LINES)
+                val numbered = match.groupValues[1] == "list"
+                buildString {
+                    for (i in 1..count) {
+                        if (i > 1) append('\n')
+                        append(if (numbered) "$i. " else "• ")
+                        if (!caretPlaced) {
+                            append(CURSOR_MARKER)
+                            caretPlaced = true
+                        }
+                    }
+                }
+            }
+        }
+
+        /**
+         * Good morning, afternoon or evening at [now], in the language [tag]
+         * names where this table has its words, otherwise in English.
+         *
+         * Morning runs from 04:00 to noon and afternoon to 18:00; the rest is
+         * evening, since "good night" is a goodbye rather than a greeting.
+         * A romanized keyboard (`hi-Latn`) gets English rather than words in
+         * a script the keyboard does not type.
+         */
+        fun greeting(now: Long, tag: String?): String {
+            val hour = java.util.Calendar.getInstance().apply { timeInMillis = now }
+                .get(java.util.Calendar.HOUR_OF_DAY)
+            val slot = when (hour) {
+                in 4..11 -> 0
+                in 12..17 -> 1
+                else -> 2
+            }
+            val lower = tag?.lowercase(Locale.ROOT).orEmpty()
+            val language = lower.substringBefore('-').substringBefore('_')
+            val words = GREETINGS[if (language == "no") "nb" else language]
+                ?.takeUnless { words -> isLatinOnly(lower) && words.any { !isLatinText(it) } }
+                ?: GREETINGS.getValue("en")
+            return words[slot]
+        }
+
+        private fun isLatinOnly(tag: String): Boolean =
+            tag.split('-', '_').any { it == "latn" } || tag.endsWith("_rom")
+
+        private fun isLatinText(text: String): Boolean = text.all { it.code < 0x250 }
+
+        /** Morning, afternoon and evening, by language subtag. */
+        private val GREETINGS: Map<String, List<String>> = mapOf(
+            "en" to listOf("Good morning", "Good afternoon", "Good evening"),
+            "es" to listOf("Buenos días", "Buenas tardes", "Buenas noches"),
+            "fr" to listOf("Bonjour", "Bonjour", "Bonsoir"),
+            "de" to listOf("Guten Morgen", "Guten Tag", "Guten Abend"),
+            "it" to listOf("Buongiorno", "Buon pomeriggio", "Buonasera"),
+            "pt" to listOf("Bom dia", "Boa tarde", "Boa noite"),
+            "nl" to listOf("Goedemorgen", "Goedemiddag", "Goedenavond"),
+            "sv" to listOf("God morgon", "God eftermiddag", "God kväll"),
+            "da" to listOf("God morgen", "God eftermiddag", "God aften"),
+            "nb" to listOf("God morgen", "God ettermiddag", "God kveld"),
+            "fi" to listOf("Hyvää huomenta", "Hyvää iltapäivää", "Hyvää iltaa"),
+            "pl" to listOf("Dzień dobry", "Dzień dobry", "Dobry wieczór"),
+            "cs" to listOf("Dobré ráno", "Dobré odpoledne", "Dobrý večer"),
+            "ro" to listOf("Bună dimineața", "Bună ziua", "Bună seara"),
+            "hu" to listOf("Jó reggelt", "Jó napot", "Jó estét"),
+            "tr" to listOf("Günaydın", "İyi günler", "İyi akşamlar"),
+            "id" to listOf("Selamat pagi", "Selamat siang", "Selamat malam"),
+            "ms" to listOf("Selamat pagi", "Selamat petang", "Selamat malam"),
+            "vi" to listOf("Chào buổi sáng", "Chào buổi chiều", "Chào buổi tối"),
+            "ru" to listOf("Доброе утро", "Добрый день", "Добрый вечер"),
+            "uk" to listOf("Доброго ранку", "Добрий день", "Добрий вечір"),
+            "el" to listOf("Καλημέρα", "Καλησπέρα", "Καλησπέρα"),
+            "he" to listOf("בוקר טוב", "צהריים טובים", "ערב טוב"),
+            "ar" to listOf("صباح الخير", "مساء الخير", "مساء الخير"),
+            "bn" to listOf("সুপ্রভাত", "শুভ অপরাহ্ন", "শুভ সন্ধ্যা"),
+            "hi" to listOf("सुप्रभात", "शुभ दोपहर", "शुभ संध्या"),
+            "th" to listOf("สวัสดีตอนเช้า", "สวัสดีตอนบ่าย", "สวัสดีตอนเย็น"),
+            "ja" to listOf("おはようございます", "こんにちは", "こんばんは"),
+            "ko" to listOf("좋은 아침이에요", "안녕하세요", "좋은 저녁이에요"),
+            "zh" to listOf("早上好", "下午好", "晚上好"),
+        )
+
+        // ---- fill-in fields --------------------------------------------
+
+        /**
+         * `{ask:Name}` or `{ask:Name:default}`.
+         *
+         * The keyword in any case, because a snippet whose trigger was shouted
+         * is upper-cased whole before the keyboard looks for its fields. The
+         * name stops at the first colon, so the default may hold colons of its
+         * own (`{ask:Time:9:30}`), and neither may hold a brace or a newline.
+         */
+        private val ASK = Regex("""\{(?i:ask):([^}:\n]{1,40})(?::([^}\n]{0,200}))?\}""")
+
+        /** Most fields one snippet asks for; past this the tokens stay as typed. */
+        const val MAX_ASKS = 12
+
+        /**
+         * The fields [text] asks for, in the order they first appear, each
+         * once: the same name used twice, in any case, is one question. The
+         * first default given for a name is the one used.
+         */
+        fun asks(text: String): List<SnippetAsk> {
+            if (!text.contains('{')) return emptyList()
+            val out = ArrayList<SnippetAsk>()
+            val seen = HashSet<String>()
+            for (match in ASK.findAll(text)) {
+                val name = match.groupValues[1].trim()
+                if (name.isEmpty() || !seen.add(name.lowercase(Locale.ROOT))) continue
+                out += SnippetAsk(name, match.groupValues[2])
+                if (out.size >= MAX_ASKS) break
+            }
+            return out
+        }
+
+        /** True when [text] has at least one fill-in field. */
+        fun hasAsks(text: String): Boolean = text.contains('{') && asks(text).isNotEmpty()
+
+        /**
+         * [text] with every fill-in field replaced by its answer from
+         * [answers], looked up by name in any case; a field with no answer, or
+         * a blank one, gets its default, and one with neither becomes nothing.
+         *
+         * One pass, so an answer that itself looks like a field is inserted as
+         * the user typed it rather than asked about again.
+         */
+        fun fillAsks(text: String, answers: Map<String, String>): String {
+            if (!text.contains('{')) return text
+            val byName = answers.entries.associate { (k, v) -> k.trim().lowercase(Locale.ROOT) to v }
+            val known = asks(text).mapTo(HashSet()) { it.name.lowercase(Locale.ROOT) }
+            return ASK.replace(text) { match ->
+                val key = match.groupValues[1].trim().lowercase(Locale.ROOT)
+                // Past [MAX_ASKS] nothing was asked, so nothing is filled.
+                if (key !in known) return@replace match.value
+                byName[key]?.takeIf { it.isNotEmpty() } ?: match.groupValues[2]
+            }
+        }
+
+        /**
+         * [expanded] with its fields filled, the caret still where the
+         * `{cursor}` marker put it: an answer longer or shorter than its token
+         * moves everything after it.
+         */
+        fun fillAsks(expanded: Expanded, answers: Map<String, String>): Expanded {
+            val at = expanded.cursorOffset.coerceIn(0, expanded.text.length)
+            val marked = expanded.text.substring(0, at) + CURSOR_MARKER + expanded.text.substring(at)
+            val filled = fillAsks(marked, answers)
+            val index = filled.indexOf(CURSOR_MARKER)
+            if (index < 0) return Expanded(filled, filled.length)
+            return Expanded(filled.replace(CURSOR_MARKER, ""), index)
+        }
+
+        // ---- pictures ---------------------------------------------------
+
+        /** The pictures' folder, under the app's files directory. */
+        const val IMAGES_DIR = "snippets/images"
+
+        /** [IMAGES_DIR] relative to the snippets file's own folder. */
+        private const val IMAGES_DIR_NAME = "images"
+
+        /** Largest picture a snippet may carry. A sticker or a screenshot, not a film. */
+        const val MAX_IMAGE_BYTES = 8 * 1024 * 1024
+
+        /** How long an unused picture is kept, for the undo of a delete. See [pruneImages]. */
+        private const val IMAGE_GRACE_MS = 24L * 60 * 60 * 1000
+
+        /** File names this app gives pictures: no separators, no leading dot. */
+        private val IMAGE_NAME = Regex("""[A-Za-z0-9_-]{1,64}\.(png|jpe?g|gif|webp)""", RegexOption.IGNORE_CASE)
+
+        /** True when [name] is a picture name this app could have made. */
+        fun isImageName(name: String?): Boolean = name != null && IMAGE_NAME.matches(name)
+
+        /** The picture [name] names under [filesDir], or null when the name is not one of ours. */
+        fun imageFile(filesDir: File, name: String?): File? =
+            if (isImageName(name)) File(File(filesDir, IMAGES_DIR), name!!) else null
+
+        /**
+         * The picture files [snippets] use, read from [filesDir] by name, for an
+         * export to carry ([SnippetFile.encode]). Missing files are left out.
+         */
+        fun imageBytes(filesDir: File, snippets: List<Snippet>): Map<String, ByteArray> {
+            val out = LinkedHashMap<String, ByteArray>()
+            for (name in snippets.mapNotNull { it.image }.distinct()) {
+                val file = imageFile(filesDir, name)?.takeIf { it.isFile && it.length() <= MAX_IMAGE_BYTES } ?: continue
+                runCatching { file.readBytes() }.getOrNull()?.let { out[name] = it }
+            }
+            return out
+        }
+
+        /** The MIME type a picture name's extension says, image/png when unsure. */
+        fun imageMime(name: String): String = when (name.substringAfterLast('.').lowercase(Locale.ROOT)) {
+            "jpg", "jpeg" -> "image/jpeg"
+            "gif" -> "image/gif"
+            "webp" -> "image/webp"
+            else -> "image/png"
+        }
+
+        /**
+         * A fresh picture name with [mime]'s extension, or one sniffed from
+         * the file's first bytes ([head]) when the MIME type says nothing.
+         */
+        fun newImageName(mime: String?, head: ByteArray = ByteArray(0)): String {
+            val ext = extensionFor(mime) ?: sniffExtension(head) ?: "png"
+            return "s_" + java.util.UUID.randomUUID().toString().replace("-", "") + "." + ext
+        }
+
+        private fun extensionFor(mime: String?): String? = when (mime?.lowercase(Locale.ROOT)) {
+            "image/png" -> "png"
+            "image/jpeg", "image/jpg" -> "jpg"
+            "image/gif" -> "gif"
+            "image/webp" -> "webp"
+            else -> null
+        }
+
+        /** The extension the magic bytes in [head] say, or null. */
+        fun sniffExtension(head: ByteArray): String? {
+            fun at(i: Int) = head.getOrNull(i)?.toInt()?.and(0xFF) ?: -1
+            return when {
+                at(0) == 0x89 && at(1) == 0x50 && at(2) == 0x4E && at(3) == 0x47 -> "png"
+                at(0) == 0xFF && at(1) == 0xD8 -> "jpg"
+                at(0) == 'G'.code && at(1) == 'I'.code && at(2) == 'F'.code -> "gif"
+                at(0) == 'R'.code && at(1) == 'I'.code && at(8) == 'W'.code && at(9) == 'E'.code -> "webp"
+                else -> null
+            }
         }
 
         private fun format(pattern: String, at: Long): String =
@@ -1418,11 +1809,12 @@ enum class TriggerCasing {
  * The template variables a snippet may contain. Kept as an enum so the
  * expander and the settings screen's reference table can never drift apart.
  *
- * Two variables take an argument and so are handled separately in
+ * The variables that take an argument are handled separately in
  * [SnippetStore.expand] rather than listed here: `{date:pattern}` with any
  * SimpleDateFormat pattern and an optional seconds offset
- * (`{date+86400:dd/MM/yy}` is tomorrow), and `{random:one|two|three}`, which
- * picks one alternative per insertion.
+ * (`{date+86400:dd/MM/yy}` is tomorrow), `{random:one|two|three}`, which
+ * picks one alternative per insertion, and `{bullets:N}` / `{list:N}`, which
+ * write N bulleted or numbered lines with the caret in the first.
  */
 enum class SnippetVariable(
     val token: String,
@@ -1446,6 +1838,10 @@ enum class SnippetVariable(
     APP("{app}", R.string.core_content_snippet_var_app_info),
     PACKAGE("{package}", R.string.core_content_snippet_var_package_info),
     UUID("{uuid}", R.string.core_content_snippet_var_uuid_info),
+    GREETING("{greeting}", R.string.core_content_snippet_var_greeting_info),
+    BATTERY("{battery}", R.string.core_content_snippet_var_battery_info),
+    LANGUAGE("{language}", R.string.core_content_snippet_var_language_info),
+    TAB("{tab}", R.string.core_content_snippet_var_tab_info),
     CURSOR("{cursor}", R.string.core_content_snippet_var_cursor_info);
 
     internal fun value(
@@ -1470,6 +1866,10 @@ enum class SnippetVariable(
         APP -> context.appName.orEmpty()
         PACKAGE -> context.packageName.orEmpty()
         UUID -> java.util.UUID.randomUUID().toString()
+        GREETING -> SnippetStore.greeting(now, context.languageTag)
+        BATTERY -> context.battery?.invoke()?.takeIf { it in 0..100 }?.let { "$it%" }.orEmpty()
+        LANGUAGE -> context.language.orEmpty()
+        TAB -> "\t"
         CURSOR -> SnippetStore.CURSOR_MARKER
     }
 }

@@ -1,0 +1,208 @@
+---
+title: "Pages, timers and places"
+description: "Open and close hooks, several pages with Back, header buttons, timers, and every place a plugin can open from."
+sidebar:
+  label: "Pages, timers and places"
+  order: 5.03
+---
+
+This page covers a plugin's life: what runs when the panel opens and closes,
+how to show more than one page, how to run code on a timer, and where the user
+can open your plugin from.
+
+## Opening and closing
+
+```python
+from wm import plugin
+
+@plugin.on_open
+def opened():
+    # Each time the panel opens, before it draws.
+    if saved.city:
+        look_up(saved.city)
+
+
+@plugin.on_close
+def closed():
+    # When the panel closes. Keep it short.
+    saved.save()
+```
+
+Each time the panel opens, your file runs from the top: imports, constants,
+`plugin.state(...)`. Then `on_open` runs, then `render()`. So values in a
+`plugin.state` without `persist=True` start over at each opening, and saved
+ones come back. When the panel closes, `on_close` runs and the plugin stops.
+The keyboard hiding counts as a close, switching apps included. When the user
+comes back to that app with your panel still open, the keyboard opens it again
+and your file runs from the top, so only saved values carry over.
+
+A few values describe where the plugin is running:
+
+| | |
+|---|---|
+| `plugin.surface` | `"panel"` in the keyboard, `"float"` in the floating box |
+| `plugin.dark` | `True` when the keyboard's theme is dark |
+| `plugin.locale` | the user's language, such as `"bn-BD"` |
+| `plugin.id`, `plugin.version` | from your manifest |
+
+## Several pages
+
+`plugin.push(render_fn, title=)` shows another page on top. The keyboard draws
+a back arrow in the header, and pressing it (or the phone's Back) returns to
+the page before:
+
+```python
+from wm import plugin, ui
+
+state = plugin.state(open_note=None)
+
+
+def show_note(note):
+    state.open_note = note
+    plugin.push(note_page, title=note["title"])
+
+
+def note_page():
+    with ui.column():
+        ui.label(state.open_note["text"])
+        ui.button("Done", on_click=plugin.back)
+
+
+def render():
+    ui.list([ui.item(n["title"], on_click=lambda n=n: show_note(n)) for n in NOTES])
+```
+
+- `plugin.back()` closes the top page. It returns `False` if there was none.
+- `plugin.set_title(text)` changes the header text of the main page.
+- Pages stack: push from a pushed page and Back walks them in order.
+
+`ui.tabs` remembers its page for you. The next time the panel opens, the
+tabs show the page the user left them on, and your `on_change` hears that
+index as if it had been tapped, so a `state.tab` you keep yourself follows
+along. Pushed pages are not remembered: the panel opens on the main page.
+
+## Header buttons
+
+`@plugin.command` adds a button to the panel's header, next to the title. Use
+it for actions that apply to the whole plugin, like Refresh or Clear:
+
+```python
+@plugin.command("Refresh", icon="refresh")
+def refresh_now():
+    look_up()
+```
+
+Up to three. Each has a label and, if you like, an icon. Icons are [Material Symbols](https://fonts.google.com/icons) names.
+
+## Timers
+
+```python
+@plugin.every(seconds=1)
+def tick():
+    state.elapsed += 1
+
+
+plugin.after(5, hide_message)       # once, five seconds from now
+```
+
+- `@plugin.every(seconds=, minutes=, hours=)` calls the function again and
+  again. The shortest period is one second.
+- `plugin.after(seconds, fn)` calls `fn` once. It returns a name you can pass
+  to `plugin.cancel(name)` to stop it.
+- `@plugin.every(..., name="clock")` names a repeating timer, so
+  `plugin.cancel("clock")` stops it. Without `name`, the function's name is the
+  timer's name.
+- The panel draws again after each timer call.
+
+:::note[Only while the panel is open]
+Timers run only while your panel or floating box is open. Nothing of yours
+runs in the background. To tell the user something later, when the panel is
+closed, use a [reminder](/plugins/guides/saving-and-settings/#reminders): the
+app shows it for you.
+:::
+
+## Closing the panel yourself
+
+`plugin.close()` closes your panel, the way the user's close button does. Use
+it after a one-shot job, such as inserting a picked emoji.
+
+## Where a plugin opens from
+
+Every plugin with a panel is in the keyboard's **Plugins** tool. The `tool`
+block in the manifest offers more places:
+
+```json title="plugin.json (excerpt)"
+"tool": {
+  "icon": "dictionary",
+  "color": "#5C6BC0",
+  "tile": true,
+  "float": true,
+  "keyword": "define",
+  "chip": true,
+  "fullBleed": true
+}
+```
+
+| Field | What it adds |
+|---|---|
+| `icon` | Your plugin's icon, on its tool, on the floating button and on its rows in Settings. See [Your icon](#your-icon). |
+| `color` | The icon's colour, as `"#RRGGBB"`. See [Your icon](#your-icon). |
+| `tile` | The plugin joins the toolbox as a [tool](/tools/overview/#plugins-as-tools) when it is installed. Users can make any plugin with a panel a tool whatever this says; it only decides where a new install starts. |
+| `float` | The panel may open in the [floating box](/tools/overview/#tools-in-a-floating-box), over the app, with the keyboard closed. |
+| `keyword` | A word the user types as `@define`. 1 to 16 lowercase letters or digits. |
+| `chip` | With a keyword: typing `@define rain` offers your plugin on the suggestion strip, while [Search shortcuts](/smart/chips/#search-shortcuts) are on. |
+| `height` | The panel's height in dp. Leave it out for the keyboard's own. |
+| `fullBleed` | `true` gives the panel the toolbar's rows too, as the scanners and Notes do, with a back arrow in its header. Worth it for a tall panel, such as a planner, a form or a long list. Leave it out and the toolbar stays above your panel. |
+
+For a keyword, mark the function that hears what followed it:
+
+```python
+@plugin.keyword("define")
+def from_keyword(text):
+    look_up(text)
+```
+
+The keyboard matches the keyword itself. Your plugin hears only the text after
+it, and only when the user presses the chip. It never sees the rest of what
+they type.
+
+Users can also put any plugin on a key, a flick or a multi-finger swipe, with
+the **Open a plugin** action in the [layout editor](/languages/custom-layouts/).
+You don't need to do anything for that.
+
+## Your icon
+
+`icon` takes one of two things:
+
+- A [Material Symbols](https://fonts.google.com/icons) name, such as
+  `kitchen`, `directions_transit` or `ballot`. Lowercase, with underscores.
+- `"assets/icon.svg"`, a drawing you ship in the plugin's `assets/` folder.
+  Draw it on a 24×24 grid (`viewBox="0 0 24 24"`) in one colour, with
+  `currentColor` for every fill and stroke: the keyboard tints it to match the
+  theme, as it does its own icons. Keep to plain shapes (paths, circles,
+  rectangles, lines); text, pictures and gradients are left out. Up to 256 KB.
+
+```xml title="assets/icon.svg"
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <rect x="3" y="7" width="15" height="14" rx="2"/>
+  <path d="M7 6V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2h-1"/>
+</svg>
+```
+
+`color` paints the icon in its own colour, as each of the keyboard's own tools
+has one: in the toolbox (while the user keeps **Colorful tool icons** on),
+in the **Plugins** list and on its rows in Settings. Pick a mid-tone that reads on both light and dark themes, such as
+`#1E88E5` or `#43A047`. Leave it out and the icon takes the theme's icon
+colour; a value that is not `#RRGGBB` is ignored the same way.
+
+A name the app doesn't carry, a file that won't draw, or no `icon` at all shows
+the jigsaw piece every plugin used to wear. The [web editor](/plugins/getting-started/)
+shows your icon in the plugin's preview, and the addon store's validator warns
+about a name the app lacks or a drawing in more than one colour. A stroke
+width of 2 matches the weight of the icons around yours.
+
+An `apiVersion` 4 plugin may carry a `tool` block with only a symbol name in
+`icon`, for app versions 45 and later, and `color` and `fullBleed` from the
+release after 0.6.6. The rest of the block, and an SVG icon, need
+`apiVersion` 5.

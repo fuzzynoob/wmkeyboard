@@ -16,6 +16,16 @@ export interface PluginManifest {
 	language?: string;
 	entry: string;
 	permissions: string[];
+	/** API 5: the websites `http` may reach. */
+	hosts?: string[];
+	/** API 5: the plugin's settings page. */
+	settings?: { key: string; type: string; label?: string; summary?: string; default?: string; options?: string[] }[];
+	/** API 5: where the plugin shows up (PluginToolSpec). */
+	tool?: { icon?: string; tile?: boolean; float?: boolean; keyword?: string; chip?: boolean; height?: number };
+	/** Buttons on the bar over selected text. */
+	actions?: { id: string; name: string; summary?: string; icon?: string; replaces?: boolean; input?: string }[];
+	/** False for a plugin made of selection actions alone. */
+	panel?: boolean;
 }
 
 export type SnapshotReason = 'manual' | 'periodic' | 'before_restore' | 'publish' | 'import';
@@ -48,7 +58,15 @@ export const DEFAULT_ENTRY = 'main.py';
 export const STORAGE_PERMISSION = 'storage';
 export const REMINDERS_PERMISSION = 'reminders';
 /** Every permission the app knows, in the order the manifest form lists them (PluginPermission.all). */
-export const PERMISSIONS = [STORAGE_PERMISSION, REMINDERS_PERMISSION];
+export const PERMISSIONS = [
+	STORAGE_PERMISSION, REMINDERS_PERMISSION, 'selection', 'field.write', 'clipboard.write', 'sensors', 'scan', 'device', 'share',
+	'notifications', 'clock', 'network', 'network.local', 'ai', 'field.read', 'clipboard.read', 'location', 'files', 'calendar', 'todo',
+];
+/** The ones API 4 knows; the rest need `"apiVersion": 5`. */
+export const API4_PERMISSIONS = [STORAGE_PERMISSION, REMINDERS_PERMISSION, 'selection'];
+/** Off after install until the user turns them on (PluginPermission.Tier.RISKY). */
+export const RISKY_PERMISSIONS = ['network', 'network.local', 'ai', 'field.read', 'clipboard.read', 'location', 'files', 'calendar', 'todo'];
+export const MAX_HOSTS = 16;
 export const ID_PATTERN = /^[a-z0-9][a-z0-9._-]{2,63}$/;
 export const MAX_NAME = 40;
 const MAX_VERSION = 32;
@@ -90,9 +108,12 @@ export function sanitise(raw: string, field: ManifestField): string {
 	}
 }
 
-/** The manifest as the importer would keep it, written for the current API. */
+/** The API level that brought the wm package; a draft written for it keeps it. */
+export const PACKAGE_API = 5;
+
+/** The manifest as the importer would keep it: API 4, or API 5 for a draft already written for it. */
 export function sanitised(m: PluginManifest): PluginManifest {
-	return { ...m, format: MANIFEST_FORMAT, apiVersion: API_VERSION, language: LANGUAGE, id: sanitise(m.id, 'ID'), name: sanitise(m.name, 'NAME'), pluginVersion: sanitise(m.pluginVersion, 'VERSION'), author: sanitise(m.author, 'AUTHOR'), description: sanitise(m.description, 'DESCRIPTION'), entry: sanitise(m.entry, 'ENTRY'), permissions: m.permissions.slice(0, 16) };
+	return { ...m, format: MANIFEST_FORMAT, apiVersion: m.apiVersion >= PACKAGE_API ? PACKAGE_API : API_VERSION, language: LANGUAGE, id: sanitise(m.id, 'ID'), name: sanitise(m.name, 'NAME'), pluginVersion: sanitise(m.pluginVersion, 'VERSION'), author: sanitise(m.author, 'AUTHOR'), description: sanitise(m.description, 'DESCRIPTION'), entry: sanitise(m.entry, 'ENTRY'), permissions: m.permissions.slice(0, 16) };
 }
 
 function read(): Stored {

@@ -228,8 +228,8 @@ val splitApks = flag("wmkb.splitApks", "WMKB_SPLIT_APKS")
 // Every APK and bundle carries `wmkb.versionCode * 10 + digit` in its manifest
 // (from 0.6.2): 0 for one that holds every ABI (the universal APK, the Play
 // bundle, a build with no split), then one per ABI. A phone that runs two of
-// them installs the highest it can, so arm64-v8a sits above armeabi-v7a, and
-// x86_64 above both for the x86 Chromebooks that also translate ARM code.
+// them installs the highest it can, so arm64-v8a sits above armeabi-v7a.
+// Digit 3 was x86_64's until that ABI was dropped: never reuse it.
 // F-Droid builds one APK per ABI and serves each phone the right one by these
 // numbers (VercodeOperation in fdroid/com.wasimaster.wmkeyboard.yml), and the
 // GitHub splits carry the same digits, so a GitHub APK and an F-Droid APK of
@@ -238,7 +238,7 @@ val splitApks = flag("wmkb.splitApks", "WMKB_SPLIT_APKS")
 // Only the manifest gets the digit. BuildConfig.RELEASE_VERSION_CODE, the
 // release asset names and the changelog files keep the plain number, which
 // is what the update checks compare.
-val abiDigits = linkedMapOf("armeabi-v7a" to 1, "arm64-v8a" to 2, "x86_64" to 3)
+val abiDigits = linkedMapOf("armeabi-v7a" to 1, "arm64-v8a" to 2)
 val baseVersionCode = providers.gradleProperty("wmkb.versionCode").get().toInt()
 
 // `-Pwmkb.abi=arm64-v8a`: a release with that ABI's native code alone and that
@@ -251,6 +251,20 @@ val singleAbi = providers.gradleProperty("wmkb.abi").orNull?.trim()?.takeIf { it
 // for the reasons settings.gradle.kts gives; the flag has to match there.
 val benchmarkBuild = flag("wmkb.benchmark", "WMKB_BENCHMARK")
 
+
+// The commit this build was made from, shown under About's version row so a
+// screenshot of it names the exact source. Read from git at configuration
+// time; blank where there is no git (a source tarball, a stripped checkout),
+// and the row then leaves it out. Only the clean hash, never a "dirty" mark:
+// F-Droid rebuilds from the same commit and must produce the same bytes.
+fun gitOutput(vararg args: String): String = runCatching {
+    providers.exec {
+        commandLine("git", *args)
+        isIgnoreExitValue = true
+    }.standardOutput.asText.get().trim()
+}.getOrDefault("")
+val gitCommit = gitOutput("rev-parse", "--short=10", "HEAD")
+val gitCommitDate = gitOutput("log", "-1", "--format=%cs", "HEAD")
 
 // Where the generated baseline profile lives: AGP's own default directory for
 // the one variant that generates it (see the benchmark block near the end).
@@ -293,6 +307,10 @@ android {
         // release. The update checks compare this, never the manifest's
         // number: F-Droid's index and the GitHub asset names speak in it.
         buildConfigField("int", "RELEASE_VERSION_CODE", "$baseVersionCode")
+        // See gitCommit above: the source this APK was built from, and that
+        // commit's date (YYYY-MM-DD). Both blank without git.
+        buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
+        buildConfigField("String", "GIT_COMMIT_DATE", "\"$gitCommitDate\"")
         buildConfigField("Boolean", "ENABLE_PLAY_STORE", "$playStoreChannel")
         buildConfigField("Boolean", "ENABLE_FDROID", "$fdroidChannel")
         // The third channel is the absence of the other two, which is a fact
@@ -504,6 +522,10 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
+        // java.time (the to-do list's due dates, service usage months) is API
+        // 26, and minSdk is 24: Android 7 crashed on ZoneId (#1280). The app's
+        // dex step desugars every module's code against the library below.
+        isCoreLibraryDesugaringEnabled = true
     }
     packaging {
         jniLibs {
@@ -515,8 +537,8 @@ android {
             if (playStoreChannel) excludes += "**/libjingle_peerconnection_so.so"
             // No keepDebugSymbols override: AGP strips as usual. Every .so we
             // package — ours and the prebuilt ML Kit/LiteRT ones — already
-            // ships stripped (measured: 48 bytes of symbol table across all
-            // three ABIs), so keeping them was buying nothing.
+            // ships stripped (measured: 48 bytes of symbol table across every
+            // ABI), so keeping them was buying nothing.
         }
         resources {
             // Bouncy Castle's bcprov, bcutil and bcpg each carry the same licence file.
@@ -960,15 +982,23 @@ abstract class BundleReleaseNotesTask : DefaultTask() {
     @get:PathSensitive(PathSensitivity.RELATIVE)
     abstract val notes: ConfigurableFileCollection
 
+    /** The name the copy gets in assets/. */
+    @get:Input
+    abstract val fileName: Property<String>
+
     @get:OutputDirectory
     abstract val outputDir: DirectoryProperty
+
+    init {
+        fileName.convention("release-notes.md")
+    }
 
     @TaskAction
     fun run() {
         val out = outputDir.get().asFile
         out.deleteRecursively()
         out.mkdirs()
-        notes.files.firstOrNull { it.isFile }?.copyTo(out.resolve("release-notes.md"), overwrite = true)
+        notes.files.firstOrNull { it.isFile }?.copyTo(out.resolve(fileName.get()), overwrite = true)
     }
 }
 
@@ -979,6 +1009,17 @@ val bundleReleaseNotes =
                 "release-notes/${providers.gradleProperty("wmkb.versionName").get()}.md",
             ),
         )
+    }
+
+// Copies the docs site's settings-since.json (which release first had each
+// settings screen and row, written from git tags) to assets/, so a link copied
+// from a settings row says when that row arrived instead of the version it was
+// copied on (SettingsSince). A checkout without the docs ships without it, and
+// copied links fall back to the build's own version.
+val bundleSettingsSince =
+    tasks.register<BundleReleaseNotesTask>("bundleSettingsSince") {
+        notes.from(rootProject.layout.projectDirectory.file("docs/src/data/settings-since.json"))
+        fileName.set("settings-since.json")
     }
 
 // Rewrites the merged assets with every bundled layout's JSON compacted. The
@@ -1097,6 +1138,10 @@ androidComponents {
         }
         variant.sources.assets?.addGeneratedSourceDirectory(
             bundleReleaseNotes,
+            BundleReleaseNotesTask::outputDir,
+        )
+        variant.sources.assets?.addGeneratedSourceDirectory(
+            bundleSettingsSince,
             BundleReleaseNotesTask::outputDir,
         )
         // The update-channel driver picked at the top of this file, added to
@@ -1352,6 +1397,7 @@ tasks.named("check") {
 
 dependencies {
     dictc(project(":tools:dictc"))
+    coreLibraryDesugaring(libs.desugar.jdk.libs)
 
     // Installs app/src/main/baseline-prof.txt into the app's ART profile so the
     // listed methods are compiled ahead of time. Declared explicitly, not left

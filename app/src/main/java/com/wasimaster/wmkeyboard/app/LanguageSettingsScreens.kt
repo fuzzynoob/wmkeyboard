@@ -51,6 +51,7 @@ import com.wasimaster.wmkeyboard.core.layout.resolveLayoutKeyman
 import com.wasimaster.wmkeyboard.core.layout.resolveLayoutName
 import com.wasimaster.wmkeyboard.core.transliteration.BijoyAnsi
 import com.wasimaster.wmkeyboard.core.transliteration.KhiproSpecs
+import com.wasimaster.wmkeyboard.core.transliteration.LegacyFonts
 import com.wasimaster.wmkeyboard.core.dictionaries.AvroDictionaryDownloads
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryCatalog
 import com.wasimaster.wmkeyboard.core.dictionaries.DictionaryEntry
@@ -73,6 +74,7 @@ import com.wasimaster.wmkeyboard.core.input.composer.FlexLanguagePack
 import com.wasimaster.wmkeyboard.core.input.BrailleContracted
 import com.wasimaster.wmkeyboard.core.input.composer.ArabicTashkeel
 import com.wasimaster.wmkeyboard.core.input.composer.HebrewNikud
+import com.wasimaster.wmkeyboard.core.input.composer.HunspellRulesPack
 import com.wasimaster.wmkeyboard.core.input.composer.KoreanSpacing
 import com.wasimaster.wmkeyboard.core.modules.FeatureModules
 import com.wasimaster.wmkeyboard.core.modules.ModuleState
@@ -513,13 +515,9 @@ internal fun requiredCjkPacks(langId: String): List<CjkDictPack> =
         .flatMap { CjkDictCatalog.withCompanions(it) }
         .distinctBy { it.id }
 
-/**
- * Roughly what [entry] transfers at [size]. The catalogue sizes the whole
- * file, and a capped download stops partway through it, so this scales by the
- * share of the list actually read.
- */
+/** Roughly what [entry] transfers at [size]; see [DictionaryCatalog.approxBytes]. */
 internal fun entryBytes(entry: DictionaryEntry, size: DictionaryCatalog.DictionarySize): Long =
-    entry.approxGzBytes * DictionaryCatalog.wordCap(entry, size) / entry.totalWordCount.coerceAtLeast(1)
+    DictionaryCatalog.approxBytes(entry, size)
 
 /** Everything downloadable for [langId], sized for a prompt. */
 internal fun languageData(langId: String): LanguageData {
@@ -1601,6 +1599,26 @@ internal fun LanguageDetailScreen(
         }
     }
 
+    // Hindi in Kruti Dev, Tamil in Bamini, Punjabi in AnmolLipi (#1252): the
+    // pre-Unicode fonts print and design work still runs on, offered the way
+    // Bengali's ANSI is. Picking one puts its button on the language's strip.
+    val legacyFonts = LegacyFonts.fontsFor(langId)
+    if (legacyFonts.isNotEmpty()) {
+        SettingsGroup(stringResource(R.string.languages_legacy_font_group), level = SettingLevel.ADVANCED) {
+            item {
+                ChoiceSetting(
+                    R.string.languages_legacy_font_title,
+                    subtitle = stringResource(R.string.languages_legacy_font_subtitle),
+                    info = stringResource(R.string.languages_legacy_font_info),
+                    options = listOf("" to stringResource(R.string.languages_legacy_font_off)) +
+                        legacyFonts.map { font -> font.id to (legacyFontLabel(font)?.let { stringResource(it) } ?: font.title) },
+                    selected = settings.watch { it.suggestionStrip.legacyFonts[langId].orEmpty() },
+                    default = "",
+                ) { scope.launch { repository.setLegacyFont(langId, it) } }
+            }
+        }
+    }
+
     // Burmese written in Zawgyi, the font encoding much Burmese text is still
     // in, the same way: allowing it puts the Zawgyi button on the strip of
     // every Burmese layout, and the button turns it on. The key font is for
@@ -1889,7 +1907,7 @@ private fun CjkDictPackManager(
             when (langId) {
                 "braille" -> R.string.languages_braille_download_info
                 "he" -> R.string.languages_nikud_download_info
-                "ar" -> R.string.languages_tashkeel_download_info
+                "ar" -> if (ArabicTashkeel.supported) R.string.languages_ar_download_info else R.string.languages_hunspell_ar_download_info
                 "tr" -> R.string.languages_hunspell_tr_download_info
                 "ru" -> R.string.languages_ru_yo_download_info
                 else -> R.string.languages_cjk_download_info
@@ -2098,16 +2116,18 @@ private fun CjkDictPackManager(
             ) { on -> scope.launch { repository.setHanjaSuggestions(on) } }
         }
 
-        // Turkish-only: the library that reads the rules, beside their row above.
-        item(visible = langId == "tr" && HunspellRuntime.shipped) {
+        // Turkish and Arabic: the library that reads their Hunspell pack, beside its row above.
+        item(visible = HunspellRulesPack.forLang(langId) != null && HunspellRuntime.shipped) {
             val module by HunspellRuntime.moduleState.collectAsState()
             WmRow(
                 title = stringResource(R.string.languages_hunspell_tr_library_title),
                 subtitle = stringResource(
                     when (module) {
-                        ModuleState.Installed -> R.string.languages_hunspell_tr_library_ready
+                        ModuleState.Installed ->
+                            if (langId == "ar") R.string.languages_hunspell_ar_library_ready else R.string.languages_hunspell_tr_library_ready
                         is ModuleState.Installing -> R.string.languages_kiwi_library_installing
-                        is ModuleState.Missing -> R.string.languages_hunspell_tr_library_missing
+                        is ModuleState.Missing ->
+                            if (langId == "ar") R.string.languages_hunspell_ar_library_missing else R.string.languages_hunspell_tr_library_missing
                     },
                 ),
                 trailing = {
@@ -2166,6 +2186,18 @@ private fun CjkDictPackManager(
                 info = stringResource(R.string.languages_cjk_loose_marks_info),
                 default = SettingsDefaults.cjk.kanaLooseMarks,
             ) { on -> scope.launch { repository.setKanaLooseMarks(on) } }
+        }
+
+        // Japanese-only: the flick pad takes repeated taps (あ → い → う) as
+        // well as flicks, the keitai way; this keeps it to flicks.
+        item(visible = langId == "ja", level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.languages_cjk_flick_only_title,
+                stringResource(R.string.languages_cjk_flick_only_subtitle),
+                settings.watch { it.cjk.kanaFlickOnly },
+                info = stringResource(R.string.languages_cjk_flick_only_info),
+                default = SettingsDefaults.cjk.kanaFlickOnly,
+            ) { on -> scope.launch { repository.setKanaFlickOnly(on) } }
         }
 
         // Issue #341: Japanese and Chinese are spaced with the ideographic
@@ -2610,4 +2642,20 @@ private fun readingOnSwitchDescRes(choice: ReadingOnSwitch): Int = when (choice)
     ReadingOnSwitch.CONVERT -> R.string.languages_cjk_reading_on_switch_convert_desc
     ReadingOnSwitch.TYPED -> R.string.languages_cjk_reading_on_switch_typed_desc
     ReadingOnSwitch.DISCARD -> R.string.languages_cjk_reading_on_switch_discard_desc
+}
+
+/** The name a legacy font goes by in the settings (#1252); the glyph-table fonts go by their [LegacyFonts.Font.title]. */
+private fun legacyFontLabel(font: LegacyFonts.Font): Int? = when (font) {
+    LegacyFonts.Font.KRUTI_DEV -> R.string.languages_legacy_font_krutidev
+    LegacyFonts.Font.CHANAKYA -> R.string.languages_legacy_font_chanakya
+    LegacyFonts.Font.SANSKRIT_99 -> R.string.languages_legacy_font_sanskrit99
+    LegacyFonts.Font.TSCII -> R.string.languages_legacy_font_tscii
+    LegacyFonts.Font.NUDI -> R.string.languages_legacy_font_nudi
+    LegacyFonts.Font.PREETI -> R.string.languages_legacy_font_preeti
+    LegacyFonts.Font.BAMINI -> R.string.languages_legacy_font_bamini
+    LegacyFonts.Font.ANMOL_LIPI -> R.string.languages_legacy_font_anmollipi
+    LegacyFonts.Font.ML_TT -> R.string.languages_legacy_font_mltt
+    LegacyFonts.Font.FML -> R.string.languages_legacy_font_fml
+    LegacyFonts.Font.FM_ABHAYA -> R.string.languages_legacy_font_fmabhaya
+    else -> null
 }

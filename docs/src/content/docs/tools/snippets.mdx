@@ -99,7 +99,8 @@ Some details:
 
 - **Matching is case-insensitive** by default, so `HELLO John` works too. Start the pattern with `(?-i)` if you want it to care.
 - **`^` and `$` are optional.** The pattern always has to fill the whole span it's matched against, so `hello (.+)` behaves exactly like `^hello (.+)$`. Most people write the anchors anyway, and the examples here follow suit.
-- **Words to match** caps how far back a pattern can reach: three words by default, up to eight. It's there because names are short. With a cap of three, `^hello (.+)$` can turn "hello John Smith" into a greeting but will leave a whole sentence alone.
+- **Words to match** is how many of the words you typed, counted back from the cursor, the pattern may read: three by default, up to eight. It counts what you type, never what the snippet puts in. `^/gh (\S+)$` reads two words, `/gh` and `wasi-master`, so it fits the default, however long the link it writes. `^hello (.+)$` with a cap of three can greet "hello John Smith" (three words) but leaves "hello John Smith from accounts" alone, because its five words are more than it may read. Raise it for a pattern whose captured part runs to more words, such as a whole sentence.
+- **A capture can insist on a name.** Write it as `(?<name>.+)` instead of `(.+)` and the pattern only fits when every word it caught reads as a name: typed with a capital, one of your contacts, a word the dictionary only knows with a capital ("John"), or one it doesn't know at all. `^hello (?<name>.+)$` greets "hello John" and "hello Priya", and leaves "hello am" and "hello there" as you typed them. It is still `$1` in the text. A group called `name2`, `name3` and so on works the same way. The tester on the editor screen has no dictionary to ask, so it lets any word through.
 - **A pattern never reaches across a line break**, so a snippet can't swallow the paragraph above the one you're writing.
 - **The shortest match wins.** If two patterns both fit, the one that eats fewer of your words is the one that runs. A plain word trigger always beats a pattern.
 - **A pattern can start on the space in front of a word.** `\s+([.,?!:;])` with the text `$1` pulls a stray space back out from in front of a full stop or a comma. The space and the word after it count as one word for the words-to-match cap.
@@ -107,7 +108,7 @@ Some details:
 
 Patterns run on every space you type, so the keyboard is careful about what they cost. Start a pattern with a plain word (`^hello `, `^/gh `) and it can be skipped entirely unless that word is actually behind your cursor, which is nearly always. A pattern that starts with something variable instead, like `^(.+)$` or `^\d+`, has to be tried after every word. The editor says so when you write one. A pattern that turns out to be pathologically slow is stopped rather than allowed to stall your typing.
 
-Everything else about word triggers applies here too: patterns are skipped mid-transliteration and mid-conversion, and they never run in password fields or in fields that ask for no suggestions.
+Everything else about word triggers applies here too: patterns are skipped mid-transliteration and mid-conversion, and they never run in password fields. In a field that asks for no suggestions they run only where nothing is being composed, such as a browser's address bar, where `^/gh (\S+)$` is read off the field when you press space or Enter.
 
 A pattern either expands on its own or asks first, never both. Which one it is decides when it's looked for at all: the expanding kind is checked on the space, Enter or punctuation that ends a word, the asking kind on every keystroke (see below). Punctuation gets a second look once the mark itself is in the field, so a pattern about the mark (the space fixer above) sees it. That second look is skipped when the first one already expanded something.
 
@@ -118,7 +119,7 @@ Every snippet has an **Ask before it expands** switch on its editor screen. Turn
 The chip arrives as soon as the trigger is typed. There's no need to press space first, and that goes for both kinds of trigger:
 
 - A **word** trigger offers itself while you're still typing the word. Type `brb` and the chip is there before you reach the space bar. Press space instead of tapping and you get a literal "brb."
-- A **pattern** offers itself mid-phrase, and keeps up as you type. With `^hello (.+)$`, typing "hello Jo" already shows a chip reading "Hello, Jo!". The next letter re-reads it as "Hello, Jon!", and so on. The offer survives the space that ends the word, so you can finish the phrase and then decide.
+- A **pattern** offers itself mid-phrase, and keeps up as you type. With `^hello (.+)$`, typing "hello Jo" already shows a chip reading "Hello, Jo!". With `(?<name>.+)` in its place, "hello am" shows no chip, since "am" is no name. The next letter re-reads it as "Hello, Jon!", and so on. The offer survives the space that ends the word, so you can finish the phrase and then decide.
 
 Tapping the chip swaps the words it matched for the expansion and keeps any trailing space. What the chip shows is exactly what goes in.
 
@@ -161,6 +162,14 @@ Links are a graph rather than a tree, so two snippets can share a child and a pa
 
 Tags are free words you file a snippet under so you can find it again. Add them in the editor the same way you add triggers: type one, press enter, it becomes a chip. They do nothing while you type; they're for searching in the snippet picker when a list has grown past the point of scrolling it.
 
+## Picture snippets
+
+A snippet can insert a picture instead of text: a sticker you send a lot, a signature scan, a QR code for your payment details. In the snippet editor, **Picture** → **Choose a picture** copies one into the keyboard's own storage (PNG, JPEG, GIF or WebP, up to 8&nbsp;MB), so the snippet keeps working after the original is moved or deleted. **Change** swaps it and **Remove** turns the snippet back into a text one. A picture snippet has no expansions to edit, since the picture is what it inserts.
+
+It fires the way any snippet does. Tap its card in the panel, where the card shows the picture under the name, or type its trigger. With [ask first](#ask-before-it-expands) on, the trigger puts a chip on the suggestion bar showing a thumbnail of the picture. The trigger you typed is taken out, and the picture goes to the app the way a picture from the [clipboard](/tools/clipboard/) does. Apps that take pictures from the keyboard, which covers most chat apps, get it straight away in a format they accept. Anywhere else the keyboard puts the picture on the clipboard and asks the field to paste it, which works in apps that take a pasted picture without saying so, and shows a short note when it doesn't.
+
+Pictures travel with the snippets section of a [config backup](#snippet-packs-and-backups) and with settings sync, and a `.wmsnippets.json` export carries them inside the file, up to 12&nbsp;MB of them each time. Past that, the remaining picture snippets arrive as their text, and one with no text is left out. If the picture file goes missing on this phone, the snippet inserts its text instead (often nothing).
+
 ## Template variables
 
 A snippet's text can include any of these tokens. They're substituted the moment the snippet is inserted, not when you save it, so `{date}` always reflects the day you actually type it:
@@ -184,15 +193,58 @@ A snippet's text can include any of these tokens. They're substituted the moment
 | `{app}` | Name of the app you're typing into |
 | `{package}` | That app's package name |
 | `{uuid}` | A fresh random UUID, different every time it's used |
+| `{greeting}` | Good morning, Good afternoon or Good evening by the time of day, in the keyboard language; see below |
+| `{battery}` | The battery charge, e.g. 85% |
+| `{language}` | The keyboard language you're typing in, by the name the language picker shows |
+| `{tab}` | A tab character |
+| `{bullets:3}` | Three lines that each start with a bullet, the cursor after the first. Any number from 1 to 50; `{bullets}` alone writes three |
+| `{list:3}` | The same with numbers: `1.`, `2.`, `3.` |
 | `{cursor}` | Not text; marks where the cursor lands after insertion |
 | `{random:a\|b\|c}` | One of the alternatives, picked fresh each insertion |
+| `{ask:Name}` | Whatever you type for it when the snippet expands; see [Fill-in fields](#fill-in-fields). `{ask:Name:Sam}` fills in Sam unless you type something else |
 | `{location}` | Where you are, from the [Location tool](/tools/location/#in-snippets), in its default format. `{location:link}`, `{location:address}`, `{location:coordinates}`, `{location:dms}`, `{location:plus_code}`, `{location:message}` or `{location:custom}` pick one |
 | `{place:Home}` | A place you saved in the Location tool, by its name in any case. A format can follow: `{place:Home:address}` |
 | `{ha:sensor.outside_temperature}` | A [smart home](/tools/home-assistant/) entity's state with its unit, as the keyboard last saw it, looked for in every home on the list; `{ha:home_key\|sensor.x}` names one. An attribute can follow: `{ha:light.kitchen:brightness}`. Empty when the tool is off |
 
+`{greeting}` says good morning from 04:00 until noon and good afternoon until 18:00, and good evening the rest of the night, since "good night" is a goodbye. It's in the language of the keyboard you're typing on for about thirty languages, among them Spanish, French, German, Portuguese, Russian, Arabic, Bengali, Hindi, Japanese, Korean and Chinese, and in English for the rest. A romanized keyboard such as Hinglish gets English rather than words in a script it doesn't type.
+
+`{bullets:N}` and `{list:N}` put the cursor in the first line so you can start typing at once. If the snippet has a `{cursor}` of its own, that one wins and the list is written out empty. Only the first list in a snippet takes the cursor. The two don't overlap with the `{clip:…}` modifiers or `{ask:…}` fields, so all of them can sit in one snippet.
+
 `{timezone}` is the one worth a second look. It writes the zone's long name, not an offset, so you get "Bangladesh Standard Time" or "Central European Summer Time" rather than GMT+06:00. An offset only shows up for a zone with no name of its own. The settings screen's reference card gives GMT+06:00 as its example, which is the fallback rather than the usual case, but the live preview next to it always shows what you'd actually get. If you want the offset itself, `{date:XXX}` or `{date:ZZZZ}` will give you one.
 
+### Reshaping the clipboard and the selection
+
+`{clip}` and `{selection}` can take modifiers after a colon, applied left to right, so `{clip:clean:singleline}` strips the reference marks first and then joins the lines:
+
+| Modifier | Does |
+|---|---|
+| `clean` | Takes out Wikipedia-style reference marks such as `[1]`, `[a]`, `[note 2]` and `[citation needed]`, and tidies the spaces they leave |
+| `singleline` | Joins all the lines into one, dropping blank lines |
+| `trim` | Removes spaces and line breaks from both ends |
+| `upper`, `lower`, `title` | UPPER CASE, lower case, Title Case |
+| `camel`, `snake`, `kebab`, `constant` | `helloWorld`, `hello_world`, `hello-world`, `HELLO_WORLD` |
+| `slug` | The same as `kebab`, for a URL or a file name |
+| `unquote` | Takes off one pair of quotes around the whole text, straight or curly |
+| `nourl` | Removes web addresses |
+| `replace(old,new)` | Swaps every `old` for `new`. Plain text, not a pattern, and a colon inside the brackets is fine: `{clip:replace(:,h)}` |
+
+A modifier the keyboard doesn't know is skipped, so a typo leaves the text as it was instead of breaking the snippet.
+
 `{date:pattern}` takes any date pattern you like, for example `` {date:EEEE 'week' w} `` or `` {date:dd/MM/yy} ``. A `+` or `-` and a number of seconds before the colon shifts it: `{date+86400:dd/MM/yy}` is tomorrow, `{date-86400}` was yesterday, and a bare `{date+3600}` is an hour from now in the usual format. It's checked before the plain `{date}` token, so a literal pattern can't be partly swallowed by it. A malformed pattern quietly expands to nothing instead of breaking the rest of the snippet. Tokens the expander doesn't recognize, like `{nope}`, are left untouched. A variable with nothing to draw on expands to an empty string rather than leaving the raw token behind, which is what you get from `{app}` outside the keyboard or `{clip}` with an empty clipboard.
+
+### Fill-in fields
+
+`{ask:Name}` turns part of a snippet into a question you answer each time it expands. With the text `Dear {ask:Name}, thanks for the {ask:Item}.` and the trigger `ty`, typing `ty` and a space opens a row above the keys in place of the suggestion bar. It names the field, **Name 1/2**, and the keys type into its box rather than into the app. Enter, or the arrow at the end of the row, keeps the answer and moves on to **Item**. On the last field the arrow becomes a tick, and Enter or the tick puts the whole snippet in with both answers filled in.
+
+- A default goes after a second colon: `{ask:Day:Friday}`. It's already in the box, selected, so typing replaces it and Enter on its own keeps it. A field left empty uses its default, or nothing if it has none. The default can hold colons, as in `{ask:Time:9:30}`.
+- The same name twice asks once, whatever the capitals: `{ask:name}` and `{ask:Name}` are one field, and the answer goes in both places.
+- The × at the start of the row, or Back, cancels. Nothing is inserted, and the trigger you typed goes back where it was. Tapping a snippet in the panel and cancelling leaves the field untouched.
+- The space or punctuation that fired the trigger is used up, so nothing lands in front of the snippet while you're answering. One backspace after it goes in puts the trigger back, the same as any expansion.
+- An answer goes in exactly as typed. Typing `{clip}` into a field gives the six characters, never your clipboard, and an answer is never asked about again.
+- A snippet asks at most 12 questions. Tokens past the twelfth are left as written.
+- `{ask:` doesn't overlap with anything else the expander reads: `{random:…}`, `{date:…}`, the `{clip:…}` modifiers and a pattern's `$1` all work alongside it, and a field can sit inside a pattern snippet's text.
+- Two places have no row to ask in, so their fields take their defaults instead: swapping one expansion for another with a chip after [Insert first](#several-expansions) has already typed one, and inserting into a note or task open in the [floating box](/tools/overview/#tools-in-a-floating-box).
+- Moving to another text field while the row is up drops it, and nothing is inserted anywhere.
 
 ## Managing snippets
 
@@ -208,11 +260,11 @@ The settings screen opens with a reference card listing all 18 variables plus `{
   <Shot id="tools/snippets-add-dialog" alt="Adding a snippet: label, text with variables, and a Word or Pattern trigger." />
 </PhoneFrame>
 
-- **Add snippet** opens the editor screen: a label, an optional folder, the [expansions](#several-expansions) it can insert, and a Word / Pattern switch for how it expands as you type.
+- **Add snippet** opens the editor screen: a label, an optional folder, an optional [picture](#picture-snippets), the [expansions](#several-expansions) it can insert, and a Word / Pattern switch for how it expands as you type.
 - The section that holds both is called **Trigger**. Choosing **Word** gives you the [Triggers](#several-triggers) chip field and a **Match the trigger's capitals** switch that reveals its style choice when you turn it on. Choosing **Pattern** gives you the pattern itself, chips that write `(.+)`, `$1`, `^` and `$` at the cursor, a words-to-match picker, and a **Try it** box. Type into **Try it** what you'd type on the keyboard, and the result appears underneath. A pattern that won't compile is flagged as you type, with the regular-expression engine's own complaint under it. Save stays disabled until you fix it.
 - Under both is **Ask before it expands**, which turns the trigger into a suggestion-bar offer instead of an automatic rewrite (see [Ask before it expands](#ask-before-it-expands)). With it off, a word trigger also gets **Expand immediately**, and once that's on, **Also inside words** (see [Expanding immediately](#expanding-immediately)).
 - Below that come [Linked snippets](#linked-snippets) and [Tags](#tags).
-- Pressing a saved snippet reopens the same screen, filled in, to edit it. Nothing is saved until you press **Save**, the button that floats at the bottom corner of the screen so it's always in reach. It's greyed out until the snippet has a label and some text. Leaving with changes you haven't saved, by the back arrow or the back gesture, asks first: save them, discard them, or go back to editing.
+- Pressing a saved snippet reopens the same screen, filled in, to edit it. Nothing is saved until you press **Save**, the button that floats at the bottom corner of the screen so it's always in reach. It's greyed out until the snippet has a label and some text, or a label and a picture. Leaving with changes you haven't saved, by the back arrow or the back gesture, asks first: save them, discard them, or go back to editing.
 - The trash icon at the end of the row deletes it immediately. Swiping the row to the left shows the same delete button behind it, and a long swipe past about half the row deletes it outright. There is no confirmation prompt. Instead a bar appears at the foot of the screen naming what went, with **Undo** on it for a few seconds; undo puts the snippet back with its own id, its place in the list, and the links any other snippet had to it. Once that bar goes, the delete stands, so keep an [export](#import-and-export) around for anything that took a while to write. Deleting a second snippet replaces the bar rather than queueing behind it, so only the last delete can be undone.
 - Every row also shows a live "Inserts as: …" preview whenever the expanded text would differ from what you typed, and "Expands by itself from: …" if you've set a trigger (or the pattern itself, if you set one of those). A snippet set to ask first says "Offers itself after: …" instead. A snippet with more than one expansion, or with links, counts them on a line of its own.
 
@@ -246,15 +298,57 @@ A folder switched off costs nothing at all while you type. Its snippets are left
 Import takes two more formats that nothing exports to:
 
 - **A table (CSV).** A `.csv` or `.tsv` file, with commas, tabs or semicolons between the columns. This is what most other text expanders and every spreadsheet can write. With a header row, the columns are found by name in any order: `trigger`, `shortcut` or `abbreviation` for the trigger; `text`, `expansion`, `phrase` or `content` for what it types; and, if you want them, `label` or `name`, `folder` or `group`, and `tags`. Without a header the columns are read in order: trigger, text, then an optional label, which is how TextExpander, aText and Texpand export. A cell in double quotes can hold commas and line breaks. A row with no text is dropped, and a trigger the keyboard cannot watch for is taken off while the snippet stays.
-- **Gboard's dictionary.** The `PersonalDictionary.zip` that Gboard exports. Its shortcuts become snippets that ask first, the way Gboard shows them as suggestions. Its plain words are left out here; import the same file from the [personal dictionary](/smart/personal-dictionary/#androids-dictionary) to add both at once. See [Gboard's personal dictionary](/reference/importing-other-keyboards/#gboards-personal-dictionary).
+- **Gboard's dictionary.** The `PersonalDictionary.zip` that Gboard exports. Its shortcuts become snippets that ask first, the way Gboard shows them as suggestions. A Japanese word under a kana reading becomes a [conversion candidate](/languages/cjk/#your-own-word-lists) rather than a snippet. Its plain words are left out here; import the same file from the [personal dictionary](/smart/personal-dictionary/#androids-dictionary) to add both at once. See [Gboard's personal dictionary](/reference/importing-other-keyboards/#gboards-personal-dictionary).
 
 Both show the same confirm dialog as an Espanso file, with a folder name to put the snippets in.
 
 **Export** writes every current snippet to a `.wmsnippets.json` file (see [file formats](/reference/file-formats/)), along with the folders they're filed in. A folder with nothing in it isn't written, so exporting doesn't carry empty shelves along. **Import** always adds alongside what's already there rather than replacing it, so importing the same file twice leaves you with two copies. The file's folders come back as new folders of the same name, and a snippet that was in none stays in none.
 
-The fourth choice under **Export**, **Share with everyone**, sends one folder of snippets, or all of them, to the [community repository](/addons/community/) for anyone to install. It asks which folder, and reminds you to check there's nothing personal in them first.
+**A text file** is the fourth choice under **Export** and the fifth under **Import**: every snippet as `=== trigger ===` blocks in one `.txt`, the same text [Edit all as text](#edit-all-as-text) shows. A text file can't hold a picture, so picture snippets keep only the picture's file name. Importing one from another phone brings those in as their words, or leaves out the ones that have none, and says how many. A block with a mistake in it is skipped and named by its line.
+
+The last choice under **Export**, **Share with everyone**, sends one folder of snippets, or all of them, to the [community repository](/addons/community/) for anyone to install. It asks which folder, and reminds you to check there's nothing personal in them first.
 
 Rows are repaired rather than rejected when something's off. A snippet with no text is dropped. Text over 20,000 characters is trimmed. A blank label is filled in from the snippet's own first line. A trigger pattern that won't compile, or that runs past 200 characters, is removed while the snippet itself is kept. Only the first 500 snippets of an oversized file are kept, and the first 100 folders. A folder with no name, or one repeating another's ID, is dropped and its snippets arrive ungrouped. Once the import finishes you get a summary of everything that changed.
+
+### Edit all as text
+
+**Edit as text**, beside Import and Export, opens every snippet as one plain-text document in the code editor. It's the quick way to fix a typo in forty snippets, move a dozen into a folder, or paste in a list written somewhere else. Each snippet is a block that starts with its trigger between `===` marks. Settings follow on lines that start with `@`, then the text:
+
+```text
+=== omw ===
+On my way!
+
+=== addr ===
+@label: Home address
+@folder: Personal
+@flags: confirm
+12 Example Road
+---
+PO Box 7
+```
+
+A line of exactly `---` starts another [expansion](#several-expansions) of the same snippet. A snippet with no trigger has nothing between the marks (`=== ===`) and needs an `@label` or an `@pattern`. The settings a block can carry:
+
+| Line | Means |
+|---|---|
+| `@label: Home address` | The name on its card. Without one, the trigger is the name |
+| `@alias: adr` | Another way to type it; one line each |
+| `@pattern: (\w+) x2` | A [pattern trigger](#pattern-triggers); `@words: 3` says how many words back it looks |
+| `@case: capitalize` | [Matching capitals](#matching-capitals): `capitalize`, `capitalize_words` or `uppercase` |
+| `@flags: confirm, immediate, inside-words` | Ask before it expands, expand immediately, and inside words |
+| `@several: chips` | What a match with several expansions does: `chips` or `insert` |
+| `@folder: Personal` | The folder, by name. A name that doesn't exist yet makes a new folder |
+| `@tag: post` | A [tag](#tags); one line each |
+| `@link: brb` | A [linked snippet](#linked-snippets), by its trigger; one line each |
+| `@picture: s_1a2b.png` | The picture of a [picture snippet](#picture-snippets) |
+
+Lines that start with `#` above the first block are comments. Inside a snippet, a line of text that would read as markup gets a backslash in front: `\@john` for text that starts with `@`, `\===` and `\---` likewise, and a lone `\` for a blank line at the very start or end of a text. The editor writes these for you, so they only matter when you type one.
+
+Mistakes show as you type: the line number turns red and the line is underlined, and the first one is named under the editor. Tap it to jump there. **Save** refuses while any are left and lists them by line. With none, it shows what saving would do, by snippet: how many it adds, changes and deletes, plus any new folders, and nothing is written until you confirm. A block is matched to the snippet it was by its trigger, or by its text when the trigger changed, so renaming a trigger is a change rather than a delete and an add.
+
+After a save, **Undo** on the message puts the whole list back as it was, and so does **Undo last save** in the ⋮ menu for as long as the app stays open. Only the latest save is kept. The ⋮ menu also copies and pastes the whole text, opens a `.txt` file into the editor without saving it, and exports what's in the editor.
+
+Two things the text can't do. Pictures are added in a snippet's own editor, so an `@picture` line must name a picture one of your snippets already uses; typing a new file name is refused. And folders are only ever made, never deleted: a folder left with nothing in it stays, switched on or off as it was, until you delete it. Leaving with unsaved edits asks first.
 
 ## Options
 

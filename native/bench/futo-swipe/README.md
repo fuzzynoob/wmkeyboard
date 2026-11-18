@@ -115,6 +115,127 @@ channel, the stroke's ends open past the gap band):
 | doubled key redrawn with a loop (482) | .7552 | .8154 |
 | stray loop on a word with no double (4,385) | .8041 | .7977 |
 
+## Marks, early finishes and named words (#1250)
+
+The fit above made the stroke's shape count a fifth as much against word
+frequency. Three weights that live on that scale were left where they were,
+and a report that "its" came out "is", that pauses and loops did nothing and
+that long words were no longer finished early traced back to them. Two
+harnesses in `native/wm-engine/examples` measure what the fit's own data
+cannot: `glide_cases` draws a named word, with a stop or a circle on a chosen
+letter, and `glide_ahead_eval` cuts real strokes short and applies the
+look-ahead gate the keyboard applies. Both read the committed 2,000-stroke
+fixture, so nothing has to be downloaded:
+
+```bash
+python3 -I - <<'PY'   # app/src/test/resources/glide/futo-swipes.txt.gz -> fixture.jsonl, qwerty.json
+import gzip, json
+lines = gzip.open("../../app/src/test/resources/glide/futo-swipes.txt.gz", "rt").read().splitlines()
+keys = [{"letter": e.split(":")[0], "cx": int(e.split(":")[1].split(",")[0]) / 1000, "cy": int(e.split(",")[1]) / 1000}
+        for e in lines[0].removeprefix("#keys ").split()]
+json.dump({"keys": keys}, open("qwerty.json", "w"))
+with open("fixture.jsonl", "w") as out:
+    for line in lines[1:]:
+        word, width, height, *points = line.split(" ")
+        t, data = 0, []
+        for point in points:
+            x, y, dt = point.split(",")
+            t += int(dt)
+            data.append({"x": int(x) / 1000, "y": int(y) / 1000, "t": t})
+        out.write(json.dumps({"word": word, "canvas_width": float(width), "canvas_height": float(height), "data": data}) + "\n")
+PY
+echo 'four for pause=2:150' | cargo run --release --example glide_cases -- qwerty.json ../../app/dictionaries-src/en.txt
+echo 'keep=0.8 margin=2'    | cargo run --release --example glide_ahead_eval -- fixture.jsonl qwerty.json ../../app/dictionaries-src/en.txt
+```
+
+Measured 2026-11-13 on the bundled en.txt.
+
+Who the fit helped and what its misses look like, the 2,000 strokes in
+quarters by how far the path passes from the word's keys (mean miss in key
+widths):
+
+| quarter | before the fit | fitted | misses that are a commoner word, before | fitted |
+|---|---|---|---|---|
+| 0.01 to 0.15 | .896 | .932 | 6 of 52 | 19 of 34 |
+| 0.15 to 0.22 | .868 | .924 | 9 of 66 | 19 of 38 |
+| 0.22 to 0.33 | .814 | .888 | 12 of 93 | 25 of 56 |
+| 0.33 and up | .600 | .752 | 16 of 200 | 28 of 124 |
+
+Of the 39 strokes read right before the fit and wrong after, 33 came out as
+a commoner word and 28 as a shorter one (`its` as `is` twice, `three` as
+`the`, `new` as `me`). `freq_weight` is the lever for a hand that draws
+accurately: the first quarter reads .932, .932, .928 and .930 at 1.0, 0.6,
+0.5 and 0.4, the last .752, .712, .694 and .670.
+
+A stop on the letter that tells two words apart (`four`/`for`,
+`its`/`is`, `three`/`the`, `odd`/`of`; 150 ms, eight tremors each), against
+what the charge costs real strokes, which carry hesitations and no marks:
+
+| `unclaimed_dwell` | pairs settled | real strokes | first quarter | last quarter |
+|---|---|---|---|---|
+| 0.9 (0.6.4 to 0.6.6) | 1 of 4 | .8740 | .932 | .752 |
+| 2.0 (shipped) | 4 of 4 | .8725 | .932 | .738 |
+| 4.0 | 4 of 4 | .8590 | .932 | .698 |
+| 10.0 | 4 of 4 | .8125 | .928 | .588 |
+
+At 0.9 the pause row's own range (`dwell_full` 1 to 8) moves `four`'s
+deficit from 0.07 to 0.08 nats. A circle on the doubled letter (`too`,
+`off`, `three`, `good`, `odd`, `been`) led its single spelling by 0.2 to 1.1
+nats at `unclaimed_loop` 1.1 and leads by 1.0 to 2.6 at 4.0; real strokes
+read .8740, .8745 and .8745 at 1.1, 4.0 and 8.0. The radii reach the decoder
+and sit at their peak: .757, .868, .874, .821 for a start radius of 0.5, 1,
+1.6, 3; .579, .827, .868, .874, .836 for an end radius of 0.5, 1, 1.6, 2, 3;
+.651, .840, .871, .874 for a path radius of 0.5, 1, 1.5, 1.9 and up.
+
+Strokes of six letters or more (611) cut at a share of their length, the
+word shown and another guess shown, and at full length a guess typed over a
+finished word:
+
+| `look_ahead_cost`, margin | 60 % right | wrong | 80 % right | wrong | whole |
+|---|---|---|---|---|---|
+| before the fit, 1 | .133 | .432 | .267 | .291 | .031 |
+| before the fit, 4 | .120 | .378 | .254 | .268 | .023 |
+| 1.4, 1 (0.6.4 to 0.6.6 "Eager") | .034 | .147 | .213 | .116 | .002 |
+| 1.4, 4 (0.6.4 to 0.6.6 "When sure") | .007 | .033 | .075 | .041 | .000 |
+| 0.28, 1 (shipped "Eager") | .103 | .309 | .273 | .208 | .011 |
+| 0.28, 2 (shipped "When sure") | .072 | .213 | .236 | .157 | .005 |
+| 0.28, 0.2 | .134 | .422 | .306 | .272 | .034 |
+
+The words before a stroke, which the fixture does not carry: `test.jsonl`
+with its sentences, the English pack's text files and the context model from
+the data repo, the 34,007 strokes that have a word before them
+(`glide_context_eval`; `mode=rank` is the n-gram reorder a single stroke went
+through until this was measured, by place in the list, and `mode=score` the
+phrase lattice's lift added to the decoder's score):
+
+```bash
+printf '%s\n' 'pack=1 blend=0.7 cap=3 mode=rank' 'pack=1 blend=0.7 cap=3 mode=score' | \
+  MODEL=en_context.wmlm BIGRAMS=en_bigrams.txt TRIGRAMS=en_trigrams.txt cargo run --release --example glide_context_eval -- \
+  test.jsonl qwerty.json ../../app/dictionaries-src/en.txt ../../app/src/main/assets/dictionaries/en_bigrams.txt
+```
+
+| | top-1 | top-4 | held-out half | right readings taken away | of those, the right word 4+ nats ahead |
+|---|---|---|---|---|---|
+| seed pairs only, no n-gram step | .8650 | .9626 | .8537 | | |
+| seed pairs, by rank | .8681 | .9630 | .8564 | 31 | 6 |
+| seed pairs, in nats | .8676 | .9632 | .8564 | 3 | 0 |
+| pack, by rank | .8797 | .9648 | .8704 | 139 | 49 |
+| pack, in nats | .8940 | .9677 | .8860 | 141 | 0 |
+| pack, by rank only within 2 nats | .8809 | .9646 | .8718 | 49 | 0 |
+| pack and model, blend alone | .9095 | .9705 | .9064 | | |
+| pack and model, blend then by rank | .9017 | .9707 | .8987 | 380 | 245 |
+| pack and model, blend then in nats | .9103 | .9708 | .9076 | 216 | 19 |
+| the same at half the n-gram weights | .9113 | .9709 | .9090 | 106 | 1 |
+| the same with the blend at 0.5 | .9150 | .9716 | .9114 | 204 | 11 |
+| seed pairs and model, blend then by rank | .9059 | .9705 | .9025 | 154 | 97 |
+| seed pairs and model, blend then in nats | .9097 | .9706 | .9064 | 16 | 0 |
+
+The lift's weights are the lattice's, fitted on phrases without the blend;
+the last two pack rows say a joint fit of the blend and the lift has about
+half a point left in it. Not measured here: learned-shape seeding, which
+needs a user's stored shapes, and the user's own pairs, which the split has
+none of.
+
 ## GlideBeam on whole phrases
 
 A stroke across the spacebar, on real strokes joined into the sentences they
@@ -146,3 +267,27 @@ Measured 2026-10-30 (32,285 words; held-out half of the sessions for the last th
 `ORACLE=1` hands the decoder the walks' true lengths (.792 without one-letter
 words). `WALK=straight` is the column walk `CHAIN=1` uses, which flatters the
 decoder: .814 on the old `open_run`, where curved walks read .552.
+
+## The letters a stroke marks (#1291)
+
+`GlideLiteral` reads the keys where a stroke starts, turns, pauses and ends,
+for a word no list has, and offers them when they explain the stroke within a
+share of the best reading's alignment cost. `literal_gate.py` measures both on
+the 2,000 strokes of `app/src/test/resources/glide/futo-swipes.txt.gz`, with
+the word list less every word the fixture holds standing in for words a list
+lacks; its docstring has the commands (`SHAPE_COST=1` makes `glide_beam_eval`
+dump each candidate's alignment cost). Measured 2026-11-13 over the bundled
+en.txt: the letters are the word on .388 of the strokes, the word less its
+doubled letters on .411 (the start and end keys alone: .146).
+
+| share | beside a right reading | right word pushed off 3 slots | right on a missing word | of offers |
+|---|---|---|---|---|
+| 0.30 | .055 | 6 | .139 | .464 |
+| 0.35 (shipped) | .073 | 8 | .155 | .420 |
+| 0.40 | .098 | 9 | .175 | .394 |
+| 0.50 | .139 | 13 | .201 | .365 |
+| always | .436 | 31 | .261 | .331 |
+
+Over a 300,000-word English list (en_full's top, scaled like en.txt) the
+same rows read .050 / .068 / .090 / .130 / .414 beside right readings and
+.117 / .134 / .151 / .175 / .238 right on a missing word.

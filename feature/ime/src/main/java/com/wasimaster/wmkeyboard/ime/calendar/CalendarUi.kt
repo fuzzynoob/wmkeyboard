@@ -49,11 +49,22 @@ data class CalendarUi(
     val hour24: Boolean = false,
     /** A draft left when the panel closed, which the month view offers to pick up again. */
     val resumable: Boolean = false,
+    /**
+     * The weather beside each event card, by [weatherKey] (#1212). Kept as
+     * days change, so the agenda's opened days keep theirs; empty while
+     * "Weather on events" is off.
+     */
+    val weather: Map<String, EventWeatherChip> = emptyMap(),
+    /** The open event on its way to Mobilizon or Pretix (#1274); set while [view] is INVITE. */
+    val invite: InviteUi? = null,
 ) {
     val editing: Boolean get() = draft?.eventId != null
 }
 
-enum class CalendarView { MONTH, DETAIL, COMPOSE }
+/** One occurrence of an event: the id repeats across a series, the start does not. */
+fun weatherKey(event: DeviceCalendarEvent): String = "${event.id}:${event.begin}"
+
+enum class CalendarView { MONTH, DETAIL, COMPOSE, INVITE }
 
 /** The composer's pickers, one open at a time. */
 enum class ComposeSheet { START_DATE, END_DATE, START_TIME, END_TIME, REPEAT, CALENDAR, REMINDERS, MORE }
@@ -81,8 +92,12 @@ enum class CalendarError {
 /** What the composer's text boxes are for. */
 enum class CalendarTextField { TITLE, LOCATION, NOTES, GUEST }
 
-/** The composer box the keys type into; lives in `KeyboardUiState` for the shared capture path. */
-data class CalendarTextEntry(val field: CalendarTextField, val text: String = "")
+/**
+ * The composer box the keys type into; lives in `KeyboardUiState` for the
+ * shared capture path. [invite] when it is one of the invitation card's
+ * boxes (#1274) rather than the composer's: title, place, or description.
+ */
+data class CalendarTextEntry(val field: CalendarTextField, val text: String = "", val invite: Boolean = false)
 
 /** Something just done, and the writes that take it back. */
 data class CalendarUndo(val kind: Kind, val ops: List<CalendarOp>) {
@@ -95,10 +110,21 @@ sealed interface CalendarAction {
     data class Month(val by: Int) : CalendarAction
     data object Today : CalendarAction
     data class SelectDay(val date: EventDate) : CalendarAction
-    data class NewEvent(val date: EventDate? = null) : CalendarAction
+    /** A new event on [date], at [minute] of the day when the day view's hour was held (#1210). */
+    data class NewEvent(val date: EventDate? = null, val minute: Int? = null) : CalendarAction
+
+    /** The day view's drag (#1210): [event] moved by [minutes], its length kept. */
+    data class MoveEvent(val event: DeviceCalendarEvent, val minutes: Int) : CalendarAction
     data object ResumeDraft : CalendarAction
     data object DiscardDraft : CalendarAction
     data class OpenEvent(val event: DeviceCalendarEvent) : CalendarAction
+
+    /** The weather on an event's card: the Weather panel opens on that hour (#1212). */
+    data class OpenWeather(val event: DeviceCalendarEvent) : CalendarAction
+
+    // The Weather panel's hourly view for an event
+    data object ForecastRefresh : CalendarAction
+    data object ForecastBack : CalendarAction
     data object AskRead : CalendarAction
     data object OpenSettings : CalendarAction
 
@@ -108,6 +134,25 @@ sealed interface CalendarAction {
     data object DeleteEvent : CalendarAction
     data object InsertEvent : CalendarAction
     data object OpenInApp : CalendarAction
+
+    // Invite online (#1274)
+    data object InviteOpen : CalendarAction
+    data object InviteBack : CalendarAction
+    data class InvitePick(val service: com.wasimaster.wmkeyboard.core.settings.InviteService) : CalendarAction
+    data class InviteType(val field: CalendarTextField) : CalendarAction
+    data class InvitePlaces(val places: Int?) : CalendarAction
+    data class InviteListed(val listed: Boolean) : CalendarAction
+    data object InviteLoadOrganizers : CalendarAction
+    data class InviteOrganizer(val organizer: com.wasimaster.wmkeyboard.ime.calendar.invite.MobilizonClient.Organizer?) : CalendarAction
+    data object InvitePublish : CalendarAction
+
+    /** Data saving is on and the user said go ahead anyway, for this invitation. */
+    data object InviteAllowData : CalendarAction
+    data object InviteInsertLink : CalendarAction
+    data object InviteInsertMessage : CalendarAction
+    data object InviteOpenLink : CalendarAction
+    data object InviteOpenAdmin : CalendarAction
+    data object InviteErrorDismiss : CalendarAction
 
     // Composer
     data class Draft(val draft: EventDraft) : CalendarAction

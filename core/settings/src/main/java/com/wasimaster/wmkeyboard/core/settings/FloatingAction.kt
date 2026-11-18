@@ -93,12 +93,38 @@ sealed interface FloatingAction {
     }
 
     /**
+     * Works one of the phone's own controls (#1326): cycles the ringer, opens
+     * the volume panel, or flips Wi-Fi, mobile data, Bluetooth or the hotspot,
+     * opening Android's page for the switch where the keyboard may not flip it.
+     */
+    data class Device(val control: DeviceControl) : FloatingAction {
+        override val token get() = "$DEVICE_PREFIX${control.name}"
+    }
+
+    /**
      * Opens one of the button's categories (#923): a ring of its own, in
      * place of the one it sits in, that a hold can slide on into. Its name
      * and slots live in [SummonButtonSettings.categories], under [id].
      */
     data class Category(val id: String) : FloatingAction {
         override val token get() = "$CATEGORY_PREFIX$id"
+    }
+
+    /**
+     * Runs one of the user's own buttons (#1213, #1236): an app's shortcut, a
+     * setting switch or a settings page, by its [CustomButton.id] in
+     * [ToolboxSettings.customButtons]. A button since deleted does nothing.
+     */
+    data class Custom(val id: String) : FloatingAction {
+        override val token get() = "$CUSTOM_PREFIX$id"
+    }
+
+    /**
+     * Opens an installed plugin's panel, the way its tool in the toolbox does,
+     * by its id. A plugin since uninstalled or switched off does nothing.
+     */
+    data class Plugin(val id: String) : FloatingAction {
+        override val token get() = PLUGIN_TOOL_PREFIX + id
     }
 
     companion object {
@@ -108,6 +134,8 @@ sealed interface FloatingAction {
         private const val PAIR_PREFIX = "pair:"
         private const val APPLET_PREFIX = "applet:"
         private const val SYSTEM_PREFIX = "system:"
+        private const val CUSTOM_PREFIX = "custom:"
+        private const val DEVICE_PREFIX = "device:"
 
         /** Between a pair's two packages; no package name has one. */
         private const val PAIR_JOIN = '+'
@@ -128,12 +156,21 @@ sealed interface FloatingAction {
                 token.startsWith(SYSTEM_PREFIX) -> token.removePrefix(SYSTEM_PREFIX)
                     .let { name -> SystemButton.entries.firstOrNull { it.name == name } }
                     ?.let(::System)
+                token.startsWith(DEVICE_PREFIX) -> token.removePrefix(DEVICE_PREFIX)
+                    .let { name -> DeviceControl.entries.firstOrNull { it.name == name } }
+                    ?.let(::Device)
                 token.startsWith(APPLET_PREFIX) -> token.removePrefix(APPLET_PREFIX)
                     .let { name -> AppletTools.firstOrNull { it.name == name } }
                     ?.let(::Applet)
                 token.startsWith(PAIR_PREFIX) -> token.removePrefix(PAIR_PREFIX).split(PAIR_JOIN)
                     .takeIf { it.size == 2 && it.all { name -> name.isPackageName() } }
                     ?.let { AppPair(it[0], it[1]) }
+                token.startsWith(PLUGIN_TOOL_PREFIX) -> token.removePrefix(PLUGIN_TOOL_PREFIX)
+                    .takeIf(::isPluginToolId)
+                    ?.let(::Plugin)
+                token.startsWith(CUSTOM_PREFIX) -> token.removePrefix(CUSTOM_PREFIX)
+                    .takeIf { it.isNotEmpty() && it.all { c -> c.isLetterOrDigit() } }
+                    ?.let(::Custom)
                 token.startsWith(CATEGORY_PREFIX) -> token.removePrefix(CATEGORY_PREFIX)
                     .takeIf { it.isNotEmpty() && it.none { c -> c == ',' || c.isWhitespace() } }
                     ?.let(::Category)
@@ -173,6 +210,12 @@ sealed interface FloatingAction {
  * that work with no text field behind them, by their own buttons, or by a
  * text box of their own the keyboard types into. In the order the pickers
  * list them.
+ *
+ * The clipboard, calendar, media controls, dictionary, Wikipedia and web
+ * search joined them in #1265, and plugins with API 5. Left out on purpose: the panels that are keys
+ * themselves (emoji, the number pad, handwriting, the trackpad), the AI chat,
+ * whose composer, model and replies live and die with its panel, and find and
+ * replace, which edits the app's field through the keyboard's own connection.
  */
 val AppletTools: List<ToolbarTool> = listOf(
     ToolbarTool.CALCULATOR,
@@ -182,10 +225,25 @@ val AppletTools: List<ToolbarTool> = listOf(
     ToolbarTool.TODO,
     ToolbarTool.NOTES,
     ToolbarTool.TRANSLATE,
+    ToolbarTool.CLIPBOARD,
+    ToolbarTool.CALENDAR,
+    ToolbarTool.MEDIA_CONTROL,
+    ToolbarTool.DICTIONARY,
+    ToolbarTool.WIKIPEDIA,
+    ToolbarTool.WEB_SEARCH,
+    ToolbarTool.PLUGINS,
 )
 
 /** Whether [this] opens in a floating box (#1155). */
 val ToolbarTool.floats: Boolean get() = this in AppletTools
+
+/**
+ * Whether a tap outside [tool]'s floating box closes it: the setting for every
+ * box, unless that tool is set apart from it (#1262). Null is a box whose tool
+ * is not known, which follows the setting.
+ */
+fun KeyboardSettings.boxClosesOutside(tool: ToolbarTool?): Boolean =
+    summonButton.boxClosesOutside != (tool != null && tool in toolbarBehavior.boxOutsideFlipped)
 
 /** A quick menu slot cannot open the menu it sits in, nor do nothing. */
 fun FloatingAction.fitsMenu(): Boolean = this != FloatingAction.None && this != FloatingAction.Menu

@@ -1,14 +1,21 @@
 ---
-title: "Plugin API reference"
-description: "Everything a Python plugin can use: manifest, hooks, widgets, events, wm.*, modules, limits."
+title: "Classic API reference (API 1 to 4)"
+description: "The globals API 4 plugins use: manifest, render and on_event, widgets, events, wm.*, modules and limits."
 sidebar:
-  label: "API reference"
-  order: 3
+  label: "Classic API (1 to 4)"
+  order: 21
 ---
 
 import SettingsPath from '@components/SettingsPath.astro';
 
-Everything a plugin can use. If it is not here, it does not exist.
+:::note[For plugins written for API 4]
+This page covers the `ui` and `wm` globals that API 4 plugins use. New
+plugins should use API 5 and the `wm` package: see the
+[API reference](/plugins/wm-package/). The manifest, selection action fields
+and the Python subset described here apply to both.
+:::
+
+Everything an API 4 plugin can use. If it is not here, it does not exist.
 
 Plugins are written in Python, a subset of it that matches
 [PyMini](https://github.com/anti-ltd/PyMini), the small interpreter Clink uses.
@@ -347,32 +354,55 @@ characters removed.
 If the manifest did not declare `reminders`, `wm.reminders` is `None`. A plugin
 can check for that and work without it.
 
-### Not present, and never will be
+### Not in API 4
 
-`wm.text`, `wm.clipboard`, `wm.http`, `wm.net`, `wm.files`. None of these exists.
-There is no API for reading what the user types, reading the field, reading the
-clipboard, or reaching the network. See [Security](/plugins/security/).
+An API 4 plugin has no network, field, clipboard or file access. Those come
+with [API 5](/plugins/wm-package/), behind [permissions](/plugins/permissions/)
+the user grants, and never include reading what the user types.
 
 ## The Python you get
 
-A subset of Python 3 that matches PyMini.
+PyMini's subset of Python 3, grown to cover what most Python code reaches for.
 
-**The language:** functions with default and `*args` parameters, `lambda`,
+**The language:** functions with defaults, `*args`, keyword-only parameters
+and `**kwargs`, `lambda`, decorators, `class` with single inheritance,
+`super()`, `@property`, `@staticmethod` and `@classmethod`,
 `if`/`elif`/`else`, `for` and `while` with `break`, `continue` and `else`,
-`try`/`except`/`finally` and `raise`, `global`, `del`, list, dict and set
-comprehensions, f-strings, slicing, tuple unpacking, chained comparisons and
+`try`/`except`/`finally`, `raise` (and `raise … from …`), `with`, `assert`,
+`global`, `nonlocal`, `del`, list, dict and set comprehensions, f-strings,
+slicing, tuple unpacking, `*` and `**` spreads in calls and displays, chained
+comparisons, `b"…"` bytes literals, type annotations (read and ignored) and
 `import`.
 
-**Not there:** `class`, `with`, `yield`, `async` and `await`, `match`,
-decorators, `nonlocal`, `assert` and `**kwargs`. A script that uses one is
-refused with a message that names it, not a vague syntax error.
+**Classes** work the way Python's do for everyday code: `__init__`, methods,
+class attributes, and the operator methods `__str__`, `__repr__`, `__eq__`,
+`__lt__` and the other comparisons, `__add__` and the other arithmetic
+(reflected forms too), `__len__`, `__iter__` and `__next__`, `__getitem__`,
+`__setitem__`, `__delitem__`, `__contains__`, `__call__`, `__bool__`,
+`__enter__` and `__exit__`, `__getattr__`, `__setattr__`, `__new__`,
+`__init_subclass__` and `__class_getitem__`. A class derived from `Exception`
+or one of its kinds can be raised and caught by its own name or any base. There
+are no metaclasses, no multiple inheritance, and the built-in types (`dict`,
+`list`, `str`) cannot be subclassed.
+
+**Not there:** `yield` and generators, `async` and `await`, `match`, and the
+walrus `:=`. A script that uses one is refused with a message that names it,
+not a vague syntax error. String escapes are PyMini's: `\n`, `\t`, `\r`,
+`\0`, `\\` and the quotes. Write other characters directly; `"é"` is six
+characters, not `é`.
 
 **Built-in functions:** `abs`, `all`, `any`, `bin`, `bool`, `callable`, `chr`,
-`dict`, `divmod`, `enumerate`, `filter`, `float`, `format`, `hex`, `int`,
-`isinstance`, `len`, `list`, `map`, `max`, `min`, `oct`, `ord`, `pow`, `print`,
-`range`, `repr`, `reversed`, `round`, `set`, `sorted`, `str`, `sum`, `tuple`,
-`type` and `zip`. There is no `open`, `eval`, `exec`, `compile` or
-`__import__`.
+`classmethod`, `delattr`, `dict`, `divmod`, `enumerate`, `filter`, `float`,
+`format`, `getattr`, `hasattr`, `hash`, `hex`, `id`, `int`, `isinstance`,
+`issubclass`, `iter`, `len`, `list`, `map`, `max`, `min`, `next`, `object`,
+`oct`, `ord`, `pow`, `print`, `property`, `range`, `repr`, `reversed`,
+`round`, `set`, `setattr`, `sorted`, `staticmethod`, `str`, `sum`, `super`,
+`tuple`, `type`, `vars` and `zip`. There is no `open`, `eval`, `exec`,
+`compile` or `__import__`.
+
+`type(x)` gives a name such as `"int"` for the built-in types, as PyMini
+does, and the class itself for an instance of a class, so
+`type(self).__name__` works.
 
 **Strings** count characters as you see them, so an emoji with a skin tone or a
 letter with a combining accent is one character to `len`, indexing and `for`.

@@ -54,7 +54,7 @@ Under the seed swatches, **Follow wallpaper colors** makes the theme change colo
 The theme keeps its own colors. The keyboard moves them onto your wallpaper's palette as it draws them, so turning the switch off gives you the stored colors back, and the color rows in the editor always show the stored ones. How the colors move depends on where the theme came from:
 
 - **Most themes** (your own, copies of built-ins, Gboard, Rboard and HeliBoard imports) keep how light or dark each color is and take the wallpaper's hue. Greys go to the wallpaper's neutral tones, colors go to its main accent, and a color on the far side of the color wheel from the theme's accent goes to the wallpaper's third accent, so a two-color theme stays two colors. Because the lightness stays put, text that was easy to read stays easy to read. Pure black and pure white stay as they are.
-- **FlorisBoard themes written in Material You colors**, such as FloriStyle and Gboardish, remember which Material You color each part used. They follow the wallpaper exactly as they would in FlorisBoard, and the switch is already on when you import one. A color you change in the editor stays the color you picked.
+- **FlorisBoard themes written in Material You colors**, such as FloriStyle and Gboardish, and **FUTO themes written in `system_…` colors** remember which Material You color or tone each part used. They follow the wallpaper exactly as they would in their own keyboard, and the switch is already on when you import one. A color you change in the editor stays the color you picked.
 
 Tapping a seed swatch or flipping **Dark theme** keeps the switch as it is.
 
@@ -169,6 +169,8 @@ The shapes that ignore the slider aren't being lazy about it. Their whole look i
 
 Only the drawing changes. Touch targets stay rectangular for every shape, so the gap between two hexagons still belongs to one key or the other, and nothing gets harder to hit.
 
+A [honeycomb layout](/languages/custom-layouts/#honeycomb-layouts) is the exception. Its keys are always hexagons, fitted row into row, whichever shape is picked here, and a touch goes to the hexagon whose centre is nearest. The theme's colours, textures, borders, press colour and key lighting still apply to them, drawn on the hexagons.
+
 Slanted is the one shape that draws slightly outside its key. A parallelogram kept inside the key would lose about a third of the width at the top and the bottom, which on a phone-sized key reads as a row of thin straps. So it leans half its slant into the gap on each side instead. Every key stays exactly as wide as it would be with any other shape, and the gap between two keys keeps its width. The gap just runs on a diagonal. Where there is no gap to lean into, the lean is trimmed to fit.
 
 #### Key shadow
@@ -201,6 +203,8 @@ Keys can wear an image instead of a flat color. One picture for the letter keys 
 
 Textures travel inside the theme file when you export it. An older app version imports the same file as a plain color theme and loses nothing else.
 
+An imported FUTO theme's key pictures are drawn nine-slice: the corners keep their size and only the edges and middle stretch, so one rounded frame fits a letter and the space bar alike. Picking a new image for a key in the editor drops that cut and draws your image with the fit above. Such a theme can also give one key its own picture while held, such as a pressed enter key that differs from a pressed letter; that comes from the import and has no row in the editor.
+
 To find out how big to draw each texture, open **Image sizes and templates** in the **Board** section. It measures your keyboard and saves templates to draw on. See [Image sizes and templates](/themes/backgrounds/#image-sizes-and-templates).
 
 ### Single-key styles
@@ -212,12 +216,46 @@ A letter's style follows that letter onto every layout that has it. A key that d
 The key's style opens on the page straight under the preview, which stays pinned above it, so every change shows on the key as you make it. Back or the × beside its title closes it. Set any of these. Everything you leave alone keeps following the theme, so a key that only recolors its hint carries exactly that.
 
 - **Colors**: its face, its label, its hint, its border, and the two colors of the popup bubble it shows.
+- **Gradient face**: the face as two colors running into each other, with **Gradient start**, **Gradient end** and **Gradient angle** (in steps of 15°). Turned on, it starts from the face the key has and shades it darker. A press still paints the plain pressed color, so you can see the hit. This is how a red-to-crimson Enter key is made.
+- **Glow**: a soft halo of one color round the key, showing in the gaps beside it. **Glow reach** sets how far it spreads, 1 to 16 dp; the color's own opacity sets how strong it is.
 - **Key image**: a picture for this one key, drawn with the same Crop/Stretch/Tile fit and opacity the board's [key textures](#key-textures) use, so a dressed key still reads as part of the set. It beats the class texture it would otherwise wear, and a key image works on a board with no class textures at all.
 - **Press effect**: the burst this key throws: Stars, Hearts, Sparkle, Confetti, or Emoji with its own field for the emoji. It overrides the board's [key press effect](#key-press-effect) for this key alone, and a board whose only effect is one key's still bursts on that key. The board's Intensity, Colour and the physics sliders shape every burst; a single-key style picks what is thrown, not how. Images aren't offered per key.
-- **Key shape**: this one key's outline. Automatic follows the board's shape; pick one to make a single key round, pill, cut or anything else in the list, including None. The board's corner radius still decides how round a rounded key is, and the shapes that measure themselves off the key (circle, pill, hexagon and the rest) ignore it as they always do. This is how a round Enter key on a grid of soft rectangles is made, and it is what carries over from an imported FlorisBoard theme built that way.
+- **Key shape**: this one key's outline. Automatic follows the board's shape; pick one to make a single key round, pill, cut or anything else in the list, including None. The shapes that measure themselves off the key (circle, pill, hexagon and the rest) ignore the corner radius as they always do. This is how a round Enter key on a grid of soft rectangles is made, and it is what carries over from an imported FlorisBoard theme built that way.
+- **Corner radius**: how round this one key's corners are, 0 to 28 dp, for the rounded and cut shapes. Off, the key follows the board's corner radius.
 - **Bold label** and **Label size**: how the label is drawn. Bold is a three-way choice: Automatic follows the board, On and Off answer for this key. Label size replaces the automatic rule rather than scaling it, which is how you get a `?123` drawn at full letter size. A size the *layout* gave the key in the [layout editor](/languages/custom-layouts/#editing-a-key) wins over the theme's, since the layout is the more specific answer.
 
 An armed or locked modifier still shows the accent or pressed face whatever color you gave it, because state has to stay visible. A key image and a press effect travel inside the exported theme the same way the board's do. High-contrast accessibility drops single-key styles with the rest of the decoration, and a press effect never plays under reduce motion or power saving.
+
+### Rule sheet
+
+<SettingsPath path="Appearance / Keyboard themes / (edit a theme) / Single-key styles / Rule sheet" />
+
+A rule sheet styles many keys at once with a few lines of text instead of one key at a time. It opens in the same code editor as a layout's JSON, and the rules are FlorisBoard's: a rule copied out of a FlorisBoard theme works here unchanged.
+
+```json
+{
+  "@defines": { "--accent": "#FF5577" },
+  "key[class=`modifier`]": { "background": "#33363C" },
+  "key[code=10]": { "background": "var(--accent)", "shape": "circle()" },
+  "key[code=10]:pressed": { "background": "#CC3355" },
+  "key[output=`a`], key[output=`e`]": { "foreground": "var(--accent)" },
+  "key-hint[id=`q`]": { "foreground": "#BBBBBB" }
+}
+```
+
+Each rule is a selector and the properties it sets. The selector names the part (`key`, `key-hint` for the small corner hint, `key-popup` for the preview bubble), then which keys:
+
+| In brackets | Styles |
+|---|---|
+| `code=10`, `code=48..57`, `code=97,101` | Keys by FlorisBoard key code: 10 is enter, 32 the space bar, -11 shift, -7 delete, a character's own code its letter |
+| ``output=`a` ``, ``output=`action/enter` `` | Keys by what they type or do |
+| ``id=`EDIT_UNDO` `` | Keys by the name [Single-key styles](#single-key-styles) gives them, which reaches every key the picker can press, panels included |
+| ``class=`letter` ``, `modifier`, `enter`, `space` | A whole kind of key. A plain `key` with no brackets is the letters |
+| nothing, then `:pressed` | The same keys while held |
+
+The properties are `background`, `foreground`, `border-color`, `shape` (`circle()`, `rounded-corner(8dp)`, `rectangle()`, `cut-corner(6dp)`), `font-size` in sp and `font-weight`. `@defines` holds variables, used as `var(--name)`, and one body can serve several selectors separated by commas. A later rule wins over an earlier one.
+
+The sheet is applied each time the theme is drawn and is never saved into the theme's colors, so it always wins over the rows above it, and deleting a line takes its effect away. A key's own style from **Pick on keyboard** keeps whatever the sheet doesn't set. Under the editor, a line says how many rules change the theme, and each rule that does nothing says why: an element other than the three above, a state other than `:pressed`, a code with no key here, or a property that part does not take. **Example** fills an empty sheet with a short one to start from, and **Apply** saves it.
 
 ### Stickers
 
@@ -239,9 +277,11 @@ Each material is a preset of the same few parts, and every part has its own cont
 
 ### Moving background
 
-Something moving on the board behind the keys: **Snow**, **Rain**, **Code rain**, **Bokeh**, **Stars**, **Warp speed**, **Fireflies**, **Dust**, **Embers**, **Bubbles**, **Confetti**, **Fireworks**, **Aurora**, **Nebula**, **Lava lamp**, **Waves**, **Smoke**, **Dot grid**, **Contour lines**, **Equaliser**, **Scanner**, **Sheen**, **Ripples** or **Colour orbs**, a few big soft pools of colour that drift slowly behind the keys (with **Speed** at 0 they hold still, which is what glass keys over them look best with). **Amount**, **Speed**, **Brightness** and **Size** shape it, and two colour pickers set its colours (the accent and the label colour when left on Auto).
+Something moving on the board behind the keys: **Snow**, **Rain**, **Code rain**, **Bokeh**, **Stars**, **Warp speed**, **Fireflies**, **Dust**, **Embers**, **Bubbles**, **Confetti**, **Fireworks**, **Aurora**, **Nebula**, **Lava lamp**, **Waves**, **Smoke**, **Dot grid**, **Contour lines**, **Equaliser**, **Scanner**, **Sheen**, **Ripples** or **Colour orbs**, a few big soft pools of colour that drift slowly behind the keys (with **Speed** at 0 they hold still, which is what glass keys over them look best with). **Amount**, **Speed**, **Brightness** and **Size** shape it, and up to four colour pickers set its colours (the accent and the label colour when left on Auto). The third picker appears once the second colour is set, and the fourth once the third is.
 
-**Reacts to typing** makes each key press push the effect: it speeds up and glows brighter, then settles back as the typing stops. A single press already shows, and a quick run of presses can drive it to more than three times its speed; a background with **Speed** at 0 stays still until you type. **Ripples** and **Dot grid** also send a ring out from each key you press. Under reduce motion or power saving the background stays as a still picture, unless **Theme effects with Reduce motion** is on under Accessibility.
+With **Colour orbs**, **Place the pools by hand** gives each colour one pool that stays where you put it, instead of pools scattered at random. Each pool then has three sliders: **across** and **down** place its centre (a little past either edge is allowed, so a pool can hang off the board), and **size** sets how big it is. With **Speed** above 0 the pools sway a little round their places.
+
+**Reacts to typing** makes each key press push the effect: it speeds up and glows brighter, then settles back as the typing stops. A single press already shows, and a quick run of presses can drive it to more than three times its speed; a background with **Speed** at 0 stays still until you type. **Ripples** and **Dot grid** also send a ring out from each key you press. Under reduce motion or power saving the background stays as a still picture, unless **Theme effects with Reduce motion** is on under Accessibility. It draws at most 60 frames a second, 30 while the phone is busy, and holds still while the phone is struggling: see [When the phone is busy](/typing/power-saving/#when-the-phone-is-busy).
 
 The last ten effects are splashes. Instead of moving all the time, each one lands on the keys when you press one and is gone a moment later:
 
@@ -280,7 +320,7 @@ The file layout is the one the Kyng keyboard uses for its skins, so a skin docum
 
 ### Font and sound
 
-The theme can bring its own key font and key sound. You pick both from what's on the device: the styles the app ships, plus anything installed from the font and sound libraries. The sound list holds your installed sounds *and* your installed sound packs, each as its own row, so picking one is picking the sound itself rather than a category. They're referenced by name and never copied into the theme file. If someone imports your theme without that font or sound installed, their keyboard quietly uses their own global choice instead. Someone who has picked a key font of their own under [Keyboard fonts](/themes/fonts/) keeps it too: the theme's font only applies while that setting is left on System default. Picking a font in the editor overrides that setting: the editor sets it back to System default so the font you just chose shows, and the **Key font** row says so. A font picked for one script here does the same to your own font for that script. When an imported theme carries a font your own setting hides, the row tells you, and picking the font again brings it back. Publish the font and sound as their own add-ons and list them under the theme's `requires` in a [repository manifest](/development/addon-repos/repo-format/), so the install screen offers to fetch them together.
+The theme can bring its own key font and key sound. You pick both from what's on the device: the styles the app ships, plus anything installed from the font and sound libraries. The sound list holds your installed sounds *and* your installed sound packs, each as its own row, so picking one is picking the sound itself rather than a category. The font list's second row, under **Follow settings**, is **Import a font file (.ttf or .otf)**: pick a file and it goes into the same library the Fonts screen fills, and the theme uses it straight away, without leaving the editor. They're referenced by name and never copied into the theme file. If someone imports your theme without that font or sound installed, their keyboard quietly uses their own global choice instead. Someone who has picked a key font of their own under [Keyboard fonts](/themes/fonts/) keeps it too: the theme's font only applies while that setting is left on System default. Picking a font in the editor overrides that setting: the editor sets it back to System default so the font you just chose shows, and the **Key font** row says so. A font picked for one script here does the same to your own font for that script. When an imported theme carries a font your own setting hides, the row tells you, and picking the font again brings it back. Publish the font and sound as their own add-ons and list them under the theme's `requires` in a [repository manifest](/development/addon-repos/repo-format/), so the install screen offers to fetch them together.
 
 **Key font** covers Latin, Cyrillic and Greek. Every other script keeps its own face, because a Latin-only display font draws a Bengali board as empty boxes.
 
@@ -346,6 +386,8 @@ The **Suggestion strip** section:
 - **One-handed rail** and **One-handed rail icons** color the strip beside the keyboard in one-handed mode. It used to draw in the settings app's colors and ignore your keyboard theme entirely.
 - **Secondary text** colors the quieter text beside the main text: the second word of a suggestion, and the kind and time on a clipboard entry. Auto draws Suggestion text at 65% alpha, which is what it was before the row existed. Alpha works here.
 - **Dividers** colors the hairlines between the parts of a panel and between suggestions. Auto draws Suggestion text at 25% alpha. Alpha works here too, so you can keep the rule faint in a hue of its own.
+- **Emoji search bar** and **Emoji search text** color the search bar at the top of the emoji panel apart from the other cards. Auto keeps the card color and the suggestion text, which is what the bar always drew with. Alpha works on the bar.
+- **Copied-text chip** and **Copied-text chip text** color the chip on the suggestion strip that pastes what you just copied. Auto keeps the light accent tint and the suggestion text. The chip's icon and outline follow the text color once you set one. A [HeliBoard or LeanType](/themes/sharing/#from-a-heliboard-or-leantype-theme) theme that colors these two apart from its other chips lands here on import.
 - **Card shadow** lifts the panel cards off the panel.
 
 ### Chips & buttons
@@ -373,7 +415,7 @@ Both **Board** and **Keys** can carry an optional gradient, painted over their s
 
 ### Corners
 
-Off by default, so keys everywhere follow the global sliders (two under Appearance, one under Key press). Turning on **Corner radii for this theme** seeds three independent sliders for this theme alone, each starting at whatever its global counterpart is set to:
+Off by default, so keys everywhere follow the global sliders (two under Appearance, one under Key press). Turning on **Corner radii for this theme** seeds three independent sliders for this theme alone, each starting at whatever its global counterpart is set to, and adds two more for the keys that are not letters:
 
 <PhoneFrame side caption="Corner radii for this theme, with the Key, Popup, and Tool circle sliders.">
   ![Corner radii for this theme, with the Key, Popup, and Tool circle sliders.](@assets/screens/themes/editor-corners-animation.webp)
@@ -382,6 +424,10 @@ Off by default, so keys everywhere follow the global sliders (two under Appearan
 - **Key corner radius**: 0–28dp, seeded from the global Key corner radius slider (default 8dp) when you turn the switch on.
 - **Popup corner radius**: 0–40dp, seeded from the global **Popup corner radius** slider under <SettingsPath path="Key press" /> (default 12dp).
 - **Tool circle radius**: 0–20dp, where 0 draws no background behind the icon at all (the slider reads "Off" there), seeded from the global Tool circle radius slider (default 20dp).
+- **Function key corner radius**: 0–28dp for the keys that type no text, such as Shift, Delete, ?123, 🌐 and the arrows. At its lowest stop it reads "Same as letters" and follows Key corner radius.
+- **Enter and space corner radius**: the same, for Enter and the space bar. Round action keys on a grid of square letters is one slider away.
+
+A key's own corner radius under [Single-key styles](#single-key-styles) still wins over either. Like the key radius, both only change the rounded and cut shapes. Turning the switch off clears all five.
 
 ### Layout
 
@@ -401,7 +447,7 @@ Only three built-in themes ship with animation turned on: Sunset drift and Cyber
 
 ## Live preview while you edit
 
-The keyboard itself is pinned at the top of the editor, drawn small enough to leave room for the controls but at the proportions it has on screen. It is the real keyboard, not a picture of one: press a key and it flashes, plays your key sound (or the theme's own) and buzzes the way the keyboard does, the popup rises, the key effect fires, the strip shows the word, and a Flow or Hue cycle animation moves. Every change you make below redraws it at once, and switching looks or themes crossfades the way the keyboard does. The preview always draws the theme you are editing, panels included: a layout or panel that names a theme of its own keeps that pairing on the keyboard, but here the Numpad, the emoji panel and the rest show your draft. When one does, a notice above the editor says which and what theme it uses, and **Clear** lets it follow the theme you picked again.
+The keyboard itself is pinned at the top of the editor, drawn small enough to leave room for the controls but at the proportions it has on screen. Once you scroll down, the heading, back arrow and path strip go off the top and the keyboard moves up into their place; they return when you scroll back to the top, and your phone's back gesture leaves the editor at any point. It is the real keyboard, not a picture of one: press a key and it flashes, plays your key sound (or the theme's own) and buzzes the way the keyboard does, the popup rises, the key effect fires, the strip shows the word, and a Flow or Hue cycle animation moves. Every change you make below redraws it at once, and switching looks or themes crossfades the way the keyboard does. The preview always draws the theme you are editing, panels included: a layout or panel that names a theme of its own keeps that pairing on the keyboard, but here the Numpad, the emoji panel and the rest show your draft. When one does, a notice above the editor says which and what theme it uses, and **Clear** lets it follow the theme you picked again.
 
 Typing goes into the preview alone. Nothing you type there reaches an app, is learned, or is saved. The keys work the way they do when you type: shift and caps lock, the `?123` and `ABC` keys, the globe key cycling your enabled languages, and the emoji key and the toolbar tools opening their panels in the theme. Tools that need something the editor does not have, a microphone or your clipboard history for example, open their panel and stop there.
 

@@ -186,6 +186,34 @@ enum class NetSource(
     OPENHAB("openhab", ToolbarTool.HOME_ASSISTANT),
     TUYA("tuya", ToolbarTool.HOME_ASSISTANT),
     SWITCHBOT("switchbot", ToolbarTool.HOME_ASSISTANT),
+
+    /**
+     * The user's own Immich server, from the gallery (#1205): its timeline and
+     * albums, their thumbnails, an original fetched to send, an upload.
+     */
+    IMMICH("immich", ToolbarTool.GALLERY),
+
+    /**
+     * The user's own Paperless-ngx server, from the document scanner (#1198):
+     * its tag, correspondent and document type lists, and each scan uploaded,
+     * often in the background once a network is back.
+     */
+    PAPERLESS("paperless", ToolbarTool.DOC_SCAN),
+
+    /**
+     * A calendar event published as an online invitation (#1274): the user's
+     * own Mobilizon instance (sign-in, token renewal, their profiles and
+     * groups, the event) or Pretix server (the event, its free ticket and
+     * quota, going live). Only ever on a press.
+     */
+    INVITES("invites", ToolbarTool.CALENDAR),
+
+    /**
+     * A plugin's `wm.http` request (API 5): only to a host its manifest
+     * lists, only after the user granted it the network. The route keeps the
+     * plugin's id, so the log says which plugin asked.
+     */
+    PLUGINS("plugins", ToolbarTool.PLUGINS),
     OTHER("other"),
     ;
 

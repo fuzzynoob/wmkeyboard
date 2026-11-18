@@ -11,6 +11,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Subjec
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentCopy
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentCut
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentPaste
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardAlt
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FirstPage
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowDown
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardArrowUp
@@ -19,6 +20,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardDoubleArrow
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardDoubleArrowRight
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardDoubleArrowUp
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SelectAll
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.DeleteSweep
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EditNote
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VerticalAlignBottom
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.VerticalAlignTop
@@ -70,6 +72,9 @@ fun textEditIcon(op: TextEditAction): ImageVector? = when (op) {
     // Read as words: a backspace glyph would pass for the plain delete key.
     TextEditAction.DELETE_WORD, TextEditAction.DELETE_WORD_FORWARD -> null
     TextEditAction.DELETE_LINE, TextEditAction.DELETE_LINE_FORWARD -> null
+    TextEditAction.DELETE_TO_START, TextEditAction.DELETE_TO_END -> null
+    TextEditAction.CLEAR_FIELD -> Icons.Outlined.DeleteSweep
+    TextEditAction.TYPE_CLIPBOARD -> Icons.Outlined.KeyboardAlt
     // Select is a toggle rather than a move: it reads as a word, and being lit
     // is what says it is on.
     TextEditAction.SELECT -> null
@@ -117,4 +122,8 @@ internal fun textEditDescription(op: TextEditAction): Int = when (op) {
     TextEditAction.DELETE_WORD_FORWARD -> R.string.ime_textedit_delete_word_forward_desc
     TextEditAction.DELETE_LINE -> R.string.ime_textedit_delete_line_desc
     TextEditAction.DELETE_LINE_FORWARD -> R.string.ime_textedit_delete_line_forward_desc
+    TextEditAction.CLEAR_FIELD -> R.string.ime_tool_clear_field
+    TextEditAction.DELETE_TO_START -> R.string.ime_textedit_delete_to_start_desc
+    TextEditAction.DELETE_TO_END -> R.string.ime_textedit_delete_to_end_desc
+    TextEditAction.TYPE_CLIPBOARD -> R.string.ime_textedit_type_clipboard_desc
 }

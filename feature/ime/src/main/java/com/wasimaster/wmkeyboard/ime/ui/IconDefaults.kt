@@ -20,6 +20,8 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Sticky
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.TextSnippet
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.Undo
 import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeUp
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.BugReport
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.RecordVoiceOver
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Apps
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AspectRatio
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
@@ -35,6 +37,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ChevronLeft
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ChevronRight
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Screenshot
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Blinds
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentCopy
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentCut
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ContentPaste
@@ -44,6 +47,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Dialpad
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.DirectionsCar
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.DocumentScanner
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Draw
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.DeleteSweep
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EditNote
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EmojiEmotions
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EmojiFlags
@@ -55,6 +59,8 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Explore
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Extension
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Fastfood
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FindReplace
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.EditCalendar
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FolderOpen
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FirstPage
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FlashlightOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FormatShapes
@@ -143,7 +149,10 @@ object IconDefaults {
         ToolbarTool.RECENT_COPIES -> Icons.Outlined.History
         ToolbarTool.LEAVE_FIELD -> Icons.Outlined.Close
         ToolbarTool.SCREENSHOT -> Icons.Outlined.Screenshot
+        ToolbarTool.PRIVACY_SHADE -> Icons.Outlined.Blinds
         ToolbarTool.QUICK_NOTE -> Icons.Outlined.EditNote
+        ToolbarTool.DEBUG_INFO -> Icons.Outlined.BugReport
+        ToolbarTool.HOMOPHONES -> Icons.Outlined.RecordVoiceOver
         ToolbarTool.SNIPPETS -> Icons.AutoMirrored.Outlined.TextSnippet
         ToolbarTool.TEXT_EDIT -> Icons.Outlined.EditNote
         ToolbarTool.TRACKPAD -> SymbolIcons.TrackpadInput
@@ -212,6 +221,9 @@ object IconDefaults {
         ToolbarTool.CLOCK -> Icons.Outlined.Schedule
         ToolbarTool.HOME_ASSISTANT -> Icons.Outlined.HomeIotDevice
         ToolbarTool.SEND_FILES -> Icons.AutoMirrored.Outlined.Send
+        // The open folder: Folder alone is the gallery's albums and the picker's rows.
+        ToolbarTool.FILES -> Icons.Outlined.FolderOpen
+        ToolbarTool.TIMESTAMP -> Icons.Outlined.EditCalendar
         ToolbarTool.GALLERY -> Icons.Outlined.PhotoLibrary
         ToolbarTool.MEDIA_CONTROL -> Icons.Outlined.MusicNote
         // A waveform, not a note: the note is Media controls, and this one listens.
@@ -241,6 +253,7 @@ object IconDefaults {
         // sit side by side in the same toolbox group, so they cannot share a
         // glyph. This is the text box with handles.
         ToolbarTool.SELECT_ALL -> Icons.Outlined.FormatShapes
+        ToolbarTool.CLEAR_FIELD -> Icons.Outlined.DeleteSweep
         ToolbarTool.SELECT_MODE -> Icons.Outlined.SelectAll
         ToolbarTool.COPY -> Icons.Outlined.ContentCopy
         ToolbarTool.CUT -> Icons.Outlined.ContentCut
@@ -342,6 +355,8 @@ object IconDefaults {
         put(IconSlots.CHROME_SHOW_KEYS, Icons.Outlined.Keyboard)
         put(IconSlots.CHROME_HIDE_KEYS, Icons.Outlined.KeyboardHide)
         put(IconSlots.CHROME_TOOLBOX_SEARCH, Icons.Outlined.Search)
+        // The user's own buttons (#1213, #1236): a slot per switch and page.
+        putAll(customButtonSlotIcons())
 
         put(IconSlots.EMOJI_TAB_SEARCH, Icons.Outlined.Search)
         put(IconSlots.EMOJI_TAB_RECENT, Icons.Outlined.Schedule)

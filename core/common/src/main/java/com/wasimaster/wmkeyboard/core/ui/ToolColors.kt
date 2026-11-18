@@ -116,6 +116,8 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.LOCATION -> Color(0xFFE53935)
     // An evening indigo: a clock face at night, and apart from the calendar's red.
     ToolbarTool.CLOCK -> Color(0xFF5C6BC0)
+    // The Clock tool's indigo: it types what that tool's insert sheet would.
+    ToolbarTool.TIMESTAMP -> Color(0xFF5C6BC0)
     // Home Assistant's own sky blue, so the tile reads as the house it controls.
     ToolbarTool.HOME_ASSISTANT -> Color(0xFF18BCF2)
     // Shazam's blue, the colour everyone knows "what song is this" by, a shade apart from the media purple.
@@ -142,10 +144,17 @@ fun toolAccentColor(tool: ToolbarTool): Color = when (tool) {
     ToolbarTool.SELECT_ALL,
     ToolbarTool.SELECT_MODE -> Color(0xFF90A4AE)
 
-    ToolbarTool.HIDE_KEYBOARD, ToolbarTool.LEAVE_FIELD -> Color(0xFF607D8B)
+    ToolbarTool.HIDE_KEYBOARD, ToolbarTool.LEAVE_FIELD, ToolbarTool.DEBUG_INFO -> Color(0xFF607D8B)
     // A viewfinder's teal, apart from the camera's and the scanners'.
     ToolbarTool.SCREENSHOT -> Color(0xFF00897B)
+    // A blind's slate, beside incognito's grey.
+    ToolbarTool.PRIVACY_SHADE -> Color(0xFF546E7A)
+    // The delete keys' red.
+    ToolbarTool.CLEAR_FIELD -> Color(0xFFE57373)
+    // A manila folder's amber.
+    ToolbarTool.FILES -> Color(0xFFFFA000)
     ToolbarTool.LANGUAGE -> Color(0xFF26A69A)
+    ToolbarTool.HOMOPHONES -> Color(0xFF26A69A)
 }
 
 /**
@@ -204,6 +213,9 @@ fun toolAccentEndColor(
 /** [toolAccentEndColor] as a stored ARGB long (for seeding the picker). */
 fun toolAccentEndColorArgb(tool: ToolbarTool, starts: Map<ToolbarTool, Long>): Long =
     shiftForGradient(toolAccentColor(tool, starts)).toArgb().toLong() and 0xFFFFFFFFL
+
+/** The far end of a gradient that starts at [color], as a built-in tool's is derived: for a plugin's own colour. */
+fun toolGradientEnd(color: Color): Color = shiftForGradient(color)
 
 private fun shiftForGradient(color: Color): Color {
     val hsv = FloatArray(3)

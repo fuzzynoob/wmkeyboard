@@ -197,6 +197,11 @@ object SettingsBackup {
         AUTO_BACKUP_LOCATIONS,
         PROVIDER_CREDENTIALS,
         "self_hosted_libretranslate_key",
+        GalleryPrefs.IMMICH_KEY_NAME,
+        PaperlessPrefs.TOKEN_NAME,
+        InvitePrefs.MOBILIZON_ACCESS_NAME,
+        InvitePrefs.MOBILIZON_REFRESH_NAME,
+        InvitePrefs.PRETIX_TOKEN_NAME,
     )
 
     /** The app lock's stored PIN, password or pattern hash. */
@@ -308,7 +313,7 @@ object SettingsBackup {
         }
     }
 
-    private fun encodeValue(value: Any): JsonObject? {
+    internal fun encodeValue(value: Any): JsonObject? {
         val (type, encoded) = when (value) {
             is Boolean -> "boolean" to JsonPrimitive(value)
             is Int -> "int" to JsonPrimitive(value)
@@ -363,7 +368,7 @@ object SettingsBackup {
         return entries to skipped
     }
 
-    private fun decodeEntry(name: String, obj: JsonObject): Entry? {
+    internal fun decodeEntry(name: String, obj: JsonObject): Entry? {
         val type = obj["type"]?.jsonPrimitive?.contentOrNull ?: return null
         val raw = obj["value"] ?: return null
         val value: Any = when (type) {

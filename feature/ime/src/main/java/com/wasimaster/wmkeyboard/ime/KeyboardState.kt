@@ -1,6 +1,7 @@
 package com.wasimaster.wmkeyboard.ime
 
 import android.view.KeyEvent
+import android.view.inputmethod.EditorInfo
 import com.wasimaster.wmkeyboard.core.clipboard.ClipItem
 import com.wasimaster.wmkeyboard.core.otp.NotificationOtp
 import com.wasimaster.wmkeyboard.core.emoji.AnimatedEmoji
@@ -13,6 +14,7 @@ import com.wasimaster.wmkeyboard.core.layout.BuiltInPanelLayouts
 import com.wasimaster.wmkeyboard.core.layout.PanelKind
 import com.wasimaster.wmkeyboard.core.layout.PanelLayoutSpec
 import com.wasimaster.wmkeyboard.core.layout.Key
+import com.wasimaster.wmkeyboard.core.layout.keyUppercase
 import com.wasimaster.wmkeyboard.core.layout.KeyAction
 import com.wasimaster.wmkeyboard.core.layout.ModifierKey
 import com.wasimaster.wmkeyboard.core.layout.KeyboardLayout
@@ -80,7 +82,7 @@ fun KeyboardUiState.shiftCasesText(): Boolean =
     shiftState != ShiftState.OFF && !composer.isClusterShaping
 
 /** [text] as a key with no shift label of its own types it: see [shiftCasesText]. */
-fun shiftCased(text: String, shifted: Boolean): String = if (shifted) text.uppercase() else text
+fun shiftCased(text: String, shifted: Boolean): String = if (shifted) keyUppercase(text) else text
 
 /**
  * Re-cases a suggestion for display/commit to follow the live [shift] state, so
@@ -89,6 +91,31 @@ fun shiftCased(text: String, shifted: Boolean): String = if (shifted) text.upper
  * the word as the engine produced it (its casing already mirrors the typed
  * text). Emails ('@') are left untouched — capitalizing an address is wrong.
  */
+/**
+ * The strip's word under a shift the user pressed in the middle of a word
+ * (#1195): a cycle through lower, Title and UPPER rather than a capital laid
+ * over the word. A word already in the case the shift would give it shows the
+ * lower-case form instead, so a word typed or offered as Title or UPPER can
+ * be taken back down from the strip, the way SwiftKey's shift does.
+ */
+fun cycleCaseForShift(word: String, shift: ShiftState): String {
+    if (word.isEmpty() || '@' in word) return word
+    return when (shift) {
+        ShiftState.OFF -> word
+        ShiftState.ON -> {
+            val title = word.lowercase().replaceFirstChar { it.uppercase() }
+            if (word == title) word.lowercase() else title
+        }
+        ShiftState.CAPS_LOCK -> {
+            val upper = word.uppercase()
+            if (word == upper) word.lowercase() else upper
+        }
+    }
+}
+
+/** Whether the strip reads [cycleCaseForShift] rather than [displayCaseForShift] (#1195). */
+fun KeyboardUiState.shiftCyclesCase(): Boolean = wordComposing && shiftPressedByUser && shiftState != ShiftState.OFF
+
 fun displayCaseForShift(word: String, shift: ShiftState): String {
     if (word.isEmpty() || '@' in word) return word
     return when (shift) {
@@ -888,6 +915,14 @@ enum class PanelMode {
      * see `ime.share.ShareUi`; the search box types into [KeyboardUiState.mediaQuery].
      */
     SHARE,
+
+    /**
+     * The built-in document scanner in place of the keys, where the user has
+     * not asked for it full screen (`ScannerSettings.docInKeyboard`). Its
+     * pages so far live in `ui.InlineDocScan`, so a photo picked through the
+     * keyboard's file manager comes back to them.
+     */
+    DOC_SCAN,
 }
 
 /**
@@ -910,6 +945,9 @@ val PanelMode.layoutKind: PanelKind?
         PanelMode.EMOJI_MIX -> PanelKind.EMOJI_MIX
         else -> null
     }
+
+/** The floating box's tools whose text box is the shared search box ([KeyboardUiState.boxSearchPanel]). */
+val BoxSearchPanels: Set<PanelMode> = setOf(PanelMode.TRANSLATE, PanelMode.WEB_SEARCH, PanelMode.WIKIPEDIA)
 
 /**
  * Panels whose search box types into [KeyboardUiState.mediaQuery] (the same
@@ -1100,6 +1138,9 @@ fun panelFocusRegions(panel: PanelMode): List<FocusRegion> = when (panel) {
     // nobody, and the shutter is a pointer affordance.
     PanelMode.CAMERA, PanelMode.QR_SCAN -> listOf(FocusRegion.ACTIONS)
     PanelMode.OCR -> listOf(FocusRegion.ACTIONS, FocusRegion.RESULTS)
+    // The document scanner is a viewfinder and a corner editor: pointer work
+    // from end to end, with no [PanelFocusTarget] to ring.
+    PanelMode.DOC_SCAN -> emptyList()
     // The tab chips, then the result card's insert chips.
     PanelMode.MUSIC_ID -> listOf(FocusRegion.CHIPS, FocusRegion.ACTIONS)
     // The search, Copy/Open/More, the pinned and recent row, then every app.
@@ -1547,6 +1588,8 @@ sealed interface SizingAction {
         val sidePadRightScale: Float? = null,
         /** The toolbar-width chip: bars at full width over narrowed keys. */
         val fullWidthBars: Boolean? = null,
+        /** The toolbar handle (#1261): the bar's height apart from the keys'. */
+        val toolbarHeightDp: Int? = null,
     ) : SizingAction
 
     /** Leave the inline resize tool without persisting anything. */
@@ -1688,6 +1731,12 @@ data class TranslateUi(
     val detectedSource: String = "",
     val translating: Boolean = false,
     val error: String? = null,
+    /**
+     * Translate only when asked (#1226), and [translated] no longer matches:
+     * the text, its languages or its provider changed after it came back.
+     * Drawn dimmed, still there to insert, until the next Translate.
+     */
+    val stale: Boolean = false,
     /**
      * The source language the user picked for this visit to the panel, as a
      * picker code, or "" to detect it. Session state on purpose: a wrong
@@ -2428,6 +2477,17 @@ data class VocabDailyChip(val word: String, val slot: Int)
  */
 enum class EnterAction { DEFAULT, SEARCH, SEND, GO, NEXT, PREVIOUS, DONE, CUSTOM }
 
+/** The key face for a standard editor action; [EnterAction.DEFAULT] for any other id. */
+internal fun standardEnterFace(actionId: Int): EnterAction = when (actionId) {
+    EditorInfo.IME_ACTION_SEARCH -> EnterAction.SEARCH
+    EditorInfo.IME_ACTION_SEND -> EnterAction.SEND
+    EditorInfo.IME_ACTION_GO -> EnterAction.GO
+    EditorInfo.IME_ACTION_NEXT -> EnterAction.NEXT
+    EditorInfo.IME_ACTION_PREVIOUS -> EnterAction.PREVIOUS
+    EditorInfo.IME_ACTION_DONE -> EnterAction.DONE
+    else -> EnterAction.DEFAULT
+}
+
 /**
  * Typing-speed panel state. The prompt and the typed text live here rather
  * than in the panel so the service can run the clock and the per-second
@@ -2567,6 +2627,8 @@ data class SnippetChip(
     val cursorOffset: Int,
     /** True when tapping into that linked snippet would show more. */
     val drillable: Boolean,
+    /** A picture snippet's file name ([com.wasimaster.wmkeyboard.core.snippets.Snippet.image]), drawn and inserted instead of [text]. */
+    val image: String? = null,
 )
 
 /**
@@ -2660,6 +2722,13 @@ sealed interface StripOfferAction {
 
     /** The Zawgyi button beside the words on a Burmese layout, the same kind of button as [ToggleAnsi]. */
     data object ToggleZawgyi : StripOfferAction
+
+    /**
+     * The legacy font button beside the words (#1252): Kruti Dev on a Hindi
+     * layout, Bamini on a Tamil one, AnmolLipi on a Punjabi one. The same kind
+     * of button as [ToggleAnsi].
+     */
+    data object ToggleLegacyFont : StripOfferAction
 
     /** The 繁 button beside the candidates on a Chinese or Cantonese layout (#962), the same kind of button as [ToggleAnsi]. */
     data object ToggleTraditional : StripOfferAction
@@ -3402,6 +3471,12 @@ data class PictureUi(
      * [WMKeyboardService.onPanelChange].
      */
     val screenCapture: Boolean = false,
+    /**
+     * A "Capture screen" press is under way: `screencap` through Shizuku or
+     * root takes a second or two, and the button shows a spinner meanwhile
+     * rather than looking as if the press did nothing.
+     */
+    val capturingScreen: Boolean = false,
 )
 
 /** The strip's two undo chips: an autocorrection to take back and a run of backspaces to put back. */
@@ -3485,6 +3560,12 @@ data class KeyboardUiState(
     val composer: Composer = NoComposer,
     /** The layout being typed on; what the 🌐 cycle steps through. */
     val layoutId: String = BuiltInLayouts.DEFAULT_ID,
+    /**
+     * The layout the board pinned on the Secondary layout tool interrupted
+     * (#1230), or null. That board is not in the language cycle, so a spacebar
+     * language swipe or the language list starts from this one instead.
+     */
+    val languageAnchorId: String? = null,
     /**
      * The layout's display name, for the spacebar label. Carried on the state
      * rather than looked up, because a custom layout has no [InputMode] of its
@@ -3647,6 +3728,13 @@ data class KeyboardUiState(
      * asks, so nothing is looked up for a strip that would not show it.
      */
     val newWords: Set<String> = emptySet(),
+    /**
+     * The user's word ranks (#99), keyed by [com.wasimaster.wmkeyboard.core.prediction.WordKey]:
+     * steps up when positive, down when negative. The strip marks the words
+     * it shows with them while [com.wasimaster.wmkeyboard.core.settings.SuggestionStripSettings.rankMarks]
+     * asks (#1249). Published whole when a rank changes, never per keystroke.
+     */
+    val wordRanks: Map<String, Int> = emptyMap(),
     /** Missing-space join offer ("some" + "thing" -> "something"), shown as
      * a distinct leading chip; tapping rewrites the committed text. */
     val joinSuggestion: String? = null,
@@ -3896,10 +3984,10 @@ data class KeyboardUiState(
      * first, and most runs first. Published as the toolbox opens, so a tool
      * tapped inside it never moves its neighbours under the finger.
      */
-    val toolsRecent: List<ToolbarTool> = emptyList(),
-    val toolsMostUsed: List<ToolbarTool> = emptyList(),
+    val toolsRecent: List<com.wasimaster.wmkeyboard.core.settings.ToolKey> = emptyList(),
+    val toolsMostUsed: List<com.wasimaster.wmkeyboard.core.settings.ToolKey> = emptyList(),
     /** Every tool by its name in the keyboard's language, for the toolbox's A to Z order. */
-    val toolsAlphabetical: List<ToolbarTool> = emptyList(),
+    val toolsAlphabetical: List<com.wasimaster.wmkeyboard.core.settings.ToolKey> = emptyList(),
     /** Palette-grid base emoji → the skin-tone/gender variant it renders as. */
     val emojiVariantPrefs: Map<String, String> = emptyMap(),
     /**
@@ -4401,6 +4489,14 @@ data class KeyboardUiState(
     /** What the Plugins panel is showing: the list, a running plugin, or a failure. */
     val plugins: PluginPanelUi = PluginPanelUi.List(emptyList()),
     /**
+     * The plugins that can be tools right now, by id: installed, switched on,
+     * drawing a panel, with the plugin system on. A plugin entry in the tool
+     * lists ([com.wasimaster.wmkeyboard.core.settings.ToolKey.Plugin]) is drawn
+     * only while its id is here, so one uninstalled or switched off leaves the
+     * toolbar and the toolbox at once. Refreshed from the plugin store.
+     */
+    val pluginTools: Map<String, com.wasimaster.wmkeyboard.ime.ui.PluginToolFace> = emptyMap(),
+    /**
      * Text in each of the running plugin's input widgets, by widget id.
      *
      * The host owns these, not the script. A plugin's `render()` describes a box
@@ -4526,6 +4622,7 @@ data class KeyboardUiState(
     val cameraImage: String? get() = pictures.cameraImage
     val pictureFromScreen: Boolean get() = pictures.pictureFromScreen
     val screenCapture: Boolean get() = pictures.screenCapture
+    val capturingScreen: Boolean get() = pictures.capturingScreen
     val correctionUndo: String? get() = undoChips.correctionUndo
     val deletionUndo: DeletionChip? get() = undoChips.deletionUndo
 
@@ -4614,7 +4711,10 @@ data class KeyboardUiState(
         ) {
             EnterAction.DEFAULT
         } else {
-            enterAction
+            // A keyboard mode's Enter action (gap list item 9) outranks the
+            // field's, and the key draws what it will fire.
+            settings.layoutBehavior.enterForcedAction?.let(::standardEnterFace)
+                ?.takeIf { it != EnterAction.DEFAULT } ?: enterAction
         }
 
     /**
@@ -4829,10 +4929,46 @@ data class KeyboardUiState(
      * The tool [mode] is on screen where the keys can type into it: as the
      * keyboard's own panel, or in the floating box (#1155) while the keyboard
      * shows only its keys. Over another panel the keys stay that panel's,
-     * and with the box tucked into the edge they go back to the app.
+     * and with the box tucked into the edge they go back to the app. The
+     * clipboard and snippets are the exception (#1241): with nothing of their
+     * own being typed into, the box keeps its field, so a clip or snippet
+     * tapped there goes into the note or task in the box.
      */
     fun toolUp(mode: PanelMode): Boolean =
-        panel == mode || (panel == PanelMode.NONE && appletPanel == mode && !appletTucked)
+        panel == mode || (appletPanel == mode && !appletTucked && (panel == PanelMode.NONE || feedsBox(panel)))
+
+    /**
+     * The floating box's tool whose text box is the keyboard's shared search
+     * box (#1155, #1265): Translate, web search or Wikipedia, or null.
+     */
+    val boxSearchPanel: PanelMode?
+        get() = appletPanel?.takeIf { it in BoxSearchPanels }
+
+    /**
+     * The panel the search box is typing for: the keyboard's own while one is
+     * open, else the floating box's search tool while it has the keys (#1265),
+     * else none. What Enter, Retry and the clear button act on.
+     */
+    val searchPanel: PanelMode
+        get() = when {
+            panel != PanelMode.NONE -> panel
+            boxSearchPanel?.let { toolUp(it) } == true -> boxSearchPanel ?: PanelMode.NONE
+            else -> PanelMode.NONE
+        }
+
+    /**
+     * [mode] is in the floating box but does not have the keys there: tucked
+     * away, or under another of the keyboard's panels (#1265). Its own search
+     * flags stay set for when it gets them back, and type nowhere meanwhile.
+     */
+    fun boxHolds(mode: PanelMode): Boolean =
+        appletPanel == mode && panel != mode && !toolUp(mode)
+
+    private fun feedsBox(shown: PanelMode): Boolean = when (shown) {
+        PanelMode.CLIPBOARD -> !clipboardSearchActive && clipEdit == null && clipCombine == null
+        PanelMode.SNIPPETS -> !snippetSearchActive
+        else -> false
+    }
 
     /**
      * Translate is on screen, as the keyboard's panel or in the floating box
@@ -4864,7 +5000,7 @@ data class KeyboardUiState(
 
     /** Whether the Calendar composer's text box has the keys; panel *and* box, as [clockTypingActive]. */
     val calendarTypingActive: Boolean
-        get() = panel == PanelMode.CALENDAR && calendarText != null
+        get() = toolUp(PanelMode.CALENDAR) && calendarText != null
 
     /** Whether the gallery panel's text box has the keys; panel *and* box, as [clockTypingActive]. */
     val galleryTypingActive: Boolean
@@ -4954,6 +5090,7 @@ data class KeyboardUiState(
      * used, so nothing changes hands.
      */
     fun panelFieldTarget(): CaptureTarget? = when {
+        toolText.snippetAsk != null -> CaptureTarget.SNIPPET_ASK
         typingTestActive -> CaptureTarget.TYPING_TEST
         aiCustomInputActive -> CaptureTarget.AI_CUSTOM
         aiChatComposing -> CaptureTarget.AI_CHAT
@@ -5020,9 +5157,9 @@ data class KeyboardUiState(
         emojiSearchActive -> CaptureTarget.EMOJI_SEARCH
         panel == PanelMode.APP_LAUNCHER && launcherView.nameDraft != null -> CaptureTarget.LAUNCHER_FOLDER_NAME
         // Translate's text box is the media search box, in the keyboard or
-        // in the floating box (#1155).
-        mediaSearchActive && (panel.hasMediaSearch || toolUp(PanelMode.TRANSLATE)) -> CaptureTarget.MEDIA_SEARCH
-        dictionarySearchActive -> CaptureTarget.DICTIONARY_SEARCH
+        // in the floating box (#1155), as are web search's and Wikipedia's (#1265).
+        mediaSearchActive && (panel.hasMediaSearch || boxSearchPanel?.let { toolUp(it) } == true) -> CaptureTarget.MEDIA_SEARCH
+        dictionarySearchActive && !boxHolds(PanelMode.DICTIONARY) -> CaptureTarget.DICTIONARY_SEARCH
         unicodeQuery != null && panel == PanelMode.SYMBOLS -> CaptureTarget.UNICODE_SEARCH
         clipboardSearchActive -> CaptureTarget.CLIPBOARD_SEARCH
         snippetSearchActive -> CaptureTarget.SNIPPET_SEARCH
@@ -5095,6 +5232,7 @@ data class KeyboardUiState(
         CaptureTarget.CLIP_BASE -> clipCombine?.focusedText.orEmpty()
         CaptureTarget.CLIP_APPEND -> clipCombine?.append.orEmpty()
         CaptureTarget.SNIPPET_SEARCH -> snippetQuery
+        CaptureTarget.SNIPPET_ASK -> toolText.snippetAsk?.text.orEmpty()
         CaptureTarget.NOTE_SEARCH -> notes.query
         CaptureTarget.NOTE_TITLE -> notes.editing?.titleDraft.orEmpty()
         CaptureTarget.NOTE_BODY -> notes.editing?.bodyDraft.orEmpty()
@@ -5221,6 +5359,11 @@ sealed interface PluginPanelUi {
         val busy: Boolean = false,
         /** The script failed; the plugin is still loaded and can be retried. */
         val error: String? = null,
+        /** What an API 5 plugin asked of the panel: header buttons, a page title, whether Back goes back a page. */
+        val host: com.wasimaster.wmkeyboard.core.plugins.PythonSession.HostState? = null,
+        /** Risky permissions a call needed and the user has not granted; drawn as a banner with Allow. */
+        // Spelled out: inside PluginPanelUi, a bare List is the List panel state above.
+        val needs: kotlin.collections.List<com.wasimaster.wmkeyboard.core.plugins.PluginPermission> = emptyList(),
     ) : PluginPanelUi
 }
 
@@ -5502,4 +5645,10 @@ data class ToolTextEntries(
      * (#1077). The rest of the tool's state is the controller's.
      */
     val wmPass: com.wasimaster.wmkeyboard.ime.wmpass.WmPassTextEntry? = null,
+    /**
+     * The fill-in row of a snippet that asks for `{ask:Name}` values as it
+     * expands. Over every other field while it is up: the snippet is waiting
+     * to go into the app's field, and only Enter or Cancel lets it.
+     */
+    val snippetAsk: SnippetAskEntry? = null,
 )

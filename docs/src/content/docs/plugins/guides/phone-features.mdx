@@ -1,0 +1,273 @@
+---
+title: "Phone features"
+description: "Vibrate, speak, share, notify, scan, sensors, location, files, the calendar and the To-do list: what each call needs and what it answers."
+sidebar:
+  label: "Phone features"
+  order: 5.07
+---
+
+A plugin can reach a few things of the phone's, each through one named call
+and one permission. A plugin never gets a camera picture, a file path or a raw
+sensor: the keyboard does the work and hands back only the result.
+
+| Module | Calls | Permission |
+|---|---|---|
+| `device` | `vibrate(ms)`, `flashlight(on)`, `speak(text, language=)`, `battery()` | `device` |
+| `share` | `text(text)`, `open(url)` | `share` |
+| `notify` | `show(text, title=, id=)`, `cancel(id)` | `notifications` |
+| `clock` | `alarm(seconds, label=)`, `timer(seconds, label=)` | `clock` |
+| `scan` | `qr(then=)`, `text(then=)` | `scan` |
+| `sensors` | `subscribe(kind, on_reading=, hz=)`, `unsubscribe(token)`, `available()` | `sensors` |
+| `location` | `get(accuracy=, then=)` | risky `location` |
+| `files` | `pick(kind=, then=)`, `photo(then=)`, `save(name, data)` | risky `files` |
+| `calendar` | `events(start, end)`, `calendars()`, `add(title, start, end)` | risky `calendar` |
+| `todo` | `list()`, `add(text)`, `update(id, ...)`, `remove(id)` | risky `todo` |
+| `keyboard` | `use_language(language)`, `restore()` | none |
+
+`scan` and `files` work from your panel or the floating box, not from a
+[selection action](/plugins/guides/text-and-selection/#buttons-over-selected-text): they need a screen to
+come back to.
+
+## device
+
+```python
+from wm import device
+
+device.vibrate(40)                 # milliseconds, 1 to 1000
+device.flashlight(True)
+device.speak("Hello", language="en")
+level = device.battery()           # {"level": 0-100, "charging": True or False}
+```
+
+## share
+
+```python
+from wm import share
+
+share.text("Meet at 6")            # the system share sheet
+share.open("https://example.com")  # the browser, after the user confirms
+```
+
+The keyboard always shows what is shared, and where, before it goes. `open`
+takes https links only.
+
+## notify
+
+```python
+from wm import notify
+
+notify.show("Upload finished", title="Photos", id="upload")
+notify.cancel("upload")
+```
+
+The notification is titled with your plugin's name, so it cannot pretend to
+come from another app. Your `title` goes in the small header line beside the
+keyboard's name, and showing the same `id` again replaces the notification.
+It uses the same channel as reminders, so if the user turned notifications off
+for the keyboard, `show` raises `PermissionError`. For a notification at a later time, when your panel is
+closed, use a [reminder](/plugins/guides/saving-and-settings/#reminders).
+
+## clock
+
+A reminder is a quiet notification. When the user must not miss the moment,
+set an alarm or a timer in the keyboard's own [Clock](/tools/clock/) instead.
+It rings with the user's alarm sound, even with the keyboard closed:
+
+```python
+import time
+from wm import clock
+
+clock.alarm(train - 10 * 60, "Train to Tokyo")   # seconds since 1970
+clock.timer(25 * 60, "Get off at Shibuya")       # seconds from now
+```
+
+An alarm rings once, at the minute of the time you give, which must be one
+minute to 24 hours away; for anything later, use a reminder. A timer runs from
+1 second to 24 hours. One plugin can set one every 3 seconds; a call sooner
+raises `ValueError`.
+
+Each time, the keyboard shows a message naming your plugin, and the alarm or
+timer is the user's from then on: it shows in Clock, and they change or delete
+it there. Your plugin cannot read, change or remove the user's alarms.
+
+## scan
+
+The keyboard swaps your panel for its own QR scanner or text reader. When
+the user takes a code or a line of text, your panel comes back and your
+function gets the result as text:
+
+```python
+from wm import scan
+
+scan.qr(then=found)        # the code's text
+scan.text(then=read)       # text read from the camera
+```
+
+You never get the camera picture. If the user closes the scanner instead,
+your panel comes back and `then` gets `None`.
+
+## sensors
+
+```python
+from wm import sensors
+
+token = sensors.subscribe("accelerometer", on_reading=moved, hz=10)
+
+
+def moved(r):
+    state.tilt = r["x"]
+```
+
+Kinds: `accelerometer`, `gyroscope` and `magnetometer` send `{"x", "y", "z"}`;
+`light`, `steps`, `proximity` and `pressure` send `{"value"}`. `hz` is from 1
+to 30. Readings stop when the panel closes, or with
+`sensors.unsubscribe(token)`. `sensors.available()` lists the kinds the phone
+has. `steps` needs Android's physical activity permission, which the keyboard
+does not ask for, so it is usually missing from that list.
+
+## location
+
+A risky permission: it is off until the user turns it on for your plugin.
+
+```python
+from wm import location
+
+here = location.get()                    # waits
+location.get(accuracy="fine", then=got)  # does not wait
+# {"lat": 23.81, "lon": 90.41, "accuracy": 1500, "time": 1794557000.0}
+```
+
+`accuracy` is `"coarse"`, the default, or `"fine"`. The answer's `accuracy` is
+in metres, and `time` is seconds since 1970. A coarse answer is rounded to
+about a kilometre even when the phone knows better, so your plugin gets no more
+than it asked for.
+
+The keyboard also needs Android's own location permission. The first time a
+plugin asks without it, Android shows its question and `get` raises
+`PermissionError`. Once the user allows it, call `get` again.
+
+## files
+
+A risky permission. The user picks a file in the keyboard's own file manager,
+or in Android's picker where the keyboard has none, and your plugin gets only
+that file:
+
+```python
+from wm import files
+
+files.pick(kind="image", then=got)
+
+
+def got(f):
+    state.name = f["name"]       # "holiday.jpg"
+    state.mime = f["mime"]       # "image/jpeg"
+    picture = f["data"]          # bytes
+
+
+files.save("notes.txt", "milk\neggs\n")   # the user picks where
+```
+
+`kind` is `"any"`, `"image"`, `"text"`, `"audio"`, `"video"` or a MIME type.
+Your plugin never sees a path or a folder. A file can be up to 4 MB, both ways.
+
+`files.photo(then=got)` opens the keyboard's camera over your panel instead.
+The user takes a picture, looks at it, and keeps it with **Send**; your panel
+comes back and `got` hears the same dict as a pick, with `mime` set to
+`"image/jpeg"`. A picture over 4 MB is made smaller until it fits. Like `scan`,
+it needs the keyboard on screen, so it does not work from Android's own
+pickers or a selection action.
+
+`save` opens Android's save screen, where the user picks the folder and may
+change the name. With `then=`, your function gets the name the file was saved
+under. Either call gives `then` the value `None` if the user backs out.
+
+## calendar
+
+A risky permission. Your plugin reads the events in the phone's calendars, the
+ones the keyboard's Calendar tool shows, and can add new ones:
+
+```python
+import time
+from wm import calendar
+
+now = time.time()
+for event in calendar.events(now, now + 7 * 86400):
+    print(event["title"], event["start"], event["all_day"])
+
+calendar.add("Focus time", now + 3600, now + 7200)
+```
+
+Times are seconds since 1970. One call reads at most 62 days. A repeating
+event comes once for each time it happens, with `recurring` set. An all-day
+event's `start` and `end` are the local midnights around its dates.
+
+`calendar.calendars()` lists the calendars an event can go in, primary ones
+first, and `add(..., calendar=id)` picks one. The keyboard needs Android's
+calendar permission too: the first call without it shows Android's question
+and raises `PermissionError`, and the next call works.
+
+## todo
+
+A risky permission. Your plugin works with the keyboard's own
+[To-do list](/tools/todo/), so a task added in the plugin shows in the To-do
+tool, and one ticked in the tool is ticked for the plugin:
+
+```python
+from wm import todo
+
+for task in todo.list(done=False):
+    print(task["text"], [s["text"] for s in task["steps"]])
+
+task = todo.add("Pack for the trip")
+todo.add("Charger", parent=task["id"])
+todo.update(task["id"], done=True)
+```
+
+Each task has `id`, `text`, `done`, `due` (seconds since 1970, or `None`),
+`all_day` and `steps`. Steps go one level deep, as in the To-do tool: a step
+asked for under a step goes under its task. Ticking a task ticks its steps.
+
+## keyboard
+
+The keys under your panel. A drill that asks for an answer in Japanese can
+put the Japanese keys up while the user types it into your box:
+
+```python
+from wm import keyboard
+
+name = keyboard.use_language("ja")   # "Japanese Romaji", or None
+...
+keyboard.restore()                   # the user's own layout again
+```
+
+The keyboard uses the user's own layout for the language when they added
+one, and the language's default layout otherwise, so a learner needs nothing
+set up first. It puts the user's layout back by itself when your panel closes,
+another plugin opens or the field changes, and leaves alone a layout the user
+picked themselves in between. Only your panel in the keyboard can do this; the
+floating box has no keys under it.
+
+## In the web editor
+
+The web editor answers every call on this page so you can run your code:
+
+| Call | Answer in the web editor |
+|---|---|
+| `device.speak` | your browser's own voice |
+| `device.vibrate` | the browser's vibration, on a phone browser |
+| `device.battery` | 76%, not charging |
+| `share.text`, `share.open` | the browser's share sheet, and a new tab |
+| `notify.show`, `device.flashlight` | a line in the console |
+| `clock.alarm`, `clock.timer` | a line in the console |
+| `scan.qr`, `scan.text` | a pretend link, and a pretend line of text |
+| `sensors.subscribe` | pretend readings of a phone lying on a table |
+| `location.get` | a pretend place in Dhaka |
+| `files.pick` | a pretend picture, sound or text file of the kind you asked for |
+| `files.photo` | a pretend picture |
+| `files.save` | a line in the console with the name and size |
+| `calendar.events` | a pretend stand-up each weekday and a lunch on Wednesdays |
+| `calendar.add` | a line in the console |
+| `todo.*` | a pretend list of a few tasks, which your calls change until the preview restarts |
+| `keyboard.use_language` | the language's name, and a line in the console |
+
+The console marks each pretend answer, so you always know which ones were real.

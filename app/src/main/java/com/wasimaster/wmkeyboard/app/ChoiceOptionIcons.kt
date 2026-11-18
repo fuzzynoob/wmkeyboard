@@ -57,6 +57,8 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Autorenew
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.BatteryAlert
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.BatterySaver
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Block
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Bolt
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Mouse
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CalendarMonth
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Celebration
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Collections
@@ -130,6 +132,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Workspaces
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.wasimaster.wmkeyboard.core.script.NumeralCommitScope
 import com.wasimaster.wmkeyboard.core.settings.AppSortOrder
+import com.wasimaster.wmkeyboard.core.settings.NextWordSuggestions
 import com.wasimaster.wmkeyboard.core.settings.AutoThemeTrigger
 import com.wasimaster.wmkeyboard.core.settings.BackspaceSwipeUnit
 import com.wasimaster.wmkeyboard.core.settings.TopRowHolds
@@ -157,6 +160,7 @@ import com.wasimaster.wmkeyboard.core.settings.SensitiveClipHandling
 import com.wasimaster.wmkeyboard.core.settings.LanguagePickerStyle
 import com.wasimaster.wmkeyboard.core.settings.SwitcherExtraStop
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
+import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeUp
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
 import com.wasimaster.wmkeyboard.core.settings.ThemeGalleryStyle
@@ -366,6 +370,13 @@ internal object ChoiceOptionIcons {
         put(SpaceSwipeAction.CURSOR) { Icons.Outlined.SwapHoriz }
         put(SpaceSwipeAction.NUMPAD) { Icons.Outlined.Dialpad }
         put(SpaceSwipeAction.KEYBOARDS) { Icons.Outlined.Keyboard }
+        put(SpaceSwipeAction.SECONDARY_LAYOUT) { Icons.Outlined.GridView }
+        put(SpaceSwipeAction.ACTION) { Icons.Outlined.Bolt }
+
+        put(SpaceSwipeUp.NONE) { Icons.Outlined.Block }
+        put(SpaceSwipeUp.TOUCHPAD) { Icons.Outlined.Mouse }
+        put(SpaceSwipeUp.NUMPAD) { Icons.Outlined.Dialpad }
+        put(SpaceSwipeUp.ACTION) { Icons.Outlined.Bolt }
 
         put(SpacebarDisplay.LANGUAGE) { Icons.Outlined.Language }
         put(SpacebarDisplay.LAYOUT) { Icons.Outlined.Keyboard }
@@ -586,6 +597,9 @@ internal object ChoiceOptionIcons {
         put(SlipFixes.OFF) { Icons.Outlined.Block }
         put(SlipFixes.CAREFUL) { Icons.Outlined.TouchApp }
         put(SlipFixes.EAGER) { Icons.Outlined.TouchApp }
+        put(NextWordSuggestions.OFF) { Icons.Outlined.Block }
+        put(NextWordSuggestions.WORDS) { Icons.AutoMirrored.Outlined.ShortText }
+        put(NextWordSuggestions.WORDS_AND_PUNCTUATION) { Icons.Outlined.TextFields }
 
         // ---- Accessibility: colour vision ----
         // The three deficiencies share a glyph because they are the same kind

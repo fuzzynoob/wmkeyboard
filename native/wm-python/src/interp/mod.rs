@@ -26,6 +26,7 @@
 mod ast;
 mod builtins;
 mod bytes;
+mod classes;
 mod datefmt;
 mod error;
 mod eval;
@@ -37,6 +38,7 @@ mod methods;
 mod modules;
 mod parser;
 mod regex;
+mod stdlib;
 mod text;
 mod value;
 
@@ -49,7 +51,7 @@ pub use eval::{Limits, MAX_CALL_DEPTH};
 pub use host::{Call, FromPy, HostFunction, HostModule};
 pub use modules::{exports as module_exports, Clock, SystemClock, NAMES as STANDARD_MODULES, VERSION, VERSION_LINE};
 pub use regex::Match;
-pub use value::{ExceptionValue, Function, HKey, Value};
+pub use value::{Class, ExceptionValue, Function, HKey, Instance, Object, Value};
 
 pub(crate) use datefmt::local_to_unix;
 pub(crate) use text::{display_text, take_utf16, utf16_len};
@@ -78,6 +80,8 @@ pub fn check(source: &str) -> Result<(), CheckError> {
 /// reach, and the budget each call runs under.
 pub struct Runtime {
     interp: Interp,
+    /// When set, calls after the first share one step budget.
+    shared_budget: bool,
 }
 
 impl Default for Runtime {
@@ -94,7 +98,7 @@ impl Runtime {
     }
 
     pub fn with_clock(limits: Limits, modules: &[&str], clock: Rc<dyn Clock>) -> Runtime {
-        Runtime { interp: Interp::new(limits, modules, clock) }
+        Runtime { interp: Interp::new(limits, modules, clock), shared_budget: false }
     }
 
     // MARK: - Giving scripts things
@@ -154,9 +158,22 @@ impl Runtime {
         self.interp.max_steps
     }
 
-    /// Steps the latest call spent.
+    /// Steps the latest call spent (since [reset_budget] while the budget is shared).
     pub fn steps_used(&self) -> u64 {
         self.interp.steps
+    }
+
+    /// With [on], `load`, `run` and the `call`s stop starting from a full
+    /// budget: they spend one allowance together until [reset_budget]. How a
+    /// host runs several steps as one phase.
+    pub fn set_shared_budget(&mut self, on: bool) {
+        self.shared_budget = on;
+    }
+
+    /// A full step budget and empty output, now.
+    pub fn reset_budget(&mut self) {
+        self.interp.reset_budget();
+        self.interp.printed.clear();
     }
 
     /// What `print` wrote during the latest `load`, `run` or `call`, one line per call.
@@ -169,9 +186,59 @@ impl Runtime {
         self.interp.on_print = f;
     }
 
+    /// Import [name] (and the packages above it) as a script's `import` would,
+    /// running Python sources once.
+    pub fn import_module(&mut self, name: &str) -> Result<(), PyError> {
+        self.perform(|i| i.ensure_module(name))
+    }
+
+    /// `module.name` for a module already imported, or a host module.
+    pub fn module_member(&self, module: &str, name: &str) -> Option<Value> {
+        self.interp.member(module, name)
+    }
+
+    /// Call [module].[name] with [args].
+    pub fn call_member(&mut self, module: &str, name: &str, args: Vec<Value>) -> Result<Value, PyError> {
+        let Some(f) = self.module_member(module, name) else {
+            return Err(PyError::new(format!("module '{module}' has no attribute '{name}'"), "AttributeError"));
+        };
+        self.perform(|i| i.invoke(&f, args))
+    }
+
     /// Every module name a script could import right now, sorted.
     pub fn importable_modules(&self) -> Vec<String> {
         self.interp.importable_modules()
+    }
+
+    /// A module written in Python that scripts can import as [name] (dotted
+    /// for a module inside a package). Its top level runs on first import, in
+    /// this runtime and on the importing call's budget. A [package] is the
+    /// source of `pkg/__init__.py`, which relative imports resolve against.
+    pub fn add_source_module(&mut self, name: &str, source: &str, package: bool) {
+        self.interp.source_modules.insert(name.to_string(), Rc::from(source));
+        if package {
+            self.interp.packages.insert(name.to_string());
+        }
+    }
+
+    /// Turn on the standard library modules written for this crate:
+    /// collections, dataclasses, datetime, enum, functools, itertools,
+    /// typing, string, textwrap, html, base64, hashlib, hmac, uuid,
+    /// urllib.parse, statistics, abc and copy. Each loads on first import.
+    pub fn enable_python_stdlib(&mut self) {
+        if !self.interp.enabled_modules.contains(&"_native") {
+            self.interp.enabled_modules.push("_native");
+        }
+        for (name, source, package) in stdlib::PYTHON_MODULES {
+            if !self.interp.source_modules.contains_key(*name) {
+                self.add_source_module(name, source, *package);
+            }
+        }
+    }
+
+    /// The names of the standard library modules [enable_python_stdlib] adds.
+    pub fn python_stdlib_names() -> Vec<&'static str> {
+        stdlib::PYTHON_MODULES.iter().map(|(n, _, _)| *n).collect()
     }
 
     // MARK: - Running scripts
@@ -243,8 +310,12 @@ impl Runtime {
     /// Fresh budget and output, then [body]. A `return`, `break` or `continue`
     /// that escaped everything becomes a SyntaxError here.
     fn perform<T>(&mut self, body: impl FnOnce(&mut Interp) -> Result<T, Exc>) -> Result<T, PyError> {
-        self.interp.reset_budget();
-        self.interp.printed.clear();
+        if self.shared_budget {
+            self.interp.call_depth = 0;
+        } else {
+            self.interp.reset_budget();
+            self.interp.printed.clear();
+        }
         let r = body(&mut self.interp);
         host::flow_to_error(r, self.interp.current_line)
     }

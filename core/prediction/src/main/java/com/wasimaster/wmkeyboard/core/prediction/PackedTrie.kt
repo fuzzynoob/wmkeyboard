@@ -31,8 +31,12 @@ class PackedTrie internal constructor(
     internal val maxSubtree: IntArray,
 ) : WordSource, TrieWalker {
 
-    /** Number of distinct words stored. */
-    val wordCount: Int get() = isWord.count { it }
+    /**
+     * Number of distinct words stored. Counted once: the glide blend asks
+     * this on every preview frame, and a full [isWord] scan per frame is far
+     * more than the blend itself costs.
+     */
+    override val wordCount: Int = isWord.count { it }
 
     override fun walkers(): List<TrieWalker> = listOf(this)
 
@@ -65,6 +69,8 @@ class PackedTrie internal constructor(
     override fun rankOfFrequency(frequency: Int): Int = rankFloors.rankOfFrequency(frequency)
 
     override fun vocabularySize(): Int = rankFloors.vocabularySize()
+
+    override fun countAtRank(rank: Int): Int = rankFloors.countAtRank(rank)
 
     /** Node reached by walking [word] from the root, or -1 if absent. */
     private fun nodeFor(word: String): Int {

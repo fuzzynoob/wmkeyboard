@@ -107,7 +107,7 @@ The features the keyboard has
 
 ### Languages
 
-- **1,555 languages, 3,724 layouts** from one data-driven registry: native scripts, InScript
+- **1,556 languages, 3,732 layouts** from one data-driven registry: native scripts, InScript
   variants, romanised entries, CJK, minority Cyrillic alphabets, and a dozen constructed ones. A
   fresh install starts in whatever your phone is already set to.
 - **Bangla, done properly.** Avro phonetic, Probhat with aspirates on shift, Jatiya, Khipro Classic and Dark,
@@ -255,7 +255,7 @@ dictionary is in every build.
 - **F-Droid** carries its own build, without Google's libraries, built from source as one APK
   per CPU architecture and checked byte-for-byte against the matching `-fdroid.apk` on the
   GitHub release.
-- **GitHub releases** carry the standard build for `arm64-v8a`, `armeabi-v7a`, `x86_64` and a
+- **GitHub releases** carry the standard build for `arm64-v8a`, `armeabi-v7a` and a
   universal APK, which fetches its other UI languages and feature libraries on demand, and the
   offline build for `arm64-v8a` and universal. Almost every phone made since 2017
   wants `arm64-v8a`. GitHub lists each file's SHA-256 beside it.

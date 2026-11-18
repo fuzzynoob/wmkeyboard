@@ -27,6 +27,7 @@ A preview heads the screen: a sketch of a phone with the button on the side it r
 | Allow display over other apps *(shown only while Android hasn't allowed it)* | Link | |
 | Let the button read the screen *(shown only when an action asks the AI or looks up a word and the screen reading service is off; not in the Play Store build)* | Link | |
 | Let the button press system buttons *(shown only when an action is Screenshot or a system button and the system buttons service is off; not in the Play Store build)* | Link | |
+| Let the button silence the phone *(shown only when an action is Ringer mode and Android hasn't given the keyboard Do Not Disturb access)* | Link | |
 | Tap | Action | **Show keyboard** |
 | Double tap | Action | **Nothing** |
 | Press and hold | Action | **Quick menu** |
@@ -71,7 +72,11 @@ A preview heads the screen: a sketch of a phone with the button on the side it r
 - **Open an app** opens a second list, every app on the phone that has an icon in the app drawer, the same list the [app launcher](/tools/app-launcher/) shows. Search it by name and pick one, and the gesture opens that app. If the phone has a work profile, its apps follow under **Work apps**, with the briefcase on their icons, and one picked there opens in the work profile. With work apps paused, Android asks whether to turn them on. The row then names the app you picked. If the app is uninstalled later, the gesture says so instead of doing nothing.
 - **Open an app pair** opens one of the [app launcher's split screen pairs](/tools/app-launcher/#split-screen-pairs): the first app full screen, then the second beside it in split screen, just as tapping the pair in the launcher does. The list shows each pair by the name you gave it, or by both apps' names. Pairs are made in the launcher (hold an app and pick **Pair in split screen with…**), so with none yet the list says where. On a phone without split screen, only the first app opens. If either app is uninstalled later, the gesture says so.
 
-Then **System buttons**, and **Floating boxes** after them.
+Then **System buttons**, **Phone controls**, **Your buttons**, **Plugins** and **Floating boxes**.
+
+**Your buttons** lists the [custom buttons](/tools/custom-buttons/) you made under <SettingsPath path="Tools / Custom buttons" />: an app's shortcut, a setting switch or a settings page. A switch or a page runs without the keyboard coming up. The group is missing until you make a button.
+
+**Plugins** lists the [plugins](/plugins/overview/) that draw a panel, each with its own icon. The gesture opens it the way its [tool](/tools/overview/#plugins-as-tools) does, bringing the keyboard up first when it is down. The group is missing while plugins are off.
 
 ### System buttons
 
@@ -85,9 +90,28 @@ Then **System buttons**, and **Floating boxes** after them.
 
 Android lets another app press these only through an accessibility service, so they need **WM Keyboard system buttons** turned on in Android's accessibility settings, the same service the [Screenshot](/tools/instruments/#screenshot) tool uses. It presses the one button you asked for and reads nothing on screen. Until it's on, the group shows a single **Turn on system buttons** row instead, which explains the service and then opens Android's page for it. If one of these actions is already set and the service is turned off later, pressing it explains the service again, and a row under the switch at the top of this screen says what's missing. Not in the Play Store build.
 
+### Phone controls
+
+**Phone controls** work the phone's own settings, so the button can do what you'd otherwise pull down the shade for:
+
+- **Ringer mode** switches the ringer to the next of ring, vibrate and silent, and a short message says which it's on now. On a phone with no vibration motor it skips vibrate.
+- **Volume panel** opens Android's volume panel, with a slider for media, calls, the ringer and alarms, the one the settings app opens. On a phone without that panel, and before Android 10, it shows the volume slider a volume key brings up.
+- **Wi-Fi**, **Mobile data** and **Bluetooth** turn their switch on if it's off and off if it's on, then say which.
+- **Hotspot** opens Android's hotspot page.
+
+Android lets an app flip those three switches only in some cases, so each picks the first way that works on your phone, and its row in the list says which it'll be:
+
+- **Wi-Fi** switches itself on Android 9 and older, and **Bluetooth** on Android 11 and older, with no permission to grant.
+- Past those versions, and for **Mobile data** on every version, the keyboard switches them through [Shizuku or root](/reference/settings/permissions/#shizuku-or-root) once you've turned **Use Shizuku or root for keyboard features** on and allowed the keyboard there. Not in the Play Store build.
+- Otherwise the action opens Android's own control for you to flip: the Wi-Fi panel or the internet panel (Wi-Fi and mobile data together) on Android 10 and later, or the Wi-Fi, mobile network or Bluetooth page.
+
+The hotspot always opens its page. No app can start the phone's hotspot on current Android, and even through Shizuku or root there's no command that starts it with your own saved name and password.
+
+Silent is the one ringer mode that needs a grant. Android ties it to Do Not Disturb, and lets an app turn silent on or off only once you've given it **Do Not Disturb access**. Picking **Ringer mode** explains this and opens Android's list for it, and until you allow it a row under the switch at the top of this screen says so. Without it, the action switches between ring and vibrate, and if the phone is already on silent, pressing it asks for the access again, since it can't take the phone off silent otherwise. The keyboard uses the access only to set the ringer. It doesn't read or change your Do Not Disturb schedules. See [Permissions](/privacy/permissions/#the-ones-that-arent-permissions).
+
 ### Floating boxes
 
-**Floating boxes**: the calculator, the unit and currency converters, the clock, the to-do list, notes and Translate, each opened in a box that floats over the app instead of in the keyboard, without the keyboard coming up first. See [Tools in a floating box](/tools/overview/#tools-in-a-floating-box).
+**Floating boxes**: the calculator, the unit and currency converters, the clock, the to-do list, notes, Translate and the other [tools that float](/tools/overview/#tools-in-a-floating-box), including your plugins, each opened in a box that floats over the app instead of in the keyboard, without the keyboard coming up first. See [Tools in a floating box](/tools/overview/#tools-in-a-floating-box).
 
 After those, every tool from the toolbar, grouped the way the Tools screen groups them. A tool that lives on the keyboard, such as voice typing, the clipboard or emoji, brings the keyboard up first when it's closed and opens as it arrives. Set **Tap** to **Voice typing** and one tap on the button starts dictation, from a button you can make as large as you like. **Screenshot** is one of them too, under Utilities: it runs without opening the keyboard, puts the button and the keyboard out of the way, takes the screenshot, and brings the button back. It needs its own accessibility service, and a row under the switch says so while it's off. See [Screenshot](/tools/instruments/#screenshot). With the keyboard already open, the same gesture closes the tool again.
 
@@ -99,7 +123,7 @@ With **Double tap** set to anything but **Nothing**, a single tap waits a moment
 
 **Fixed in place** pins the button where it is. A drag no longer moves it; instead, a swipe that starts on the button runs an action of its own for each direction it can go: up, down, left, right and the four diagonals in between. The eight **Swipe** rows set what each direction does, from the same list as the other gestures, and are shown only while the button is fixed. A direction set to **Nothing** does nothing.
 
-You don't have to set all eight. A swipe goes to the nearest direction that has an action, as long as it's within about 67° of it, so with only up, down, left and right set, a swipe up and to the right still counts as up or right, whichever it's closer to. While your finger is on its way, the button shows the icon of the action it will run, with a light tick each time that changes; let go to run it. A short swipe, under about 28 dp, doesn't count. Tap, double tap and press and hold still work as before, and pressing and holding still opens the quick menu.
+You don't have to set all eight. A swipe goes to the nearest direction that has an action, as long as it's within about 67° of it, so with only up, down, left and right set, a swipe up and to the right still counts as up or right, whichever it's closer to. As soon as your finger leaves the button, every direction that has an action shows its icon around the button, placed where its swipe points. The one your finger is pointing at grows and gets a ring, and its name appears in a label above the ring, or below it when you're swiping upward, so your finger never covers it. The button itself shows the same icon, with a light tick each time it changes. Let go to run it. The icons go as soon as you lift your finger. A short swipe, under about 28 dp, doesn't count. Tap, double tap and press and hold still work as before, and pressing and holding still opens the quick menu.
 
 Move the button where you want it first, then fix it there. To move it later, turn **Fixed in place** off, drag it, and turn it back on. The cross for hiding the button only appears while dragging, so a fixed button is hidden with the **Hide the button** action instead. With TalkBack, each swipe that has an action is in the button's actions menu.
 
@@ -139,7 +163,7 @@ If no gesture opens the menu, a row says so, and tapping it sets **Press and hol
 
 ### Categories
 
-A category is an action in the quick menu that opens a ring of up to sixteen more actions in place of the menu's own, on two rings past eight, like the menu. Make one with **Add an action** › **New category**: it joins the end of the menu, named **Category**, and its page opens. There you can rename it, give it an **Icon** so it can be told apart from your other categories in the menu (it's a folder until you pick one, and **Folder** in the picker puts that back), add actions with **Add an action** (anything a menu action can be except another category, so a category is one level deep), drag them into order and remove them. **Remove the category** takes it and everything in it out of the menu. Later, the pencil beside the category in the menu list opens its page again. Removing a category from the menu list removes it too.
+A category is an action in the quick menu that opens a ring of up to sixteen more actions in place of the menu's own, on two rings past eight, like the menu. Make one with **Add an action** › **New category**: it joins the end of the menu, named **Category**, and its page opens. There you can rename it, give it an **Icon** so it can be told apart from your other categories in the menu (it's a folder until you pick one, and **Folder** in the picker puts that back) or an **Icon from an icon pack** installed on the phone, such as Arcticons, add actions with **Add an action** (anything a menu action can be except another category, so a category is one level deep), drag them into order and remove them. **Remove the category** takes it and everything in it out of the menu. Later, the pencil beside the category in the menu list opens its page again. Removing a category from the menu list removes it too.
 
 On the button, tap a category in the open menu and its ring replaces the menu's. The cross where the button was turns into a back arrow: tap it, or press Back, to go back to the quick menu, and tap anywhere else to close it all. When you open the menu with **Press and hold**, slide onto a category and rest there for a moment, and its ring opens under your finger. Keep sliding onto one of its actions and lift your finger to run it. A category with nothing in it says so instead of opening.
 

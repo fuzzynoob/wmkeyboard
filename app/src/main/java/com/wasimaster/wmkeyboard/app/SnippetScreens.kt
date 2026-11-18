@@ -22,6 +22,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Image
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import com.wasimaster.wmkeyboard.core.addons.AddonType
@@ -103,6 +105,7 @@ import com.wasimaster.wmkeyboard.core.snippets.SnippetStore
 import com.wasimaster.wmkeyboard.core.content.ContentText
 import com.wasimaster.wmkeyboard.core.util.requireOutputStream
 import com.wasimaster.wmkeyboard.core.snippets.SnippetPayload
+import com.wasimaster.wmkeyboard.core.snippets.SnippetText
 import com.wasimaster.wmkeyboard.core.snippets.SnippetVariable
 import com.wasimaster.wmkeyboard.core.snippets.UppercaseStyle
 import com.wasimaster.wmkeyboard.ime.ui.ModeIcons
@@ -226,6 +229,7 @@ internal fun SnippetSettings(
                                 appVersion = BuildConfig.VERSION_CODE,
                                 appVersionName = BuildConfig.VERSION_NAME,
                                 folders = currentFolders,
+                                images = SnippetStore.imageBytes(context.filesDir, current),
                             ).toByteArray(),
                         )
                     } ?: error("no stream")
@@ -269,7 +273,7 @@ internal fun SnippetSettings(
                 // file has no folders of its own, so it lands in one named after
                 // the package, which is what gives it a single off switch.
                 val target = folderName?.trim()?.takeIf { it.isNotEmpty() }?.let { s.addFolder(it).id } ?: 0L
-                s.addAll(parsed.snippets, parsed.folders, fallbackFolderId = target)
+                s.addAll(parsed.snippets, parsed.folders, fallbackFolderId = target, images = parsed.images)
                 // The adds are in-memory only; save() writes the file.
                 s.save()
             }
@@ -349,6 +353,31 @@ internal fun SnippetSettings(
         }
     }
 
+    val textExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument(SnippetText.MIME_TYPE),
+    ) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        val current = snippets
+        val currentFolders = folders
+        val header = listOf(
+            context.getString(R.string.expander_text_header_1),
+            context.getString(R.string.expander_text_header_2),
+        )
+        scope.launch {
+            val ok = withContext(Dispatchers.IO) {
+                runCancellable {
+                    val body = SnippetText.encode(current, currentFolders, header)
+                    context.contentResolver.requireOutputStream(uri).use { it.write(body.toByteArray()) }
+                }.isSuccess
+            }
+            message = if (ok) {
+                context.resources.getQuantityString(R.plurals.expander_saved_count, current.size, current.size)
+            } else {
+                context.getString(R.string.expander_export_error)
+            }
+        }
+    }
+
     val packageExportLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument(EspansoWriter.PACKAGE_MIME_TYPE),
     ) { uri ->
@@ -411,12 +440,24 @@ internal fun SnippetSettings(
                 SnippetStore.expand("{date:EEE d MMM}"),
             )
             VariableRow(
+                "{bullets:3}", stringResource(R.string.expander_var_bullets_info),
+                SnippetStore.expand("{bullets:3}").replace(SnippetStore.CURSOR_MARKER, ""),
+            )
+            VariableRow(
+                "{list:3}", stringResource(R.string.expander_var_list_info),
+                SnippetStore.expand("{list:3}").replace(SnippetStore.CURSOR_MARKER, ""),
+            )
+            VariableRow(
                 "{location}", stringResource(R.string.expander_var_location_info),
                 stringResource(R.string.expander_var_location_sample),
             )
             VariableRow(
                 "{place:Home}", stringResource(R.string.expander_var_place_info),
                 stringResource(R.string.expander_var_place_sample),
+            )
+            VariableRow(
+                "{ask:Name}", stringResource(R.string.expander_var_ask_info),
+                stringResource(R.string.expander_var_ask_sample),
             )
             Spacer(Modifier.height(8.dp))
             Text(
@@ -529,6 +570,9 @@ internal fun SnippetSettings(
             onClick = { exportTarget = true },
             enabled = snippets.isNotEmpty(),
         ) { Text(stringResource(CommonR.string.common_export)) }
+        OutlinedButton(
+            onClick = { onNavigate(SNIPPETS_TEXT_ROUTE) },
+        ) { Text(stringResource(R.string.expander_text_action)) }
     }
     Spacer(Modifier.height(12.dp))
     // The pencil is the one way into every destructive or fiddly thing a list
@@ -678,6 +722,7 @@ internal fun SnippetSettings(
                 R.string.expander_source_espanso to R.string.expander_source_espanso_body,
                 R.string.expander_source_csv to R.string.expander_source_csv_body,
                 R.string.expander_source_gboard to R.string.expander_source_gboard_body,
+                R.string.expander_source_text to R.string.expander_source_text_body,
                 R.string.expander_source_url to R.string.expander_source_url_body,
             ),
             onDismiss = { importSource = false },
@@ -686,7 +731,7 @@ internal fun SnippetSettings(
                 expectTable = index == 2
                 when (index) {
                     0 -> importLauncher.launch(SnippetFile.IMPORT_MIME_TYPES)
-                    1, 2, 3 -> importLauncher.launch(SnippetPayload.IMPORT_MIME_TYPES)
+                    1, 2, 3, 4 -> importLauncher.launch(SnippetPayload.IMPORT_MIME_TYPES)
                     else -> urlPrompt = true
                 }
             },
@@ -700,6 +745,7 @@ internal fun SnippetSettings(
                 R.string.expander_target_native to R.string.expander_target_native_body,
                 R.string.expander_target_espanso to R.string.expander_target_espanso_body,
                 R.string.expander_target_package to R.string.expander_target_package_body,
+                R.string.expander_target_text to R.string.expander_target_text_body,
                 R.string.expander_target_community to R.string.expander_target_community_body,
             ),
             onDismiss = { exportTarget = false },
@@ -709,6 +755,7 @@ internal fun SnippetSettings(
                     0 -> exportLauncher.launch(SnippetFile.fileName())
                     1 -> espansoExportLauncher.launch(EspansoWriter.FILE_NAME)
                     2 -> packagePrompt = true
+                    3 -> textExportLauncher.launch(SnippetText.FILE_NAME)
                     else -> publishing = true
                 }
             },
@@ -1065,6 +1112,7 @@ private fun SnippetEspansoImportDialog(
                     when (parsed.source) {
                         SnippetPayload.Source.CSV -> R.plurals.expander_csv_import_title
                         SnippetPayload.Source.GBOARD -> R.plurals.expander_gboard_import_title
+                        SnippetPayload.Source.TEXT -> R.plurals.expander_text_import_title
                         else -> R.plurals.expander_espanso_import_title
                     },
                     parsed.snippets.size,
@@ -1304,6 +1352,21 @@ private fun SnippetRow(snippet: Snippet, onEdit: () -> Unit, onDelete: () -> Uni
             title = snippet.label,
             supporting = {
                 Column {
+                    // A picture snippet is listed with its picture: it has no
+                    // words to preview.
+                    val picture = snippet.image?.let { SnippetStore.imageFile(LocalContext.current.filesDir, it) }
+                    if (picture != null) {
+                        coil3.compose.AsyncImage(
+                            model = picture,
+                            contentDescription = stringResource(R.string.rows_snippet_picture_desc),
+                            contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                            modifier = Modifier
+                                .padding(top = 4.dp)
+                                .size(48.dp)
+                                .clip(androidx.compose.foundation.shape.RoundedCornerShape(6.dp)),
+                        )
+                        return@Column
+                    }
                     Text(snippet.text, maxLines = 2)
                     val preview = SnippetStore.expandWithCursor(
                         snippet.text,
@@ -1593,6 +1656,8 @@ private val SNIPPET_PREVIEW_CONTEXT: SnippetStore.Companion.Context
         appName = stringResource(R.string.rows_snippet_preview_app_name),
         packageName = "com.example.app",
         selection = "…",
+        battery = { 85 },
+        language = "English",
     )
 /**
  * Example value for the reference card. Most variables can be expanded for
@@ -1606,6 +1671,9 @@ private fun sampleFor(variable: SnippetVariable): String = when (variable) {
     SnippetVariable.APP -> "Messages"
     SnippetVariable.PACKAGE -> "com.google.android.apps.messaging"
     SnippetVariable.CURSOR -> stringResource(R.string.rows_snippet_sample_cursor)
+    SnippetVariable.BATTERY -> "85%"
+    SnippetVariable.LANGUAGE -> "English"
+    SnippetVariable.TAB -> stringResource(R.string.expander_var_tab_sample)
     else -> SnippetStore.expand(variable.token)
 }
 /** One row in the template-variable reference card. */
@@ -1743,6 +1811,26 @@ private fun SnippetEditorForm(
         mutableStateOf(initial?.uppercaseStyle ?: UppercaseStyle.CAPITALIZE)
     }
     var multiExpand by remember { mutableStateOf(initial?.multiExpand ?: MultiExpand.DEFAULT) }
+    var image by remember { mutableStateOf(initial?.image) }
+    val context = LocalContext.current
+    val pictureScope = rememberCoroutineScope()
+    // Copied into the snippets' own folder the moment it is picked, so the
+    // snippet never depends on a URI that another app may stop granting.
+    val pickPicture = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        pictureScope.launch {
+            val name = withContext(Dispatchers.IO) { copySnippetPicture(context, uri) }
+            if (name != null) {
+                image = name
+            } else {
+                android.widget.Toast.makeText(
+                    context,
+                    R.string.rows_snippet_picture_failed,
+                    android.widget.Toast.LENGTH_LONG,
+                ).show()
+            }
+        }
+    }
 
     val fault = remember(pattern.text) { SnippetMatcher.validate(pattern.text) }
     val word = mode == SnippetTriggerMode.WORD
@@ -1756,7 +1844,8 @@ private fun SnippetEditorForm(
         tags + listOfNotNull(tagDraft.trim().takeIf(String::isNotEmpty))
     }
     val kept = expansions.filter { it.isNotBlank() }
-    val valid = label.isNotBlank() && kept.isNotEmpty() && patternOk
+    // A picture snippet needs no words: the picture is what it inserts.
+    val valid = label.isNotBlank() && (kept.isNotEmpty() || image != null) && patternOk
 
     // The snippet as the fields describe it right now: what Save writes, and
     // what the back check compares against the snippet as it was opened.
@@ -1782,6 +1871,7 @@ private fun SnippetEditorForm(
         children = children.filter { id -> all.any { it.id == id } },
         tags = allTags,
         multiExpand = multiExpand,
+        image = image,
     )
     // Issue #471: Save sat under every field, where nobody scrolled to it, and
     // back threw the edit away without a word, on a settings app where every
@@ -1847,14 +1937,27 @@ private fun SnippetEditorForm(
             }
         }
 
-        SettingsGroup(stringResource(R.string.rows_snippet_expansions_label)) {
+        SettingsGroup(stringResource(R.string.rows_snippet_picture_label), level = SettingLevel.STANDARD) {
             item {
-                ExpansionListEditor(
-                    expansions = expansions,
-                    openIndex = openExpansion,
-                    onOpenChange = { openExpansion = it },
-                    onChange = { expansions = it },
+                SnippetPictureSection(
+                    image = image,
+                    onPick = { pickPicture.launch("image/*") },
+                    onRemove = { image = null },
                 )
+            }
+        }
+
+        // A picture snippet inserts the picture, so it has no words to edit.
+        if (image == null) {
+            SettingsGroup(stringResource(R.string.rows_snippet_expansions_label)) {
+                item {
+                    ExpansionListEditor(
+                        expansions = expansions,
+                        openIndex = openExpansion,
+                        onOpenChange = { openExpansion = it },
+                        onChange = { expansions = it },
+                    )
+                }
             }
         }
 
@@ -2074,6 +2177,68 @@ private fun SnippetEditorForm(
         )
     }
 }
+/**
+ * The editor's picture row: the picture with Change and Remove, or a button
+ * to choose one. See [Snippet.image].
+ */
+@Composable
+private fun SnippetPictureSection(image: String?, onPick: () -> Unit, onRemove: () -> Unit) {
+    val context = LocalContext.current
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        DialogNote(stringResource(R.string.rows_snippet_picture_body))
+        Spacer(Modifier.height(8.dp))
+        val file = remember(image) { SnippetStore.imageFile(context.filesDir, image) }
+        if (file == null) {
+            OutlinedButton(onClick = onPick) {
+                Icon(Icons.Outlined.Image, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.rows_snippet_picture_pick))
+            }
+            return@Column
+        }
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            coil3.compose.AsyncImage(
+                model = file,
+                contentDescription = stringResource(R.string.rows_snippet_picture_desc),
+                contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                modifier = Modifier
+                    .size(72.dp)
+                    .clip(androidx.compose.foundation.shape.RoundedCornerShape(8.dp)),
+            )
+            Spacer(Modifier.width(12.dp))
+            TextButton(onClick = onPick) { Text(stringResource(R.string.rows_snippet_picture_change)) }
+            TextButton(onClick = onRemove) { Text(stringResource(R.string.rows_snippet_picture_remove)) }
+        }
+    }
+}
+
+/**
+ * Copies the picture at [uri] into the snippets' own folder and returns the
+ * name it was given, or null when it is not a picture this app can insert:
+ * too large, or not PNG, JPEG, GIF or WebP by its own first bytes.
+ */
+private fun copySnippetPicture(context: android.content.Context, uri: android.net.Uri): String? = runCatching {
+    val bytes = context.contentResolver.openInputStream(uri)?.use { input ->
+        val out = java.io.ByteArrayOutputStream()
+        val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
+        var total = 0
+        while (true) {
+            val n = input.read(buffer)
+            if (n < 0) break
+            total += n
+            if (total > SnippetStore.MAX_IMAGE_BYTES) return@runCatching null
+            out.write(buffer, 0, n)
+        }
+        out.toByteArray()
+    } ?: return@runCatching null
+    SnippetStore.sniffExtension(bytes.copyOf(minOf(bytes.size, 16))) ?: return@runCatching null
+    val name = SnippetStore.newImageName(context.contentResolver.getType(uri), bytes.copyOf(minOf(bytes.size, 16)))
+    val file = SnippetStore.imageFile(context.filesDir, name) ?: return@runCatching null
+    file.parentFile?.mkdirs()
+    file.writeBytes(bytes)
+    name
+}.getOrNull()
+
 /** The label for one of the two things the app can do with several expansions. */
 @StringRes
 private fun multiExpandLabel(mode: MultiExpandMode): Int = when (mode) {

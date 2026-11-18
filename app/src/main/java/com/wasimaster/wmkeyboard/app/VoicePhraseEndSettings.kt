@@ -31,6 +31,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Waves
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.VoiceSilenceStopRange
+import com.wasimaster.wmkeyboard.core.voice.asr4all.Asr4AllEngine
 import com.wasimaster.wmkeyboard.core.voice.sherpa.SherpaNative
 import com.wasimaster.wmkeyboard.core.voice.vad.VadModels
 import com.wasimaster.wmkeyboard.core.voice.vad.VoiceVad
@@ -75,8 +76,37 @@ internal fun VoicePhraseEndGroup(repository: SettingsRepository, settings: LiveS
     }
 }
 
+/**
+ * Asr4All's streaming tier (#1322): how far the model looks ahead before it
+ * writes a word. The lowest latency is its default; a later tier shows its
+ * first words seconds later and gets them right more often.
+ */
+@Composable
+internal fun Asr4AllTierGroup(repository: SettingsRepository, settings: LiveSettings) {
+    val scope = rememberCoroutineScope()
+    val labels = listOf(
+        R.string.voice_asr4all_tier_c16r4, R.string.voice_asr4all_tier_c32r8, R.string.voice_asr4all_tier_c64r16,
+        R.string.voice_asr4all_tier_c128r24, R.string.voice_asr4all_tier_c256r32, R.string.voice_asr4all_tier_c512r8,
+    ).map { stringResource(it) }
+    SettingsGroup(stringResource(R.string.voice_asr4all_tier_group)) {
+        item {
+            ChoiceSetting(
+                R.string.voice_asr4all_tier_title,
+                subtitle = stringResource(R.string.voice_asr4all_tier_subtitle),
+                info = stringResource(R.string.voice_asr4all_tier_info),
+                options = listOf("" to stringResource(R.string.voice_asr4all_tier_default)) + Asr4AllEngine.TIERS.zip(labels),
+                selected = settings.watch { it.whisper.asr4allTier }.takeIf { it in Asr4AllEngine.TIERS }.orEmpty(),
+                default = SettingsDefaults.whisper.asr4allTier,
+            ) { scope.launch { repository.setVoiceAsr4AllTier(it) } }
+        }
+    }
+}
+
 /** The pause slider's step, as on the Voice typing screen. */
 private const val PAUSE_STEP_MS = 250f
+
+/** The grace slider's step. */
+private const val GRACE_STEP_MS = 100f
 
 /**
  * Phrase end detector (#976), for the engines that decode while the user
@@ -147,6 +177,21 @@ internal fun VoicePhraseEndSetting(repository: SettingsRepository, settings: Liv
             info = stringResource(R.string.voice_vad_threshold_info),
             default = SettingsDefaults.whisper.vadThreshold,
         ) { picked -> scope.launch { repository.setVoiceVadThreshold((picked * 20f).roundToInt() / 20f) } }
+        // A fixed wait on top of the end (#1320), in tenths of a second.
+        val graceOff = stringResource(R.string.voice_vad_grace_off)
+        val graceSeconds = stringResource(R.string.voice_silence_stop_seconds)
+        SliderSetting(
+            R.string.voice_vad_grace_title,
+            subtitle = stringResource(R.string.voice_vad_grace_subtitle),
+            value = settings.watch { it.whisper.vadGraceMs }.toFloat(),
+            range = VoiceVad.GRACE_RANGE_MS.first.toFloat()..VoiceVad.GRACE_RANGE_MS.last.toFloat(),
+            display = { picked ->
+                val ms = (picked / GRACE_STEP_MS).roundToInt() * GRACE_STEP_MS.toInt()
+                if (ms == 0) graceOff else graceSeconds.format(ms / 1000f)
+            },
+            info = stringResource(R.string.voice_vad_grace_info),
+            default = SettingsDefaults.whisper.vadGraceMs.toFloat(),
+        ) { picked -> scope.launch { repository.setVoiceVadGraceMs((picked / GRACE_STEP_MS).roundToInt() * GRACE_STEP_MS.toInt()) } }
         if (onnx) {
             val smartTurn = settings.watch { it.whisper.smartTurn }
             ToggleSetting(
@@ -157,6 +202,13 @@ internal fun VoicePhraseEndSetting(repository: SettingsRepository, settings: Liv
                 default = SettingsDefaults.whisper.smartTurn,
             ) { scope.launch { repository.setVoiceSmartTurn(it) } }
             if (smartTurn) {
+                ToggleSetting(
+                    R.string.voice_smart_turn_conservative_title,
+                    stringResource(R.string.voice_smart_turn_conservative_subtitle),
+                    settings.watch { it.whisper.smartTurnConservative },
+                    info = stringResource(R.string.voice_smart_turn_conservative_info),
+                    default = SettingsDefaults.whisper.smartTurnConservative,
+                ) { scope.launch { repository.setVoiceSmartTurnConservative(it) } }
                 VadDownloadRow(
                     settings,
                     VadModels.SMART_TURN,

@@ -1,0 +1,497 @@
+---
+title: "API reference"
+description: "Everything in the wm package for API 5 plugins: the manifest, the Python you get, plugin, ui and every host module, with their arguments, results and errors."
+sidebar:
+  label: "API reference"
+  order: 6
+---
+
+This page lists everything an API 5 plugin can use. It is for looking things
+up. To learn, start with the [Quickstart](/plugins/quickstart/), the
+[tutorial](/plugins/tutorial/) or the guides.
+
+Import what you use from the `wm` package:
+
+```python
+from wm import plugin, ui, http, storage
+```
+
+The editors complete these names as you type and show what each one does.
+
+**On this page:** [manifest](#the-manifest) ·
+[Python](#the-python-you-get) · [`plugin`](#plugin) · [`ui`](#ui) ·
+[`storage`](#storage) · [`secrets`](#secrets) · [`http`](#http) ·
+[`ai`](#ai) · [`field`](#field) · [`clipboard`](#clipboard) ·
+[`device`](#device) · [`share`](#share) · [`notify`](#notify) ·
+[`reminders`](#reminders) · [`clock`](#clock) · [`scan`](#scan) · [`sensors`](#sensors) ·
+[`location`](#location) · [`files`](#files) · [`calendar`](#calendar) ·
+[`todo`](#todo) · [`keyboard`](#keyboard) · [translations](#translations) ·
+[`wm` itself](#wm-itself) · [errors](#errors) · [limits](#limits)
+
+## The manifest
+
+`plugin.json`, at the top of the archive.
+
+```json title="plugin.json"
+{
+  "format": "wmkeyboard-plugin",
+  "id": "com.example.weather",
+  "name": "Weather",
+  "pluginVersion": "1.0.0",
+  "author": "Your Name",
+  "description": "Today's forecast.",
+  "apiVersion": 5,
+  "permissions": ["network", "storage"],
+  "hosts": ["api.open-meteo.com"],
+  "tool": {"icon": "cloud", "tile": true, "float": true, "keyword": "weather", "chip": true},
+  "settings": [
+    {"key": "units", "type": "choice", "label": "Units", "default": "metric", "options": ["metric", "imperial"]}
+  ]
+}
+```
+
+| Field | Required | Meaning |
+|---|---|---|
+| `format` | yes | Always `"wmkeyboard-plugin"`. |
+| `id` | yes | Unique. 3 to 64 characters of `a-z 0-9 . _ -`, starting with a letter or digit. Reverse domain by custom: `com.yourname.tool`. |
+| `name` | yes | Shown everywhere. Up to 40 characters. |
+| `pluginVersion` | yes | Your version, such as `"1.2.0"`. |
+| `apiVersion` | yes | `5`. |
+| `author`, `description` | no | Shown on the install screen. |
+| `entry` | no | The script to run. `main.py` by default. |
+| `permissions` | no | See [Permissions](/plugins/permissions/). |
+| `hosts` | with `network` | Websites `http` may reach, up to 16. [More](/plugins/guides/internet-and-ai/#asking-for-the-internet). |
+| `tool` | no | Where the plugin opens from: `icon` (a Material Symbols name or `"assets/icon.svg"`, [more](/plugins/guides/pages-and-timers/#your-icon)), `color` (`"#RRGGBB"`), `tile`, `float`, `keyword`, `chip`, `height`, `fullBleed`. [More](/plugins/guides/pages-and-timers/#where-a-plugin-opens-from). |
+| `settings` | no | Rows on the plugin's settings page, up to 24. A `host` setting adds the server the user types to `hosts`. [More](/plugins/guides/saving-and-settings/#a-settings-page). |
+| `actions` | with `selection` | Buttons over selected text, up to 16. [More](/plugins/guides/text-and-selection/#buttons-over-selected-text). |
+| `panel` | no | `false` for a plugin made only of selection actions. |
+
+A manifest the app does not fully understand, such as one with an unknown
+permission, is refused at install rather than half-installed.
+
+## The Python you get
+
+A Python 3 interpreter built into the keyboard. It covers what everyday code
+needs:
+
+- functions with defaults, `*args`, `**kwargs` and keyword-only parameters,
+  `lambda`, decorators
+- `class` with single inheritance, `super()`, `@property`, `@staticmethod`,
+  `@classmethod`, and the usual `__dunder__` methods
+- `if`, `for`, `while`, `try`/`except`/`finally`, `raise`, `with`, `assert`,
+  `global`, `nonlocal`, `del`
+- list, dict and set comprehensions, f-strings, slicing, unpacking, type
+  annotations (read and ignored)
+- your own exceptions: `class NotFound(Exception): pass`
+
+Not there: `yield` and generators, `async` and `await`, `match`, the walrus
+`:=`, `eval`, `exec`, `compile`, `open` and `__import__`. A script that uses
+one is refused with a message that names it.
+
+**Modules you can import:**
+
+| | |
+|---|---|
+| Built in | `math`, `random`, `time`, `json`, `re`, `sys` |
+| Python's own | `abc`, `base64`, `collections`, `copy`, `dataclasses`, `datetime`, `enum`, `functools`, `hashlib`, `hmac`, `html`, `itertools`, `statistics`, `string`, `textwrap`, `typing`, `urllib.parse`, `uuid` |
+| The keyboard's | `wm` and its modules on this page |
+| Yours | every other `.py` file in your plugin: `import helpers` |
+
+`time` has `time()`, `monotonic()`, `parts(seconds)` (a dict of `year`,
+`month`, `day`, `hour`, `minute`, `second`, `weekday`, `yearday`) and
+`format(pattern, seconds)` with Java date patterns such as
+`"EEE d MMM yyyy"`. The [classic reference](/plugins/api-reference/#the-python-you-get)
+has more detail on the built-in modules, strings and dicts.
+
+## plugin
+
+`from wm import plugin`. The plugin itself.
+
+### State
+
+| | |
+|---|---|
+| `plugin.state(persist=False, key="state", **fields)` | An object holding `fields` with their starting values. Read and write them as attributes. With `persist=True` (needs `storage`), saved after every event and loaded again on the next open. Two saved states need different `key`s. |
+| `state.update(**fields)` | Change several values. |
+| `state.as_dict()` | The values as a dict. |
+| `state.save()` | Save now instead of after the event. |
+| `state["name"]`, `"name" in state` | Dict-style access. |
+
+### Settings and context
+
+| | |
+|---|---|
+| `plugin.settings.key` | The value of a manifest setting. `switch` gives `True`/`False`, `number` a number, `secret` the saved text or `None`, the rest text. An undeclared key raises `AttributeError`. |
+| `plugin.settings.get(key, default=None)` | The same, with a default. |
+| `plugin.settings.set(key, value)` | Change one of your settings; saved at once and shown on the page. A value that does not fit the row raises `ValueError`, a `host` setting `PermissionError`. |
+| `plugin.settings.reset(key)` | Back to the manifest's default; a `secret` is forgotten. |
+| `plugin.id`, `plugin.version` | From the manifest. |
+| `plugin.permissions` | The declared permissions, as a tuple. |
+| `plugin.locale` | The user's language, such as `"bn-BD"`. |
+| `plugin.dark` | `True` in a dark theme. |
+| `plugin.surface` | `"panel"` in the keyboard, `"float"` in the floating box. |
+
+### Decorators
+
+| | Called |
+|---|---|
+| `@plugin.on_open` | each time the panel opens, before the first draw |
+| `@plugin.on_close` | when the panel closes |
+| `@plugin.every(seconds=0, minutes=0, hours=0, name=None)` | again and again while the panel is open, at least one second apart |
+| `@plugin.action(id)` | for the selection action `id` with the selected text; returns the replacement, or `None` |
+| `@plugin.keyword(word)` | with the text after `@word` when the user presses your chip |
+| `@plugin.command(label, icon=None, id=None)` | when the user presses this button in the panel's header (three at most) |
+| `@plugin.setting_changed(key)` | with the new value when the user changes that setting |
+
+### Functions
+
+| | |
+|---|---|
+| `plugin.after(seconds, fn, name=None)` | Call `fn` once, later, if the panel is still open. Returns the timer's name. |
+| `plugin.cancel(name)` | Stop a timer. `True` if there was one. |
+| `plugin.push(render_fn, title=None)` | Show another page; Back returns. |
+| `plugin.back()` | Close the top page. `False` if there was none. |
+| `plugin.set_title(text)` | The header text, instead of the plugin's name. |
+| `plugin.close()` | Close the panel. |
+| `plugin.open_settings()` | Open the plugin's page in Settings, where its settings are. Only in answer to something the user did in the panel. |
+| `plugin.refresh()` | Draw again after this call. Events and timers already do. |
+
+A function named `on_event(e)` gets every event no callback took, as a dict.
+
+## ui
+
+`from wm import ui`. Every widget can be used in a `with` block (containers)
+or nested as arguments. [Drawing the panel](/plugins/guides/drawing/) explains
+how.
+
+Most widgets take `key=`, a stable id for when two widgets would look alike.
+
+### Containers
+
+| Widget | |
+|---|---|
+| `ui.column(*children, gap=None, align=None)` | top to bottom |
+| `ui.row(*children, weights=None, gap=None, align=None)` | side by side. Buttons alone split the width evenly; beside a box or text they keep their own width and the rest share what is left. `weights=[2, 1]` sets the shares |
+| `ui.grid(*children, columns=3)` | equal cells |
+| `ui.card(*children, title=None, on_click=None)` | a group; `on_click()` |
+| `ui.section(title, *children, collapsible=False, open=True)` | a titled part |
+| `ui.scroll(*children, height=None)` | scrolls on its own |
+| `ui.tabs(*pages, on_change=None)` with `ui.page(title, *children)` | `on_change(index)`; up to four tabs share the width, more scroll sideways |
+| `ui.spacer(height=8)`, `ui.divider()` | |
+
+### Text
+
+| Widget | |
+|---|---|
+| `ui.label(text, style=None, color=None)`, `ui.text(...)` | a line of text |
+| `ui.title(text)`, `ui.caption(text)` | big, and small |
+| `ui.markdown(text)` | `#` headings, `-` bullets, `**bold**`, `*italic*`, `` `code` `` |
+| `ui.output(text, mono=False, insertable=True, copyable=True)` | a result with **Insert** and **Copy** |
+
+### Controls
+
+| Widget | Callback gets |
+|---|---|
+| `ui.button(text, on_click=None, primary=False, enabled=True, icon=None, color=None)` | nothing |
+| `ui.icon_button(icon, on_click=None, label=None, enabled=True)` | nothing |
+| `ui.input(label=None, value=None, on_change=None, on_submit=None, placeholder=None, multiline=False, kind="text")` | the text; `kind` is `text`, `number`, `email`, `url` or `password` |
+| `ui.search(placeholder=None, value=None, on_change=None, on_submit=None)` | the text |
+| `ui.toggle(label, value=False, on_change=None)`, `ui.checkbox(...)` | `True`/`False` |
+| `ui.slider(value, min=0, max=100, step=1, on_change=None, label=None)` | the number |
+| `ui.stepper(value, min=None, max=None, step=1, on_change=None, label=None)` | the number |
+| `ui.select(options, value=None, on_change=None, label=None, style="dropdown")` | the value; `style="segmented"` puts them side by side |
+| `ui.chips(options, value=None, on_change=None, multi=False)` | the value, or a list with `multi` |
+| `ui.date(label=None, value=None, time=False, step=15, on_change=None)` | seconds since 1970, or `None` |
+| `ui.keys(rows, on_press=None)` | the key's label |
+
+`options` is a list of values, or of `(value, label)` pairs.
+
+### Lists
+
+| Widget | |
+|---|---|
+| `ui.list(items, on_select=None, empty=None)` | rows; `on_select(index)` for rows without their own `on_click`; `empty` is shown when there are none |
+| `ui.item(title, subtitle=None, icon=None, trailing=None, on_click=None, actions=None, selected=False)` | one row; `actions={"Delete": fn}` shows under the row's **⋯** chip |
+
+### Pictures, numbers and drawing
+
+| Widget | |
+|---|---|
+| `ui.image(src, alt=None, height=None, insertable=False, on_click=None)` | `src` is `"assets/name.png"`, a `data:` address, or bytes. A web address shows the `alt` text. |
+| `ui.icon(name, size=None, color=None)` | a [Material Symbols](https://fonts.google.com/icons) icon |
+| `ui.qr(text, size=None)` | a QR code |
+| `ui.stat(label, value, caption=None)` | one big number |
+| `ui.ring(value, label=None, caption=None)` | a share from 0 to 1 as a ring |
+| `ui.progress(value=None)` | a bar from 0 to 1; `None` only says "working" |
+| `ui.chart(data, kind="line", labels=None, height=None)` | `kind` is `line`, `bar` or `spark`; `data` is a list, or a dict of series |
+| `ui.empty(text, icon=None, action=None, on_click=None)` | an empty screen's message and button |
+| `ui.canvas(width, height, shapes, on_tap=None, on_drag=None, on_hold=None, drag_after_hold=False)` | `on_tap(x, y)`; `on_drag({"x", "y", "dx", "dy", "phase"})`; `on_hold(x, y)` on a long press. With `drag_after_hold=True` a drag starts only after a long press, so a plain swipe scrolls the panel |
+| `ui.rect(x, y, w, h, color="primary", radius=0, fill=True)` | a shape for the canvas |
+| `ui.circle(x, y, r, color="primary", fill=True)` | |
+| `ui.line(x1, y1, x2, y2, color="primary", width=1)` | |
+| `ui.text_at(x, y, text, color="primary", size=12)` | `x, y` is the text's top-left corner; `size` is in the canvas's units, from 4 to 96 |
+
+### Messages
+
+| | |
+|---|---|
+| `ui.toast(text)` | a short message over the panel |
+| `ui.dialog(title, text=None, buttons=("OK",), on_result=None)` | `on_result` gets the label pressed, or `None` |
+
+### Colours
+
+A colour is a role: `primary`, `secondary`, `muted`, `danger`, `success`,
+`warning` or `accent`. Anything else raises `ValueError`.
+
+## storage
+
+`from wm import storage`. Needs `storage`. A dict of JSON values kept on the
+phone: `storage[key]`, `storage[key] = value`, `del storage[key]`,
+`key in storage`, `len(storage)`, `for key in storage`, and `get`, `set`,
+`remove`, `setdefault`, `pop`, `update`, `keys`, `values`, `items`, `clear`.
+`storage.used()` and `storage.quota` give bytes used and allowed. Over the
+limit raises `ValueError`. [Guide](/plugins/guides/saving-and-settings/#storage).
+
+## secrets
+
+`from wm import secrets`. Needs `storage`. Text values for API keys, kept apart from `storage`, out of backups and the storage inspector:
+`secrets.get(name, default=None)`, `secrets.set(name, value)`,
+`secrets.remove(name)`.
+
+## http
+
+`from wm import http`. Needs the risky `network`, and the host in `hosts`.
+
+| | |
+|---|---|
+| `http.get(url, params=None, **options)` | |
+| `http.post(url, data=None, json=None, **options)` | also `put`, `patch` |
+| `http.delete(url, **options)` | |
+| `http.request(method, url, params=None, data=None, json=None, headers=None, timeout=15, binary=False, then=None, on_error=None, files=None)` | |
+
+`data` is text, bytes, or a dict sent as a form. `json` is any value sent as
+JSON. `files` sends a multipart upload form: `{"field": (name, bytes, type)}`,
+`(name, bytes)`, plain bytes, or what `files.pick` and `files.photo` give,
+with a `data` dict as its text fields. Your own `Content-Type` header wins
+over the one the keyboard would pick. With `then=fn` the call returns at once
+and `fn` gets the `Response`; `on_error=fn` gets any failure.
+
+A `Response` has `status_code`, `ok`, `text`, `json()`, `content` (bytes),
+`headers` (lowercase names), `url`, `reason` and `raise_for_status()`, which
+raises `http.HTTPError` (an `OSError`, with `.response`) for 400 and up.
+
+https only, 15 seconds, 1 MB, 60 requests a minute, nothing while Data saver
+is on. Requests carry the User-Agent
+`WMKeyboard-Plugin <id>/<pluginVersion> (+https://wmkeyboard.pages.dev)`. With the risky `network.local`, the server the user typed into a `host`
+setting may also be on the local network, over http or https
+([Permissions](/plugins/permissions/#networklocal)).
+[Guide](/plugins/guides/internet-and-ai/).
+
+## ai
+
+`from wm import ai`. Needs the risky `ai`.
+
+| | |
+|---|---|
+| `ai.ask(prompt, system=None, max_tokens=None, then=None, on_error=None)` | the reply as text, or later to `then` |
+| `ai.stream(prompt, on_chunk, system=None, max_tokens=None, then=None, on_error=None)` | each piece to `on_chunk`, the whole reply to `then` |
+| `ai.available()` | whether the user has a model set up |
+
+Raises `RuntimeError` with no model set up, `ConnectionError` with Data saver
+on.
+
+## field
+
+`from wm import field`. The text field the user is typing in. Neither part
+works in password fields or incognito.
+
+| Needs `field.write` | |
+|---|---|
+| `field.insert(text)` | type at the cursor, replacing any selection |
+| `field.replace_selection(text)` | |
+| `field.delete(before=1, after=0)` | |
+| `field.move_cursor(by)` | |
+| `field.send()` | press the action key |
+| `field.insert_image(data, mime="image/png")` | |
+
+| Needs the risky `field.read`, inside a user's action only | |
+|---|---|
+| `field.selection()` | the selected text, or `""` |
+| `field.text_before(n=1000)`, `field.text_after(n=1000)` | |
+| `field.info()` | `{"app", "kind", "hint", "multiline"}` |
+
+## clipboard
+
+`from wm import clipboard`. `clipboard.set(text)` (also `copy`) needs
+`clipboard.write`. `clipboard.get()` (also `paste`) needs the risky
+`clipboard.read`, works inside a user's action only, and never sees a private
+clip.
+
+## device
+
+`from wm import device`. Needs `device`. `vibrate(ms=30)`, `flashlight(on=True)`,
+`speak(text, language=None)`, `battery()` → `{"level", "charging"}`.
+
+## share
+
+`from wm import share`. Needs `share`. `share.text(text, title=None)`,
+`share.open(url)` for an https link. The keyboard shows what goes where first.
+
+## notify
+
+`from wm import notify`. Needs `notifications`. `notify.show(text, title=None, id=None)`,
+`notify.cancel(id)`. Titled with your plugin's name; see
+[Phone features](/plugins/guides/phone-features/#notify).
+
+## reminders
+
+`from wm import reminders`. Needs `reminders`. `reminders.set(id, seconds, text)`
+where `seconds` is a time since 1970 such as `time.time() + 3600`;
+`reminders.cancel(id)`; `reminders.list()`. Up to 64. Setting an id again
+moves that reminder.
+
+## clock
+
+`from wm import clock`. Needs `clock`. Rings in the keyboard's own Clock,
+even with the keyboard closed. `clock.alarm(seconds, label=None)` sets a
+one-off alarm at that time since 1970, to the minute, from one minute to 24
+hours ahead. `clock.timer(seconds, label=None)` starts a timer that rings
+after `seconds`, 1 second to 24 hours. Both raise `ValueError` outside those
+bounds, or when called again within 3 seconds. The keyboard shows a message
+naming your plugin each time; after that the alarm or timer belongs to the
+user, who changes or deletes it in Clock. A plugin cannot read the user's
+alarms. [Guide](/plugins/guides/phone-features/#clock).
+
+## scan
+
+`from wm import scan`. Needs `scan`. `scan.qr(then, on_error=None)` (also
+`barcode`) and `scan.text(then, on_error=None)` give text, or `None` when the
+user closes the scanner.
+
+## sensors
+
+`from wm import sensors`. Needs `sensors`.
+`sensors.subscribe(kind, on_reading, hz=5)` returns a token;
+`sensors.unsubscribe(token)`; `sensors.available()`. Kinds: `accelerometer`,
+`gyroscope`, `magnetometer` (`{"x", "y", "z"}`), `light`, `steps`,
+`proximity`, `pressure` (`{"value"}`). `hz` from 1 to 30. Readings stop when
+the panel closes.
+
+## location
+
+`from wm import location`. Needs the risky `location`.
+`location.get(accuracy="coarse", then=None, on_error=None)` →
+`{"lat", "lon", "accuracy", "time"}`. `accuracy` may be `"fine"`. The first
+call without Android's location permission asks for it and raises
+`PermissionError`.
+
+## files
+
+`from wm import files`. Needs the risky `files`.
+`files.pick(kind="any", then=None, on_error=None)` gives
+`{"name", "mime", "data"}` with `data` as bytes; `kind` is `any`, `image`,
+`text`, `audio`, `video` or a MIME type. `files.photo(then=None, on_error=None)`
+opens the keyboard's camera and gives the picture the user keeps in the same
+shape, as a JPEG. `files.save(name, data, mime=None, then=None, on_error=None)`
+lets the user pick where, and `then` gets the name saved under. Both give `None`
+when the user backs out; files are up to 4 MB.
+
+## calendar
+
+`from wm import calendar`. Needs the risky `calendar`. The first call without
+Android's calendar permission asks for it and raises `PermissionError`.
+
+| | |
+|---|---|
+| `calendar.events(start, end, then=None, on_error=None)` | events from `start` to `end` (seconds since 1970, at most 62 days apart), soonest first: `{"id", "title", "start", "end", "all_day", "location", "calendar", "recurring"}`. A repeating event comes once per occurrence; an all-day one runs from local midnight to local midnight |
+| `calendar.calendars()` | the calendars an event can go in: `{"id", "name", "account", "primary"}`, primary ones first |
+| `calendar.add(title, start, end, all_day=False, calendar=None, location=None, notes=None)` | adds an event and returns its id. `calendar` is an id from `calendars()`; `None` is the first one listed |
+
+## todo
+
+`from wm import todo`. Needs the risky `todo`. The keyboard's own
+[To-do list](/tools/todo/), the one its To-do tool shows.
+
+| | |
+|---|---|
+| `todo.list(done=True)` | the tasks in the list's order: `{"id", "text", "done", "due", "all_day", "steps"}`, where `steps` holds the task's steps in the same shape. `due` is seconds since 1970 or `None`. `done=False` leaves out finished tasks |
+| `todo.add(text, parent=None, due=None, all_day=False)` | adds a task, or a step of the task `parent`, and returns it |
+| `todo.update(id, text=None, done=None, due=..., all_day=False)` | changes the text, the tick or the date; `due=None` clears the date and leaving it out keeps it. Returns the task, or `None` when there is none. Ticking a task ticks its steps |
+| `todo.remove(id)` | deletes the task and its steps; `True` when there was one |
+
+## keyboard
+
+`from wm import keyboard`. Needs no permission. The keys under your panel,
+for drills and tools that want the user to type in another language.
+
+| | |
+|---|---|
+| `keyboard.use_language(language)` | shows the keys of `language`, a tag such as `"ja"`, `"ko"` or `"pt-BR"`: the user's own layout for that language when they added one, else the keyboard's default for it. Returns the layout's name, or `None` when the keyboard has no layout for that language |
+| `keyboard.restore()` | back to the user's own layout |
+
+The user's layout comes back by itself when your panel closes, another plugin
+opens or the text field changes. If the user picks a layout themselves in the
+meantime, theirs stays. Works from the keyboard's panel only: in the floating
+box and in a selection action it raises `RuntimeError`.
+
+## Translations
+
+`from wm import _, gettext, ngettext`, and `from wm import i18n`.
+
+| | |
+|---|---|
+| `_(text, **values)`, `gettext(...)` | `text` in the user's language, with `{name}` filled from `values` |
+| `ngettext(singular, plural, n, **values)` | the right plural for `n`; `{n}` is filled |
+| `i18n.language` | the tag of the translation in use, or `None` for English |
+| `i18n.locale` | the user's first language |
+
+Files go in `locales/<tag>.json`. [Guide](/plugins/guides/translations/).
+
+## wm itself
+
+`import wm` gives `wm.log(*values)` (a line in the plugin's log, like
+`print`), `wm.timestamp(year, month, day, hour=12, minute=0, second=0)` (that
+moment in the phone's time zone, in seconds since 1970),
+`wm.zone_offset(zone=None, seconds=None)` (the UTC offset in seconds of a
+time zone such as `"Asia/Tokyo"` at that moment, now by default, summer time
+included; `None` is the phone's own zone; `ValueError` for a zone the keyboard
+does not know), `wm.plugin_id`, `wm.plugin_version` and `wm.api_version`.
+
+`zone_offset` is for showing a time where it happens: a train in Tokyo leaves
+at Tokyo's 08:00 even when the phone is set to Dhaka.
+
+```python
+import wm
+
+local = departure + wm.zone_offset("Asia/Tokyo", departure)
+print(f"{local // 3600 % 24:02d}:{local // 60 % 60:02d}")
+```
+
+## Errors
+
+Host calls raise ordinary Python exceptions:
+
+| | |
+|---|---|
+| `PermissionError` | a permission is missing, not turned on, or the call is not allowed here |
+| `ConnectionError` | no connection, Data saver on, or too many requests |
+| `TimeoutError` | no answer in time |
+| `http.HTTPError` | from `raise_for_status()` |
+| `ValueError` | a bad argument, a colour that is not a role, storage over quota |
+| `NotImplementedError` | a call this keyboard or the web preview does not answer |
+
+With `then=`, every failure goes to `on_error` instead, if you gave one.
+[Help](/plugins/help/#error-messages) lists the messages.
+
+## Limits
+
+| | |
+|---|---|
+| Archive | 64 files, 4 MB; scripts 256 KB each; assets 512 KB each |
+| Widgets | 1,024 per draw, 128K characters of text |
+| Storage | 512 keys, 64 KB a value, 1 MB in all |
+| Network | 1 MB a reply, 15 seconds, 60 requests a minute, 16 hosts |
+| Settings, actions, header buttons | 24, 16, 3 |
+| Steps | 9M to load, 6M an event, 1.2M a draw, 9M a selection action |
+| Time | 3 s to load, 2 s an event, 0.5 s a draw; waiting on the keyboard does not count |
+| Lists, strings, recursion | 10,000 items, 100,000 characters, 300 calls deep |

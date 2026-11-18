@@ -75,6 +75,8 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -1151,18 +1153,21 @@ private fun PreviewPane(
                 modifier = Modifier.padding(top = 8.dp),
             )
         }
-        Column(
-            modifier = Modifier.fillMaxWidth().weight(1f).verticalScroll(rememberScrollState()).padding(top = 6.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            CompositionLocalProvider(LocalPluginPanelStyle provides style) {
-                PluginWidgetList(
-                    widgets = state.ui.root,
-                    host = host,
-                    onEvent = preview::send,
-                    onInsert = { copyText(context, it, copied) },
-                    onCopy = { copyText(context, it, copied) },
-                )
+        CompositionLocalProvider(LocalPluginPanelStyle provides style) {
+            // Dropdowns open over the preview, as they do over the keyboard's panel.
+            com.wasimaster.wmkeyboard.core.plugins.ui.PluginOverlayBox(null, Modifier.fillMaxWidth().weight(1f)) {
+                Column(
+                    modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(top = 6.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                ) {
+                    PluginWidgetList(
+                        widgets = state.ui.root,
+                        host = host,
+                        onEvent = preview::send,
+                        onInsert = { copyText(context, it, copied) },
+                        onCopy = { copyText(context, it, copied) },
+                    )
+                }
             }
         }
     }
@@ -1254,6 +1259,10 @@ private fun PluginDetailsDialog(manifest: PluginManifest, onDismiss: () -> Unit,
     // box, so saving the form never drops one the draft already declared.
     var declared by rememberSaveable { mutableStateOf(manifest.permissions.joinToString(",")) }
     val granted = declared.split(',').filter { it.isNotEmpty() }.toSet()
+    var api5 by rememberSaveable { mutableStateOf(manifest.apiVersion >= PluginManifestCodec.PACKAGE_API) }
+    var hosts by rememberSaveable { mutableStateOf(manifest.hosts.joinToString(", ")) }
+    var keyword by rememberSaveable { mutableStateOf(manifest.tool.keyword) }
+    var tile by rememberSaveable { mutableStateOf(manifest.tool.tile) }
     val edited = manifest.copy(
         format = PluginManifestCodec.FORMAT,
         name = name,
@@ -1261,7 +1270,10 @@ private fun PluginDetailsDialog(manifest: PluginManifest, onDismiss: () -> Unit,
         pluginVersion = version,
         author = author,
         description = description,
+        apiVersion = if (api5) PluginManifestCodec.PACKAGE_API else minOf(manifest.apiVersion, PluginManifestCodec.PACKAGE_API - 1),
         permissions = PluginPermission.all.map { it.wire }.filter { it in granted },
+        hosts = hosts.split(',', ' ', '\n').map { it.trim() }.filter { it.isNotEmpty() },
+        tool = manifest.tool.copy(keyword = keyword.trim(), tile = tile, chip = keyword.isNotBlank()),
     )
     val problems = remember(edited) { PluginManifestCodec.problems(edited) }
     AlertDialog(
@@ -1274,7 +1286,19 @@ private fun PluginDetailsDialog(manifest: PluginManifest, onDismiss: () -> Unit,
                 OutlinedTextField(version, { version = it }, label = { Text(stringResource(R.string.plugin_ide_details_version_label)) }, singleLine = true)
                 OutlinedTextField(author, { author = it }, label = { Text(stringResource(R.string.plugin_ide_details_author_label)) }, singleLine = true)
                 OutlinedTextField(description, { description = it }, label = { Text(stringResource(R.string.plugin_ide_details_description_label)) })
-                for (permission in PluginPermission.all) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(checked = api5, onCheckedChange = { api5 = it })
+                    Text(stringResource(R.string.plugin_ide_details_api5_label))
+                }
+                if (api5) {
+                    OutlinedTextField(hosts, { hosts = it }, label = { Text(stringResource(R.string.plugin_ide_details_hosts_label)) })
+                    OutlinedTextField(keyword, { keyword = it }, label = { Text(stringResource(R.string.plugin_ide_details_keyword_label)) }, singleLine = true)
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Checkbox(checked = tile, onCheckedChange = { tile = it })
+                        Text(stringResource(R.string.plugin_ide_details_tile_label))
+                    }
+                }
+                for (permission in PluginPermission.all.filter { api5 || it.sinceApi < PluginManifestCodec.PACKAGE_API }) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Checkbox(
                             checked = permission.wire in granted,
@@ -1282,7 +1306,7 @@ private fun PluginDetailsDialog(manifest: PluginManifest, onDismiss: () -> Unit,
                                 declared = (if (on) granted + permission.wire else granted - permission.wire).joinToString(",")
                             },
                         )
-                        Text(stringResource(permission.labelRes))
+                        Text((if (permission.isRisky) "⚠ " else "") + stringResource(permission.labelRes))
                     }
                 }
                 for (problem in problems) {
@@ -1317,6 +1341,18 @@ internal fun rememberMaterialPluginStyle(): PluginPanelStyle {
             chip = { label, selected, enabled, modifier, onClick ->
                 FilterChip(selected = selected, onClick = onClick, label = { Text(label) }, enabled = enabled, modifier = modifier)
             },
+            danger = colors.error,
+            icon = { name, tint, size ->
+                Icon(
+                    com.wasimaster.wmkeyboard.ime.ui.pluginActionIcon(name),
+                    contentDescription = null,
+                    tint = tint,
+                    modifier = Modifier.size(size),
+                )
+            },
+            accentContainer = colors.primary,
+            onAccentContainer = colors.onPrimary,
+            buttonShape = CircleShape,
         )
     }
 }

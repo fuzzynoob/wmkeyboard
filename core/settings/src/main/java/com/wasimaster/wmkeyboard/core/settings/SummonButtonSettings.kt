@@ -138,6 +138,19 @@ data class SummonButtonSettings(
      * slot of its own. Off, the box stays until its close button.
      */
     val boxClosesOutside: Boolean = false,
+    /**
+     * A floating box with no buttons in its title bar (#1262): thrown up it
+     * closes, thrown down it moves into the keyboard, pushed into a side it
+     * tucks, and the bar along its bottom gives way to a grip in the corner.
+     * Off by default, where the tuck, keyboard and close buttons are shown.
+     */
+    val boxGestures: Boolean = false,
+    /**
+     * A hold, then a drag, anywhere on a floating box moves it (#1263), even
+     * over a part of the tool that scrolls or slides, which a plain drag
+     * leaves to the tool. Off by default.
+     */
+    val boxHoldToMove: Boolean = false,
 )
 
 /** What a tap does with the keyboard up or down. */
@@ -175,6 +188,10 @@ fun SummonButtonSettings.pressesSystemButtons(): Boolean =
     (gestureActions() + opensMenuItems()).any {
         it is FloatingAction.System || it == FloatingAction.Tool(ToolbarTool.SCREENSHOT)
     }
+
+/** Whether any of the button's gestures, or its quick menu, cycles the ringer (#1326), which wants Do Not Disturb access for silent. */
+fun SummonButtonSettings.cyclesRinger(): Boolean =
+    FloatingAction.Device(DeviceControl.RINGER).let { it in gestureActions() || it in opensMenuItems() }
 
 /**
  * Every slot a gesture can reach: the quick menu's when some gesture opens

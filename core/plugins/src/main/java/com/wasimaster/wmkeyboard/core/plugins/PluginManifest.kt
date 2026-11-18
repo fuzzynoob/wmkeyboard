@@ -4,8 +4,16 @@ import android.content.Context
 import androidx.annotation.StringRes
 import com.wasimaster.wmkeyboard.plugins.R
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonTransformingSerializer
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.booleanOrNull
+import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.doubleOrNull
 
 /**
  * A line of text for the user that this module cannot put into words itself.
@@ -101,7 +109,136 @@ data class PluginManifest(
     val panel: Boolean = true,
     /** Selection actions: chips on the bar over selected text. Needs the `selection` permission. */
     val actions: List<PluginActionSpec> = emptyList(),
+    /**
+     * API 5: the hosts `wm.http` may reach, `api.example.com` or
+     * `*.example.com`. Required with the `network` permission, and shown to
+     * the user before install and beside the grant.
+     */
+    val hosts: List<String> = emptyList(),
+    /** API 5: where the plugin shows up besides the Plugins panel. */
+    val tool: PluginToolSpec = PluginToolSpec(),
+    /** API 5: the plugin's settings page, drawn by the app. */
+    val settings: List<PluginSettingSpec> = emptyList(),
 )
+
+/**
+ * Where an API 5 plugin appears in the keyboard. Every placement is the
+ * host's own button, drawn in the keyboard's theme, so a plugin cannot put
+ * anything on screen outside a panel the user opened.
+ */
+@Serializable
+data class PluginToolSpec(
+    /**
+     * The tool's icon, on the toolbar, in the toolbox, on the floating button
+     * and on the plugin's rows: a Material Symbols name the app carries
+     * (`kitchen`, `directions_transit`), or `assets/<file>.svg`, a one-colour
+     * 24×24 drawing in the archive that is tinted like every tool icon. Blank,
+     * or a name the app does not carry, is the jigsaw.
+     */
+    val icon: String = "",
+    /**
+     * Put the plugin in the toolbox as a tool when it is installed. The user
+     * can pin it, file it in a folder, or take it out like any tool, and any
+     * plugin with a panel can be made a tool from its page whatever this says.
+     */
+    val tile: Boolean = false,
+    /** The panel may open in a floating box. */
+    val float: Boolean = false,
+    /** `@keyword` while typing offers this plugin's chip; empty for none. */
+    val keyword: String = "",
+    /** Offer a chip in the suggestion strip when the keyword is typed. */
+    val chip: Boolean = false,
+    /** The panel's preferred height in dp, 0 for the keyboard's own. */
+    val height: Int = 0,
+    /**
+     * The icon's colour, `#RRGGBB`: on the plugin's rows, in the toolbox and
+     * on the toolbar, as each built-in tool wears its own. Blank, or anything
+     * else, is the theme's icon colour.
+     */
+    val color: String = "",
+    /**
+     * The panel takes the whole keyboard, the toolbar's rows included, as
+     * Notes and the scanners do: for a plugin taller than it is wide, such as
+     * a planner or a form. Off, the toolbar stays above the panel.
+     */
+    val fullBleed: Boolean = false,
+) {
+    /** [color] as ARGB, or null when it is blank or not `#RRGGBB`. */
+    val colorArgb: Long?
+        get() = color.trim().takeIf { TOOL_COLOR.matches(it) }?.let { 0xFF000000L or it.drop(1).toLong(16) }
+
+    private companion object {
+        val TOOL_COLOR = Regex("^#[0-9A-Fa-f]{6}$")
+    }
+}
+
+/**
+ * One row of a plugin's settings page. The app draws it and stores the value;
+ * the script reads `plugin.settings.<key>`.
+ */
+@Serializable
+data class PluginSettingSpec(
+    val key: String = "",
+    /** [TYPES]: a switch, a text box, a number, one of [options], a website the user types, or a hidden key. */
+    val type: String = TYPE_TEXT,
+    val label: String = "",
+    val summary: String = "",
+    /**
+     * As text: "true", "12", "metric". Ignored for [TYPE_SECRET]. A bare
+     * `true` or `12` is read as its text: written either way, a manifest
+     * installs, where a typed default used to fail the whole decode and the
+     * file read as "not a plugin".
+     */
+    @Serializable(with = SettingDefaultSerializer::class)
+    val default: String = "",
+    /** For [TYPE_CHOICE]: the values, shown as written. */
+    val options: List<String> = emptyList(),
+) {
+    /**
+     * What the page stores for [value], a value the script passed to
+     * `plugin.settings.set`, or null when it does not fit this row: a switch
+     * takes a bool, a number a number, a choice one of [options], text and a
+     * secret a string. A [TYPE_HOST] row is never written by the script.
+     */
+    fun storedText(value: JsonElement): String? {
+        val p = value as? JsonPrimitive ?: return null
+        return when (type) {
+            TYPE_SWITCH -> p.booleanOrNull?.takeIf { !p.isString }?.toString()
+            TYPE_NUMBER -> p.doubleOrNull?.takeIf { !p.isString && it.isFinite() }?.let { n ->
+                if (n == Math.floor(n) && kotlin.math.abs(n) < 1e15) n.toLong().toString() else n.toString()
+            }
+            TYPE_CHOICE -> p.contentOrNull?.takeIf { p.isString && it in options }
+            TYPE_TEXT, TYPE_SECRET -> p.contentOrNull?.takeIf { p.isString }
+            else -> null
+        }
+    }
+
+    companion object {
+        const val TYPE_SWITCH = "switch"
+        const val TYPE_TEXT = "text"
+        const val TYPE_NUMBER = "number"
+        const val TYPE_CHOICE = "choice"
+
+        /**
+         * A website the user adds to the plugin's hosts: their own server, say.
+         * The value is read as a server address (`https://money.example.com:8443/app`),
+         * and only its host joins the list; see [PluginManifestCodec.serverHost].
+         * Only the user writes it: a plugin setting one would widen its own reach.
+         */
+        const val TYPE_HOST = "host"
+
+        /**
+         * An API key or token. The page shows whether one is set, never the
+         * value, and keeps it in the plugin's [PluginSecrets] under the setting's
+         * key, so `secrets.get(key)` reads it too. Needs `storage`.
+         */
+        const val TYPE_SECRET = "secret"
+        val TYPES = setOf(TYPE_SWITCH, TYPE_TEXT, TYPE_NUMBER, TYPE_CHOICE, TYPE_HOST, TYPE_SECRET)
+
+        /** What the session sees for a secret row; the prelude reads the value through `secrets.get`. */
+        val SECRET_MARKER: JsonObject = JsonObject(mapOf("\$secret" to JsonPrimitive(true)))
+    }
+}
 
 /**
  * One selection action a plugin adds.
@@ -177,8 +314,16 @@ object PluginManifestCodec {
      * 4 made Python the only plugin language, on the Rust port of PyMini
      * (`native/wm-python`), with `wm` and `ui` as globals. A manifest below 4
      * that does not say `"language": "python"` is a Lua plugin, and refused.
+     *
+     * 5 is the `wm` package (`from wm import plugin, ui, http`): callbacks,
+     * decorators, classes, several modules per plugin, the new widgets, and
+     * the host calls behind the API 5 permissions, with `hosts`, `tool` and
+     * `settings` in the manifest. A plugin at 4 or below keeps the old globals.
      */
-    const val API_VERSION = 4
+    const val API_VERSION = 5
+
+    /** The level of the `wm` package and the permissions that came with it. */
+    const val PACKAGE_API = 5
 
     /** The first level whose plugins are Python unless they say otherwise. */
     const val PYTHON_ONLY_API = 4
@@ -211,7 +356,22 @@ object PluginManifestCodec {
     private const val MAX_AUTHOR = 64
     private const val MAX_DESCRIPTION = 280
     private const val MAX_ENTRY = 64
-    private const val MAX_PERMISSIONS = 16
+    private const val MAX_PERMISSIONS = 24
+    const val MAX_HOSTS = 16
+    const val MAX_SETTINGS = 24
+    private const val MAX_SETTING_OPTIONS = 24
+    private const val MAX_SETTING_TEXT = 64
+    private val SETTING_KEY = Regex("^[a-z_][a-z0-9_]{0,31}$")
+    private val KEYWORD = Regex("^[a-z0-9]{1,16}$")
+    /** A Material Symbols name, or an SVG in the archive's `assets/` folder; see [PluginToolSpec.icon]. */
+    private val ICON = Regex("^([a-z0-9_]{0,48}|assets/[a-z0-9][a-z0-9_.-]{0,59}\\.svg)$")
+
+    /**
+     * A host name, or `*.` and one: letters, digits and dashes in dot-separated
+     * labels, at least two of them, the last one not all digits. No IP
+     * addresses, no ports, no `localhost`.
+     */
+    private val HOST = Regex("^(\\*\\.)?([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?\\.)+[a-z]([a-z0-9-]{0,61}[a-z0-9])?$")
 
     /** Enough to echo an unknown permission back without pasting an essay into the UI. */
     private const val MAX_ECHO = 32
@@ -221,7 +381,7 @@ object PluginManifestCodec {
     fun encode(manifest: PluginManifest): String = json.encodeToString(manifest)
 
     /** The manifest fields a form edits, in the order [read] checks them. */
-    enum class Field { API_VERSION, ID, NAME, VERSION, AUTHOR, DESCRIPTION, ENTRY, PERMISSIONS, ACTIONS }
+    enum class Field { API_VERSION, ID, NAME, VERSION, AUTHOR, DESCRIPTION, ENTRY, PERMISSIONS, ACTIONS, HOSTS, TOOL, SETTINGS }
 
     /** One thing wrong with one field, in the same words [read] refuses with. */
     data class Problem(val field: Field, val text: PluginText)
@@ -258,6 +418,14 @@ object PluginManifestCodec {
             language = raw.language.trim(),
             panel = raw.panel,
             actions = raw.actions.map { sanitiseAction(it) },
+            hosts = raw.hosts.map { normaliseHost(it) }.distinct(),
+            tool = raw.tool.copy(
+                icon = raw.tool.icon.trim(),
+                keyword = raw.tool.keyword.trim(),
+                height = raw.tool.height.coerceIn(0, MAX_TOOL_HEIGHT),
+                color = raw.tool.color.trim().takeIf { raw.tool.colorArgb != null }.orEmpty(),
+            ),
+            settings = raw.settings.map { sanitiseSetting(it) },
         )
         return PluginManifestResult.Ok(manifest, permissions)
     }
@@ -301,8 +469,140 @@ object PluginManifestCodec {
                 )
             }
         out += actionProblems(manifest, name)
+        out += packageProblems(manifest, name)
         return out
     }
+
+    /** The API 5 rules: permissions new in 5, hosts, the tool block and settings. */
+    private fun packageProblems(manifest: PluginManifest, name: String): List<Problem> {
+        val out = ArrayList<Problem>()
+        val level = apiLevel(manifest)
+        val permissions = manifest.permissions.mapNotNull { PluginPermission.parse(it) }
+        permissions.firstOrNull { it.sinceApi > level }?.let {
+            out += Problem(Field.PERMISSIONS, PluginText.of(R.string.core_plugins_reject_permission_needs_api_5, it.wire, name))
+        }
+        val hosts = manifest.hosts.map { normaliseHost(it) }
+        if (PluginPermission.Network in permissions && hosts.isEmpty() && manifest.settings.none { it.type.trim() == PluginSettingSpec.TYPE_HOST }) {
+            out += Problem(Field.HOSTS, PluginText.of(R.string.core_plugins_reject_network_without_hosts, name))
+        }
+        (hosts.firstOrNull { !isValidHost(it) } ?: hosts.drop(MAX_HOSTS).firstOrNull())?.let {
+            out += Problem(Field.HOSTS, PluginText.of(R.string.core_plugins_reject_bad_host, displayText(it, MAX_ECHO), name))
+        }
+        val tool = manifest.tool
+        if (!KEYWORD.matches(tool.keyword.trim()) && tool.keyword.isNotBlank() || !ICON.matches(tool.icon.trim())) {
+            out += Problem(Field.TOOL, PluginText.of(R.string.core_plugins_reject_bad_tool, name))
+        }
+        val settings = manifest.settings
+        val keys = settings.map { it.key.trim() }
+        val badSetting = settings.size > MAX_SETTINGS ||
+            keys.toSet().size != keys.size ||
+            settings.any { s ->
+                !SETTING_KEY.matches(s.key.trim()) ||
+                    displayText(s.label, MAX_SETTING_TEXT).isEmpty() ||
+                    s.type.trim() !in PluginSettingSpec.TYPES ||
+                    (s.type.trim() == PluginSettingSpec.TYPE_CHOICE && (s.options.isEmpty() || s.options.size > MAX_SETTING_OPTIONS)) ||
+                    (s.type.trim() == PluginSettingSpec.TYPE_SECRET && PluginPermission.Storage !in permissions)
+            }
+        if (badSetting) out += Problem(Field.SETTINGS, PluginText.of(R.string.core_plugins_reject_bad_setting, name))
+        // A symbol name for the icon, its colour and full-bleed are the tool
+        // fields older plugins may carry: they only change how the keyboard
+        // draws them, and need nothing from the wm package. An SVG icon is a
+        // file in `assets/`, which only API 5 archives ship.
+        val iconOnly = tool.copy(icon = "", color = "", fullBleed = false) == PluginToolSpec() && !tool.icon.trim().startsWith("assets/")
+        val usesPackageFields = hosts.isNotEmpty() || settings.isNotEmpty() || (tool != PluginToolSpec() && !iconOnly)
+        if (usesPackageFields && level < PACKAGE_API) {
+            out += Problem(Field.API_VERSION, PluginText.of(R.string.core_plugins_reject_permission_needs_api_5, "hosts/tool/settings", name))
+        }
+        return out
+    }
+
+    /** Lowercase, trimmed, without a scheme or a trailing dot or slash. */
+    fun normaliseHost(raw: String): String =
+        raw.trim().lowercase().removePrefix("https://").trimEnd('/', '.')
+
+    /** Whether [host] (already normalised) is a name `wm.http` may be allowed to reach. */
+    fun isValidHost(host: String): Boolean = host.length <= MAX_HOST_LENGTH && HOST.matches(host)
+
+    /** Whether [host] is covered by [allowed]: equal, or under a `*.` entry. */
+    fun hostAllowed(host: String, allowed: Collection<String>): Boolean {
+        val h = host.lowercase().trimEnd('.')
+        return allowed.any { entry ->
+            if (entry.startsWith("*.")) {
+                val base = entry.removePrefix("*.")
+                h == base || h.endsWith(".$base")
+            } else {
+                h == entry
+            }
+        }
+    }
+
+    /**
+     * The host of a server address the user typed into a `host` setting:
+     * `money.example.com`, `https://money.example.com:8443/firefly`,
+     * `http://192.168.1.20:8080` or `nas`. Scheme, port and path are dropped;
+     * the plugin reads the whole value itself. Null when there is no usable
+     * host: a user name in it, a scheme other than http(s), loopback, or an
+     * IP address that is not on a local network.
+     */
+    fun serverHost(raw: String): String? {
+        val text = raw.trim()
+        if (text.isEmpty()) return null
+        val uri = runCatching { java.net.URI(if ("://" in text) text else "https://$text") }.getOrNull() ?: return null
+        val scheme = uri.scheme?.lowercase()
+        if (scheme != "https" && scheme != "http") return null
+        if (uri.rawUserInfo != null) return null
+        val host = addressHost(uri.host ?: return null) ?: return null
+        return host.takeIf { isLocalHost(it) || isValidHost(it) }
+    }
+
+    /** [raw] as a host name to compare: lowercase ASCII, no trailing dot. Null if it cannot be one. */
+    fun addressHost(raw: String): String? =
+        runCatching { java.net.IDN.toASCII(raw.trim()).lowercase().trimEnd('.') }.getOrNull()?.takeIf { it.isNotEmpty() }
+
+    /**
+     * Whether [host] is a server on the local network, which `wm.http` reaches
+     * only with `network.local` and only when the user typed it: an IPv4
+     * address in 10/8, 172.16/12, 192.168/16, 100.64/10 (Tailscale and other
+     * carrier-grade NAT) or 169.254/16; a one-word name (`nas`); or a name
+     * under one of [LOCAL_SUFFIXES]. Loopback (`localhost`, 127/8, `::1`) is
+     * never local here: it is the phone itself, and stays refused.
+     */
+    fun isLocalHost(host: String): Boolean {
+        val h = host.lowercase().trimEnd('.')
+        if (h.isEmpty() || h.startsWith("[") || ':' in h) return false
+        if (h == "localhost" || h.endsWith(".localhost")) return false
+        val parts = h.split('.')
+        if (parts.size == 4 && parts.all { p -> p.isNotEmpty() && p.length <= 3 && p.all(Char::isDigit) }) {
+            val n = parts.map { it.toInt() }
+            if (n.any { it > 255 }) return false
+            return n[0] == 10 ||
+                (n[0] == 172 && n[1] in 16..31) ||
+                (n[0] == 192 && n[1] == 168) ||
+                (n[0] == 100 && n[1] in 64..127) ||
+                (n[0] == 169 && n[1] == 254)
+        }
+        if (!parts.all { LABEL.matches(it) }) return false
+        if (parts.size == 1) return !h.all(Char::isDigit)
+        return LOCAL_SUFFIXES.any { suffix -> h.endsWith(".$suffix") }
+    }
+
+    /** Name endings that never resolve on the public internet. */
+    val LOCAL_SUFFIXES = listOf("local", "lan", "home", "home.arpa", "internal", "localdomain")
+
+    private val LABEL = Regex("^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$")
+
+    fun sanitiseSetting(setting: PluginSettingSpec): PluginSettingSpec = setting.copy(
+        key = setting.key.trim(),
+        type = setting.type.trim(),
+        label = displayText(setting.label, MAX_SETTING_TEXT),
+        summary = displayText(setting.summary, MAX_DESCRIPTION),
+        default = displayText(setting.default, MAX_SETTING_DEFAULT),
+        options = setting.options.take(MAX_SETTING_OPTIONS).map { displayText(it, MAX_SETTING_TEXT) },
+    )
+
+    private const val MAX_HOST_LENGTH = 253
+    private const val MAX_SETTING_DEFAULT = 256
+    private const val MAX_TOOL_HEIGHT = 600
 
     /**
      * The rules for [PluginManifest.actions], [PluginManifest.language] and
@@ -371,7 +671,7 @@ object PluginManifestCodec {
         Field.AUTHOR -> displayText(raw, MAX_AUTHOR)
         Field.DESCRIPTION -> displayText(raw, MAX_DESCRIPTION)
         Field.ENTRY -> displayText(raw, MAX_ENTRY).ifEmpty { DEFAULT_ENTRY }
-        Field.API_VERSION, Field.PERMISSIONS, Field.ACTIONS -> raw.trim()
+        Field.API_VERSION, Field.PERMISSIONS, Field.ACTIONS, Field.HOSTS, Field.TOOL, Field.SETTINGS -> raw.trim()
     }
 
     /**
@@ -420,5 +720,14 @@ object PluginManifestCodec {
         -> false
 
         else -> true
+    }
+}
+
+/** A setting's default as text, whether the manifest wrote `"true"` or `true`. */
+internal object SettingDefaultSerializer : JsonTransformingSerializer<String>(String.serializer()) {
+    override fun transformDeserialize(element: JsonElement): JsonElement = when {
+        element is JsonNull -> JsonPrimitive("")
+        element is JsonPrimitive && !element.isString -> JsonPrimitive(element.content)
+        else -> element
     }
 }

@@ -33,6 +33,32 @@ class ResizeMathTest {
      */
     private fun gridDp(v: ResizeValues): Float = v.keyHeightDp * 4f + v.numberRowHeightDp
 
+    // ---- toolbar handle (#1261) ----
+
+    @Test
+    fun `dragging the toolbar chip up makes the bar taller`() {
+        assertEquals(54, resizeToolbarBy(entry.copy(toolbarHeightDp = 44), dyDp = -10f, rows = 1).toolbarHeightDp)
+        assertEquals("two rows share the travel", 49, resizeToolbarBy(entry.copy(toolbarHeightDp = 44), dyDp = -10f, rows = 2).toolbarHeightDp)
+    }
+
+    @Test
+    fun `the toolbar height stops at its range and reports the limit`() {
+        val low = resizeToolbarBy(entry.copy(toolbarHeightDp = 30), dyDp = 500f, rows = 1)
+        assertEquals(24, low.toolbarHeightDp)
+        assertTrue(resizeToolbarAtLimit(low))
+        assertFalse(resizeToolbarAtLimit(entry.copy(toolbarHeightDp = 44)))
+    }
+
+    @Test
+    fun `an untouched toolbar height commits as null`() {
+        val action = resizeCommitAction(ScreenVariant.PORTRAIT, entry, entry.copy(keyHeightDp = 50))
+            as SizingAction.ResizeCommit
+        assertNull(action.toolbarHeightDp)
+        val moved = resizeCommitAction(ScreenVariant.PORTRAIT, entry, entry.copy(toolbarHeightDp = 52))
+            as SizingAction.ResizeCommit
+        assertEquals(52, moved.toolbarHeightDp)
+    }
+
     // ---- height drag ----
 
     @Test
@@ -285,5 +311,18 @@ class ResizeMathTest {
         resize.end {}
         assertEquals(0, headroom.pendingPx)
         assertEquals(0, headroom.windowPx)
+    }
+
+    @Test
+    fun `a tool's height drag goes below its opening height down to its floor`() {
+        val resize = ClipPanelResize(null)
+        resize.begin(0f)
+        resize.drag(dyDp = 50f, minDp = -120f, maxDp = 300f)
+        assertEquals(-50f, resize.liveDp)
+        resize.drag(dyDp = 500f, minDp = -120f, maxDp = 300f)
+        assertEquals(-120f, resize.liveDp)
+        var landed: Int? = null
+        resize.end { landed = it }
+        assertEquals(-120, landed)
     }
 }

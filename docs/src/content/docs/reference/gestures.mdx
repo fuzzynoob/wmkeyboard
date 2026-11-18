@@ -33,9 +33,12 @@ Which action a spacebar swipe runs depends on *when* the drag starts relative to
 | Slot = Language, swipe sideways | Spacebar | Steps through enabled layouts (a flick moves one; a continued swipe steps every 44&nbsp;dp after a 200&nbsp;ms pause, 110&nbsp;dp to wrap past either end) | Either slot set to Language |
 | Slot = Cursor, swipe sideways | Spacebar | Moves the text cursor one character per 16&nbsp;dp of drag | Either slot set to Cursor |
 | Same, dragging vertically | Spacebar | Also steps the cursor a line at a time | 2-D cursor touchpad (Off) |
-| Swipe up at least 80&nbsp;dp, more up than sideways, then keep moving | Spacebar | Opens the 2-D touchpad for that drag: the cursor follows in every direction until you lift. The cursor holds still for the long-press delay after it opens, and up and down count once the finger pauses or turns, so the opening swipe never jumps a line | Swipe up for the touchpad (Off) |
+| Swipe up at least 80&nbsp;dp, more up than sideways, then keep moving | Spacebar | Opens the 2-D touchpad for that drag: the cursor follows in every direction until you lift. The cursor holds still for the long-press delay after it opens, and up and down count once the finger pauses or turns, so the opening swipe never jumps a line | Swipe up on the spacebar set to Touchpad (default Nothing) |
+| Swipe up at least 80&nbsp;dp, more up than sideways | Spacebar | Opens the number pad at once | Swipe up on the spacebar set to Number pad |
+| Swipe up at least 80&nbsp;dp, more up than sideways, then lift | Spacebar | Runs the action picked for the swipe up, once, at the lift; types no space | Swipe up on the spacebar set to Another action |
 | Same, while the drag moves the cursor | Spacebar | Shows the text at the cursor, enlarged, in a bubble over the text | Cursor magnifier (On) |
 | Slot = Numpad, cross the initial slop | Spacebar | Opens the numeric keypad (one-shot, so the rest of the drag does nothing) | Either slot set to Numpad |
+| Slot = Another action, cross the initial slop, then lift | Spacebar | Runs the action picked for that slot (a tool such as Text editing, an edit, a layer, a layout, another keyboard, text), once, at the lift; types no space | Either slot set to Another action |
 | Straight downward drag, steeper than it is wide | Spacebar | Dismisses the keyboard | Swipe down to hide the keyboard (Off) |
 | Swipe in from the left or right edge, at least 40&nbsp;dp, more across than up or down | Any key within 16&nbsp;dp of the side | Back: closes the open panel, or the keyboard | Swipe in from the edge to go back (Off) |
 | Press and hold (~250&nbsp;ms, or your press-and-hold delay if shorter), with two or more layouts enabled | Spacebar | Opens the inline language preview or a scrollable picker list | None |
@@ -45,7 +48,7 @@ Which action a spacebar swipe runs depends on *when* the drag starts relative to
 
 <SettingsPath path="Key press / Delete keys" />
 
-Tap, hold-to-repeat, and the delete swipe are one state machine on <KeyCap>⌫</KeyCap>, so a drag can take over from the repeat loop mid-press. In Words mode each word costs less to delete than the last: 72&nbsp;dp for the first, 56&nbsp;dp for the second, then 6&nbsp;dp less per word down to a 28&nbsp;dp floor. In Characters mode every character costs a flat 20&nbsp;dp. Full breakdown, including the character-run and selection rules, on [Gestures](/typing/gestures/#deleting-more-than-a-character-with-backspace).
+Tap, hold-to-repeat, and the delete swipe are one state machine on <KeyCap>⌫</KeyCap>, so a drag can take over from the repeat loop mid-press. In Words mode each word costs less to delete than the last: 72&nbsp;dp for the first, 56&nbsp;dp for the second, then 6&nbsp;dp less per word down to a 28&nbsp;dp floor. In Characters mode every character costs a flat 20&nbsp;dp. A web or email address (`example.com/path`, `https://…`, `test@pm.me`) is one word to every word step (the swipe, the hold and the text-editing pad's word-delete keys), while `end.Then` and `e.g.` still go a piece at a time. Full breakdown, including the character-run and selection rules, on [Gestures](/typing/gestures/#deleting-more-than-a-character-with-backspace).
 
 | Gesture | Where | What it does | Setting |
 | --- | --- | --- | --- |
@@ -152,6 +155,31 @@ Off by default, and only active while the keyboard is on screen. As soon as it c
 
 Every finger has to travel about 28&nbsp;dp the same way before the swipe is recognised. Two-finger swipes are off while two-thumb typing is on.
 
+## Pinch and stretch
+
+<SettingsPath path="Typing / Gestures / Pinch and stretch" />
+
+| Gesture | Where | What it does | Setting |
+| --- | --- | --- | --- |
+| Two fingers spread apart | Anywhere on the letters | Splits the keyboard (nothing if already split) | Pinch and stretch (On); Stretch bindable |
+| Two fingers pinched together | Anywhere on the letters | Merges the keyboard (nothing if not split) | Pinch and stretch (On); Pinch bindable |
+| A second finger that lands late, a still finger beside a moving one, a pair that drifts, or a finger that lifts first | Anywhere on the letters | Types or glides as usual | None |
+
+Both fingers land within about 0.3&nbsp;s, the gap changes by 40&nbsp;dp and a quarter, and each finger moves 14&nbsp;dp along the line between them. The action runs at the lift. Off on the floating keyboard and while two-thumb typing is on.
+
+## One-finger swipes
+
+<SettingsPath path="Typing / Gestures / One-finger swipes" />
+
+| Gesture | Where | What it does | Setting |
+| --- | --- | --- | --- |
+| One finger swiped up | From any letter, glide typing off | Shift | One-finger swipes (Off); Swipe up bindable |
+| One finger swiped down | From any letter, glide typing off | Hides the keyboard | One-finger swipes (Off); Swipe down bindable |
+| One finger swiped left | From any letter, glide typing off | Deletes a word | One-finger swipes (Off); Swipe left bindable |
+| One finger swiped right | From any letter, glide typing off | Next language | One-finger swipes (Off); Swipe right bindable |
+
+The finger travels about 64&nbsp;dp within about 0.35&nbsp;s of landing, within 35° of one direction, with no second finger down. A key with flick arms or swipes of its own keeps them. The action runs at the lift. Never while glide typing is on.
+
 ## Dragging inside a panel or the toolbar
 
 A grab-bag of drags that live on their own feature pages, linked below each row.
@@ -211,7 +239,7 @@ Every default on this page, gathered in one place. "Where" is the settings scree
 | Quick swipe on the spacebar | Typing → Gestures | Language |
 | Press and hold, then swipe | Typing → Gestures | Cursor |
 | 2-D cursor touchpad | Typing → Gestures | Off |
-| Swipe up for the touchpad | Typing → Gestures | Off |
+| Swipe up on the spacebar | Typing → Gestures | Nothing |
 | Cursor magnifier | Typing → Gestures | On |
 | Swipe in from the edge to go back | Typing → Gestures | Off |
 | Swipe down to hide the keyboard | Typing → Gestures | Off |
@@ -225,6 +253,8 @@ Every default on this page, gathered in one place. "Where" is the settings scree
 | Volume keys move the cursor | Typing → Volume keys | Off |
 | Release the keys while audio plays | Typing → Volume keys | On |
 | Multi-finger swipes | Typing → Gestures | On |
+| Pinch and stretch | Typing → Gestures | On |
+| One-finger swipes | Typing → Gestures | Off (works only with glide typing off) |
 | Chords with ?123 | Typing → Gestures | On |
 | Swipes on keys | Typing → Gestures | On, with no keys set |
 | Press and hold delay | Key press → Timing | 300 ms (100–3000 ms) |

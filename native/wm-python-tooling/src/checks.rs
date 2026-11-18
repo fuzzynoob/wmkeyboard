@@ -132,7 +132,9 @@ impl<'a> Checks<'a> {
     fn rebinding(&mut self) {
         let a = self.a;
         for s in &a.symbols {
-            if api::API_GLOBALS.contains(&s.name.as_str()) && s.kind != SymbolKind::Parameter {
+            // `from wm import ui` names the API 5 module; that is the point, not a clash.
+            let from_wm = s.kind == SymbolKind::Import && s.import.as_ref().is_some_and(|(m, _)| m == "wm");
+            if api::API_GLOBALS.contains(&s.name.as_str()) && s.kind != SymbolKind::Parameter && !from_wm {
                 if s.scope == 0 {
                     self.add(Code::ReplacesApi, s.declaration, &[&s.name]);
                 }
@@ -148,23 +150,44 @@ impl<'a> Checks<'a> {
             StmtKind::Import(names) => {
                 for n in names {
                     let root = n.name.split('.').next().unwrap_or("");
-                    if !api::MODULES.contains(&root) && !api::API_GLOBALS.contains(&root) {
+                    if !api::MODULES.contains(&root) && !api::API_GLOBALS.contains(&root) && !self.importable(&n.name) {
                         self.out.push(Diagnostic::new(Code::ImportNotAvailable, n.span, &[&n.name]));
                     }
                 }
             }
             StmtKind::ImportFrom { module, module_span, names, .. } => {
-                if !api::MODULES.contains(&module.as_str()) && !api::API_GLOBALS.contains(&module.as_str()) {
+                if module.starts_with('.') || self.importable(module) {
+                    return;
+                }
+                let package = module.starts_with("wm.") && api::import_path(module, None).starts_with(crate::package::ROOT);
+                if !api::MODULES.contains(&module.as_str()) && !api::API_GLOBALS.contains(&module.as_str()) && !package {
                     self.out.push(Diagnostic::new(Code::ImportNotAvailable, *module_span, &[module]));
                     return;
                 }
                 for n in names {
+                    // An API 5 package name: there, or a typo of one.
+                    if module == "wm" || module.starts_with("wm.") {
+                        let path = api::import_path(module, Some(&n.name));
+                        if path.starts_with(crate::package::ROOT) || (module == "wm" && api::WM_PACKAGE.contains(&n.name.as_str())) {
+                            continue;
+                        }
+                        if module != "wm" {
+                            let base = api::import_path(module, None);
+                            self.member(&base, &n.name, &path, n.span);
+                            continue;
+                        }
+                    }
                     let full = format!("{module}.{}", n.name);
                     self.member(module, &n.name, &full, n.span);
                 }
             }
             _ => {}
         });
+    }
+
+    /// A standard library module written in Python, or one of the plugin's own.
+    fn importable(&self, module: &str) -> bool {
+        api::LIBRARY.contains(&module) || self.host.modules.as_ref().is_some_and(|m| m.iter().any(|x| x == module))
     }
 
     // ---- members of the API ------------------------------------------------
@@ -178,6 +201,11 @@ impl<'a> Checks<'a> {
                     let s = &self.a.symbols[id];
                     match &s.import {
                         Some((module, None)) if api::MODULES.contains(&module.as_str()) => Some(module.clone()),
+                        // The API 5 package, modelled from its own source.
+                        Some((module, member)) if module == "wm" || module.starts_with("wm.") => {
+                            let path = api::import_path(module, member.as_deref());
+                            path.starts_with(crate::package::ROOT).then_some(path)
+                        }
                         Some((module, Some(member))) if api::MODULES.contains(&module.as_str()) || module == "wm" => {
                             Some(format!("{module}.{member}"))
                         }
@@ -255,7 +283,9 @@ impl<'a> Checks<'a> {
             if f.required() > 0 {
                 self.add(Code::RenderParameters, f.name_span, &[]);
             }
-            if !f.returns_value {
+            // API 5 draws with `with ui.column():` blocks and returns nothing.
+            let wm_package = a.symbols.iter().any(|s| s.import.as_ref().is_some_and(|(m, _)| m == "wm"));
+            if !f.returns_value && !wm_package {
                 self.add(Code::RenderReturnsNothing, f.name_span, &[]);
             }
         }

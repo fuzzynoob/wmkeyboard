@@ -27,6 +27,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import com.wasimaster.wmkeyboard.core.icons.symbols.automirrored.outlined.VolumeUp
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.ArrowDropDown
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoMode
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Close
@@ -37,6 +38,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.DownloadDone
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.PhoneAndroid
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapHoriz
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.SwapVert
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Translate
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
@@ -112,6 +114,10 @@ data class TranslateCallbacks(
     val onPaste: () -> Unit = {},
     /** Empties the text box for the next message (#1092). */
     val onClear: () -> Unit = {},
+    /** Translate only when asked (#1226): sends the box's text, once. */
+    val onTranslate: () -> Unit = {},
+    /** Reads the translation aloud in its own language (#1085). */
+    val onSpeak: () -> Unit = {},
 )
 
 /**
@@ -253,6 +259,7 @@ internal fun TranslateTool(
                         .weight(1f)
                         .heightIn(max = FullBleedHeaderHeight)
                         .padding(start = 8.dp),
+                    callbacks.onSpeak,
                 )
                 TranslateActionRow(
                     state,
@@ -344,6 +351,7 @@ private fun TranslatePanel(
                 Modifier
                     .weight(1f)
                     .fillMaxHeight(),
+                callbacks.onSpeak,
             )
         }
         return
@@ -360,7 +368,7 @@ private fun TranslatePanel(
             )
         },
         languages = { TranslateLanguageRow(state, callbacks, menus) },
-        result = { TranslateResult(state, Modifier.fillMaxSize()) },
+        result = { TranslateResult(state, Modifier.fillMaxSize(), callbacks.onSpeak) },
         actions = {
             TranslateActionRow(
                 state,
@@ -627,9 +635,13 @@ private fun TranslateLanguageRow(
     }
 }
 
-/** The translation, the error in its place, or the offer of the models it needs. */
+/**
+ * The translation, the error in its place, or the offer of the models it
+ * needs. A translation has a speaker at its corner that reads it aloud in its
+ * own language (#1085).
+ */
 @Composable
-private fun TranslateResult(state: KeyboardUiState, modifier: Modifier) {
+private fun TranslateResult(state: KeyboardUiState, modifier: Modifier, onSpeak: () -> Unit = {}) {
     val kb = LocalKbTheme.current
     val translate = state.translate
     val animate = kb.motion.toolResults
@@ -642,10 +654,31 @@ private fun TranslateResult(state: KeyboardUiState, modifier: Modifier) {
         if (offer) {
             TranslateDownloadOffer(translate = translate, modifier = Modifier.fillMaxSize(), animate = animate)
         } else {
-            TranslateText(state, animate, Modifier.fillMaxSize())
+            Box(Modifier.fillMaxSize()) {
+                val speakable = translate.translated.isNotEmpty() && translate.error == null
+                TranslateText(state, animate, Modifier.fillMaxSize().padding(end = if (speakable) TranslateSpeakSize else 0.dp))
+                if (speakable) {
+                    val speak = stringResource(R.string.ime_translate_speak_desc)
+                    IconHint(speak, modifier = Modifier.align(Alignment.TopEnd)) {
+                        Icon(
+                            Icons.AutoMirrored.Outlined.VolumeUp,
+                            contentDescription = speak,
+                            tint = kb.secondaryText,
+                            modifier = Modifier
+                                .size(TranslateSpeakSize)
+                                .clip(CircleShape)
+                                .clickable(onClick = onSpeak)
+                                .padding(5.dp),
+                        )
+                    }
+                }
+            }
         }
     }
 }
+
+/** The speaker at the translation's corner, padding included. */
+private val TranslateSpeakSize = 28.dp
 
 /** The translation, or the line standing in for it, fading in where it changed. */
 @Composable
@@ -657,11 +690,13 @@ private fun TranslateText(state: KeyboardUiState, animate: Boolean, modifier: Mo
             translate.error != null -> translate.error
             translate.translated.isNotEmpty() -> translate.translated
             translate.translating -> stringResource(R.string.ime_translate_progress)
+            state.settings.translate.manual -> stringResource(R.string.ime_translate_idle_manual)
             else -> stringResource(R.string.ime_translate_idle)
         },
         color = when {
             translate.error != null -> kb.accent
-            translate.translated.isEmpty() -> kb.secondaryText
+            // Out of date (#1226): still there to insert, but not what the box says now.
+            translate.translated.isEmpty() || translate.stale -> kb.secondaryText
             else -> kb.suggestionText
         },
         fontSize = if (state.mediaSearchActive) 14.sp else 16.sp,
@@ -745,16 +780,20 @@ private fun TranslateActionRow(
     val translate = state.translate
     // The offline build's offer says where to import; it has nothing to press.
     val offerDownload = translate.offersDownload() && InternetPermission.granted
+    // Translate only when asked (#1226): the button that sends, first in the row.
+    val asks = state.settings.translate.manual && !offerDownload
+    val lead = if (asks) 1 else 0
     PanelFocusTarget(
         panel = PanelMode.TRANSLATE,
         region = FocusRegion.ACTIONS,
-        count = if (offerDownload) 1 else 2,
-        columns = if (offerDownload) 1 else 2,
+        count = if (offerDownload) 1 else 2 + lead,
+        columns = if (offerDownload) 1 else 2 + lead,
         onActivate = { index ->
             when {
                 offerDownload -> callbacks.onDownload()
+                asks && index == 0 -> if (state.mediaQuery.isNotBlank()) callbacks.onTranslate()
                 translate.translated.isEmpty() -> Unit
-                index == 0 -> callbacks.onReplace()
+                index == lead -> callbacks.onReplace()
                 else -> callbacks.onInsert()
             }
         },
@@ -786,18 +825,27 @@ private fun TranslateActionRow(
             ) { callbacks.onDownload() }
         } else {
             val nothing = DisabledReason(stringResource(R.string.ime_disabled_translate_nothing))
+            if (asks) {
+                TranslateAction(
+                    label = stringResource(R.string.ime_translate_now_action),
+                    icon = Icons.Outlined.Translate,
+                    enabled = state.mediaQuery.isNotBlank() && !translate.translating,
+                    modifier = sized.focusRing(focusedAction == 0, kb.chipShape()),
+                    disabledReason = DisabledReason(stringResource(R.string.ime_disabled_translate_empty_box)),
+                ) { callbacks.onTranslate() }
+            }
             TranslateAction(
                 label = stringResource(R.string.ime_translate_replace_action),
                 icon = Icons.Outlined.SwapVert,
                 enabled = translate.translated.isNotEmpty(),
-                modifier = sized.focusRing(focusedAction == 0, kb.chipShape()),
+                modifier = sized.focusRing(focusedAction == lead, kb.chipShape()),
                 disabledReason = nothing,
             ) { callbacks.onReplace() }
             TranslateAction(
                 label = stringResource(R.string.ime_insert_action),
                 icon = null,
                 enabled = translate.translated.isNotEmpty(),
-                modifier = sized.focusRing(focusedAction == 1, kb.chipShape()),
+                modifier = sized.focusRing(focusedAction == lead + 1, kb.chipShape()),
                 disabledReason = nothing,
             ) { callbacks.onInsert() }
         }
@@ -942,11 +990,17 @@ internal fun arrangeTranslateLanguages(
     keep: (String) -> Boolean,
     downloadedFirst: Boolean,
     shortList: Boolean,
+    /**
+     * Codes to lead the menu, in this order (#1308): the languages last
+     * picked, then the ones the keyboard types in. Only those on [codes].
+     */
+    pinned: List<String> = emptyList(),
 ): List<String> {
     val shown = if (shortList) codes.filter { ready(it) || keep(it) } else codes
-    if (!downloadedFirst) return shown
-    val (top, rest) = shown.partition(ready)
-    return top + rest
+    val ordered = if (downloadedFirst) shown.partition(ready).let { (top, rest) -> top + rest } else shown
+    if (pinned.isEmpty()) return ordered
+    val lead = pinned.mapNotNull { pin -> ordered.firstOrNull { it.equals(pin, ignoreCase = true) } }.distinct()
+    return lead + ordered.filterNot { it in lead }
 }
 
 @Composable
@@ -1002,6 +1056,10 @@ private fun translateMenuRows(
         keep = { code -> code.equals(selected, ignoreCase = true) || code.lowercase() in typed },
         downloadedFirst = showModels && settings.translate.downloadedFirst,
         shortList = shortList,
+        // The few the user goes between, then the languages they type in.
+        pinned = settings.translateRecentLangs + settings.enabledLanguages.mapNotNull {
+            TranslateClient.pickerCode(it.id.replace('_', '-'))
+        },
     )
     val languages = arranged.map { code ->
         val onDevice = supported(code)

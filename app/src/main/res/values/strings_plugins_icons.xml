@@ -19,23 +19,40 @@
     <!-- ================================================================== -->
 
     <string name="plugins_allow_title">Allow plugins</string>
-    <string name="plugins_allow_subtitle">A plugin is a small tool that other people write. It runs inside a sandbox on this keyboard. This setting is not the Plugins tool on the toolbar, which only sets where the panel appears.</string>
+    <string name="plugins_allow_subtitle">A plugin is a small tool that other people write. It runs inside a sandbox on this keyboard, in the Plugins panel or as its own button on the toolbar.</string>
 
     <string name="plugins_auto_disable_title">Switch off a plugin that hangs</string>
     <string name="plugins_auto_disable_subtitle">Turn a plugin off after it stops responding twice</string>
     <string name="plugins_auto_disable_info">A plugin gets a short time to answer. When it runs past that, the keyboard abandons its thread and counts a strike. At two strikes the keyboard switches the plugin off, so that a broken script cannot keep freezing the panel. Turn this off if you write plugins, or if your device is slow enough to be the real cause, because the keyboard cannot tell a script that hangs from a device that was busy. The keyboard still counts the strikes and still shows them, so you keep the evidence and give up only the switching off. This setting is on by default.</string>
 
     <string name="plugins_facts_title">What a plugin can and cannot do</string>
-    <!-- Six list rows. Each one has a tick or a cross beside it. -->
-    <string name="plugins_fact_no_typing">It cannot see what you type</string>
-    <string name="plugins_fact_no_field">It cannot read the text field you write in</string>
-    <string name="plugins_fact_no_clipboard">It cannot read your clipboard</string>
-    <string name="plugins_fact_no_internet">It cannot use the internet</string>
-    <string name="plugins_fact_own_panel">It can draw its own panel and do its own maths</string>
-    <string name="plugins_fact_own_storage">It can save its own data, if it tells you before you install it</string>
-    <string name="plugins_fact_reminders">It can show a reminder at a time that you set in it, if it tells you before you install it</string>
+    <!-- Headings of the lists that follow "What a plugin can and cannot do": what a plugin may do if it lists it, what waits for the user's switch, and what none may do. -->
+    <string name="plugins_facts_listed_title">If it says so before you install it</string>
+    <string name="plugins_facts_granted_title">Only after you turn it on for that plugin</string>
+    <string name="plugins_facts_never_title">No plugin can</string>
+    <string name="plugins_fact_always_panel">Every plugin can draw its own panel in your keyboard\'s theme and work things out on this phone</string>
+    <string name="plugins_fact_always_tile">Every plugin with a panel can be a button on your toolbar or in your toolbox, if you put it there</string>
+    <string name="plugins_fact_never_typing">See your keystrokes, or anything you type outside its own boxes</string>
+    <string name="plugins_fact_never_watch">Read the text you write or your clipboard by itself: only while you tap something in its panel</string>
+    <string name="plugins_fact_never_private">Read or change a password field, incognito text or a private clip</string>
+    <string name="plugins_fact_never_background">Run while none of its panels is open, apart from the moment you tap one of its actions</string>
+    <!-- The segmented choice on a plugin's page that makes it a tool of its own. -->
+    <string name="plugins_tile_title">Show as a tool</string>
+    <string name="plugins_tile_info">A plugin can be a tool like any other, with its own icon. Pinned to the toolbar or in the toolbox, it drags into place, goes into folders, turns up in the toolbox search and opens the plugin straight away.</string>
+    <string name="plugins_tile_none">Panel only</string>
+    <string name="plugins_tile_toolbar">Toolbar</string>
+    <string name="plugins_tile_toolbox">Toolbox</string>
+    <string name="plugins_fact_never_code">Download new code and run it, or reach the rest of your phone beyond the things listed above</string>
     <!-- Insert is the button inside a plugin panel that sends a result to the text field. -->
-    <string name="plugins_facts_info">These are not settings. A plugin has no way to ask for them. You give text to a plugin when you type or paste it into its own box. The results come back to you when you press Insert.</string>
+    <string name="plugins_facts_info_v5">A plugin lists what it can do before you install it. Some things, like the internet or reading the text you write, stay off until you turn them on for that plugin, on its page. Nothing turns on by itself.</string>
+
+    <!-- The global switch every risky plugin permission also needs. -->
+    <string name="plugins_risky_title">Allow risky permissions</string>
+    <string name="plugins_risky_subtitle">Let plugins use the internet, your AI model, the text you write, your clipboard, your location or files, when you turn that on for a plugin</string>
+    <string name="plugins_risky_info">This switch is off by default. While it is off, no plugin can use any of these, even one you allowed. Turning it on allows nothing by itself: you still turn each permission on for each plugin, on that plugin\'s page.</string>
+    <string name="plugins_risky_confirm_title">Allow risky permissions?</string>
+    <string name="plugins_risky_confirm_body">Plugins are written by other people. A plugin you allow to use the internet can send what you give it to the websites it lists. One you allow to read the text you write can read it each time you tap something in its panel. Only allow plugins you trust.</string>
+    <!-- Insert is the button inside a plugin panel that sends a result to the text field. -->
 
     <!-- ================================================================== -->
     <!-- Plugins: the installed list and how to add one.                    -->
@@ -91,7 +108,27 @@
 
     <string name="plugins_permissions_title">What it can do</string>
     <string name="plugins_permissions_none">Nothing outside its own panel</string>
-    <string name="plugins_permissions_info">The plugin declares this when you install it. A plugin cannot ask for more while it runs, because there is nothing more to ask for.</string>
+    <string name="plugins_permissions_info_v5">The plugin listed these when you installed it. The ones with a switch stay off until you turn them on, and a plugin cannot ask for anything else while it runs.</string>
+    <!-- Shown under a risky permission's switch while the global switch is off. -->
+    <string name="plugins_permission_risky_off_subtitle">Turn on “Allow risky permissions” under Tools then Plugins first</string>
+    <!-- %1$s is the permission's line, for example "Connect to the internet". The title of the confirmation before turning it on. -->
+    <string name="plugins_permission_grant_title">Allow “%1$s”?</string>
+    <!-- The websites a plugin may connect to. -->
+    <string name="plugins_hosts_title">Websites it can connect to</string>
+    <!-- Shown once after an update that added permissions or websites. %1$s lists them. -->
+    <string name="plugins_new_since_update">The last update added: %1$s. They are off until you turn them on.</string>
+    <string name="plugins_settings_title">Settings</string>
+    <string name="plugins_setting_default_reset">Use the default</string>
+    <!-- A plugin's API key or token row, when one is saved. The value itself is never shown. -->
+    <string name="plugins_setting_secret_saved">Saved. Tap to replace it</string>
+    <!-- A plugin's API key or token row, when none is saved yet. -->
+    <string name="plugins_setting_secret_empty">Not set</string>
+    <!-- Button in the dialog for a plugin's API key or token: forgets the saved one. -->
+    <string name="plugins_setting_secret_remove">Remove</string>
+    <!-- Hint in the empty box of the dialog for a plugin's API key or token, when one is already saved. -->
+    <string name="plugins_setting_secret_replace_hint">Type a new one to replace it</string>
+    <!-- A header over permissions the plugin cannot use until the user turns them on. -->
+    <string name="plugins_install_risky_intro">If you turn them on later, it can also:</string>
     <!-- Heading over the buttons a plugin adds to the bar over selected text. -->
     <string name="plugins_actions_title">Selection actions</string>
     <string name="plugins_actions_info">Buttons this plugin adds to the bar over text you select. Tapping one hands the plugin that text, and it puts back what it made of it. Undo on the bar takes the change back.</string>
@@ -261,6 +298,7 @@
     <string name="plugins_icons_tab_builtin">Built-in</string>
     <string name="plugins_icons_tab_yours">Your icons</string>
     <string name="plugins_icons_tab_packs">Packs</string>
+    <string name="plugins_icons_tab_installed">Installed</string>
     <string name="plugins_icons_packs_empty">No installed pack has an icon for this.</string>
     <string name="plugins_icons_yours_empty">Pictures you add stay here. You can put them back on any icon with one tap.</string>
     <!-- The first cell of the grid. It opens the file picker. -->

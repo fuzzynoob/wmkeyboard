@@ -47,6 +47,8 @@ open class WMApplication : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        // Before anything sizes a cache: a 1 GB television box gets smaller ones.
+        com.wasimaster.wmkeyboard.core.perf.DeviceMemory.init(this)
         // The crash screen runs in its own process and must not get a handler:
         // a failure while showing a crash report would launch another crash
         // report, forever. See CrashReportActivity.
@@ -87,6 +89,9 @@ open class WMApplication : Application() {
         // Lets the keyboard tell whether a screen of this app is up before it
         // recycles the process the two share. One callback registration.
         com.wasimaster.wmkeyboard.core.util.StartedActivities.install(this)
+        // Scans still waiting for the user's Paperless server (#1198): the
+        // upload job does not outlive a reboot. One directory listing.
+        com.wasimaster.wmkeyboard.ime.paperless.PaperlessQueue.resume(this)
         // Interface language packs (the standard GitHub build, Android 11+):
         // loaded once here and added to every screen's resources as it is
         // created, before it inflates a string. A no-op on every other build,
@@ -155,17 +160,17 @@ open class WMApplication : Application() {
         // :core:intelligence; :core:voice gets it through these. Nothing runs
         // until a program exported for the NPU is opened.
         com.wasimaster.wmkeyboard.core.voice.executorch.EtNative.qnnPossible = {
-            com.wasimaster.wmkeyboard.core.localllm.NpuSupport.soc != null
+            com.wasimaster.wmkeyboard.core.localllm.NpuSupport.qnnSoc != null
         }
         com.wasimaster.wmkeyboard.core.voice.executorch.EtNative.qnnRuntime = {
-            com.wasimaster.wmkeyboard.core.localllm.NpuSupport.soc?.let {
+            com.wasimaster.wmkeyboard.core.localllm.NpuSupport.qnnSoc?.let {
                 com.wasimaster.wmkeyboard.core.localllm.NpuRuntime.directory(this, it)
             }
         }
         // The same chip picks the NPU builds of Parakeet and Moonshine that
         // sherpa-onnx's QNN library runs.
         com.wasimaster.wmkeyboard.core.voice.executorch.EtNative.qnnSoc = {
-            com.wasimaster.wmkeyboard.core.localllm.NpuSupport.soc
+            com.wasimaster.wmkeyboard.core.localllm.NpuSupport.qnnSoc
         }
         // Sync between devices: keeps its jobs in step with the settings and
         // pushes shortly after a synced setting changes. Here because the

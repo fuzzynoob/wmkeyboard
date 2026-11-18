@@ -223,7 +223,10 @@ object AddonInstaller {
             AddonType.Sound -> uninstallSound(context, record.localRef)
             AddonType.SoundPack -> uninstallSoundPack(context, record.localRef)
             // Deletes the plugin's whole directory: script, stored data and log.
-            AddonType.Plugin -> PluginStore.get(context).delete(record.localRef)
+            AddonType.Plugin -> {
+                PluginStore.get(context).delete(record.localRef)
+                SettingsRepository(context).removePluginTool(record.localRef)
+            }
             AddonType.Unknown -> Unit
         }
         notifyContentChanged(context, record.type)
@@ -263,7 +266,7 @@ object AddonInstaller {
      * which is not a thing an install should do on its own — so the plugin does
      * not even appear in the panel until the user says yes to [AddonApply].
      */
-    private fun installPlugin(context: Context, payload: File): Outcome {
+    private suspend fun installPlugin(context: Context, payload: File): Outcome {
         val store = PluginStore.get(context)
         // The master switch gates installing as well as running. Someone who
         // has not turned plugins on should not end up with one on disk because
@@ -282,6 +285,11 @@ object AddonInstaller {
                 // a file the user opened by hand and wrong for one that arrived
                 // from a repository — that one is offered, not switched on.
                 store.setEnabled(result.plugin.id, false)
+                // A plugin that asks to be a tool joins the toolbox, where it
+                // shows once the user switches it on.
+                if (!result.replaced && result.plugin.panel && result.plugin.tool.tile) {
+                    SettingsRepository(context).offerPluginTool(result.plugin.id)
+                }
                 Outcome.Installed(result.plugin.id)
             }
             is PluginImportResult.Rejected -> Outcome.Rejected(result.reasonText.toAddonText())
@@ -494,7 +502,13 @@ object AddonInstaller {
             ?: return Outcome.Rejected(
                 AddonText.of(R.string.faddons_install_error_not_an_espanso_pack),
             )
-        return storeSnippets(context, entry, imported.snippets, imported.notes.map { it.resolve(context) })
+        return storeSnippets(
+            context,
+            entry,
+            imported.snippets,
+            imported.notes.map { it.resolve(context) },
+            images = imported.images,
+        )
     }
 
     /** The half of a snippet install that does not care where the file came from. */
@@ -503,6 +517,7 @@ object AddonInstaller {
         entry: AddonEntry,
         snippets: List<Snippet>,
         repairs: List<String>,
+        images: Map<String, ByteArray> = emptyMap(),
     ): Outcome {
         if (snippets.isEmpty()) {
             return Outcome.Rejected(
@@ -524,7 +539,7 @@ object AddonInstaller {
         // The localRef stays the comma-joined snippet ids it has always been.
         // The folder is found back from them at uninstall, which keeps every
         // record written by an older build readable by this one.
-        val added = store.addAll(snippets, fallbackFolderId = folder.id).map { it.id }
+        val added = store.addAll(snippets, fallbackFolderId = folder.id, images = images).map { it.id }
         // The adds only mutate the in-memory list; save() is what writes the file.
         store.save()
         return Outcome.Installed(added.joinToString(","), repairs)

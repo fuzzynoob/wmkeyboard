@@ -29,7 +29,10 @@ import com.wasimaster.wmkeyboard.core.prediction.UndoMemory
 import com.wasimaster.wmkeyboard.core.settings.FlickDistanceRange
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeDistanceRange
 import com.wasimaster.wmkeyboard.core.settings.FlickReachRange
+import com.wasimaster.wmkeyboard.core.settings.LM_STRENGTH_MAX
 import com.wasimaster.wmkeyboard.core.settings.MAX_STOP_AFTER_DECLINES
+import com.wasimaster.wmkeyboard.core.settings.NextWordAmount
+import com.wasimaster.wmkeyboard.core.settings.NextWordSuggestions
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
 import com.wasimaster.wmkeyboard.core.settings.SuggestionHotkeyMode
 import com.wasimaster.wmkeyboard.core.providers.ProviderTool
@@ -99,6 +102,8 @@ import com.wasimaster.wmkeyboard.core.settings.GlideDwellFullRange
 import com.wasimaster.wmkeyboard.core.settings.GlideLoopMinArcRange
 import com.wasimaster.wmkeyboard.core.settings.GlideLoopExtentRange
 import com.wasimaster.wmkeyboard.core.settings.GlideLoopRadiusRange
+import com.wasimaster.wmkeyboard.core.settings.GlideLoopStrengthRange
+import com.wasimaster.wmkeyboard.core.settings.GlidePauseStrengthRange
 import com.wasimaster.wmkeyboard.core.settings.GlideWiggleExtentRange
 import com.wasimaster.wmkeyboard.core.settings.GlideKeptStrokesRange
 import com.wasimaster.wmkeyboard.core.settings.GlideShapesPerWordRange
@@ -108,6 +113,7 @@ import com.wasimaster.wmkeyboard.core.settings.GlidePickerSensitivity
 import com.wasimaster.wmkeyboard.core.settings.GlideCommitColor
 import com.wasimaster.wmkeyboard.core.settings.GlideCommitColorScope
 import com.wasimaster.wmkeyboard.core.settings.GlideLookAhead
+import com.wasimaster.wmkeyboard.core.settings.GlideDrawnLetters
 import com.wasimaster.wmkeyboard.core.settings.GlidePreviewSteadiness
 import com.wasimaster.wmkeyboard.core.settings.GlideSandbox
 import com.wasimaster.wmkeyboard.core.settings.GlideVocabulary
@@ -131,6 +137,10 @@ import com.wasimaster.wmkeyboard.core.settings.RetypeButtonPlace
 import com.wasimaster.wmkeyboard.core.settings.stripHidden
 import com.wasimaster.wmkeyboard.core.settings.SuggestionOverflow
 import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeAction
+import com.wasimaster.wmkeyboard.core.settings.SpaceSwipeUp
+import com.wasimaster.wmkeyboard.core.layout.SpaceSwipeSlot
+import com.wasimaster.wmkeyboard.core.layout.bindingOf
+import com.wasimaster.wmkeyboard.core.layout.secondaryLayouts
 import com.wasimaster.wmkeyboard.core.settings.WordMenuItem
 import com.wasimaster.wmkeyboard.core.settings.LanguagePickerStyle
 import com.wasimaster.wmkeyboard.core.settings.SpacebarDisplay
@@ -143,7 +153,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FiberManualRecord
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.KeyboardTab
 import androidx.compose.ui.graphics.vector.ImageVector
 
-/** One spacebar-swipe slot (quick or hold+swipe): nothing / language / cursor. */
+/** One spacebar-swipe slot (quick or hold+swipe): nothing, language, cursor, … or another action. */
 @Composable
 private fun SpaceSwipeSetting(
     @StringRes title: Int,
@@ -158,6 +168,8 @@ private fun SpaceSwipeSetting(
     val cursor = stringResource(R.string.home_space_swipe_cursor_label)
     val numpad = stringResource(R.string.home_space_swipe_numpad_label)
     val keyboards = stringResource(R.string.home_space_swipe_keyboards_label)
+    val secondary = stringResource(R.string.home_space_swipe_secondary_label)
+    val other = stringResource(R.string.home_space_swipe_action_label)
     ChoiceSetting(
         title = title,
         subtitle = subtitle,
@@ -169,6 +181,8 @@ private fun SpaceSwipeSetting(
                 SpaceSwipeAction.CURSOR -> cursor
                 SpaceSwipeAction.NUMPAD -> numpad
                 SpaceSwipeAction.KEYBOARDS -> keyboards
+                SpaceSwipeAction.SECONDARY_LAYOUT -> secondary
+                SpaceSwipeAction.ACTION -> other
             }
         },
         selected = value,
@@ -312,6 +326,7 @@ internal fun TypingCorrectionsSettings(
     val undoChipOn = settings.watch { it.suggestionStrip.undoCorrectionChip }
     val detectionOn = settings.watch { it.suggestionStrip.languageDetection }
     val numberRowOn = settings.watch { it.numberRow }
+    val neuralOn = settings.watch { it.suggestionStrip.neuralContext }
     SettingsGroup(stringResource(R.string.typing_group_corrections_title)) {
         item {
             ToggleSetting(
@@ -416,6 +431,15 @@ internal fun TypingCorrectionsSettings(
             }
             item(level = SettingLevel.ADVANCED) {
                 ToggleSetting(
+                    R.string.typing_whole_phrases_title,
+                    stringResource(R.string.typing_whole_phrases_subtitle),
+                    settings.watch { it.correction.readWholePhrases },
+                    info = stringResource(R.string.typing_whole_phrases_info),
+                    default = SettingsDefaults.correction.readWholePhrases,
+                ) { scope.launch { repository.setAutocorrectWholePhrases(it) } }
+            }
+            item(level = SettingLevel.ADVANCED) {
+                ToggleSetting(
                     R.string.typing_learned_gate_title,
                     stringResource(R.string.typing_learned_gate_subtitle),
                     settings.watch { it.correction.learnedGate },
@@ -443,12 +467,30 @@ internal fun TypingCorrectionsSettings(
             }
             item(level = SettingLevel.ADVANCED) {
                 ToggleSetting(
+                    R.string.typing_autocorrect_mark_title,
+                    stringResource(R.string.typing_autocorrect_mark_subtitle),
+                    settings.watch { it.correction.markInField },
+                    info = stringResource(R.string.typing_autocorrect_mark_info),
+                    default = SettingsDefaults.correction.markInField,
+                ) { scope.launch { repository.setAutocorrectMarkInField(it) } }
+            }
+            item(level = SettingLevel.ADVANCED) {
+                ToggleSetting(
                     R.string.typing_autocorrect_on_punctuation_title,
                     stringResource(R.string.typing_autocorrect_on_punctuation_subtitle),
                     settings.watch { it.correction.onPunctuation },
                     info = stringResource(R.string.typing_autocorrect_on_punctuation_info),
                     default = SettingsDefaults.correction.onPunctuation,
                 ) { scope.launch { repository.setAutocorrectOnPunctuation(it) } }
+            }
+            item(level = SettingLevel.ADVANCED) {
+                ToggleSetting(
+                    R.string.typing_autocorrect_on_emoji_title,
+                    stringResource(R.string.typing_autocorrect_on_emoji_subtitle),
+                    settings.watch { it.correction.onEmoji },
+                    info = stringResource(R.string.typing_autocorrect_on_emoji_info),
+                    default = SettingsDefaults.correction.onEmoji,
+                ) { scope.launch { repository.setAutocorrectOnEmoji(it) } }
             }
             item(level = SettingLevel.ADVANCED) {
                 ToggleSetting(
@@ -524,6 +566,20 @@ internal fun TypingCorrectionsSettings(
                 info = stringResource(R.string.typing_neural_context_info),
                 default = SettingsDefaults.suggestionStrip.neuralContext,
             ) { scope.launch { repository.setNeuralContext(it) } }
+        }
+        // How much the model moves a word being typed: a factor on the
+        // engine's shipped blend, so 100% is exactly what it always did.
+        item(visible = neuralOn, level = SettingLevel.ADVANCED) {
+            SliderSetting(
+                R.string.typing_lm_strength_title,
+                subtitle = stringResource(R.string.typing_lm_strength_subtitle),
+                value = settings.watch { it.suggestionStrip.lmStrength }.toFloat(),
+                range = 0f..LM_STRENGTH_MAX.toFloat(),
+                steps = LM_STRENGTH_MAX / 10 - 1,
+                display = { "${(it.toInt() + 5) / 10 * 10}%" },
+                info = stringResource(R.string.typing_lm_strength_info),
+                default = SettingsDefaults.suggestionStrip.lmStrength.toFloat(),
+            ) { scope.launch { repository.setLmStrength((it.toInt() + 5) / 10 * 10) } }
         }
         item(level = SettingLevel.ADVANCED) {
             ToggleSetting(
@@ -966,11 +1022,13 @@ internal fun TypingSuggestionsSettings(
     onOpenBlacklist: () -> Unit,
     onOpenAutopilot: () -> Unit,
     onOpenOctopus: () -> Unit,
+    onOpenStripLook: () -> Unit = {},
 ) {
     val scope = rememberCoroutineScope()
     // What decides which rows the group holds; each row reads its own value.
     val suggestionsOn = settings.watch { it.suggestions }
     val punctuationOn = settings.watch { it.suggestionStrip.punctuation }
+    val nextWords = settings.watch { it.suggestionStrip.nextWords }
     val autocorrectOn = settings.watch { it.correction.enabled }
     val askBeforeLearning = settings.watch { it.suggestionStrip.askBeforeLearning }
     val scrollable = settings.watch { it.suggestionStrip.scrollable }
@@ -990,6 +1048,17 @@ internal fun TypingSuggestionsSettings(
                 default = SettingsDefaults.suggestions,
             ) { scope.launch { repository.setSuggestions(it) } }
         }
+        // How the strip looks is set beside the toolbar it shares a bar with,
+        // which is not where anyone tuning suggestions looks first (#1318).
+        // A door to those rows, landing on the first of them.
+        item(level = SettingLevel.STANDARD) {
+            NavRow(
+                R.string.typing_strip_look_title,
+                stringResource(R.string.typing_strip_look_subtitle),
+                route = "appearance/toolbar",
+                onClick = onOpenStripLook,
+            )
+        }
         // The strip refresh returns before it reads any of this while
         // suggestions are off, so the chips never get built.
         if (suggestionsOn) item {
@@ -1001,7 +1070,62 @@ internal fun TypingSuggestionsSettings(
                 default = SettingsDefaults.suggestionStrip.punctuation,
             ) { scope.launch { repository.setPunctuationSuggestions(it) } }
         }
-        item(visible = suggestionsOn && punctuationOn, level = SettingLevel.ADVANCED) {
+        // Next-word suggestions: one switch over the empty strip, and how
+        // eagerly it guesses (the engine's NextWordReach).
+        if (suggestionsOn) item {
+            ChoiceSetting(
+                R.string.typing_next_words_title,
+                subtitle = stringResource(R.string.typing_next_words_subtitle),
+                info = stringResource(R.string.typing_next_words_info),
+                options = listOf(
+                    NextWordSuggestions.OFF to stringResource(R.string.typing_next_words_off),
+                    NextWordSuggestions.WORDS to stringResource(R.string.typing_next_words_words),
+                    NextWordSuggestions.WORDS_AND_PUNCTUATION to stringResource(R.string.typing_next_words_punct),
+                ),
+                selected = nextWords,
+                default = SettingsDefaults.suggestionStrip.nextWords,
+                detail = { mode ->
+                    ChoiceDetail(
+                        stringResource(
+                            when (mode) {
+                                NextWordSuggestions.OFF -> R.string.typing_next_words_off_desc
+                                NextWordSuggestions.WORDS -> R.string.typing_next_words_words_desc
+                                NextWordSuggestions.WORDS_AND_PUNCTUATION -> R.string.typing_next_words_punct_desc
+                            },
+                        ),
+                    )
+                },
+            ) { scope.launch { repository.setNextWordSuggestions(it) } }
+        }
+        item(visible = suggestionsOn && nextWords != NextWordSuggestions.OFF, level = SettingLevel.ADVANCED) {
+            ChoiceSetting(
+                R.string.typing_next_word_amount_title,
+                subtitle = stringResource(R.string.typing_next_word_amount_subtitle),
+                info = stringResource(R.string.typing_next_word_amount_info),
+                options = listOf(
+                    NextWordAmount.FEWER to stringResource(R.string.typing_next_word_amount_fewer),
+                    NextWordAmount.NORMAL to stringResource(R.string.typing_next_word_amount_normal),
+                    NextWordAmount.MORE to stringResource(R.string.typing_next_word_amount_more),
+                ),
+                selected = settings.watch { it.suggestionStrip.nextWordAmount },
+                default = SettingsDefaults.suggestionStrip.nextWordAmount,
+                detail = { level ->
+                    ChoiceDetail(
+                        stringResource(
+                            when (level) {
+                                NextWordAmount.FEWER -> R.string.typing_next_word_amount_fewer_desc
+                                NextWordAmount.NORMAL -> R.string.typing_next_word_amount_normal_desc
+                                NextWordAmount.MORE -> R.string.typing_next_word_amount_more_desc
+                            },
+                        ),
+                    )
+                },
+            ) { scope.launch { repository.setNextWordAmount(it) } }
+        }
+        item(
+            visible = suggestionsOn && (punctuationOn || nextWords == NextWordSuggestions.WORDS_AND_PUNCTUATION),
+            level = SettingLevel.ADVANCED,
+        ) {
             TextFieldSetting(
                 label = stringResource(R.string.typing_punctuation_marks_title),
                 value = settings.watch { it.suggestionStrip.punctuationChips },
@@ -1026,7 +1150,7 @@ internal fun TypingSuggestionsSettings(
                 R.string.typing_fit_more_words_title,
                 stringResource(R.string.typing_fit_more_words_subtitle),
                 settings.watch { it.suggestionStrip.fitMoreWords },
-                info = stringResource(R.string.typing_fit_more_words_info),
+                info = stringResource(R.string.typing_fit_more_words_in_place_info),
                 default = SettingsDefaults.suggestionStrip.fitMoreWords,
             ) { scope.launch { repository.setFitMoreWords(it) } }
         }
@@ -1383,6 +1507,14 @@ internal fun TypingSuggestionsSettings(
                 settings.watch { it.suggestionStrip.typedWordFirst },
                 default = SettingsDefaults.suggestionStrip.typedWordFirst,
             ) { scope.launch { repository.setTypedWordFirst(it) } }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_rank_marks_title,
+                stringResource(R.string.typing_rank_marks_subtitle),
+                settings.watch { it.suggestionStrip.rankMarks },
+                default = SettingsDefaults.suggestionStrip.rankMarks,
+            ) { scope.launch { repository.setSuggestionRankMarks(it) } }
         }
         item(level = SettingLevel.STANDARD) {
             ToggleSetting(
@@ -1819,6 +1951,7 @@ internal fun TypingSmartChipsSettings(
     val gifsOn = settings.watch { it.smartChips.gifs }
     val numbersOn = settings.watch { it.smartChips.numbers }
     val repeatsOn = settings.watch { it.smartChips.repeats }
+    val contactsOn = settings.watch { it.smartChips.contacts }
     // The keyboard gates on the usable set, so the banners ask the same one.
     val usable = settings.watch { usableTools(it) }
     SettingsGroup(stringResource(R.string.typing_group_smart_chips_title)) {
@@ -1987,6 +2120,24 @@ internal fun TypingSmartChipsSettings(
                     }
                 }
             }
+            item(visible = contactsOn, level = SettingLevel.STANDARD) {
+                ChoiceSetting(
+                    title = R.string.typing_smart_contact_message_title,
+                    subtitle = stringResource(R.string.typing_smart_contact_message_subtitle),
+                    options = listOf(
+                        com.wasimaster.wmkeyboard.core.settings.ContactMessageApp.SMS to
+                            stringResource(R.string.typing_smart_contact_message_sms),
+                        com.wasimaster.wmkeyboard.core.settings.ContactMessageApp.WHATSAPP to "WhatsApp",
+                        com.wasimaster.wmkeyboard.core.settings.ContactMessageApp.TELEGRAM to "Telegram",
+                        com.wasimaster.wmkeyboard.core.settings.ContactMessageApp.SIGNAL to "Signal",
+                        com.wasimaster.wmkeyboard.core.settings.ContactMessageApp.ASK to
+                            stringResource(R.string.typing_smart_contact_message_ask),
+                    ),
+                    selected = settings.watch { it.smartChips.contactMessageApp },
+                    onChange = { scope.launch { repository.setSmartChipContactMessageApp(it) } },
+                    default = SettingsDefaults.smartChips.contactMessageApp,
+                )
+            }
             // The same text typed a few times in a row → the Text repeat tool,
             // opened on it with the count already set.
             item(level = SettingLevel.ADVANCED) {
@@ -2022,6 +2173,8 @@ internal fun TypingSmartChipsSettings(
             }
         }
     }
+    // "@gif cats" and the rest (#1242): only while the chips are on at all.
+    if (smartOn) SearchShortcutsGroup(repository, settings)
 }
 
 /**
@@ -2066,7 +2219,7 @@ private fun RedactedCodesRow(settings: LiveSettings, onUnblocked: () -> Unit) {
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
     val useRoot = settings.watch { it.launcher.useRoot }
-    LaunchedEffect(Unit) { com.wasimaster.wmkeyboard.core.shell.ShellAccess.init() }
+    LaunchedEffect(Unit) { com.wasimaster.wmkeyboard.core.shell.ShellAccess.init(context) }
     androidx.compose.runtime.SideEffect { com.wasimaster.wmkeyboard.core.shell.ShellAccess.rootAllowed = useRoot }
     val granted = com.wasimaster.wmkeyboard.core.shell.ShellAccess.shizukuGranted
     val shizuku by produceState(granted.value) { granted.collect { value = it } }
@@ -2988,7 +3141,27 @@ internal fun TypingSpacebarSettings(
     // What decides which rows the groups hold; each row reads its own value.
     val spaceCursor = settings.watch {
         it.spaceShortSwipe == SpaceSwipeAction.CURSOR || it.spaceLongSwipe == SpaceSwipeAction.CURSOR ||
-            it.textEditing.spaceSwipeUpTouchpad
+            it.textEditing.spaceSwipeUp == SpaceSwipeUp.TOUCHPAD
+    }
+    // Competitor gap list item 3: a slot set to another action gets a row
+    // under it naming the action, and picking "Another action" opens the
+    // multi-finger swipes' own picker straight away.
+    val shortSwipe = settings.watch { it.spaceShortSwipe }
+    val longSwipe = settings.watch { it.spaceLongSwipe }
+    val upSwipe = settings.watch { it.textEditing.spaceSwipeUp }
+    val swipeBindings = settings.watch { it.textEditing.spaceSwipeActions }
+    val pickLayouts = secondaryLayouts(settings.watch { it.customLayouts })
+    val pickModes = settings.watch { it.keyboardModes }
+    var pickingSlot by remember { mutableStateOf<SpaceSwipeSlot?>(null) }
+    @Composable
+    fun SwipeActionRow(slot: SpaceSwipeSlot, @StringRes swipeName: Int) {
+        val binding = swipeBindings.bindingOf(slot)
+        NavRow(
+            title = stringResource(R.string.typing_space_swipe_action_row_title, stringResource(swipeName)),
+            icon = SettingsRowIcons[R.string.typing_space_swipe_action_row_title],
+            value = binding?.let { fingerSwipeBindingName(it, pickLayouts, pickModes) }
+                ?: stringResource(R.string.typing_finger_swipe_nothing_value),
+        ) { pickingSlot = slot }
     }
     val spaceLanguage = settings.watch {
         it.spaceShortSwipe == SpaceSwipeAction.LANGUAGE || it.spaceLongSwipe == SpaceSwipeAction.LANGUAGE
@@ -3001,18 +3174,34 @@ internal fun TypingSpacebarSettings(
                 title = R.string.typing_space_short_swipe_title,
                 subtitle = stringResource(R.string.typing_space_short_swipe_subtitle),
                 info = stringResource(R.string.typing_space_short_swipe_info),
-                value = settings.watch { it.spaceShortSwipe },
+                value = shortSwipe,
                 default = SettingsDefaults.spaceShortSwipe,
-            ) { scope.launch { repository.setSpaceShortSwipe(it) } }
+            ) {
+                scope.launch { repository.setSpaceShortSwipe(it) }
+                if (it == SpaceSwipeAction.ACTION && swipeBindings.bindingOf(SpaceSwipeSlot.SHORT) == null) {
+                    pickingSlot = SpaceSwipeSlot.SHORT
+                }
+            }
+        }
+        item(visible = shortSwipe == SpaceSwipeAction.ACTION, key = "space_action_short") {
+            SwipeActionRow(SpaceSwipeSlot.SHORT, R.string.typing_space_swipe_action_short)
         }
         item(level = SettingLevel.STANDARD) {
             SpaceSwipeSetting(
                 title = R.string.typing_space_long_swipe_title,
                 subtitle = stringResource(R.string.typing_space_long_swipe_subtitle),
                 info = stringResource(R.string.typing_space_long_swipe_info),
-                value = settings.watch { it.spaceLongSwipe },
+                value = longSwipe,
                 default = SettingsDefaults.spaceLongSwipe,
-            ) { scope.launch { repository.setSpaceLongSwipe(it) } }
+            ) {
+                scope.launch { repository.setSpaceLongSwipe(it) }
+                if (it == SpaceSwipeAction.ACTION && swipeBindings.bindingOf(SpaceSwipeSlot.LONG) == null) {
+                    pickingSlot = SpaceSwipeSlot.LONG
+                }
+            }
+        }
+        item(visible = longSwipe == SpaceSwipeAction.ACTION, key = "space_action_long", level = SettingLevel.STANDARD) {
+            SwipeActionRow(SpaceSwipeSlot.LONG, R.string.typing_space_swipe_action_long)
         }
         // Issue #1088: a thumb that slides a little on its way to a space.
         item(level = SettingLevel.ADVANCED) {
@@ -3026,24 +3215,36 @@ internal fun TypingSpacebarSettings(
                 default = SettingsDefaults.textEditing.spaceSwipeDistanceDp.toFloat(),
             ) { scope.launch { repository.setSpaceSwipeDistanceDp(it.roundToInt()) } }
         }
-        // Issue #444: a swipe up is the touchpad, beside the sideways slots.
-        item(level = SettingLevel.ADVANCED) {
-            ToggleSetting(
-                R.string.typing_space_swipe_up_touchpad_title,
-                stringResource(R.string.typing_space_swipe_up_touchpad_subtitle),
-                settings.watch { it.textEditing.spaceSwipeUpTouchpad },
-                info = stringResource(R.string.typing_space_swipe_up_touchpad_info),
-                default = SettingsDefaults.textEditing.spaceSwipeUpTouchpad,
-            ) { scope.launch { repository.setSpaceSwipeUpTouchpad(it) } }
-        }
+        // A swipe up, beside the sideways slots: the touchpad (#444), the
+        // number pad, or another action (competitor gap list item 3). One
+        // answer where there were two switches.
         item(level = SettingLevel.STANDARD) {
-            ToggleSetting(
-                R.string.typing_space_swipe_up_numpad_title,
-                stringResource(R.string.typing_space_swipe_up_numpad_subtitle),
-                settings.watch { it.textEditing.spaceSwipeUpNumpad },
-                info = stringResource(R.string.typing_space_swipe_up_numpad_info),
-                default = SettingsDefaults.textEditing.spaceSwipeUpNumpad,
-            ) { scope.launch { repository.setSpaceSwipeUpNumpad(it) } }
+            ChoiceSetting(
+                title = R.string.typing_space_swipe_up_title,
+                subtitle = stringResource(R.string.typing_space_swipe_up_subtitle),
+                info = stringResource(R.string.typing_space_swipe_up_info),
+                options = SpaceSwipeUp.entries.map { up ->
+                    up to stringResource(
+                        when (up) {
+                            SpaceSwipeUp.NONE -> R.string.home_space_swipe_none_label
+                            SpaceSwipeUp.TOUCHPAD -> R.string.typing_space_swipe_up_touchpad_label
+                            SpaceSwipeUp.NUMPAD -> R.string.home_space_swipe_numpad_label
+                            SpaceSwipeUp.ACTION -> R.string.home_space_swipe_action_label
+                        },
+                    )
+                },
+                selected = upSwipe,
+                default = SettingsDefaults.textEditing.spaceSwipeUp,
+                detail = { up -> ChoiceDetail(stringResource(spaceSwipeUpDescRes(up))) },
+            ) {
+                scope.launch { repository.setSpaceSwipeUp(it) }
+                if (it == SpaceSwipeUp.ACTION && swipeBindings.bindingOf(SpaceSwipeSlot.UP) == null) {
+                    pickingSlot = SpaceSwipeSlot.UP
+                }
+            }
+        }
+        item(visible = upSwipe == SpaceSwipeUp.ACTION, key = "space_action_up", level = SettingLevel.STANDARD) {
+            SwipeActionRow(SpaceSwipeSlot.UP, R.string.typing_space_swipe_action_up)
         }
         // 2-D cursor pad only makes sense once a slide is set to cursor control.
         if (spaceCursor) {
@@ -3275,6 +3476,18 @@ internal fun TypingSpacebarSettings(
             ) { scope.launch { repository.setSpacebarLiveWpm(it) } }
         }
     }
+
+    pickingSlot?.let { slot ->
+        KeyBindingPicker(
+            current = swipeBindings.bindingOf(slot),
+            layouts = pickLayouts,
+            modes = pickModes,
+            onDismiss = { pickingSlot = null },
+        ) { binding ->
+            pickingSlot = null
+            scope.launch { repository.setSpaceSwipeAction(slot, binding) }
+        }
+    }
 }
 
 /**
@@ -3413,6 +3626,10 @@ internal fun TypingFlicksSettings(
     }
     // Issue #647: two, three and four finger swipes over the keys.
     FingerSwipeSettings(repository, settings)
+    // Gap list item 18: pinch and stretch on the keys, split and merge by default.
+    PinchSettings(repository, settings)
+    // Gap list item 44: one finger swiped across the letters, glide off only.
+    OneFingerSwipeSettings(repository, settings)
     // Issue #754: hold ?123 still and tap a key to run an action.
     SymbolChordSettings(repository, settings)
     // Short swipes off keys, set here and laid over every layout.
@@ -3594,6 +3811,31 @@ internal fun TypingHardwareSettings(
                 info = stringResource(R.string.typing_hw_lang_ctrl_shift_info),
                 default = SettingsDefaults.hardwareKeyboard.languageSwitchCtrlShift,
             ) { scope.launch { repository.setHwLanguageSwitchCtrlShift(it) } }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_hw_lang_alt_space_title,
+                stringResource(R.string.typing_hw_lang_alt_space_subtitle),
+                settings.watch { it.hardwareKeyboard.languageSwitchAltSpace },
+                default = SettingsDefaults.hardwareKeyboard.languageSwitchAltSpace,
+            ) { scope.launch { repository.setHwLanguageSwitchAltSpace(it) } }
+        }
+        item(level = SettingLevel.ADVANCED) {
+            ToggleSetting(
+                R.string.typing_hw_lang_shift_space_title,
+                stringResource(R.string.typing_hw_lang_shift_space_subtitle),
+                settings.watch { it.hardwareKeyboard.languageSwitchShiftSpace },
+                default = SettingsDefaults.hardwareKeyboard.languageSwitchShiftSpace,
+            ) { scope.launch { repository.setHwLanguageSwitchShiftSpace(it) } }
+        }
+        item(level = SettingLevel.STANDARD) {
+            ToggleSetting(
+                R.string.typing_hw_follow_layout_title,
+                stringResource(R.string.typing_hw_follow_layout_subtitle),
+                settings.watch { it.hardwareKeyboard.followOnScreenLayout },
+                info = stringResource(R.string.typing_hw_follow_layout_info),
+                default = SettingsDefaults.hardwareKeyboard.followOnScreenLayout,
+            ) { scope.launch { repository.setHwFollowOnScreenLayout(it) } }
         }
         item(level = SettingLevel.ADVANCED) {
             ToggleSetting(
@@ -4079,6 +4321,14 @@ private fun HardwareShortcutRow(
             )
 }
 
+/** What the swipe up does under each answer, for the sheet. */
+private fun spaceSwipeUpDescRes(up: SpaceSwipeUp): Int = when (up) {
+    SpaceSwipeUp.NONE -> R.string.typing_space_swipe_up_none_desc
+    SpaceSwipeUp.TOUCHPAD -> R.string.typing_space_swipe_up_touchpad_desc
+    SpaceSwipeUp.NUMPAD -> R.string.typing_space_swipe_up_numpad_desc
+    SpaceSwipeUp.ACTION -> R.string.typing_space_swipe_action_desc
+}
+
 /** What one spacebar swipe slot does under each answer, for the sheet. */
 private fun spaceSwipeDescRes(action: SpaceSwipeAction): Int = when (action) {
     SpaceSwipeAction.NONE -> R.string.typing_space_swipe_none_desc
@@ -4086,6 +4336,8 @@ private fun spaceSwipeDescRes(action: SpaceSwipeAction): Int = when (action) {
     SpaceSwipeAction.CURSOR -> R.string.typing_space_swipe_cursor_desc
     SpaceSwipeAction.NUMPAD -> R.string.typing_space_swipe_numpad_desc
     SpaceSwipeAction.KEYBOARDS -> R.string.typing_space_swipe_keyboards_desc
+    SpaceSwipeAction.SECONDARY_LAYOUT -> R.string.typing_space_swipe_secondary_desc
+    SpaceSwipeAction.ACTION -> R.string.typing_space_swipe_action_desc
 }
 
 /**
@@ -4193,6 +4445,7 @@ private fun SettingsGroupScope.twoThumbBackspaceRows(
                         when (action) {
                             TwoThumbBackspace.RETYPE_WORD -> R.string.typing_two_thumb_backspace_step_retype
                             TwoThumbBackspace.DELETE_CHARACTER -> R.string.typing_two_thumb_backspace_step_character
+                            TwoThumbBackspace.TRIM_END -> R.string.typing_two_thumb_backspace_step_trim
                             else -> R.string.typing_two_thumb_backspace_step_undo
                         },
                     ),
@@ -4207,6 +4460,7 @@ private fun SettingsGroupScope.twoThumbBackspaceRows(
             options = listOf(
                 TwoThumbBackspace.CURRENT to stringResource(R.string.typing_two_thumb_backspace_current_label),
                 TwoThumbBackspace.UNDO_STEP to stringResource(R.string.typing_two_thumb_backspace_undo_label),
+                TwoThumbBackspace.TRIM_END to stringResource(R.string.typing_two_thumb_backspace_trim_label),
                 TwoThumbBackspace.RETYPE_WORD to stringResource(R.string.typing_two_thumb_backspace_retype_label),
                 TwoThumbBackspace.DELETE_CHARACTER to
                     stringResource(R.string.typing_two_thumb_backspace_character_label),
@@ -4220,6 +4474,7 @@ private fun SettingsGroupScope.twoThumbBackspaceRows(
                         when (option) {
                             TwoThumbBackspace.CURRENT -> R.string.typing_two_thumb_backspace_current_desc
                             TwoThumbBackspace.UNDO_STEP -> R.string.typing_two_thumb_backspace_undo_desc
+                            TwoThumbBackspace.TRIM_END -> R.string.typing_two_thumb_backspace_trim_desc
                             TwoThumbBackspace.RETYPE_WORD -> R.string.typing_two_thumb_backspace_retype_desc
                             TwoThumbBackspace.DELETE_CHARACTER -> R.string.typing_two_thumb_backspace_character_desc
                         },
@@ -4348,14 +4603,37 @@ private fun SettingsGroupScope.glideVocabularyRows(
     // Whether a glide may offer a word the stroke has not finished
     // spelling — the tap typist's head start, for a swipe.
     item {
+        // Two-thumb typing ends a word at Space or a pause, never at the lift,
+        // so there is no lift for a guess to be typed on and its strokes are
+        // read without one. The row says so rather than sit there inert (#1250).
+        val twoThumb = settings.watch { it.gesture.twoThumbGlide }
         ChoiceSetting(
             title = R.string.typing_glide_lookahead_title,
-            subtitle = stringResource(R.string.typing_glide_lookahead_subtitle),
+            subtitle = stringResource(
+                if (twoThumb) {
+                    R.string.typing_glide_lookahead_two_thumb_subtitle
+                } else {
+                    R.string.typing_glide_lookahead_subtitle
+                },
+            ),
             info = stringResource(R.string.typing_glide_lookahead_info),
             options = GlideLookAhead.entries.map { it to stringResource(it.labelRes) },
             selected = settings.watch { it.gesture.lookAhead },
             onChange = { scope.launch { repository.setGestureLookAhead(it) } },
             default = SettingsDefaults.gesture.lookAhead,
+        )
+    }
+    // The letters the stroke itself marks, for a word no list has (#1291):
+    // the other way a swipe can answer with something it was not given.
+    item {
+        ChoiceSetting(
+            title = R.string.typing_glide_drawn_letters_title,
+            subtitle = stringResource(R.string.typing_glide_drawn_letters_subtitle),
+            info = stringResource(R.string.typing_glide_drawn_letters_info),
+            options = GlideDrawnLetters.entries.map { it to stringResource(it.labelRes) },
+            selected = settings.watch { it.gesture.drawnLetters },
+            onChange = { scope.launch { repository.setGestureDrawnLetters(it) } },
+            default = SettingsDefaults.gesture.drawnLetters,
         )
     }
     // Which word the stroke colours rather than only bolds, and how far that
@@ -4518,6 +4796,20 @@ private fun SettingsGroupScope.glideIntentRows(
             default = SettingsDefaults.gesture.dwellFull,
         ) { scope.launch { repository.setGestureDwellFull(it) } }
     }
+    // And what a pause is worth once it is read (#1250): the row above only
+    // says how long a stop has to be.
+    item {
+        val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)
+        SliderSetting(
+            R.string.typing_glide_pause_strength_title,
+            subtitle = stringResource(R.string.typing_glide_pause_strength_subtitle),
+            value = settings.watch { it.gesture.pauseStrength },
+            range = GlidePauseStrengthRange,
+            display = { valueFormat.format("%.1f".format(it)) },
+            info = stringResource(R.string.typing_glide_pause_strength_info),
+            default = SettingsDefaults.gesture.pauseStrength,
+        ) { scope.launch { repository.setGesturePauseStrength(it) } }
+    }
     // The circle, and the three things that decide whether a curl is one.
     item {
         ToggleSetting(
@@ -4563,6 +4855,18 @@ private fun SettingsGroupScope.glideIntentRows(
             info = stringResource(R.string.typing_glide_loop_radius_info),
             default = SettingsDefaults.gesture.loopRadius,
         ) { scope.launch { repository.setGestureLoopRadius(it) } }
+    }
+    item(visible = loopDouble) {
+        val valueFormat = stringResource(R.string.typing_value_multiplier_suffix)
+        SliderSetting(
+            R.string.typing_glide_loop_strength_title,
+            subtitle = stringResource(R.string.typing_glide_loop_strength_subtitle),
+            value = settings.watch { it.gesture.loopStrength },
+            range = GlideLoopStrengthRange,
+            display = { valueFormat.format("%.1f".format(it)) },
+            info = stringResource(R.string.typing_glide_loop_strength_info),
+            default = SettingsDefaults.gesture.loopStrength,
+        ) { scope.launch { repository.setGestureLoopStrength(it) } }
     }
     // The rub, which ships off: at the sloppy end of a stroke a slow pivot
     // with tremor on it looks the same.

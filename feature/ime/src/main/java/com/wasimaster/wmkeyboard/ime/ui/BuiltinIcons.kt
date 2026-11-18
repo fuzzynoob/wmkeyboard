@@ -39,6 +39,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoAwesome
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.AutoStories
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.BarChart
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.BatterySaver
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Blinds
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Bolt
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Calculate
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.CalendarMonth
@@ -93,6 +94,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FlashOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FlashlightOn
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Flight
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Folder
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FolderOpen
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.FormatShapes
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Forum
 import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Fullscreen
@@ -258,6 +260,7 @@ object BuiltinIcons {
         "Backspace" to { Icons.AutoMirrored.Outlined.Backspace },
         "BarChart" to { Icons.Outlined.BarChart },
         "BatterySaver" to { Icons.Outlined.BatterySaver },
+        "Blinds" to { Icons.Outlined.Blinds },
         "Bolt" to { Icons.Outlined.Bolt },
         "Calculate" to { Icons.Outlined.Calculate },
         "CalendarMonth" to { Icons.Outlined.CalendarMonth },
@@ -315,6 +318,7 @@ object BuiltinIcons {
         "FlashOn" to { Icons.Outlined.FlashOn },
         "Flight" to { Icons.Outlined.Flight },
         "Folder" to { Icons.Outlined.Folder },
+        "FolderOpen" to { Icons.Outlined.FolderOpen },
         "FormatShapes" to { Icons.Outlined.FormatShapes },
         "Forum" to { Icons.Outlined.Forum },
         "Fullscreen" to { Icons.Outlined.Fullscreen },

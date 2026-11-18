@@ -61,7 +61,9 @@ internal object PredictionNative {
     /**
      * One walk over the tries behind [dicts]: each a dictionary handle when
      * its [kinds] entry is 0, a user lexicon ([lexNew]) when 1. Tiers are 0
-     * (dictionary) or 1 (user); [habits] is 0 for none. The touch frame is absent when
+     * (dictionary) or 1 (user); [habits] is 0 for none. Each source's counts
+     * are read through the `RankScale` its [scaleFloors] and [scalePerNats]
+     * entries make, a zero per-nat reading them as stored. The touch frame is absent when
      * [touchKeys] is null: [touchCenters] holds an x, y per key and
      * [touchPoints] an x, y per typed character, NaN where unknown;
      * [slipRadius] is how far a tap reaches for a slip, 0 for none.
@@ -75,6 +77,8 @@ internal object PredictionNative {
         dicts: LongArray,
         kinds: IntArray,
         weights: DoubleArray,
+        scaleFloors: DoubleArray,
+        scalePerNats: DoubleArray,
         tiers: IntArray,
         typed: String,
         proximity: Long,
@@ -90,6 +94,117 @@ internal object PredictionNative {
         keySpellings: Array<Array<String>?>?,
         doublesOut: DoubleArray,
         intsOut: IntArray,
+    ): Array<String>
+
+    /**
+     * What a buffer of taps meant, read whole (`wm-engine`'s `decoder`): the
+     * walk's sources by handle and kind, the touch frame as in [fuzzySearch]
+     * plus the space bar ([space] centre x, centre y, half width, half height,
+     * or null to place it under the bottom row), [sigmaScale] on the tap
+     * spread and [spread] on it across and down (this hand's, or null), the
+     * field's last words, the pair packs, the seed pairs as three
+     * columns, and the context model's session (0 for none). [confidence]
+     * above 0 lets the fitted gate decide at that confidence; 0 keeps the
+     * fixed [margin] and [knownMargin]. Returns `[apply, offer]`, each empty
+     * for none; [out] receives the lead over the literal, the reading's word
+     * count, edits, slips and inserted spaces.
+     */
+    @Suppress("LongParameterList")
+    external fun decoderDecide(
+        dicts: LongArray,
+        kinds: IntArray,
+        typed: String,
+        touchKeys: CharArray?,
+        touchCenters: FloatArray?,
+        touchPoints: FloatArray?,
+        space: FloatArray?,
+        sigmaScale: Double,
+        spread: FloatArray?,
+        before: Array<String>,
+        packs: LongArray,
+        seedFirst: Array<String>?,
+        seedSecond: Array<String>?,
+        seedCounts: IntArray?,
+        lmSession: Long,
+        lmWeight: Double,
+        register: Int,
+        field: Int,
+        lang: Int,
+        margin: Double,
+        knownMargin: Double,
+        confidence: Double,
+        out: DoubleArray,
+    ): Array<String>
+
+    /**
+     * The buffer [typed] (taps and sources as in [decoderDecide]) read again
+     * now that the words [after] have landed behind it: it was committed as
+     * [committed] after the words [before], [depth] commits back. A
+     * [confidence] above 0 hands the verdict to the fitted gate at that
+     * slider ratio; 0 keeps [margin] and [knownMargin]. Returns
+     * `[apply, offer, lead]`, apply and offer empty for none.
+     */
+    @Suppress("LongParameterList")
+    external fun decoderRecheck(
+        dicts: LongArray,
+        kinds: IntArray,
+        typed: String,
+        touchKeys: CharArray?,
+        touchCenters: FloatArray?,
+        touchPoints: FloatArray?,
+        space: FloatArray?,
+        sigmaScale: Double,
+        spread: FloatArray?,
+        before: Array<String>,
+        committed: String,
+        after: Array<String>,
+        packs: LongArray,
+        seedFirst: Array<String>?,
+        seedSecond: Array<String>?,
+        seedCounts: IntArray?,
+        lmSession: Long,
+        lmWeight: Double,
+        register: Int,
+        field: Int,
+        lang: Int,
+        margin: Double,
+        knownMargin: Double,
+        depth: Int,
+        confidence: Double,
+    ): Array<String>
+
+    /**
+     * Two buffers committed one space apart, read as one run of taps in which
+     * the space tap may have been a letter that landed on the bar (`feeli g`
+     * is "feeling"). [typed] is the first buffer, a space and the second, with
+     * [touchPoints] an x, y for each, the space's included; [first] and
+     * [second] are what the field holds for each, after the words [before].
+     * Returns `[apply, offer, lead]`, apply and offer empty for none.
+     */
+    @Suppress("LongParameterList")
+    external fun decoderRejoin(
+        dicts: LongArray,
+        kinds: IntArray,
+        typed: String,
+        touchKeys: CharArray?,
+        touchCenters: FloatArray?,
+        touchPoints: FloatArray?,
+        space: FloatArray?,
+        sigmaScale: Double,
+        spread: FloatArray?,
+        before: Array<String>,
+        first: String,
+        second: String,
+        packs: LongArray,
+        seedFirst: Array<String>?,
+        seedSecond: Array<String>?,
+        seedCounts: IntArray?,
+        lmSession: Long,
+        lmWeight: Double,
+        register: Int,
+        field: Int,
+        lang: Int,
+        margin: Double,
     ): Array<String>
 
     // The user lexicon (UserLexicon). Words arrive folded (WordKey); the
@@ -188,10 +303,14 @@ internal object PredictionNative {
     /** The words before the caret, oldest first; register 0 neutral, 1 casual, 2 formal; field 0 other, 1 chat, 2 email, 3 search. */
     external fun lmSetContext(session: Long, register: Int, field: Int, lang: Int, words: Array<String>)
 
-    /** ln P(word next) per word, NaN where the model has no opinion. */
+    /** ln P(word next) per listed word, NaN where the model has no opinion. */
     external fun lmScores(session: Long, words: Array<String>): FloatArray
 
-    /** [lmScores], spelling a word the vocabulary lacks through its pieces. For a few words at a time. */
+    /**
+     * ln P(word next) per word, spelling a word the vocabulary does not list in
+     * pieces; NaN only where the model can read neither. Costs up to one forward
+     * step per piece, so only a glide's handful of candidates ask for it.
+     */
     external fun lmScoresSpelled(session: Long, words: Array<String>): FloatArray
 
     /**
@@ -285,6 +404,9 @@ internal object PredictionNative {
 
     external fun glideKeyMapOpen(keyX: FloatArray, keyY: FloatArray, codePoints: IntArray, keyOf: IntArray): Long
     external fun glideKeyMapClose(handle: Long)
+
+    /** The tuning array layout `glideDecode` reads; 2 is the `[2, count, fields...]` envelope. */
+    external fun glideTuningVersion(): Int
 
     /**
      * One decode, or its walk when [phase] is 1: `[words, doubles, ints]`

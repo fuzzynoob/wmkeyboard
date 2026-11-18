@@ -171,6 +171,29 @@ class ArchitectureTest {
         return properties.isFile && properties.readLines().any { it.trim().startsWith("sdk=") }
     }
 
+    // ---- clipboard --------------------------------------------------------
+
+    /**
+     * Every clipboard write the keyboard makes goes through
+     * `ClipboardWriteGate` (#1215), which sets Android's sensitive flag where
+     * asked and the token the copy listener lets the keyboard's own writes go
+     * by with. A new direct call compiles and passes every other test, then
+     * quietly skips both. No file is allowed any: the paste-next path was
+     * the last to move.
+     */
+    @Test
+    fun `keyboard clipboard writes go through the write gate`() {
+        val allowed = emptyMap<String, Int>()
+        val offenders = trackedFiles { it.endsWith(".kt") && "feature/ime/src/main/" in it }
+            .filterNot { it.endsWith("/ClipboardWriteGate.kt") }
+            .mapNotNull { path ->
+                val text = code(File(root, path).readText())
+                val writes = Regex("""\b(setPrimaryClip|clearPrimaryClip)\(""").findAll(text).count()
+                "$path ($writes)".takeIf { writes > (allowed[path] ?: 0) }
+            }
+        assertTrue("write the clipboard through ClipboardWriteGate:\n${offenders.joinToString("\n")}", offenders.isEmpty())
+    }
+
     // ---- sources ----------------------------------------------------------
 
     /**

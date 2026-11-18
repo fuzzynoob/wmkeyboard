@@ -81,6 +81,7 @@ import com.wasimaster.wmkeyboard.core.settings.PersonaDepth
 import com.wasimaster.wmkeyboard.core.settings.PersonaLanguages
 import com.wasimaster.wmkeyboard.core.settings.SettingLinkMode
 import com.wasimaster.wmkeyboard.core.settings.SettingsDefaults
+import com.wasimaster.wmkeyboard.core.settings.TelegramFeedbackRoute
 import com.wasimaster.wmkeyboard.core.settings.SettingsRepository
 import com.wasimaster.wmkeyboard.core.settings.isTelevision
 import com.wasimaster.wmkeyboard.common.R as CommonR
@@ -1217,6 +1218,13 @@ private val dataPackAttributions: List<Attribution> = buildList {
         "https://github.com/tdd-ai/hunspell-tr",
     ))
     add(Attribution(
+        "Ayaspell",
+        R.string.about_pack_ayaspell_used,
+        "Copyright Mohamed Kebdani and Taha Zerrouki",
+        "MPL-2.0", "mpl-2.0-ayaspell.txt",
+        "https://github.com/linuxscout/ayaspell",
+    ))
+    add(Attribution(
         "CATT",
         R.string.about_pack_catt_used,
         "Copyright Abjad AI",
@@ -1545,6 +1553,7 @@ internal fun AboutSettings(
     onOpenDebugLog: () -> Unit = {},
     onOpenStorage: () -> Unit = {},
     onOpenResources: () -> Unit = {},
+    onOpenDebugInfo: () -> Unit = {},
     onOpenImportHub: () -> Unit = {},
     onOpenStatistics: () -> Unit = {},
     onOpenEggGame: () -> Unit = {},
@@ -1579,31 +1588,6 @@ internal fun AboutSettings(
         }
     }
 
-    SettingsGroup(
-        stringResource(R.string.about_feedback_title),
-        info = stringResource(R.string.about_feedback_body),
-    ) {
-        item {
-            NavRow(
-                R.string.about_report_bug_title,
-                stringResource(R.string.about_report_bug_subtitle),
-            ) {
-                uriHandler.openUri(Support.ISSUES_URL)
-            }
-        }
-        item {
-            NavRow(R.string.about_email_developer_title, Support.EMAIL) {
-                if (!Support.email(context, bugReportSubject, Support.bugReport())) {
-                    Toast.makeText(
-                        context,
-                        context.getString(R.string.about_no_email_app_error, Support.EMAIL),
-                        Toast.LENGTH_LONG,
-                    ).show()
-                }
-            }
-        }
-    }
-
     // The version row's Android-style secret: seven taps open the keycap
     // catcher. The counter never leaves this screen, and the row keeps
     // looking like the inert fact it is the other 6 taps.
@@ -1628,13 +1612,20 @@ internal fun AboutSettings(
         item {
             NavRow(
                 R.string.about_version_title,
-                stringResource(
-                    R.string.about_version_subtitle,
-                    flavor,
-                    BuildConfig.BUILD_TYPE,
-                    channel,
-                    BuildConfig.VERSION_CODE,
-                ),
+                listOfNotNull(
+                    stringResource(
+                        R.string.about_version_subtitle,
+                        flavor,
+                        BuildConfig.BUILD_TYPE,
+                        channel,
+                        BuildConfig.VERSION_CODE,
+                    ),
+                    // The source commit, so a screenshot of this row says
+                    // exactly which code a report is about. Blank without git.
+                    BuildConfig.GIT_COMMIT.takeIf { it.isNotEmpty() }?.let {
+                        stringResource(R.string.about_version_commit, it, BuildConfig.GIT_COMMIT_DATE)
+                    },
+                ).joinToString("\n"),
                 value = BuildConfig.VERSION_NAME,
             ) {
                 versionTaps++
@@ -1703,6 +1694,176 @@ internal fun AboutSettings(
                 uriHandler.openUri(SOURCE_URL)
             }
         }
+    }
+
+    // Directly under the version it is about. What it can offer depends on the
+    // channel: a Play build hands off to the Play Store, a direct-download
+    // build downloads and installs the new version itself, and an F-Droid
+    // build points at F-Droid. A build with no update source reports
+    // "unsupported" and this draws nothing.
+    UpdateSettings(settings)
+
+    // The screens people come back to: what the keyboard counted, what it
+    // keeps and holds, and what to look at when something goes wrong. Above
+    // the community and the settings-app switches, which are set once.
+    SettingsGroup(stringResource(R.string.about_data_title)) {
+        // Owned by the Statistics extension: gone with it.
+        item(level = SettingLevel.STANDARD) {
+            NavRow(
+                R.string.statistics_title,
+                stringResource(R.string.statistics_subtitle),
+                route = "statistics",
+                onClick = onOpenStatistics,
+            )
+        }
+        item(level = SettingLevel.STANDARD) {
+            NavRow(
+                R.string.about_storage_title,
+                stringResource(R.string.about_storage_subtitle),
+                route = "storage",
+                onClick = onOpenStorage,
+            )
+        }
+        item(level = SettingLevel.STANDARD) {
+            NavRow(
+                R.string.about_resources_title,
+                stringResource(R.string.about_resources_subtitle),
+                route = "resources",
+                onClick = onOpenResources,
+            )
+        }
+        item(visible = FeatureLibraryList.offered, level = SettingLevel.STANDARD) { FeatureLibrariesNavRow() }
+        item {
+            NavRow(
+                R.string.import_hub_title,
+                stringResource(R.string.import_hub_subtitle),
+                route = "import_hub",
+                onClick = onOpenImportHub,
+            )
+        }
+        item(level = SettingLevel.ADVANCED) {
+            NavRow(
+                R.string.about_diagnostics_title,
+                stringResource(R.string.about_diagnostics_subtitle),
+                route = "debug_log",
+                onClick = onOpenDebugLog,
+            )
+        }
+        item(level = SettingLevel.ADVANCED) {
+            NavRow(
+                R.string.about_debug_info_title,
+                stringResource(R.string.about_debug_info_subtitle),
+                route = "debug_info",
+                onClick = onOpenDebugInfo,
+            )
+        }
+    }
+
+    SettingsGroup(
+        stringResource(R.string.about_feedback_title),
+        info = stringResource(R.string.about_feedback_body),
+    ) {
+        item {
+            NavRow(
+                R.string.about_report_bug_title,
+                stringResource(R.string.about_report_bug_subtitle),
+            ) {
+                uriHandler.openUri(Support.ISSUES_URL)
+            }
+        }
+        item {
+            NavRow(
+                R.string.feedback_open_title,
+                stringResource(R.string.feedback_open_subtitle),
+            ) { FeedbackForm.open() }
+        }
+        item {
+            NavRow(R.string.about_email_developer_title, Support.EMAIL) {
+                if (!Support.email(context, bugReportSubject, Support.bugReport())) {
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.about_no_email_app_error, Support.EMAIL),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                }
+            }
+        }
+    }
+
+    // Two more ways into the form, for whoever reports often (#1242).
+    SettingsGroup(stringResource(R.string.feedback_shortcuts_group), level = SettingLevel.STANDARD) {
+        item {
+            ToggleSetting(
+                R.string.feedback_shake_title,
+                stringResource(R.string.feedback_shake_subtitle),
+                settings.watch { it.feedbackShortcuts.shake },
+                default = SettingsDefaults.feedbackShortcuts.shake,
+            ) { scope.launch { repository.setFeedbackShake(it) } }
+        }
+        item {
+            val supported = Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE
+            ToggleSetting(
+                R.string.feedback_screenshot_title,
+                stringResource(
+                    if (supported) R.string.feedback_screenshot_subtitle else R.string.feedback_screenshot_needs_14,
+                ),
+                supported && settings.watch { it.feedbackShortcuts.screenshot },
+                enabled = supported,
+                default = SettingsDefaults.feedbackShortcuts.screenshot,
+            ) { scope.launch { repository.setFeedbackScreenshot(it) } }
+        }
+        item {
+            ChoiceSetting(
+                R.string.feedback_telegram_route_title,
+                options = listOf(
+                    TelegramFeedbackRoute.SHARE to stringResource(R.string.feedback_telegram_route_share),
+                    TelegramFeedbackRoute.TOPIC to stringResource(R.string.feedback_telegram_route_topic),
+                ),
+                selected = settings.watch { it.feedbackShortcuts.telegramRoute },
+                default = SettingsDefaults.feedbackShortcuts.telegramRoute,
+            ) { scope.launch { repository.setFeedbackTelegramRoute(it) } }
+        }
+    }
+
+    // How this settings app looks and behaves: set once, rarely revisited,
+    // so near the bottom. The launcher switches go last of all.
+    SettingsGroup(stringResource(R.string.about_settings_app_title)) {
+        // An English-only build has nothing to choose between, so the same
+        // slot says so and offers the build with every language instead.
+        if (AppLanguage.canChoose) {
+            item { AppLanguageSetting() }
+        } else {
+            item {
+                AllLanguagesRow(
+                    settings,
+                    extraLanguages = BuildConfig.TRANSLATED_LANGUAGE_COUNT,
+                    englishName = nativeLanguageName("en"),
+                )
+            }
+            item(visible = canDropLanguageSwitch, level = SettingLevel.ADVANCED) { KeepEnglishOnlyRow() }
+        }
+        item(level = SettingLevel.STANDARD) {
+            // The quiz answers still decide how many tools are pinned, how the
+            // theme gallery is laid out and which pages the wizard even has,
+            // and until this row existed there was nowhere in settings that
+            // said so or showed what had been answered. Tapping goes to the
+            // wizard, whose first question is this one.
+            NavRow(
+                R.string.about_persona_title,
+                stringResource(R.string.about_persona_subtitle),
+                value = personaSummary(persona),
+                onClick = onReplayOnboarding,
+            )
+        }
+        item(level = SettingLevel.STANDARD) {
+            // The wizard's only way back in once it has been finished. A
+            // replay never rewrites settings, so the row can promise that.
+            NavRow(
+                R.string.about_replay_onboarding_title,
+                stringResource(R.string.about_replay_onboarding_subtitle),
+                onClick = onReplayOnboarding,
+            )
+        }
         // How much of the settings app shows, and whether what it leaves
         // out is pointed at; see SettingsDepth.kt. Here, with the other rows
         // about the app itself, rather than on every page.
@@ -1724,6 +1885,22 @@ internal fun AboutSettings(
                 settings.watch { it.appUi.hiddenSettingsRows },
                 default = SettingsDefaults.appUi.hiddenSettingsRows,
             ) { scope.launch { repository.setHiddenSettingsRows(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.settings_switched_off_rows_title,
+                stringResource(R.string.settings_switched_off_rows_subtitle),
+                settings.watch { it.appUi.switchedOffRows },
+                default = SettingsDefaults.appUi.switchedOffRows,
+            ) { scope.launch { repository.setSwitchedOffRows(it) } }
+        }
+        item {
+            ToggleSetting(
+                R.string.settings_also_under_title,
+                stringResource(R.string.settings_also_under_subtitle),
+                settings.watch { it.appUi.alsoUnderLine },
+                default = SettingsDefaults.appUi.alsoUnderLine,
+            ) { scope.launch { repository.setAlsoUnderLine(it) } }
         }
         item(level = SettingLevel.ADVANCED) {
             ToggleSetting(
@@ -1751,92 +1928,7 @@ internal fun AboutSettings(
                 },
             )
         }
-        // An English-only build has nothing to choose between, so the same
-        // slot says so and offers the build with every language instead.
-        if (AppLanguage.canChoose) {
-            item { AppLanguageSetting() }
-        } else {
-            item {
-                AllLanguagesRow(
-                    settings,
-                    extraLanguages = BuildConfig.TRANSLATED_LANGUAGE_COUNT,
-                    englishName = nativeLanguageName("en"),
-                )
-            }
-            item(visible = canDropLanguageSwitch, level = SettingLevel.ADVANCED) { KeepEnglishOnlyRow() }
-        }
-        item(level = SettingLevel.STANDARD) {
-            NavRow(
-                R.string.about_storage_title,
-                stringResource(R.string.about_storage_subtitle),
-                route = "storage",
-                onClick = onOpenStorage,
-            )
-        }
-        item(level = SettingLevel.STANDARD) {
-            NavRow(
-                R.string.about_resources_title,
-                stringResource(R.string.about_resources_subtitle),
-                route = "resources",
-                onClick = onOpenResources,
-            )
-        }
-        item(visible = FeatureLibraryList.offered, level = SettingLevel.STANDARD) { FeatureLibrariesNavRow() }
-        item {
-            NavRow(
-                R.string.import_hub_title,
-                stringResource(R.string.import_hub_subtitle),
-                route = "import_hub",
-                onClick = onOpenImportHub,
-            )
-        }
-        // Owned by the Statistics extension: gone with it.
-        item(level = SettingLevel.STANDARD) {
-            NavRow(
-                R.string.statistics_title,
-                stringResource(R.string.statistics_subtitle),
-                route = "statistics",
-                onClick = onOpenStatistics,
-            )
-        }
-        item(level = SettingLevel.ADVANCED) {
-            NavRow(
-                R.string.about_diagnostics_title,
-                stringResource(R.string.about_diagnostics_subtitle),
-                route = "debug_log",
-                onClick = onOpenDebugLog,
-            )
-        }
-        item(level = SettingLevel.STANDARD) {
-            // The quiz answers still decide how many tools are pinned, how the
-            // theme gallery is laid out and which pages the wizard even has,
-            // and until this row existed there was nowhere in settings that
-            // said so or showed what had been answered. Tapping goes to the
-            // wizard, whose first question is this one.
-            NavRow(
-                R.string.about_persona_title,
-                stringResource(R.string.about_persona_subtitle),
-                value = personaSummary(persona),
-                onClick = onReplayOnboarding,
-            )
-        }
-        item(level = SettingLevel.STANDARD) {
-            // The wizard's only way back in once it has been finished. A
-            // replay never rewrites settings, so the row can promise that.
-            NavRow(
-                R.string.about_replay_onboarding_title,
-                stringResource(R.string.about_replay_onboarding_subtitle),
-                onClick = onReplayOnboarding,
-            )
-        }
     }
-
-    // Directly under the version it is about. What it can offer depends on the
-    // channel: a Play build hands off to the Play Store, a direct-download
-    // build downloads and installs the new version itself, and an F-Droid
-    // build points at F-Droid. A build with no update source reports
-    // "unsupported" and this draws nothing.
-    UpdateSettings(settings)
 
     SettingsGroup(stringResource(R.string.about_documentation_title)) {
         item {

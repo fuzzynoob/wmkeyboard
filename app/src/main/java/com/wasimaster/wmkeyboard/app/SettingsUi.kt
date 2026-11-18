@@ -67,6 +67,7 @@ import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Restore
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import com.wasimaster.wmkeyboard.core.icons.symbols.outlined.Search
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.LocalTextStyle
@@ -109,6 +110,7 @@ import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -380,8 +382,12 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "keypress/haptics" to Color(0xFF7E57C2),
     "keypress/popup" to Color(0xFF7E57C2),
     "keypress/shortcuts" to Color(0xFF7E57C2),
+    "keypress/delete" to Color(0xFF7E57C2),
+    "keypress/alternates" to Color(0xFF7E57C2),
+    "keypress/timing" to Color(0xFF7E57C2),
     "languages" to Color(0xFF66BB6A),
     "appearance" to Color(0xFFEC407A),
+    "appearance/keys" to Color(0xFFEC407A),
     "appearance/toolbar" to Color(0xFFEC407A),
     "appearance/toolbox" to Color(0xFFEC407A),
     "themes" to Color(0xFFEC407A),
@@ -394,6 +400,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "layout" to Color(0xFF5C6BC0),
     "layout/size" to Color(0xFF5C6BC0),
     "layout/onehanded" to Color(0xFF5C6BC0),
+    "layout/panels" to Color(0xFF5C6BC0),
     "keymaps" to Color(0xFF26C6DA),
     "rows" to Color(0xFF26A69A),
     "rows/symbol" to Color(0xFF26A69A),
@@ -461,6 +468,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "backup" to Color(0xFF78909C),
     "backup/auto" to Color(0xFF78909C),
     "backup/sync" to Color(0xFF78909C),
+    "backup/history" to Color(0xFF78909C),
     "backup/contents" to Color(0xFF78909C),
     "about" to Color(0xFF90A4AE),
     "licenses" to Color(0xFF90A4AE),
@@ -470,6 +478,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "debug_log" to Color(0xFF607D8B),
     "storage" to Color(0xFF546E7A),
     "resources" to Color(0xFF546E7A),
+    "debug_info" to Color(0xFF607D8B),
     "feature_libraries" to Color(0xFF90A4AE),
     "import_hub" to Color(0xFF546E7A),
     "statistics" to Color(0xFF9CCC65),
@@ -496,6 +505,7 @@ internal val SettingsRouteColors: Map<String, Color> = mapOf(
     "musicapps" to Color(0xFFAB47BC),
     // A child of the app launcher tool, so it keeps that tool's violet.
     "launchercombos" to Color(0xFF7E57C2),
+    "launcherappicons" to Color(0xFF7E57C2),
     "kdeconnect/devices" to Color(0xFF1D99F3),
     // Children of the Send files tool, so they keep that tool's teal.
     "send/instances" to Color(0xFF26A69A),
@@ -651,6 +661,12 @@ internal class ScreenSlots {
      * Null for a body that has no single scroll to speak of.
      */
     var toTop: (suspend () -> Unit)? by mutableStateOf(null)
+
+    /**
+     * Whether the bar and the path strip scroll away with the body rather than
+     * folding into a strip that stays: see [RegisterHidingHeader].
+     */
+    var hidesHeader: Boolean by mutableStateOf(false)
 }
 
 /**
@@ -755,6 +771,72 @@ internal fun AiChatFab(onClick: () -> Unit, small: Boolean = false) {
 }
 
 private const val AiChatFabKey = "wm.fab.ai_chat"
+
+/**
+ * Lets the bar and the path strip scroll off the top of the screen, while the
+ * caller is composed, instead of folding into a strip that never leaves.
+ *
+ * For the editors whose work needs the height: the theme editor and the layout
+ * editor pin a keyboard under the bar, and the collapsed bar and path strip
+ * over it were a hundred-odd dp the rows under the keyboard never got back.
+ * Whatever is pinned stays; only the heading goes, and the body and the pinned
+ * block rise into the room it leaves. It comes back once the body is scrolled
+ * to its top again, and the system back gesture works throughout.
+ */
+@Composable
+internal fun RegisterHidingHeader() {
+    val slots = LocalScreenSlots.current ?: return
+    SideEffect { slots.hidesHeader = true }
+    DisposableEffect(slots) { onDispose { slots.hidesHeader = false } }
+}
+
+/**
+ * The scroll a hiding header takes for itself: on the way down the page it
+ * goes before the body moves, and on the way back up it returns only once the
+ * body has nothing above it left to show — the same order the folding bar
+ * keeps, carried on to nothing.
+ *
+ * [height] is written by the layout that measures the header and read only
+ * here, so it is a plain field: as state, every measure would invalidate the
+ * scroll that triggered it.
+ */
+@Stable
+private class HeaderHide : NestedScrollConnection {
+    /** How far the header has gone up, from 0 down to `-height`. */
+    var offset by mutableFloatStateOf(0f)
+    var height = 0f
+
+    /** 0 while the header is all there, 1 once it has all gone. */
+    val hidden: Float get() = if (height <= 0f) 0f else (-offset / height).coerceIn(0f, 1f)
+
+    override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+        if (available.y >= 0f || height <= 0f) return Offset.Zero
+        val next = (offset + available.y).coerceAtLeast(-height)
+        val used = next - offset
+        offset = next
+        return Offset(0f, used)
+    }
+
+    override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
+        if (available.y <= 0f || offset >= 0f) return Offset.Zero
+        val next = (offset + available.y).coerceAtMost(0f)
+        val used = next - offset
+        offset = next
+        return Offset(0f, used)
+    }
+}
+
+/**
+ * Lays its content out shortened by however far [hide] has gone, and drawn
+ * that far up, so what follows it in the column rises with it. Read in layout
+ * only, so a scroll relayouts the header and recomposes nothing.
+ */
+private fun Modifier.hidingBy(hide: HeaderHide): Modifier = clipToBounds().layout { measurable, constraints ->
+    val placeable = measurable.measure(constraints.copy(minHeight = 0))
+    hide.height = placeable.height.toFloat()
+    val shift = hide.offset.coerceIn(-placeable.height.toFloat(), 0f).roundToInt()
+    layout(placeable.width, placeable.height + shift) { placeable.place(0, shift) }
+}
 
 /** Pins [content] under the bar, above the scrolling body, while the caller is composed. */
 @Composable
@@ -2202,8 +2284,11 @@ private val SubtitleBand = 24.dp
  */
 private const val SubtitleLineLimit = 3
 
-/** Width the collapsed pose keeps clear for the navigation icon and actions. */
-private val CollapsedFurnitureWidth = 112.dp
+/**
+ * Width the collapsed pose keeps clear for the navigation icon and actions:
+ * the back arrow, search and the favourites star (#1317), and a little air.
+ */
+private val CollapsedFurnitureWidth = 160.dp
 
 /** The size the title settles at once the bar is collapsed. */
 private const val CollapsedTitleSp = 20f
@@ -2968,6 +3053,7 @@ private fun WmScreenFrame(
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
+    val headerHide = remember { HeaderHide() }
     // Which screen this is, and which screen opened it. Read once: the origin
     // is whatever the row that navigated here left behind, and it has to stay
     // put for as long as this destination lives, including the way back.
@@ -2979,6 +3065,22 @@ private fun WmScreenFrame(
     val entry = currentCrumbEntry()
     val crumbOpened = rememberCrumbOpened()
     RegisterSettingsCrumb(crumbTitle ?: title, route)
+    // Kept among the recent pages once it has been open a moment (#1317):
+    // any screen a link can name, but the home list and search, which are
+    // where every walk starts.
+    val linkRoute = if (trail != null) currentLinkRoute() else null
+    val recentLink = remember(linkRoute) {
+        linkRoute?.let { SettingsRoutes.resolve(it) }
+            ?.takeIf { it != HomeRoute && it != SearchRoute }
+            ?.let { SettingsFavourites.screenLink(it) }
+    }
+    RecordRecentPage(recentLink) {
+        SettingsFavourite(
+            recentLink.orEmpty(),
+            crumbTitle ?: title,
+            SettingLinks.path(trail?.path.orEmpty(), entry?.id, null).dropLast(1),
+        )
+    }
     val slots = remember { ScreenSlots() }
     val preview = LocalKeyboardPreview.current?.takeIf { slots.dock == null }
     val chatFab = LocalAiChatFab.current
@@ -2997,6 +3099,7 @@ private fun WmScreenFrame(
             animate(scrollBehavior.state.heightOffset, 0f) { value, _ ->
                 scrollBehavior.state.heightOffset = value
             }
+            animate(headerHide.offset, 0f) { value, _ -> headerHide.offset = value }
         }
     }
     // The destination's own animation scope, published for everything the
@@ -3029,52 +3132,79 @@ private fun WmScreenFrame(
             Scaffold(
                 modifier = Modifier
                     .widthIn(max = ScreenContentMaxWidth)
-                    .nestedScroll(scrollBehavior.nestedScrollConnection),
+                    .nestedScroll(
+                        if (slots.hidesHeader) headerHide else scrollBehavior.nestedScrollConnection,
+                    ),
                 topBar = {
-                    Column {
-                        WmCollapsingTopBar(
-                            title = title,
-                            scrollBehavior = scrollBehavior,
-                            onBack = onBack,
-                            route = route,
-                            icon = icon,
-                            accent = accent,
-                            iconTile = iconTile,
-                            iconInBar = iconInBar,
-                            barTint = barTint,
-                            centerTitle = centerTitle,
-                            subtitle = subtitle,
-                            subtitleIcon = subtitleIcon,
-                            subtitleIconTint = subtitleIconTint,
-                            subtitleInBar = subtitleInBar,
-                            subtitleMaxLines = subtitleMaxLines,
-                            badge = badge,
-                            badgeInBar = badgeInBar,
-                            actions = {
-                                // Ahead of the screen's own, so an overflow
-                                // menu keeps the bar's last place (#898).
-                                FavouritesButton(crumbTitle ?: title)
-                                actions()
-                            },
-                        )
-                        // Below the bar rather than inside it: the bar measures
-                        // itself to the collapse, and a second line in there would
-                        // have to be written into that arithmetic. The strip draws
-                        // nothing on the home list, which pays an empty layout
-                        // node for it and no height.
-                        if (trail != null && entry != null) {
-                            SettingsBreadcrumbBar(
-                                trail = trail,
-                                entryId = entry.id,
-                                currentTitle = crumbTitle ?: title,
-                                currentRoute = route,
-                                opened = crumbOpened,
-                                onCurrent = toTop,
-                                // The heading's own colour, so the pill and the
-                                // tile above it are visibly the same section.
-                                accent = accent ?: routeAccent(route.orEmpty()),
-                                tint = barTints(route, barTint).collapsed,
+                    val hides = slots.hidesHeader
+                    // A header that leaves takes the status bar's inset out to
+                    // this column first, or the pinned block would rise under
+                    // the status bar after it. The band keeps the bar's own
+                    // colour while the bar is there and the page's once it is
+                    // not, which is what is then under it.
+                    val barTop = barTints(route, barTint).expanded
+                    val pageColor = MaterialTheme.colorScheme.background
+                    val insetTop = TopAppBarDefaults.windowInsets.getTop(LocalDensity.current).toFloat()
+                    Column(
+                        modifier = if (!hides) {
+                            Modifier
+                        } else {
+                            Modifier
+                                .drawBehind {
+                                    drawRect(
+                                        androidx.compose.ui.graphics.lerp(barTop, pageColor, headerHide.hidden),
+                                        size = Size(size.width, insetTop),
+                                    )
+                                }
+                                .windowInsetsPadding(TopAppBarDefaults.windowInsets)
+                        },
+                    ) {
+                        Column(modifier = if (hides) Modifier.hidingBy(headerHide) else Modifier) {
+                            WmCollapsingTopBar(
+                                title = title,
+                                scrollBehavior = scrollBehavior,
+                                onBack = onBack,
+                                route = route,
+                                icon = icon,
+                                accent = accent,
+                                iconTile = iconTile,
+                                iconInBar = iconInBar,
+                                barTint = barTint,
+                                centerTitle = centerTitle,
+                                subtitle = subtitle,
+                                subtitleIcon = subtitleIcon,
+                                subtitleIconTint = subtitleIconTint,
+                                subtitleInBar = subtitleInBar,
+                                subtitleMaxLines = subtitleMaxLines,
+                                badge = badge,
+                                badgeInBar = badgeInBar,
+                                actions = {
+                                    // Ahead of the screen's own, so an overflow
+                                    // menu keeps the bar's last place (#898).
+                                    SettingsSearchButton(route)
+                                    FavouritesButton(crumbTitle ?: title)
+                                    actions()
+                                },
                             )
+                            // Below the bar rather than inside it: the bar measures
+                            // itself to the collapse, and a second line in there would
+                            // have to be written into that arithmetic. The strip draws
+                            // nothing on the home list, which pays an empty layout
+                            // node for it and no height.
+                            if (trail != null && entry != null) {
+                                SettingsBreadcrumbBar(
+                                    trail = trail,
+                                    entryId = entry.id,
+                                    currentTitle = crumbTitle ?: title,
+                                    currentRoute = route,
+                                    opened = crumbOpened,
+                                    onCurrent = toTop,
+                                    // The heading's own colour, so the pill and the
+                                    // tile above it are visibly the same section.
+                                    accent = accent ?: routeAccent(route.orEmpty()),
+                                    tint = barTints(route, barTint).collapsed,
+                                )
+                            }
                         }
                         // Inside the bar's column rather than the body: the bar is
                         // what Scaffold measures for its content padding, so a
@@ -3144,6 +3274,25 @@ private fun WmScreenFrame(
         }
     }
 }
+
+/**
+ * Settings search from any screen (#1317), beside the favourites star: no
+ * walking back to the home list to look for a setting. Not on the home list,
+ * whose heading has a search button of its own, nor outside the settings
+ * graph, where there is nowhere to open it.
+ */
+@Composable
+private fun SettingsSearchButton(route: String?) {
+    if (route == null || route == HomeRoute || route == SearchRoute) return
+    if (LocalSettingsCrumbTrail.current == null) return
+    val navigate = LocalSettingsNavigate.current
+    IconButton(onClick = { navigate(SearchRoute) }) {
+        Icon(Icons.Outlined.Search, contentDescription = stringResource(R.string.home_search_desc))
+    }
+}
+
+/** The settings search screen's route. */
+private const val SearchRoute = "search"
 
 /**
  * How wide a settings screen's own column is allowed to get.

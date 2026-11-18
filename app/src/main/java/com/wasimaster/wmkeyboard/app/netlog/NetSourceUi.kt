@@ -178,6 +178,10 @@ private fun texts(source: NetSource): Pair<Int, Int> = when (source) {
     NetSource.OPENHAB -> R.string.netlog_source_openhab to R.string.netlog_sent_openhab
     NetSource.TUYA -> R.string.netlog_source_tuya to R.string.netlog_sent_tuya
     NetSource.SWITCHBOT -> R.string.netlog_source_switchbot to R.string.netlog_sent_switchbot
+    NetSource.IMMICH -> R.string.netlog_source_immich to R.string.netlog_sent_immich
+    NetSource.PAPERLESS -> R.string.netlog_source_paperless to R.string.netlog_sent_paperless
+    NetSource.INVITES -> R.string.netlog_source_invites to R.string.netlog_sent_invites
+    NetSource.PLUGINS -> R.string.netlog_source_plugins to R.string.netlog_sent_plugins
     NetSource.OTHER -> R.string.netlog_source_other to R.string.netlog_sent_other
 }
 
@@ -197,6 +201,7 @@ private fun ownerRoute(source: NetSource): String? = when (source) {
     NetSource.DOWNLOAD_SEMANTIC -> "ai"
     NetSource.DOWNLOAD_IMAGEGEN -> "sticker_generator"
     NetSource.SUPPORTERS -> "supporters"
+    NetSource.PLUGINS -> "plugins"
     else -> null
 }
 
@@ -231,6 +236,14 @@ private val DataSaverSources = NetSource.entries.toSet() - setOf(
     NetSource.TRANSLATE, NetSource.DEEPL_WRITE, NetSource.BACKUP, NetSource.UPDATES, NetSource.KDE_CONNECT,
     // The user's own server on their own network; a data saver has nothing to save there.
     NetSource.HOME_ASSISTANT, NetSource.HUE, NetSource.OPENHAB,
+    // The user's own photo server, asked only while its album is open (#1205).
+    NetSource.IMMICH,
+    // The user's own document server; its own Wi-Fi only switch is on the scanner's page (#1198).
+    NetSource.PAPERLESS,
+    // The user's own event server, on a press; while data saving is on the card asks before every publish (#1274).
+    NetSource.INVITES,
+    // Plugins never reach the network while data saving is on; there is nothing to choose.
+    NetSource.PLUGINS,
     // A few small polls while the panel is open, on the user's say-so.
     NetSource.SMARTTHINGS, NetSource.TUYA, NetSource.SWITCHBOT,
     // One small list, fetched only when its button is pressed.
